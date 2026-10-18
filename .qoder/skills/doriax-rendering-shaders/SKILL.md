@@ -42,7 +42,7 @@ description: Work on doriax rendering - the sokol backend, deferred/forward pass
 ## Shader pipeline (how a .frag reaches the GPU)
 
 - CMake embeds every `engine/tools/shaderlib/**` file verbatim into
-  `build/generated/shaders.h` as `shaderMap` via `generate_shaders.cmake`
+  `$DORIAX_BUILD_DIR/generated/shaders.h` as `shaderMap` via `generate_shaders.cmake`
   (root `CMakeLists.txt:337-356`, `CONFIGURE_DEPENDS` glob so new files are picked up
   on reconfigure; target `generate_shaders`).
 - Backend-specific compilation happens at runtime through

@@ -962,9 +962,16 @@ void editor::Generator::writeSourceFiles(const fs::path& projectPath, const fs::
     cmakeContent += "    " + engineApiPathStr + "/core/util\n";
     cmakeContent += ")\n\n";
 
-    cmakeContent += "# libdoriax is searched in DORIAX_LIB_DIR; by default it points to the Doriax editor executable directory.\n";
+    cmakeContent += "# libdoriax is searched in DORIAX_LIB_DIR, in this order: -DDORIAX_LIB_DIR=...,\n";
+    cmakeContent += "# the DORIAX_LIB_DIR environment variable (the global knob that points every\n";
+    cmakeContent += "# project at one engine build tree), then the Doriax editor executable\n";
+    cmakeContent += "# directory recorded here when this file was generated.\n";
     cmakeContent += "if(NOT DEFINED DORIAX_LIB_DIR OR DORIAX_LIB_DIR STREQUAL \"\")\n";
-    cmakeContent += "    set(DORIAX_LIB_DIR \"" + exePath.generic_string() + "\")\n";
+    cmakeContent += "    if(DEFINED ENV{DORIAX_LIB_DIR} AND NOT \"$ENV{DORIAX_LIB_DIR}\" STREQUAL \"\")\n";
+    cmakeContent += "        file(TO_CMAKE_PATH \"$ENV{DORIAX_LIB_DIR}\" DORIAX_LIB_DIR)\n";
+    cmakeContent += "    else()\n";
+    cmakeContent += "        set(DORIAX_LIB_DIR \"" + exePath.generic_string() + "\")\n";
+    cmakeContent += "    endif()\n";
     cmakeContent += "    # Default target is the editor's own engine build (shared, editor layouts).\n";
     cmakeContent += "    # Match its macros so symbols link (DORIAX_SHARED -> dllimport on MSVC) and\n";
     cmakeContent += "    # data layouts stay ABI-compatible (DORIAX_EDITOR), avoiding ODR/ABI mismatch.\n";

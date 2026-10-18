@@ -20,6 +20,9 @@ concurrency:
 
 env:
   BUILD_TYPE: Release
+  # The one build tree name; scripts/doriax-build-dir.bat carries the same
+  # default, so CI and a developer's shell configure the same folder.
+  DORIAX_BUILD_DIR: build
   TARGET: doriax-editor
   SIGNPATH_ORGANIZATION_ID: 71ade14e-ea98-448b-b32f-954d41e71ef9
   SIGNPATH_PROJECT_SLUG: doriax
@@ -160,11 +163,11 @@ jobs:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
-          mkdir build
+          mkdir "$DORIAX_BUILD_DIR"
           mkdir instdir
           cmake \
             -S . \
-            -B build \
+            -B "$DORIAX_BUILD_DIR" \
             -DDORIAXEDITOR_VERSION:STRING="$DORIAX_VERSION" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "${{ matrix.config.generators }}" \
@@ -181,11 +184,11 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             targets+=("${{ env.TARGET }}-cmd")
           fi
-          cmake --build build --config ${{env.BUILD_TYPE}} --target "${targets[@]}"
+          cmake --build "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target "${targets[@]}"
 
       - name: Install Strip
         shell: bash
-        run: cmake --install build --config ${{env.BUILD_TYPE}} --strip
+        run: cmake --install "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --strip
         
       - name: List directories
         shell: bash

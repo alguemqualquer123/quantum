@@ -194,8 +194,19 @@ target_include_directories(VoxelWorld ${DORIAX_LIB_SYSTEM} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/.doriax/engine-api/core/util
 )
 
+# libdoriax is searched in DORIAX_LIB_DIR, in this order: -DDORIAX_LIB_DIR=...,
+# the DORIAX_LIB_DIR environment variable (the global knob that points every
+# project at one engine build tree), then the Doriax editor executable
+# directory recorded here when this file was generated.
 if(NOT DEFINED DORIAX_LIB_DIR OR DORIAX_LIB_DIR STREQUAL "")
-    set(DORIAX_LIB_DIR "C:/doriax/build-ninja")
+    if(DEFINED ENV{DORIAX_LIB_DIR} AND NOT "$ENV{DORIAX_LIB_DIR}" STREQUAL "")
+        file(TO_CMAKE_PATH "$ENV{DORIAX_LIB_DIR}" DORIAX_LIB_DIR)
+    else()
+        set(DORIAX_LIB_DIR "C:/doriax/build/Debug")
+    endif()
+    # The editor's own engine build is shared with editor data layouts; match its
+    # macros so symbols link (DORIAX_SHARED -> dllimport on MSVC) and stay
+    # ABI-compatible (DORIAX_EDITOR).
     add_compile_definitions(DORIAX_SHARED DORIAX_EDITOR)
 endif()
 

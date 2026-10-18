@@ -803,9 +803,11 @@ namespace {
         }
         cmd += "-DCMAKE_BUILD_TYPE=" + options.configType + " ";
         cmd += "-DDORIAX_PARALLEL_BUILD_JOBS=" + std::to_string(resolveJobs(options.jobs)) + " ";
-        // The generated CMakeLists find_library()s doriax from DORIAX_LIB_DIR; point
-        // it at this executable's directory (where the engine library is installed).
-        cmd += "-DDORIAX_LIB_DIR=\"" + toCMakePath(FileUtils::getExecutableDir().string()) + "\" ";
+        // Deliberately no -DDORIAX_LIB_DIR here: passing it would skip the
+        // generated CMakeLists' own resolution (DORIAX_LIB_DIR environment
+        // variable, then the editor directory recorded at generate time) and,
+        // with it, the DORIAX_SHARED/DORIAX_EDITOR macros that make the engine
+        // import library link. Override the engine tree with that variable.
         cmd += "\"" + toCMakePath(projectDir.string()) + "\" ";
         cmd += "-B \"" + toCMakePath(buildDir.string()) + "\"";
 

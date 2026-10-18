@@ -41,8 +41,10 @@ engine API snapshot path for that project.
 
 ## Running and building without the editor
 
+`$DORIAX_BUILD_DIR` (default `build`) is the one build tree; see `doriax-build-verify`.
+
 ```bash
-./build/Debug/doriax-engine.exe --project templates/fps-fps --window 1280x720
+"$DORIAX_BUILD_DIR/Debug/doriax-engine.exe" --project templates/fps-fps --window 1280x720
 doriax-build-generator.exe status   --project <dir>     # stale generated files? exit!=0
 doriax-build-generator.exe generate --project <dir>
 doriax-build-generator.exe build    --project <dir> --config Release

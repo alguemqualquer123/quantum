@@ -1,13 +1,15 @@
 @echo off
 rem ------------------------------------------------------------
-rem Run editor ? expects executable in build/<config>/editor/editor.exe
+rem Run editor ? expects the editor built in %DORIAX_BUILD_DIR%\<config>\doriax-editor.exe
 rem ------------------------------------------------------------
 pushd "%~dp0.."
 
 set CONFIG=%1
 if "%CONFIG%"=="" set CONFIG=Debug
 
-set EXE=build\\%CONFIG%\\editor\\editor.exe
+call "%~dp0doriax-build-dir.bat"
+
+set EXE=%DORIAX_BUILD_DIR%\%CONFIG%\doriax-editor.exe
 if not exist "%EXE%" (
     echo Editor executable not found at %EXE%. Build the project first.
     popd

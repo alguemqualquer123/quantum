@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Regenerate the engine API header with doriax-reflector and report drift against
-# the header the build is using (build/generated/engine_api_suggestions.h).
+# the header the build is using ($DORIAX_BUILD_DIR/generated/engine_api_suggestions.h).
 # Usage: reflect_api.sh [build-dir] [header-to-compare]
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-BUILD="${1:-$REPO/build}"
+BUILD="${1:-${DORIAX_BUILD_DIR:-build}}"
+case "$BUILD" in /*|?:*) ;; *) BUILD="$REPO/$BUILD";; esac
 BINDINGS="$REPO/engine/core/script/binding"
 CURRENT="${2:-$BUILD/generated/engine_api_suggestions.h}"
 

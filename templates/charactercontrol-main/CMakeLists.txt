@@ -13,7 +13,7 @@ set(PROJECT_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 set(INTERNAL_DIR ${PROJECT_ROOT}/.doriax)
 
 # Doriax runtime API headers for this project come from ${INTERNAL_DIR}/engine-api.
-# Local engine API source used by this editor build: C:/doriax/build-ninja/engine
+# Local engine API source used by this editor build: C:/doriax/build/Debug/engine
 # Full engine + editor source (including YAML serialization for *.scene/*.bundle/project.yaml): https://github.com/doriaxengine/doriax
 
 set(DORIAX_API_DIR ${CMAKE_CURRENT_SOURCE_DIR}/.doriax/engine-api)
@@ -238,9 +238,16 @@ target_include_directories(CharacterControl ${DORIAX_LIB_SYSTEM} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/.doriax/engine-api/core/util
 )
 
-# libdoriax is searched in DORIAX_LIB_DIR; by default it points to the Doriax editor executable directory.
+# libdoriax is searched in DORIAX_LIB_DIR, in this order: -DDORIAX_LIB_DIR=...,
+# the DORIAX_LIB_DIR environment variable (the global knob that points every
+# project at one engine build tree), then the Doriax editor executable
+# directory recorded here when this file was generated.
 if(NOT DEFINED DORIAX_LIB_DIR OR DORIAX_LIB_DIR STREQUAL "")
-    set(DORIAX_LIB_DIR "C:/doriax/build-ninja")
+    if(DEFINED ENV{DORIAX_LIB_DIR} AND NOT "$ENV{DORIAX_LIB_DIR}" STREQUAL "")
+        file(TO_CMAKE_PATH "$ENV{DORIAX_LIB_DIR}" DORIAX_LIB_DIR)
+    else()
+        set(DORIAX_LIB_DIR "C:/doriax/build/Debug")
+    endif()
     # Default target is the editor's own engine build (shared, editor layouts).
     # Match its macros so symbols link (DORIAX_SHARED -> dllimport on MSVC) and
     # data layouts stay ABI-compatible (DORIAX_EDITOR), avoiding ODR/ABI mismatch.

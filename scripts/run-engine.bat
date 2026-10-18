@@ -1,13 +1,15 @@
 @echo off
 rem ------------------------------------------------------------
-rem Run engine ? expects executable in build/\u003cconfig\u003e/DoriaX.exe
+rem Run engine - expects the standalone runtime in %DORIAX_BUILD_DIR%/<config>/doriax-engine.exe
 rem ------------------------------------------------------------
 pushd "%~dp0.."
 
 set CONFIG=%1
 if "%CONFIG%"=="" set CONFIG=Debug
 
-set EXE=build\\%CONFIG%\\DoriaX.exe
+call "%~dp0doriax-build-dir.bat"
+
+set EXE=%DORIAX_BUILD_DIR%\%CONFIG%\doriax-engine.exe
 if not exist "%EXE%" (
     echo Engine executable not found at %EXE%. Build the project first.
     popd

@@ -123,6 +123,13 @@ git clone https://github.com/doriaxengine/doriax.git
 cd doriax
 ```
 
+Every example below configures a single build tree whose folder name comes from the
+`DORIAX_BUILD_DIR` environment variable, defaulting to `build`. Export it once (in your
+shell profile, or per command as `DORIAX_BUILD_DIR=... cmake -S . -B "$DORIAX_BUILD_DIR"`)
+to keep the tree on another disk; `scripts/doriax-build-dir.bat` and the CI workflows
+read that same value. One checkout, one build tree: switching toolchain or graphics
+backend means reconfiguring it, not adding a second directory beside it.
+
 #### Linux (Ubuntu 26.04)
 
 Ubuntu 26.04 includes a recent enough CMake in its official repositories, so no third-party package source is required:
@@ -135,15 +142,16 @@ sudo apt-get install -y --no-install-recommends \
   libgl1-mesa-dev libwayland-dev wayland-protocols \
   libdbus-1-dev libcurl4-openssl-dev
 
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target doriax-editor
-./build/doriax-editor
+export DORIAX_BUILD_DIR=${DORIAX_BUILD_DIR:-build}
+cmake -S . -B "$DORIAX_BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build "$DORIAX_BUILD_DIR" --target doriax-editor
+"./$DORIAX_BUILD_DIR/doriax-editor"
 ```
 
 To create a redistributable install tree under `dist/`:
 
 ```bash
-cmake --install build --prefix dist
+cmake --install "$DORIAX_BUILD_DIR" --prefix dist
 ```
 
 #### macOS
@@ -153,16 +161,17 @@ Install the Xcode Command Line Tools, CMake, and Ninja:
 ```bash
 xcode-select --install
 brew install cmake ninja
+export DORIAX_BUILD_DIR=${DORIAX_BUILD_DIR:-build}
 
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target doriax-editor
-open build/Doriax.app
+cmake -S . -B "$DORIAX_BUILD_DIR" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build "$DORIAX_BUILD_DIR" --target doriax-editor
+open "$DORIAX_BUILD_DIR/Doriax.app"
 ```
 
 To create a redistributable app under `dist/bin/`:
 
 ```bash
-cmake --install build --prefix dist
+cmake --install "$DORIAX_BUILD_DIR" --prefix dist
 ```
 
 #### Windows (Visual Studio)
@@ -170,9 +179,10 @@ cmake --install build --prefix dist
 Install Python 3 and Visual Studio 2022 or newer with the **Desktop development with C++** workload and **C++ CMake tools for Windows** component. Run these commands from a Developer PowerShell or Developer Command Prompt:
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Release --target doriax-editor doriax-editor-cmd
-build\Release\doriax-editor.exe
+if (-not $env:DORIAX_BUILD_DIR) { $env:DORIAX_BUILD_DIR = 'build' }
+cmake -S . -B $env:DORIAX_BUILD_DIR -G "Visual Studio 17 2022" -A x64
+cmake --build $env:DORIAX_BUILD_DIR --config Release --target doriax-editor doriax-editor-cmd
+& "$env:DORIAX_BUILD_DIR\Release\doriax-editor.exe"
 ```
 
 If you use Visual Studio 2026, replace the generator with `"Visual Studio 18 2026"`. The explicit `doriax-editor-cmd` target is required because the console executable is excluded from the default build.
@@ -180,21 +190,24 @@ If you use Visual Studio 2026, replace the generator with `"Visual Studio 18 202
 To install the editor, CLI executable, runtime library, and engine files under `dist/bin/`:
 
 ```powershell
-cmake --install build --prefix dist --config Release
+cmake --install $env:DORIAX_BUILD_DIR --prefix dist --config Release
 ```
 
 #### Optional Vulkan editor
 
-The editor defaults to OpenGL on Windows and Linux and to Metal on macOS. To use Vulkan on Windows or Linux, install the Vulkan SDK and add `-DGRAPHIC_BACKEND=vulkan` to that platform's configure command. A separate build directory lets you keep both backends configured:
+The editor defaults to OpenGL on Windows and Linux and to Metal on macOS. To use Vulkan on Windows or Linux, install the Vulkan SDK and add `-DGRAPHIC_BACKEND=vulkan` to that platform's configure command, in the same build tree:
 
 ```bash
-cmake -S . -B build-vulkan -G Ninja \
+cmake -S . -B "$DORIAX_BUILD_DIR" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DGRAPHIC_BACKEND=vulkan
-cmake --build build-vulkan --target doriax-editor
+cmake --build "$DORIAX_BUILD_DIR" --target doriax-editor
 ```
 
-The example above uses the Linux Ninja toolchain. On Windows, add `-DGRAPHIC_BACKEND=vulkan` to the Visual Studio configure command instead.
+Switch back with `-DGRAPHIC_BACKEND=glcore` rather than keeping a second directory for
+each backend: a parallel tree duplicates the cache, the generated headers and every
+object file. On Windows, add `-DGRAPHIC_BACKEND=vulkan` to the Visual Studio configure
+command instead.
 
 ## Command-line tools
 

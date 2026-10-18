@@ -4,6 +4,9 @@ on: push
 
 env:
   BUILD_TYPE: Debug
+  # The one build tree name; scripts/doriax-build-dir.bat carries the same
+  # default, so CI and a developer's shell configure the same folder.
+  DORIAX_BUILD_DIR: build
   TARGET: doriax-project
 
 jobs:
@@ -32,14 +35,14 @@ jobs:
 
       - name: Configure
         run: |
-          mkdir build
+          mkdir "$DORIAX_BUILD_DIR"
           mkdir instdir
           emcmake cmake \
             -S engine \
-            -B build \
+            -B "$DORIAX_BUILD_DIR" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "Ninja" \
             -DCMAKE_INSTALL_PREFIX:PATH=instdir
 
       - name: Build
-        run: cmake --build build --config ${{env.BUILD_TYPE}} --target ${{env.TARGET}}
+        run: cmake --build "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target ${{env.TARGET}}

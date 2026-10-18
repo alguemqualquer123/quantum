@@ -7,7 +7,9 @@ pushd "%~dp0.."
 set CONFIG=%1
 if "%CONFIG%"=="" set CONFIG=Release
 
-set SRC=build\\%CONFIG%
+call "%~dp0doriax-build-dir.bat"
+
+set SRC=%DORIAX_BUILD_DIR%\%CONFIG%
 if not exist "%SRC%" (
     echo Build folder %SRC% not found. Run build.bat first.
     popd
