@@ -23,6 +23,7 @@
 #include "pool/ShaderPool.h"
 #include "pool/FontPool.h"
 #include "pool/ModelPool.h"
+#include "ui/UIRuntime.h"
 #ifndef NO_THREAD_SUPPORT
     #include "thread/ThreadPoolManager.h"
 #endif
@@ -1108,6 +1109,10 @@ void Engine::systemDraw(){
     for (int i = 0; i < scenes.size(); i++){
         scenes[i]->draw();
     }
+
+    // The retained-mode UI module (doriax::ui) paints on top of the scenes,
+    // into the same target the composite framebuffer is currently bound to.
+    ui::UIRuntime::render();
 
     endCompositeFramebuffer();
 

@@ -696,6 +696,7 @@ include_directories(SYSTEM libs/box2d/include)
 include_directories(SYSTEM libs/joltphysics)
 include_directories(SYSTEM libs/harfbuzz)
 include_directories(SYSTEM libs/sheenbidi/Headers)
+include_directories(SYSTEM libs/yoga)
 
 add_subdirectory(libs/sokol)
 add_subdirectory(libs/lua)
@@ -708,6 +709,7 @@ add_subdirectory(libs/box2d)
 add_subdirectory(libs/joltphysics)
 add_subdirectory(libs/harfbuzz)
 add_subdirectory(libs/sheenbidi)
+add_subdirectory(libs/yoga)
 
 # Set again here because standalone builds skip the root CMakeLists
 if(MSVC)
@@ -718,7 +720,7 @@ endif()
 
 foreach(lib IN ITEMS
     sokol lua stb soloud tinyobjloader tinygltf tinyxml2
-    box2d joltphysics harfbuzz sheenbidi)
+    box2d joltphysics harfbuzz sheenbidi yoga)
     target_compile_options(${lib} PRIVATE ${EXTERNAL_WARNING_FLAG})
 endforeach()
 
@@ -860,6 +862,14 @@ set(DORIAX_SRCS
     core/texture/TextureData.cpp
     core/thread/ResourceProgress.cpp
     core/thread/ThreadPoolManager.cpp
+    core/ui/UIRuntime.cpp
+    core/ui/controls/Label.cpp
+    core/ui/core/VisualElement.cpp
+    core/ui/layout/Panels.cpp
+    core/ui/layout/YogaLayout.cpp
+    core/ui/render/FontAtlas.cpp
+    core/ui/render/PaintList.cpp
+    core/ui/render/VertexBuilder.cpp
     core/util/Angle.cpp
     core/util/Base64.cpp
     core/util/Color.cpp
@@ -878,6 +888,7 @@ set(RENDER_SOKOL_SRC
     renders/sokol/SokolShader.cpp
     renders/sokol/SokolCmdQueue.cpp
     renders/sokol/SokolFramebuffer.cpp
+    renders/sokol/SokolUIRenderer.cpp
 )
 
 add_library(
@@ -901,7 +912,7 @@ target_link_libraries(
 
     PUBLIC
 
-    sokol lua stb tinyobjloader tinygltf tinyxml2 soloud box2d joltphysics harfbuzz sheenbidi
+    sokol lua stb tinyobjloader tinygltf tinyxml2 soloud box2d joltphysics harfbuzz sheenbidi yoga
 )
 
 set_target_properties(
