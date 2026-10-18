@@ -1995,34 +1995,40 @@ void editor::Properties::drawNinePatchesPreview(const ImageComponent& img, Textu
     float scaledBottomMargin = img.patchMarginBottom * scaleY;
 
     // Draw left margin line
+    //AddLineV/AddLineH: 1.93 dropped the implicit (+0.5,+0.5) offset, so these
+    //1px nine-patch guides would straddle two pixel rows instead of filling one
     float leftX = cursor.x + scaledLeftMargin;
-    draw_list->AddLine(
-        ImVec2(leftX, cursor.y),
-        ImVec2(leftX, cursor.y + displayHeight),
+    draw_list->AddLineV(
+        leftX,
+        cursor.y,
+        cursor.y + displayHeight,
         line_color, 1.0f
     );
 
     // Draw right margin line
     float rightX = cursor.x + displayWidth - scaledRightMargin;
-    draw_list->AddLine(
-        ImVec2(rightX, cursor.y),
-        ImVec2(rightX, cursor.y + displayHeight),
+    draw_list->AddLineV(
+        rightX,
+        cursor.y,
+        cursor.y + displayHeight,
         line_color, 1.0f
     );
 
     // Draw top margin line
     float topY = cursor.y + scaledTopMargin;
-    draw_list->AddLine(
-        ImVec2(cursor.x, topY),
-        ImVec2(cursor.x + displayWidth, topY),
+    draw_list->AddLineH(
+        cursor.x,
+        cursor.x + displayWidth,
+        topY,
         line_color, 1.0f
     );
 
     // Draw bottom margin line
     float bottomY = cursor.y + displayHeight - scaledBottomMargin;
-    draw_list->AddLine(
-        ImVec2(cursor.x, bottomY),
-        ImVec2(cursor.x + displayWidth, bottomY),
+    draw_list->AddLineH(
+        cursor.x,
+        cursor.x + displayWidth,
+        bottomY,
         line_color, 1.0f
     );
 }

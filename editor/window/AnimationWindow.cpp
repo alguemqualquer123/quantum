@@ -1743,8 +1743,10 @@ void editor::AnimationWindow::drawTimeRuler(ImVec2 canvasPos, ImVec2 canvasSize,
 
         bool isMajorTick = tickIndex % subdivisions == 0;
         if (isMajorTick) {
-            drawList->AddLine(ImVec2(x, canvasPos.y + rulerHeight - metrics.tickMajor), ImVec2(x, canvasPos.y + rulerHeight),
-                              IM_COL32(180, 180, 180, 255));
+            //AddLineV/AddLineH instead of AddLine: 1.93 dropped the implicit
+            //(+0.5,+0.5) offset, so a 1px AddLine would straddle its pixel
+            drawList->AddLineV(x, canvasPos.y + rulerHeight - metrics.tickMajor, canvasPos.y + rulerHeight,
+                               IM_COL32(180, 180, 180, 255));
 
             char buf[16];
             float roundedTime = std::round(t);
@@ -1753,8 +1755,8 @@ void editor::AnimationWindow::drawTimeRuler(ImVec2 canvasPos, ImVec2 canvasSize,
                      isWholeSecond ? roundedTime : t);
             drawList->AddText(ImVec2(x + metrics.inset, canvasPos.y + metrics.inset), IM_COL32(180, 180, 180, 255), buf);
         } else {
-            drawList->AddLine(ImVec2(x, canvasPos.y + rulerHeight - metrics.tickMinor), ImVec2(x, canvasPos.y + rulerHeight),
-                              IM_COL32(100, 100, 100, 255));
+            drawList->AddLineV(x, canvasPos.y + rulerHeight - metrics.tickMinor, canvasPos.y + rulerHeight,
+                               IM_COL32(100, 100, 100, 255));
         }
     }
 }

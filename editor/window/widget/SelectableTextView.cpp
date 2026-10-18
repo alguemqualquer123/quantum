@@ -468,13 +468,13 @@ void SelectableTextView::draw(const char* id, const ImVec2& size,
                 const float midY = linePos.y + lineBoxHeight * 0.5f;
                 ImDrawList* drawList = ImGui::GetWindowDrawList();
                 if (textOffsetX > gap) {
-                    drawList->AddLine(ImVec2(linePos.x, midY),
-                                      ImVec2(linePos.x + textOffsetX - gap, midY), col);
+                    //AddLineH: 1.93 removed AddLine's implicit +0.5 offset and a
+                    //1px strikethrough needs to stay inside its row
+                    drawList->AddLineH(linePos.x, linePos.x + textOffsetX - gap, midY, col);
                 }
                 float rightStart = textOffsetX + textW + gap;
                 if (rightStart < wrapW) {
-                    drawList->AddLine(ImVec2(linePos.x + rightStart, midY),
-                                      ImVec2(linePos.x + wrapW, midY), col);
+                    drawList->AddLineH(linePos.x + rightStart, linePos.x + wrapW, midY, col);
                 }
             }
 

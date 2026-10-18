@@ -204,8 +204,10 @@ void WelcomeScreenWindow::drawLogo() {
     ImGui::Dummy(ImVec2(0, 16.0f));
     ImGui::SetCursorPosX(blockX + blockWidth * 0.5f - 60.0f);
     ImVec2 sepMin = ImGui::GetCursorScreenPos();
-    ImGui::GetWindowDrawList()->AddLine(sepMin, ImVec2(sepMin.x + 120.0f, sepMin.y),
-                                        ImGui::GetColorU32(ImGuiCol_Border));
+    //AddLineH, not AddLine: 1.93 removed the implicit +0.5 offset a 1px
+    //separator relied on to stay inside one pixel row
+    ImGui::GetWindowDrawList()->AddLineH(sepMin.x, sepMin.x + 120.0f, sepMin.y,
+                                         ImGui::GetColorU32(ImGuiCol_Border));
     ImGui::SetCursorScreenPos(ImVec2(sepMin.x, sepMin.y + 1.0f));
     ImGui::Dummy(ImVec2(0, 8.0f));
 }
