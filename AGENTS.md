@@ -35,7 +35,7 @@ Every file needs the `// (c) Eduardo Doria` + `SPDX-License-Identifier: MIT` hea
 
 ## Skills
 
-A 20-skill set is mirrored, byte-identical, into `.qoder/skills/`, `.opencode/skills/`,
+A 21-skill set is mirrored, byte-identical, into `.qoder/skills/`, `.opencode/skills/`,
 `.agents/skills/` (Codex) and `.claude/skills/` (Claude Code). Open the matching
 `SKILL.md` before working in an area, and if you correct a fact in one, update all four.
 
@@ -53,6 +53,7 @@ A 20-skill set is mirrored, byte-identical, into `.qoder/skills/`, `.opencode/sk
 | adding a component/property, reflector | `doriax-api` |
 | threads, pools, `MAX_*` caps, profiling | `doriax-performance` |
 | in-game UI / ImGui editor panels | `doriax-ui`, `doriax-editor-dev` |
+| retained UI: Slate/UMG/CommonUI (`engine/slate`) | `doriax-slate-ui` |
 | game projects, scene YAML, templates | `doriax-game-projects`, `doriax-engine-core` |
 
 ## Build and verify
