@@ -7,10 +7,17 @@ description: Work on the doriax editor (editor/) - ImGui panels and windows, doc
 
 ## Overview
 
-`editor/` is a Dear ImGui (docking) application in `namespace doriax::editor`.
+`editor/` is a Dear ImGui 1.93 (docking) application in `namespace doriax::editor`.
 `App.cpp` owns every window: it constructs them, calls `show()` each frame, and
 places them in the dock. New feature = new window class + a handful of wiring lines
 in `App.cpp`; do not grow `App.cpp` with feature logic.
+
+The chrome - dockspace, main menu bar, console panel, and the window frames of the
+outliner / inspector / content browser - comes from the vendored `libs/uilab` library
+through `editor/UILabHost.{h,cpp}`. `libs/uilab` is pristine upstream plus the patch
+series in `libs/uilab/doriax-patches`: read `libs/uilab/DORIAX-PATCHES.md` and run
+`scripts/sync-uilab.sh regen` after editing anything there, and prefer adding a host
+seam (a `HostHooks` slot or a `HostPanel` name) over changing library behaviour.
 
 ## The window contract
 
@@ -32,6 +39,14 @@ Every panel follows the same shape (`OutputWindow`, `Structure` are the models):
 6. Register the `.cpp` in the fixed `DORIAX_EDITOR_SOURCES` list in the root
    `CMakeLists.txt` (window files are around :551-563). That list is hand-maintained;
    a missing entry means the window silently never appears.
+
+A window whose frame the library owns adds a seventh step: split `show()` (bookkeeping,
+still called from `App.cpp`) from `drawContent()` (everything between `Begin` and `End`),
+call `setHostedWindow(true)`, and hand the host `openFlag()` - it registers the window
+name and that flag as a `uilab::HostPanel`, so the layout, the View toggles and the X
+button are unchanged from the user's side. `Structure`, `Properties` and
+`ResourcesWindow` are the models; `UILabHost::drawDataPanels()` (`App.cpp:1966`) opens
+them. Keep `show()` working for the case where no host exists.
 
 `references/window-pattern.md` has the finer points (thread-safe pushes, redraw
 requests, modal/toast windows, theme usage). `doriax-ui` covers the in-game UI system

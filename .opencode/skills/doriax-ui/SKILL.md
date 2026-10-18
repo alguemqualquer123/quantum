@@ -1,6 +1,6 @@
 ---
 name: doriax-ui
-description: Doriax UI work on both sides - the in-game UI scene system (UILayout anchors, UIContainer layout, widgets, pointer/keyboard event routing) and the ImGui editor (windows, dock layout, Theme tokens, AppSettings persistence). Use when building a menu/HUD/in-game widget, changing anchor or container behaviour, adding an editor panel, or restyling with theme tokens.
+description: Doriax UI work on both sides - the in-game UI scene system (UILayout anchors, UIContainer layout, widgets, pointer/keyboard event routing) and the ImGui editor with its vendored UILab chrome (windows, dock layout, host panels, Theme tokens, AppSettings persistence). Use when building a menu/HUD/in-game widget, changing anchor or container behaviour, adding an editor panel, or restyling with theme tokens.
 ---
 
 # UI (game UI + editor UI)
@@ -41,26 +41,48 @@ Text shaping uses the vendored `engine/libs/sheenbidi` + `harfbuzz` (RTL/bidi). 
 localisation/i18n framework** (strings are hardcoded), and **no accessibility layer** -
 flag these as gaps rather than working around them silently.
 
-## B. The editor (Dear ImGui, docking)
+## B. The editor (Dear ImGui 1.93-docking, UILab chrome)
 
 `editor/` is `namespace doriax::editor`; `App.cpp` owns every window: it constructs
-them, calls `show()` in the per-frame draw list (`App.cpp:1934-1969`), and places them
+them, calls `show()` in the per-frame draw list (`App.cpp:1944-1976`), and places them
 in the dock. New feature = new window class + a few wiring lines; do not grow `App.cpp`
 with feature logic. The window contract (WINDOW_NAME constant, ctor with explicit deps,
 `setOpen/isOpen`, `AppMenuCommand` enum value, `menuToggle` registration, dock builder
 `DockBuilderDockWindow`, `PanelVisibilitySettings` field, and registration in the
 hand-maintained `DORIAX_EDITOR_SOURCES` list) is in `doriax-editor-dev`.
 
+The **chrome comes from the vendored `libs/uilab` library** (namespace `uilab`, the
+UniversalUIComponentsLab component/docking library) through the adapter
+`editor/UILabHost.{h,cpp}`: the dockspace (`dockSpaceId()` `App.cpp:1914`, which replaced
+`DockSpaceOverViewport`), the main menu bar (`drawMenuBar` `App.cpp:864`, drawing
+doriax's `PlatformMenuModel` through the library's `host.menuBar` hook), the console
+panel (`drawConsole` `App.cpp:1960`, fed by the `Out` log mirror) and the three data
+panel *windows* (`drawDataPanels` `App.cpp:1966`). A panel the library opens splits its
+`show()` (per-frame bookkeeping, still called from `App.cpp`) from `drawContent()`
+(drawn inside the library's window), plus `setHostedWindow(true)` and `openFlag()`; the
+host registers doriax's window name and open flag as a `uilab::HostPanel`, so the saved
+layout, the View toggles and the X button keep working unchanged. `Structure`,
+`Properties` and `ResourcesWindow` are the models. Doriax still applies its own ImGui
+style (`Theme::apply`/`applyDpiScale`; the library's `ThemeManager::Apply()` is never
+called) and keeps its own bottom strip (`settings.showStatusBar = false`). Anything
+under `libs/uilab` is pristine upstream + a patch series: read
+`libs/uilab/DORIAX-PATCHES.md`, then run `scripts/sync-uilab.sh regen` after editing.
+
+ImGui 1.92+ rules that bit this repo: `ImGui::End()` asserts when
+`SetCursorPos`/`SetCursorScreenPos` was used to stretch the parent bounds (submit an
+item or a `Dummy()` after positioning), `AddLine` no longer adds the 0.5px offset (use
+`AddLineH`/`AddLineV`), and `ImGuiTextFilter::Filters`/`ImGuiTextRange` are internal now.
+
 Key sites: `Theme::Colors` static `ImVec4` tokens (`editor/Theme.h:17-43`), Dark/Light
 presets (`:12-15`), `apply()/applyDpiScale()/dpi()/dpiScale()` (`:45-59`) - prefer
 `ImLerp`/`ImGuiCol_*` over hardcoded RGBA so both presets stay coherent. Fonts:
-`App.cpp:1564-1589` merges FontAwesome solid (`fa_solid_900_ttf`), so use `ICON_FA_*`
-macros (`App.cpp:392-394,1005,1030`); when sizing a button, **measure the label with the
-icon included** (`ImGui::CalcTextSize(ICON_FA_X " Label")`) or the text clips - that was
-a real bug in this repo. Docking: `DockSpaceOverViewport` `:1915`, rebuild `:1910`,
-default layout builder `:1259-1307`; layout persists to `editor_layout.ini` in the
-config dir (`:1557`); settings to `settings.yaml` (`editor/AppSettings.cpp:109-127`).
-Shared footer helper lambda `footerActionButton` (`App.cpp:935`).
+`App.cpp:1579-1630` merges FontAwesome solid (`fa_solid_900_ttf`), so use `ICON_FA_*`
+macros; when sizing a button, **measure the label with the icon included**
+(`ImGui::CalcTextSize(ICON_FA_X " Label")`) or the text clips - that was a real bug in
+this repo. Docking: rebuild `App.cpp:1929`, default layout builder `:1261`; layout
+persists to `editor_layout.ini` in the config dir (`:1570`); settings to `settings.yaml`
+(`editor/AppSettings.cpp:109-127`). Shared footer helper lambda `footerActionButton`
+(`App.cpp:944`).
 
 ## Rules that keep UI work reviewable
 
@@ -72,4 +94,8 @@ Shared footer helper lambda `footerActionButton` (`App.cpp:935`).
 - Any change to a `.scene`/`project.yaml` from UI code invalidates generated C++:
   regenerate via `doriax-build-generator generate --project <dir>`.
 - Verification is visual, and agents must not launch `doriax-editor.exe`; state
-  explicitly when a change was not visually confirmed.
+  explicitly when a change was not visually confirmed. When the user does authorize a
+  run, `DORIAX_EDITOR_CAPTURE=<prefix>` makes the frame loop write `<prefix>-f30.png`
+  and `<prefix>-f120.png` from the composed backbuffer
+  (`GraphicUtils::captureEditorFrame`, `editor/EditorFrame.cpp`) - never capture the
+  desktop instead.
