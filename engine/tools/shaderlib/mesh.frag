@@ -256,7 +256,9 @@ void main() {
         vec3 t = normalInfo.t;
         vec3 b = normalInfo.b;
 
-        MaterialInfo materialInfo = {0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0, 0.0};
+        // Positional zero-init: the count and order must track MaterialInfo above.
+        MaterialInfo materialInfo = {0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), vec3(0.0),
+                                     0.0, vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0, 0.0};
         materialInfo.baseColor = baseColor.rgb;
 
         // The default index of refraction of 1.5 yields a dielectric normal incidence reflectance of 0.04.
