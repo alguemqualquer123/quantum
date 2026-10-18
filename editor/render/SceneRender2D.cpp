@@ -39,13 +39,9 @@ editor::SceneRender2D::SceneRender2D(Scene* scene, unsigned int width, unsigned 
 
     createLines(width, height);
 
-    scene->setLightState(LightState::OFF);
-
-    if (isUI){
-        scene->setBackgroundColor(Vector4(0.525, 0.525, 0.525, 1.0));
-    }else{
-        scene->setBackgroundColor(Vector4(0.231, 0.298, 0.475, 1.0));
-    }
+    // A preview render must not restyle the scene it draws: the background color
+    // and light state of a loaded scene come from disk, so the defaults for new
+    // scenes live in Project::createNewSceneInternal instead.
 
     viewportWidth = width;
     viewportHeight = height;
