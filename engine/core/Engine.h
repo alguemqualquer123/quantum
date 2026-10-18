@@ -422,6 +422,9 @@ namespace doriax {
         static FunctionSubscribe<void()> onViewChanged;
         static FunctionSubscribe<void()> onViewDestroyed;
         static FunctionSubscribe<void()> onDraw;
+        // Fires after every scene has drawn, inside the composite framebuffer
+        // pass, so overlays (retained-mode UI) still see the bound target.
+        static FunctionSubscribe<void()> onPostDraw;
         static FunctionSubscribe<void()> onUpdate;
         static FunctionSubscribe<void()> onFixedUpdate;
         static FunctionSubscribe<void()> onPostUpdate;
