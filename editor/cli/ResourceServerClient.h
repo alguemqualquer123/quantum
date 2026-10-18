@@ -41,18 +41,22 @@ bool probeServer(const std::string& host, int port, std::string& statusJsonOut,
 // Convenience wrapper over probeServer() for the localhost default.
 bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut);
 
-// Spawns doriax-resource-server --project <projectDir> --port 0 detached,
+// Spawns doriax-resource-server --project <projectDir> --port <port> detached,
 // waits for its "listening on 127.0.0.1:<port>" stdout line (a few seconds),
 // and returns the discovered port and the child pid. The process keeps running
 // after this call returns; use stopResourceServer() to end it. The overload
 // with serverExe overrides the executable lookup (tests / custom layouts).
 // parentPid is handed to the server as --parent so its tray menu can close the
-// editor that owns it; 0 means nobody may.
+// editor that owns it; 0 means nobody may. The loopback port is chosen before
+// the child starts and passed with --port, so when recordFile is not empty the
+// record is written as soon as the child exists - a crash while the server is
+// still booting then leaves a recorded (adoptable) server, not an orphan.
 bool spawnResourceServer(const fs::path& projectDir, int& portOut, unsigned long long& pidOut,
                          std::string& errorOut);
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
                          unsigned long long& pidOut, std::string& errorOut,
-                         unsigned long long parentPid = 0);
+                         unsigned long long parentPid = 0,
+                         const fs::path& recordFile = fs::path());
 
 // Terminates a server spawned by spawnResourceServer() (best effort).
 bool stopResourceServer(unsigned long long pid, std::string& errorOut);
@@ -65,9 +69,10 @@ bool processIsRunning(unsigned long long pid);
 unsigned long long currentProcessId();
 
 // The record that lets a server outliving the editor be found again: three
-// tab-separated fields (port, pid, project directory) in one text file. The
-// editor writes it after a spawn and removes it when it stops the server,
-// because a terminated process gets no chance to clean up after itself.
+// tab-separated fields (port, pid, project directory) in one text file. It is
+// written as soon as the server process exists (see spawnResourceServer) and
+// removed when the editor stops the server, because a terminated process gets
+// no chance to clean up after itself.
 bool writeServerRecord(const fs::path& recordFile, int port, unsigned long long pid,
                        const fs::path& projectDir, std::string& errorOut);
 bool readServerRecord(const fs::path& recordFile, int& portOut, unsigned long long& pidOut,

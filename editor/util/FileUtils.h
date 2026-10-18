@@ -107,6 +107,32 @@ public:
         return exeDir / "engine";
     }
 
+    // Sample projects are data, not code: a dev checkout keeps templates/ at the
+    // repository root while the editor runs from <build>/<config>/, and an
+    // installed layout puts them next to the executable. Walk up from the exe
+    // until a directory that actually holds template projects is found.
+    static std::filesystem::path getTemplatesDir() {
+        namespace fs = std::filesystem;
+
+        std::error_code ec;
+        fs::path dir = getExecutableDir();
+        for (int depth = 0; depth <= 5 && !dir.empty(); ++depth) {
+            const fs::path candidate = dir / "templates";
+            if (fs::is_directory(candidate, ec) && !ec) {
+                const fs::directory_iterator end;
+                for (fs::directory_iterator it(candidate, ec); !ec && it != end; it.increment(ec)) {
+                    if (it->is_directory(ec) && !ec &&
+                        fs::exists(it->path() / "project.yaml", ec)) {
+                        return candidate;
+                    }
+                }
+            }
+            dir = dir.parent_path();
+        }
+
+        return {};
+    }
+
     // An AppImage mounts at a fresh path every launch, so anything written into
     // a file the project keeps must omit it or that file churns on every start.
     static bool isEngineDirEphemeral() {

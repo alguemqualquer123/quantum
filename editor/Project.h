@@ -427,6 +427,13 @@ namespace doriax::editor{
         CommandHistory* getProjectCommandHistory();
 
         bool createTempProject(std::string projectName, bool deleteIfExists = false);
+
+        // Creates (or reopens) a project at an explicit path. The Hub and the
+        // `--project <dir> --create` launcher flow use this to place a project
+        // where the user asked for it instead of the temp directory.
+        bool createNewProjectAt(const std::filesystem::path& path, std::string projectName, bool deleteIfExists = false);
+        bool createFromTemplateAt(const std::filesystem::path& path, const std::string& templateName);
+        bool createFromTemplate(const std::filesystem::path& templateName);
         bool saveProjectToPath(const std::filesystem::path& path);
         void clearTrash();
         void deleteSceneProject(SceneProject* sceneProject);

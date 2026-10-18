@@ -29,6 +29,14 @@ namespace doriax::editor {
     private:
         static std::unordered_map<ShaderKey, ShaderData> shaderDataCache;
         static std::unordered_map<ShaderKey, std::future<ShaderData>> pendingBuilds;
+        // A failed async build cannot travel through its future: every target is
+        // compiled with _HAS_EXCEPTIONS=0, so std::packaged_task has no handler to
+        // store the throw and an escaping exception reaches std::terminate (the
+        // editor aborted on any shader that failed to compile). The worker records
+        // the key here and returns an empty ShaderData instead. Its own mutex
+        // because requestShutdown() waits on futures while holding cacheMutex.
+        static std::set<ShaderKey> failedBuilds;
+        static std::mutex& failedBuildsMutex();
         static std::mutex& cacheMutex();
 
         static std::atomic<bool> shutdownRequested;

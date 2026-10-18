@@ -111,21 +111,46 @@ void WelcomeScreenWindow::show() {
     const float blockWidth = std::min(880.0f, avail.x - style.WindowPadding.x * 2.0f);
     const float blockX = (avail.x - blockWidth) * 0.5f;
 
+    // Nothing behind this overlay is reachable, so it always has to offer a way
+    // out: Escape or the X in the corner. File > Welcome Screen brings it back.
+    if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        windowOpen = false;
+    }
+    const float closeSide = ImGui::GetFontSize() * 1.8f;
+    const ImVec2 savedCursor = ImGui::GetCursorPos();
+    ImGui::SetCursorPos(ImVec2(avail.x - closeSide, 0.0f));
+    if (ImGui::InvisibleButton("##welcome_close", ImVec2(closeSide, closeSide))) {
+        windowOpen = false;
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+    }
+    const ImVec2 glyphSize = ImGui::CalcTextSize(ICON_FA_XMARK);
+    const ImVec2 glyphPos = ImVec2(ImGui::GetItemRectMin().x + (closeSide - glyphSize.x) * 0.5f,
+                                   ImGui::GetItemRectMin().y + (closeSide - glyphSize.y) * 0.5f);
+    ImGui::GetWindowDrawList()->AddText(glyphPos, ImGui::GetColorU32(ImGuiCol_TextDisabled),
+                                        ICON_FA_XMARK);
+    ImGui::SetCursorPos(savedCursor);
+
     drawLogo();
 
     ImGui::Dummy(ImVec2(0, 8.0f));
 
-    const float openWidth = ImGui::CalcTextSize("Open project").x + style.FramePadding.x * 2.0f;
-    const float docsWidth = ImGui::CalcTextSize("Documentation").x + style.FramePadding.x * 2.0f;
+    // The labels carry a leading icon, and CalcTextSize only measures the string
+    // it is given: sizing the buttons off the bare text clipped their last glyph.
+    const char* openLabel = ICON_FA_FOLDER_OPEN " Open project";
+    const char* docsLabel = ICON_FA_BOOK " Documentation";
+    const float openWidth = ImGui::CalcTextSize(openLabel).x + style.FramePadding.x * 2.0f;
+    const float docsWidth = ImGui::CalcTextSize(docsLabel).x + style.FramePadding.x * 2.0f;
     const float buttonsWidth = openWidth + docsWidth + style.ItemSpacing.x;
     ImGui::SetCursorPosX(blockX + (blockWidth - buttonsWidth) * 0.5f);
-    if (ImGui::Button(ICON_FA_FOLDER_OPEN " Open project", ImVec2(openWidth, 0))) {
+    if (ImGui::Button(openLabel, ImVec2(openWidth, 0))) {
         if (callbacks.openProjectDialog) {
             callbacks.openProjectDialog();
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button(ICON_FA_BOOK " Documentation", ImVec2(docsWidth, 0))) {
+    if (ImGui::Button(docsLabel, ImVec2(docsWidth, 0))) {
         if (callbacks.openDocumentation) {
             callbacks.openDocumentation();
         }
@@ -245,6 +270,7 @@ void WelcomeScreenWindow::drawRecentProjects(float width, float height) {
 
             if (clicked && callbacks.openRecentProject) {
                 callbacks.openRecentProject(path);
+                windowOpen = false;
             }
         }
     }
@@ -310,9 +336,11 @@ void WelcomeScreenWindow::drawTemplateCards(float width, float height) {
                 if (card.blank) {
                     if (callbacks.createEmptyProject) {
                         callbacks.createEmptyProject();
+                        windowOpen = false;
                     }
                 } else if (callbacks.createFromTemplate) {
                     callbacks.createFromTemplate(card.templateName);
+                    windowOpen = false;
                 }
             }
 

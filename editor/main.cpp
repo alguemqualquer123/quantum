@@ -3,6 +3,7 @@
 
 #include "Backend.h"
 #include "cli/CommandLine.h"
+#include "cli/LaunchOptions.h"
 #include "cli/BuildGeneratorCli.h"
 #include "cli/ResourceCompilerCli.h"
 #include "util/ShellEnv.h"
@@ -53,6 +54,13 @@ int main(int argc, char* argv[]) {
 #else
     if (argc >= 2 && std::strcmp(argv[1], "shaders") == 0) {
         return editor::CommandLine::runShadersCommand(argc - 1, argv + 1, argv[0]);
+    }
+    // Launcher options start the editor itself: the Hub (`--hub`) and project
+    // shortcuts (`--project <dir> [--create] [--template <name>]`). Anything
+    // else keeps the help behavior below.
+    if (editor::LaunchOptions::isLaunchCommand(argc, argv)) {
+        editor::LaunchOptions::init(argc, argv);
+        return editor::Backend::init(argc, argv);
     }
     if (argc >= 2) {
         return editor::CommandLine::runHelpCommand(argc - 1, argv + 1, argv[0]);

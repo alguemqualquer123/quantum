@@ -19,6 +19,7 @@
 #include "window/AnimationWindow.h"
 #include "window/TerrainEditWindow.h"
 #include "window/AiChatWindow.h"
+#include "window/HubWindow.h"
 
 #include "window/LoadingWindow.h"
 
@@ -31,6 +32,7 @@
 
 #include "render/SceneRender.h"
 
+#include <atomic>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -81,6 +83,16 @@ namespace doriax::editor{
         bool redrawRequested = false;
         bool frameRequested = false;
 
+        // From the middle of App::show() (after the menu/footer) until the end
+        // of the pass, ImGui records draw commands for the windows and the
+        // palette/welcome overlays run their callbacks. Nothing may swap or
+        // tear down the project then: the teardown deletes GL texture names
+        // synchronously (sokol), and draw commands already recorded in the
+        // pass would bind dead names in RenderDrawData (GL_INVALID_OPERATION,
+        // then sokol asserts at end of pass). runWhenUiIdle() defers them.
+        bool uiPassActive = false;
+        std::vector<std::function<void()>> deferredUiActions;
+
         // Footer stats, sampled only from consecutive drawn frames (see engineRender).
         bool renderedScenePrevFrame = false;
         float footerFramerate = 0.0f;
@@ -107,6 +119,10 @@ namespace doriax::editor{
         bool isInitialized;
         bool dockspaceNeedsRebuild;
 
+        // Hub mode (`--hub`): the launcher UI replaces the editor and no
+        // project is loaded.
+        bool hubMode = false;
+
         // True only during an explicit "Reset Layout": forces tabs back to their
         // default dock slot even when the ini has a saved position for them.
         bool forceDockTabs = false;
@@ -132,6 +148,7 @@ namespace doriax::editor{
         ProjectSettingsWindow projectSettingsWindow;
         BundlesWindow bundlesWindow;
         ScenesWindow scenesWindow;
+        HubWindow hubWindow;
 
         std::queue<SaveDialogQueueItem> saveDialogQueue;
         bool saveDialogInProgress = false;
@@ -143,7 +160,9 @@ namespace doriax::editor{
         // it alive in the Windows notification area, which is what the record
         // file exists for: the next session adopts it instead of doubling up.
         std::thread resourceServerThread;
-        unsigned long long resourceServerGeneration = 0;
+        // Atomic so a worker still polling for a recorded server that is booting
+        // can notice a project switch and bail out (stopResourceServer joins it).
+        std::atomic<unsigned long long> resourceServerGeneration{0};
         unsigned long long resourceServerPid = 0;
         int resourceServerPort = 0;
         std::filesystem::path resourceServerRecord;
@@ -243,6 +262,14 @@ namespace doriax::editor{
 
         // Thread-safe: schedules a task to run on the main/GL thread during the next frame.
         void enqueueMainThreadTask(std::function<void()> task) override;
+
+        // Main thread: runs the action now, or - while the UI pass is recording
+        // draw data - queues it for the next frame boundary (see uiPassActive).
+        // UI callbacks that can swap or tear down the project must use this.
+        void runWhenUiIdle(std::function<void()> action);
+        // Main thread only: runs the actions deferred by the previous pass,
+        // right before this pass starts recording anything.
+        void processDeferredUiActions();
 
         bool didRenderScene() const { return renderedSceneThisFrame; }
         bool hasPendingMainThreadTasks();

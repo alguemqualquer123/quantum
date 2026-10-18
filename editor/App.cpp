@@ -18,6 +18,7 @@
 #include "util/Util.h"
 #include "util/FileUtils.h"
 #include "util/SystemStats.h"
+#include "cli/LaunchOptions.h"
 #include "cli/ResourceServerClient.h"
 
 #include "window/NotificationsWindow.h"
@@ -39,6 +40,7 @@
 #include "subsystem/MeshSystem.h"
 
 #include <filesystem>
+#include <chrono>
 #include <cstdio>
 #include <cstdint>
 #include <cstdlib>
@@ -150,28 +152,35 @@ void editor::App::saveAllAndProject(std::function<void()> onSuccess){
 }
 
 void editor::App::openProjectFunc(){
+    // Reached from the welcome screen (mid-pass) and from Ctrl+O; the project
+    // swap behind it must not run while the pass records draw data.
+    if (uiPassActive) {
+        runWhenUiIdle([this]() { openProjectFunc(); });
+        return;
+    }
     if (project.isAnyScenePlaying()) {
         registerAlert("Scene Running", "A scene is currently running or stopping. Stop it before opening another project.");
         return;
     }
 
+    // The welcome overlay only exists while there is nothing to edit, so a
+    // completed pick dismisses it; cancelling the picker leaves it in place.
+    auto pickAndLoad = [this]() {
+        if (project.openProject()) g_welcomeScreenWindow->setOpen(false);
+    };
+
     if (project.hasScenesUnsavedChanges() || codeEditor->hasUnsavedChanges() || project.isTempUnsavedProject()) {
         Backend::getApp().registerConfirmAlert(
             "Unsaved Changes",
             "There are unsaved changes. Do you want to save them before opening another project?",
-            [this]() {
-                saveAllAndProject([this]() {
-                    this->project.openProject();
-                });
+            [this, pickAndLoad]() {
+                saveAllAndProject(pickAndLoad);
             },
-            [this]() {
-                // No callback - just continue without saving
-                project.openProject();
-            }
+            pickAndLoad
         );
     } else {
         // No unsaved changes, proceed directly
-        project.openProject();
+        pickAndLoad();
     }
 }
 
@@ -221,6 +230,8 @@ enum class AppMenuCommand : uint32_t {
     AccentTeal,
     AccentAmber,
     AccentViolet,
+    NewProjectFromTemplate,
+    ToggleWelcome,
     About
 };
 
@@ -277,6 +288,42 @@ editor::PlatformMenuItem menuSubmenu(std::string label,
     return item;
 }
 
+// One item per sample project shipped next to the engine, so creating a project
+// from a template needs no extra dialog: picking the item copies the template
+// over the fresh temp project and loads it.
+std::vector<editor::PlatformMenuItem> buildTemplateMenuItems() {
+    auto unavailable = []() {
+        std::vector<editor::PlatformMenuItem> items;
+        items.push_back(menuCommand(AppMenuCommand::NewProjectFromTemplate,
+                                    "No templates installed", false));
+        return items;
+    };
+
+    const std::filesystem::path root = editor::FileUtils::getTemplatesDir();
+    std::error_code ec;
+    if (root.empty() || !std::filesystem::is_directory(root, ec)) {
+        return unavailable();
+    }
+
+    std::vector<std::string> names;
+    const std::filesystem::directory_iterator end;
+    for (std::filesystem::directory_iterator it(root, ec); !ec && it != end; it.increment(ec)) {
+        if (it->is_directory(ec) && std::filesystem::exists(it->path() / "project.yaml", ec)) {
+            names.push_back(it->path().filename().string());
+        }
+    }
+    if (names.empty()) {
+        return unavailable();
+    }
+
+    std::sort(names.begin(), names.end());
+    std::vector<editor::PlatformMenuItem> items;
+    for (const std::string& name : names) {
+        items.push_back(menuPayloadCommand(AppMenuCommand::NewProjectFromTemplate, name, name));
+    }
+    return items;
+}
+
 editor::PaletteCommand paletteCmd(AppMenuCommand command,
                                   std::string label,
                                   std::string shortcut = {},
@@ -294,6 +341,7 @@ editor::PaletteCommand paletteCmd(AppMenuCommand command,
 std::vector<editor::PaletteCommand> buildPaletteCommands() {
     return {
         paletteCmd(AppMenuCommand::NewProject, "File: New Project"),
+        paletteCmd(AppMenuCommand::ToggleWelcome, "File: Welcome Screen"),
         paletteCmd(AppMenuCommand::NewScene3D, "File: New 3D Scene"),
         paletteCmd(AppMenuCommand::NewScene2D, "File: New 2D Scene"),
         paletteCmd(AppMenuCommand::NewSceneUI, "File: New UI Scene"),
@@ -403,7 +451,9 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
 
     PlatformMenuModel menu;
     menu.menus.push_back(menuSubmenu("File", {
+        menuCommand(AppMenuCommand::ToggleWelcome, "Welcome Screen"),
         menuCommand(AppMenuCommand::NewProject, "New Project", !isProjectBusy),
+        menuSubmenu("New Project From Template", buildTemplateMenuItems(), !isProjectBusy),
         menuSubmenu("New Scene", {
             menuCommand(AppMenuCommand::NewScene3D, "3D Scene"),
             menuCommand(AppMenuCommand::NewScene2D, "2D Scene"),
@@ -492,6 +542,14 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
 }
 
 void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
+    // The command palette, the welcome screen and confirm alerts fire while
+    // the pass is recording draw data; a project swap there would delete
+    // textures whose names are already in this pass's draw commands (see
+    // uiPassActive). Do the work at the frame boundary instead.
+    if (uiPassActive) {
+        runWhenUiIdle([this, command]() { executeMenuCommand(command); });
+        return;
+    }
     const auto action = static_cast<AppMenuCommand>(command.id);
     switch (action) {
         case AppMenuCommand::NewProject: {
@@ -509,6 +567,24 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
                     startFreshProject);
             } else {
                 startFreshProject();
+            }
+            break;
+        }
+        case AppMenuCommand::NewProjectFromTemplate: {
+            if (project.isAnyScenePlaying()) return;
+            const std::filesystem::path templateName(command.payload);
+            auto startFromTemplate = [this, templateName]() {
+                if (project.createFromTemplate(templateName)) aiChatWindow->startNewChat();
+            };
+            if (project.hasScenesUnsavedChanges() || codeEditor->hasUnsavedChanges() ||
+                project.isTempUnsavedProject()) {
+                registerConfirmAlert(
+                    "Unsaved Changes",
+                    "There are unsaved changes. Do you want to save them before creating a project from a template?",
+                    [this, startFromTemplate]() { saveAllAndProject(startFromTemplate); },
+                    startFromTemplate);
+            } else {
+                startFromTemplate();
             }
             break;
         }
@@ -702,6 +778,9 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             break;
         case AppMenuCommand::CommandPalette:
             g_commandPaletteWindow->toggle();
+            break;
+        case AppMenuCommand::ToggleWelcome:
+            g_welcomeScreenWindow->setOpen(!g_welcomeScreenWindow->isOpen());
             break;
         case AppMenuCommand::ThemeToggle: {
             const Theme::Preset next = Theme::getPreset() == Theme::Preset::Dark
@@ -1079,7 +1158,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onYes) {
-                        alert.onYes();
+                        runWhenUiIdle(alert.onYes);
                     }
                 }
                 ImGui::SameLine();
@@ -1087,7 +1166,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onNo) {
-                        alert.onNo();
+                        runWhenUiIdle(alert.onNo);
                     }
                 }
             } else if (alert.type == AlertType::ThreeButton) {
@@ -1100,7 +1179,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onYes) {
-                        alert.onYes();
+                        runWhenUiIdle(alert.onYes);
                     }
                 }
                 ImGui::SameLine();
@@ -1108,7 +1187,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onNo) {
-                        alert.onNo();
+                        runWhenUiIdle(alert.onNo);
                     }
                 }
                 ImGui::SameLine();
@@ -1116,7 +1195,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onCancel) {
-                        alert.onCancel();
+                        runWhenUiIdle(alert.onCancel);
                     }
                 }
             }
@@ -1588,6 +1667,14 @@ void editor::App::setup() {
         command.payload = projectPath.string();
         executeMenuCommand(command);
     };
+    // Same deferral the other welcome actions use: the panel is drawn inside the
+    // UI pass, and switching projects there tears down windows mid-frame.
+    welcomeCallbacks.createFromTemplate = [this](const std::filesystem::path& templateName) {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::NewProjectFromTemplate);
+        command.payload = templateName.string();
+        executeMenuCommand(command);
+    };
     welcomeCallbacks.openDocumentation = []() {
         ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
         if (platform_io.Platform_OpenInShellFn) {
@@ -1595,7 +1682,7 @@ void editor::App::setup() {
         }
     };
     g_welcomeScreenWindow->setCallbacks(welcomeCallbacks);
-    g_welcomeScreenWindow->setTemplatesDirectory(FileUtils::getExecutableDir() / "templates");
+    g_welcomeScreenWindow->setTemplatesDirectory(FileUtils::getTemplatesDir());
 
     // First-run screen only: never persisted, so it appears solely while there is
     // no recent project to fall back to.
@@ -1603,11 +1690,24 @@ void editor::App::setup() {
 }
 
 void editor::App::show(){
+    // Actions deferred by the previous pass (project swaps triggered from the
+    // palette, the welcome screen or alerts) run now, before this pass records
+    // any draw command that could reference a texture they destroy.
+    processDeferredUiActions();
+
     float dpiScale = 1.0f;
     if (const ImGuiViewport* mainViewport = ImGui::GetMainViewport()) {
         dpiScale = mainViewport->DpiScale;
     }
     Theme::applyDpiScale(dpiScale);
+
+    if (hubMode) {
+        // Hub mode: the launcher owns the window. No dockspace, menu or editor
+        // panels; projects are opened by spawning separate editor processes.
+        hubWindow.show();
+        uiPassActive = false;
+        return;
+    }
 
     if (resourcesWindow->isFocused()) {
         lastFocusedWindow = LastFocusedWindow::Resources;
@@ -1797,6 +1897,11 @@ void editor::App::show(){
     showMenu();
     showFooter();
 
+    // Windows below record draw commands, and the palette/welcome overlays run
+    // their callbacks after recording; nothing may tear down the project from
+    // here until the end of the pass (see uiPassActive).
+    uiPassActive = true;
+
     isInitialized = true;
 
     // Before DockSpaceOverViewport() below lays the restored sizes out.
@@ -1870,25 +1975,62 @@ void editor::App::show(){
     // Closing a panel through its title-bar button changes the same state as the
     // View menu, so mirror the live state after all panels have rendered.
     persistPanelVisibilitySettings();
+
+    uiPassActive = false;
 }
 
 void editor::App::engineInit(int argc, char** argv) {
     Engine::systemInit(argc, argv, new editor::Platform(&project));
 
-    // Check if there's a last opened project
-    std::filesystem::path lastProjectPath = AppSettings::getLastProjectPath();
+    const editor::LaunchOptions& launch = editor::LaunchOptions::get();
 
-    if (!lastProjectPath.empty() && std::filesystem::exists(lastProjectPath)) {
-        // Try to load the last project
-        if (project.loadProject(lastProjectPath)) {
-            Out::info("Loaded last opened project: \"%s\"", lastProjectPath.string().c_str());
+    if (launch.hub) {
+        // Hub mode: the launcher manages projects and installs and spawns
+        // separate editor processes; it never loads a project itself.
+        hubMode = true;
+        Backend::updateWindowTitle("Doriax Hub");
+        Engine::pauseGameEvents(true);
+        Engine::setAsyncLoading(true);
+        return;
+    }
+
+    if (!launch.projectPath.empty()) {
+        // A launcher (Hub, desktop shortcut) opened or created this project.
+        std::error_code ec;
+        if (std::filesystem::exists(launch.projectPath / "project.yaml", ec)) {
+            if (!project.loadProject(launch.projectPath)) {
+                Out::error("Failed to open project: \"%s\"", launch.projectPath.string().c_str());
+                project.createTempProject("MyDoriaxProject");
+            }
+        } else if (launch.create) {
+            const std::string projectName = launch.projectPath.filename().string();
+            const bool created = launch.templateName.empty()
+                ? project.createNewProjectAt(launch.projectPath, projectName)
+                : project.createFromTemplateAt(launch.projectPath, launch.templateName);
+            if (!created) {
+                Out::error("Failed to create project: \"%s\"", launch.projectPath.string().c_str());
+                project.createTempProject("MyDoriaxProject");
+            }
         } else {
-            // If loading fails, create a new temp project
+            Out::error("Not a Doriax project: \"%s\" (no project.yaml)", launch.projectPath.string().c_str());
             project.createTempProject("MyDoriaxProject");
         }
     } else {
-        // No last project, create a new temp project
-        project.createTempProject("MyDoriaxProject");
+        // Check if there's a last opened project
+        std::filesystem::path lastProjectPath = AppSettings::getLastProjectPath();
+
+        if (!lastProjectPath.empty() && std::filesystem::exists(lastProjectPath)) {
+            // Try to load the last project
+            if (project.loadProject(lastProjectPath)) {
+                Out::info("Loaded last opened project: \"%s\"", lastProjectPath.string().c_str());
+            } else {
+                // If loading fails, create a new temp project
+                project.createTempProject("MyDoriaxProject");
+            }
+        } else {
+            // No last project, create a new temp project
+            project.createTempProject("MyDoriaxProject");
+        }
     }
 
     Engine::pauseGameEvents(true);
@@ -2092,6 +2234,29 @@ void editor::App::engineRender(){
     renderedScenePrevFrame = renderedSceneThisFrame;
 }
 
+void editor::App::runWhenUiIdle(std::function<void()> action) {
+    if (uiPassActive) {
+        deferredUiActions.push_back(action);
+    } else {
+        action();
+    }
+}
+
+void editor::App::processDeferredUiActions() {
+    if (deferredUiActions.empty()) return;
+    std::vector<std::function<void()>> actions;
+    actions.swap(deferredUiActions);
+    // An action may queue more work (alert callbacks chain, for instance), and
+    // this may run while the pass happened to be marked active: run everything
+    // as if outside the pass, restoring the flag afterwards.
+    const bool wasActive = uiPassActive;
+    uiPassActive = false;
+    for (std::function<void()>& action : actions) {
+        action();
+    }
+    uiPassActive = wasActive;
+}
+
 void editor::App::enqueueMainThreadTask(std::function<void()> task) {
     if (!task) return;
     {
@@ -2259,7 +2424,8 @@ void editor::App::updateResourcesPath(){
 
 void editor::App::updateResourceServer(const std::filesystem::path& projectPath) {
     // One server per project: retire the previous spawn before starting another.
-    if (resourceServerThread.joinable()) resourceServerThread.join();
+    // (stopResourceServer() bumps the generation first, which is what wakes a
+    // worker still waiting on a booting server out of its poll loop.)
     stopResourceServer();
     if (projectPath.empty()) return;
 
@@ -2276,6 +2442,7 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
     std::filesystem::path recordedProject;
     std::string recordError;
     bool adopted = false;
+    bool recordedServerBooting = false;
     if (editor::cli::readServerRecord(resourceServerRecord, recordedPort, recordedPid,
                                       recordedProject, recordError) &&
         recordedProject == projectPath && editor::cli::processIsRunning(recordedPid)) {
@@ -2290,26 +2457,64 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             }
             Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
                       recordedPort);
+        } else {
+            // Alive but not answering: the server indexes the project before it
+            // starts listening, so this is what restarting right after an editor
+            // crash during its boot looks like. Wait for it below instead of
+            // pruning the record and spawning a duplicate.
+            recordedServerBooting = true;
         }
     }
-    if (!adopted) {
+    if (adopted) return;
+    if (!recordedServerBooting) {
         editor::cli::removeServerRecord(resourceServerRecord);
-    } else {
-        return;
     }
 
     const unsigned long long generation = ++resourceServerGeneration;
+    // Captured by value: the worker thread writes the record the moment the
+    // child exists, before the handshake, so an editor crash during boot still
+    // leaves an adoptable record instead of an invisible orphan.
+    const std::filesystem::path recordFile = resourceServerRecord;
+    const int bootingPort = recordedServerBooting ? recordedPort : 0;
+    const unsigned long long bootingPid = recordedServerBooting ? recordedPid : 0;
     // spawnResourceServer waits on the child's stdout, so keep it off the UI thread.
-    resourceServerThread = std::thread([this, projectPath, serverExe, generation]() {
+    resourceServerThread = std::thread([this, projectPath, serverExe, generation, recordFile,
+                                        bootingPort, bootingPid]() {
         int port = 0;
         unsigned long long pid = 0;
         std::string error;
-        const bool ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error,
-                                                         editor::cli::currentProcessId());
-        enqueueMainThreadTask([this, generation, ok, port, pid, error, projectPath]() {
+        bool ok = false;
+        bool adoptedBooting = false;
+        if (bootingPort > 0) {
+            // As long as a cold spawn can take to index a project; a server that
+            // dies or never answers falls through to a fresh spawn.
+            constexpr int kBootWaitMs = 30000;
+            const auto deadline = std::chrono::steady_clock::now() +
+                                  std::chrono::milliseconds(kBootWaitMs);
+            while (std::chrono::steady_clock::now() < deadline) {
+                if (resourceServerGeneration.load() != generation) return;
+                std::string statusJson;
+                std::string statusError;
+                if (editor::cli::requestStatus(bootingPort, statusJson, statusError)) {
+                    port = bootingPort;
+                    pid = bootingPid;
+                    adoptedBooting = true;
+                    ok = true;
+                    break;
+                }
+                if (!editor::cli::processIsRunning(bootingPid)) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            }
+            if (!ok) editor::cli::removeServerRecord(recordFile);
+        }
+        if (!ok) {
+            ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error,
+                                                  editor::cli::currentProcessId(), recordFile);
+        }
+        enqueueMainThreadTask([this, generation, ok, port, pid, error, projectPath, adoptedBooting]() {
             if (generation != resourceServerGeneration) {
                 std::string ignored;
-                if (ok) editor::cli::stopResourceServer(pid, ignored);
+                if (ok && !adoptedBooting) editor::cli::stopResourceServer(pid, ignored);
                 return;
             }
             if (!ok) {
@@ -2318,6 +2523,15 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             }
             resourceServerPort = port;
             resourceServerPid = pid;
+            if (adoptedBooting) {
+                if (g_resourceMonitorWindow) {
+                    g_resourceMonitorWindow->addChildProcess(pid,
+                        "doriax-resource-server:" + std::to_string(port));
+                }
+                Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
+                          port);
+                return;
+            }
             std::string recordError;
             if (!editor::cli::writeServerRecord(resourceServerRecord, port, pid, projectPath,
                                                 recordError) && !recordError.empty()) {
@@ -2346,8 +2560,10 @@ std::filesystem::path editor::App::resourceServerRecordFile(const std::filesyste
 }
 
 void editor::App::stopResourceServer() {
+    // Bump before the join: the worker may be polling a booting server and only
+    // exits its loop once it sees the generation change.
+    ++resourceServerGeneration;   // drop any in-flight spawn or boot wait
     if (resourceServerThread.joinable()) resourceServerThread.join();
-    ++resourceServerGeneration;   // drop any in-flight spawn
     if (!resourceServerRecord.empty()) {
         editor::cli::removeServerRecord(resourceServerRecord);
         resourceServerRecord.clear();
@@ -2363,8 +2579,8 @@ void editor::App::stopResourceServer() {
 }
 
 void editor::App::detachResourceServer() {
-    if (resourceServerThread.joinable()) resourceServerThread.join();
     ++resourceServerGeneration;
+    if (resourceServerThread.joinable()) resourceServerThread.join();
     if (resourceServerPid != 0) {
         if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
         Out::info("Resource server: still running on 127.0.0.1:%d (close it from its tray icon)",

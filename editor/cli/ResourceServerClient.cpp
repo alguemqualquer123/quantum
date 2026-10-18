@@ -256,6 +256,37 @@ bool findResourceServerExecutable(fs::path& outPath) {
     return false;
 }
 
+// Binds an ephemeral loopback port, learns its number and closes it again. The
+// number is what --port hands to the server, so the record file can be written
+// before the child has booted (see spawnResourceServer()).
+int pickFreeLoopbackPort(std::string& errorOut) {
+    NetSession net;
+    if (!net.ok) { errorOut = net.error; return 0; }
+
+    SocketHandle s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == kInvalidSocket) { errorOut = "socket() failed"; return 0; }
+
+    int port = 0;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    if (::bind(s, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) == 0) {
+        sockaddr_in bound{};
+#ifdef _WIN32
+        int boundLen = sizeof(bound);
+#else
+        socklen_t boundLen = sizeof(bound);
+#endif
+        if (getsockname(s, reinterpret_cast<sockaddr*>(&bound), &boundLen) == 0) {
+            port = ntohs(bound.sin_port);
+        }
+    }
+    closeSocket(s);
+    if (port <= 0) errorOut = "no free loopback port";
+    return port;
+}
+
 bool requestServerLine(const std::string& host, int port, const std::string& requestLine,
                        std::string& responseOut, std::string& errorOut, int timeoutMs) {
     responseOut.clear();
@@ -375,7 +406,7 @@ bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut) 
 // ---------------------------------------------------------------------------
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
                          unsigned long long& pidOut, std::string& errorOut,
-                         unsigned long long parentPid) {
+                         unsigned long long parentPid, const fs::path& recordFile) {
     portOut = 0;
     pidOut = 0;
     errorOut.clear();
@@ -386,8 +417,13 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         return false;
     }
 
+    // Pick the port up front: the record file is written the moment the child
+    // exists (see below), and it has to name the port the server will listen on.
+    const int chosenPort = pickFreeLoopbackPort(errorOut);
+    if (chosenPort <= 0) return false;
+
     std::string cmd = "\"" + absoluteOr(exe) + "\" --project \"" + absoluteOr(projectDir) +
-                      "\" --port 0";
+                      "\" --port " + std::to_string(chosenPort);
     if (parentPid != 0) cmd += " --parent " + std::to_string(parentPid);
 
     SECURITY_ATTRIBUTES sa{ sizeof(sa), nullptr, TRUE };
@@ -417,6 +453,16 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
     }
     CloseHandle(hWrite);
 
+    // Record the server before waiting on its stdout banner: booting and
+    // indexing can take seconds, and an editor crash in that window used to
+    // leave an orphan no later session could find, so each restart spawned
+    // yet another instance. The main thread rewrites the record after the
+    // handshake confirms the port.
+    if (!recordFile.empty()) {
+        std::string recordError;
+        writeServerRecord(recordFile, chosenPort, pi.dwProcessId, projectDir, recordError);
+    }
+
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kSpawnWaitMs);
     bool found = false;
     std::string acc, pending;
@@ -444,8 +490,9 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
     }
 
     if (!found) {
-        // A server we cannot reach is useless: reap it.
+        // A server we cannot reach is useless: reap it and drop its record.
         TerminateProcess(pi.hProcess, 1);
+        if (!recordFile.empty()) removeServerRecord(recordFile);
         portOut = 0;
         errorOut = "doriax-resource-server did not report a listening port";
         CloseHandle(hRead);
@@ -484,7 +531,7 @@ bool stopResourceServer(unsigned long long pid, std::string& errorOut) {
 // ---------------------------------------------------------------------------
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
                          unsigned long long& pidOut, std::string& errorOut,
-                         unsigned long long parentPid) {
+                         unsigned long long parentPid, const fs::path& recordFile) {
     portOut = 0;
     pidOut = 0;
     errorOut.clear();
@@ -495,9 +542,14 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         return false;
     }
 
+    // Pick the port up front: the record file is written the moment the child
+    // exists (see below), and it has to name the port the server will listen on.
+    const int chosenPort = pickFreeLoopbackPort(errorOut);
+    if (chosenPort <= 0) return false;
+
     std::string exeStr = absoluteOr(exe);
     std::string projStr = absoluteOr(projectDir);
-    std::string portStr = "0";
+    std::string portStr = std::to_string(chosenPort);
     std::string parentStr = std::to_string(parentPid);
     std::vector<char*> args = { const_cast<char*>(exeStr.c_str()), const_cast<char*>("--project"),
                                 const_cast<char*>(projStr.c_str()), const_cast<char*>("--port"),
@@ -536,6 +588,14 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         return false;
     }
 
+    // See the Windows spawn: the record is written before the handshake so a
+    // crash while the server boots cannot orphan it unrecorded.
+    if (!recordFile.empty()) {
+        std::string recordError;
+        writeServerRecord(recordFile, chosenPort, static_cast<unsigned long long>(pid), projectDir,
+                          recordError);
+    }
+
     auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kSpawnWaitMs);
     bool found = false;
     std::string acc;
@@ -569,6 +629,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         kill(-pid, SIGTERM);
         int status = 0;
         waitpid(pid, &status, 0);
+        if (!recordFile.empty()) removeServerRecord(recordFile);
         portOut = 0;
         errorOut = "doriax-resource-server did not report a listening port";
         return false;
