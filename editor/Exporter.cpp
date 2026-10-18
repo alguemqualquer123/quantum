@@ -7,6 +7,7 @@
 #include "Generator.h"
 #include "Out.h"
 #include "Stream.h"
+#include "cli/ResourceCompilerCli.h"
 #include "util/Base64.h"
 #include "util/FileUtils.h"
 #include "util/MsBuildProgress.h"
@@ -33,20 +34,7 @@ namespace {
     constexpr float BUILD_PROGRESS_START = 0.6f;
     constexpr float BUILD_PROGRESS_END = 0.95f;
     constexpr float MSBUILD_COMPILE_END = 0.9f;
-    constexpr char RESOURCE_PACK_MAGIC[] = {'D', 'X', 'P', 'K', '1'};
-    constexpr const char* RESOURCE_PACK_FILENAME = "resources.pak";
-    constexpr const char* RESOURCE_PACK_TEMP_FILENAME = "resources.pak.tmp";
-    // The reader seeks with off_t, still 32-bit on the armeabi-v7a and x86 ABIs
-    constexpr uint64_t MAX_RESOURCE_PACK_SIZE = INT32_MAX;
-
-    struct ResourcePackBuildEntry {
-        std::string path;      // key inside the pack, relative to the export root
-        fs::path source;
-        uint64_t size = 0;
-        uint64_t offset = 0;
-        uint8_t key = 0;
-        uint32_t shift = 0;
-    };
+    constexpr const char* RESOURCE_PACK_FILENAME = editor::cli::RESOURCE_PACK_FILENAME;
 
     // Parses make-style "[ 47%]" and ninja-style "[123/456]" build-line prefixes
     // into a 0..1 fraction so the compile step can drive the progress bar.
@@ -73,65 +61,6 @@ namespace {
         } catch (...) {
             return false;
         }
-    }
-
-    void writeU8(std::ofstream& out, uint8_t value) {
-        out.put(static_cast<char>(value));
-    }
-
-    void writeU16(std::ofstream& out, uint16_t value) {
-        out.put(static_cast<char>(value & 0xff));
-        out.put(static_cast<char>((value >> 8) & 0xff));
-    }
-
-    void writeU32(std::ofstream& out, uint32_t value) {
-        for (int i = 0; i < 4; i++) {
-            out.put(static_cast<char>((value >> (i * 8)) & 0xff));
-        }
-    }
-
-    void writeU64(std::ofstream& out, uint64_t value) {
-        for (int i = 0; i < 8; i++) {
-            out.put(static_cast<char>((value >> (i * 8)) & 0xff));
-        }
-    }
-
-    // Undone by ResourcePack::deobfuscate. Not encryption: the key is in the header.
-    void obfuscate(std::vector<unsigned char>& data, uint8_t key, uint32_t shift) {
-        if (data.empty()) return;
-
-        shift %= data.size();
-        if (shift > 0) {
-            std::rotate(data.begin(), data.end() - shift, data.end());
-        }
-
-        for (unsigned char& byte : data) {
-            byte ^= key;
-        }
-    }
-
-    bool isReservedPackName(std::string name) {
-        std::transform(name.begin(), name.end(), name.begin(),
-                       [](unsigned char c) { return std::tolower(c); });
-        return name == RESOURCE_PACK_FILENAME || name == RESOURCE_PACK_TEMP_FILENAME;
-    }
-
-    // From what the header already carries, so both passes agree without the bytes
-    void deriveObfuscation(ResourcePackBuildEntry& entry) {
-        const size_t hash = std::hash<std::string>{}(entry.path) ^ (static_cast<size_t>(entry.size) << 1);
-        entry.key = static_cast<uint8_t>((hash % 255) + 1);
-        entry.shift = entry.size == 0 ? 0 : static_cast<uint32_t>(hash % entry.size);
-    }
-
-    bool readWholeFile(const fs::path& path, std::vector<unsigned char>& data) {
-        std::ifstream in(path, std::ios::binary);
-        if (!in) return false;
-        in.seekg(0, std::ios::end);
-        std::streamoff size = in.tellg();
-        if (size < 0) return false;
-        in.seekg(0, std::ios::beg);
-        data.resize(static_cast<size_t>(size));
-        return data.empty() || static_cast<bool>(in.read(reinterpret_cast<char*>(data.data()), size));
     }
 }
 
@@ -803,191 +732,28 @@ bool editor::Exporter::collectDesktopArtifacts() {
 
 // Clears a pack and the temporary an interrupted write may have left beside it.
 bool editor::Exporter::removeResourcePack(const fs::path& packPath) {
-    std::error_code ec;
-    for (const fs::path& path : {packPath, packPath.parent_path() / RESOURCE_PACK_TEMP_FILENAME}) {
-        fs::remove(path, ec);
-        if (ec) {
-            setError("Failed to remove " + path.string() + ": " + ec.message());
-            return false;
-        }
+    std::string error;
+    if (!cli::removeResourcePack(packPath, error)) {
+        setError(error);
+        return false;
     }
 
     return true;
 }
 
 bool editor::Exporter::writeNativeResourcePack(const fs::path& outputPath, bool& created) {
-    setProgressRaw("Packing resources...", 0.95f);
+    cli::PakOptions options;
+    options.projectDir = getExportProjectRoot();
+    options.outputPack = outputPath;
+    options.onProgress = [this](const std::string& step, float value) { setProgressRaw(step, value); };
+    options.isCancelled = [this]() { return isCancelled(); };
 
-    created = false;
-    std::vector<ResourcePackBuildEntry> entries;
-    const fs::path projectRoot = getExportProjectRoot();
-
-    // Written aside and renamed, so a half-written pack is never left for the cleanup
-    const fs::path tempPath = outputPath.parent_path() / RESOURCE_PACK_TEMP_FILENAME;
-
-    // Sizing pass: paths and sizes settle the header, so no bytes are read yet
-    std::error_code ec;
-    for (const char* rootName : {"assets", "lua"}) {
-        const fs::path root = projectRoot / rootName;
-
-        fs::recursive_directory_iterator files(root, fs::directory_options::skip_permission_denied, ec);
-        if (ec == std::errc::no_such_file_or_directory) continue;
-        if (ec) {
-            setError(std::string("Failed to read exported ") + rootName + " directory: " + ec.message());
-            return false;
-        }
-
-        for (fs::recursive_directory_iterator end; files != end; files.increment(ec)) {
-            if (isCancelled()) {
-                setError("Export cancelled");
-                return false;
-            }
-
-            const fs::path filePath = files->path();
-            const bool regular = files->is_regular_file(ec);
-            if (ec) {
-                setError("Failed to read resource for pack: " + filePath.string() + ": " + ec.message());
-                return false;
-            }
-            if (!regular) continue;
-            // A pack left by an earlier export into the same directory is replaced, not packed
-            if (filePath == outputPath || filePath == tempPath) continue;
-
-            fs::path relPath = fs::relative(filePath, projectRoot, ec);
-            if (ec || relPath.empty()) {
-                setError("Failed to resolve resource path for pack: " + filePath.string());
-                return false;
-            }
-
-            ResourcePackBuildEntry entry;
-            entry.path = relPath.generic_string();
-            if (entry.path.size() > UINT16_MAX) {
-                setError("Resource path is too long for pack: " + entry.path);
-                return false;
-            }
-
-            const uintmax_t fileSize = fs::file_size(filePath, ec);
-            if (ec) {
-                setError("Failed to read resource size for pack: " + filePath.string() + ": " + ec.message());
-                return false;
-            }
-            // Data::open() reports lengths as unsigned int
-            if (fileSize > UINT32_MAX) {
-                setError("Resource is too large to pack: " + filePath.string());
-                return false;
-            }
-
-            entry.source = filePath;
-            entry.size = static_cast<uint64_t>(fileSize);
-            deriveObfuscation(entry);
-
-            entries.push_back(std::move(entry));
-        }
-        // increment() lands on end when it fails, so the loop condition exits first
-        if (ec) {
-            setError(std::string("Failed to walk exported ") + rootName + " directory: " + ec.message());
-            return false;
-        }
-    }
-
-    if (entries.empty()) {
-        return removeResourcePack(outputPath);
-    }
-
-    std::sort(entries.begin(), entries.end(), [](const ResourcePackBuildEntry& a, const ResourcePackBuildEntry& b) {
-        return a.path < b.path;
-    });
-
-    // magic + count, then per entry: u16 path length, path, u64 offset, u64 size, u8 key, u32 shift
-    uint64_t offset = sizeof(RESOURCE_PACK_MAGIC) + 4;
-    for (const auto& entry : entries) {
-        offset += 2 + entry.path.size() + 8 + 8 + 1 + 4;
-    }
-    for (auto& entry : entries) {
-        entry.offset = offset;
-        offset += entry.size;
-    }
-
-    if (offset > MAX_RESOURCE_PACK_SIZE) {
-        setError("Packed resources exceed the 2 GiB limit. Disable Native Resource Pack in Project Settings.");
+    std::string error;
+    if (!cli::buildResourcePack(options, created, error)) {
+        setError(error);
         return false;
     }
 
-    fs::create_directories(outputPath.parent_path(), ec);
-    if (ec) {
-        setError("Failed to create resource pack directory: " + ec.message());
-        return false;
-    }
-
-    std::ofstream out(tempPath, std::ios::binary);
-    if (!out) {
-        setError("Failed to create resource pack: " + tempPath.string());
-        return false;
-    }
-
-    out.write(RESOURCE_PACK_MAGIC, sizeof(RESOURCE_PACK_MAGIC));
-    writeU32(out, static_cast<uint32_t>(entries.size()));
-
-    for (const auto& entry : entries) {
-        writeU16(out, static_cast<uint16_t>(entry.path.size()));
-        out.write(entry.path.data(), static_cast<std::streamsize>(entry.path.size()));
-        writeU64(out, entry.offset);
-        writeU64(out, entry.size);
-        writeU8(out, entry.key);
-        writeU32(out, entry.shift);
-    }
-
-    // Write pass: one resource in memory at a time, so packing does not scale with the project
-    std::vector<unsigned char> data;
-    bool bodiesWritten = true;
-    for (const auto& entry : entries) {
-        if (isCancelled()) {
-            setError("Export cancelled");
-            bodiesWritten = false;
-            break;
-        }
-        if (!readWholeFile(entry.source, data)) {
-            setError("Failed to read resource for pack: " + entry.source.string());
-            bodiesWritten = false;
-            break;
-        }
-        if (data.size() != entry.size) {
-            setError("Resource changed while packing: " + entry.source.string());
-            bodiesWritten = false;
-            break;
-        }
-
-        obfuscate(data, entry.key, entry.shift);
-        if (!data.empty()) {
-            out.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
-        }
-    }
-
-    // A flush failure only surfaces on close, and Windows will not remove an open file
-    out.close();
-    if (bodiesWritten && !out) {
-        setError("Failed to write resource pack: " + tempPath.string());
-        bodiesWritten = false;
-    }
-    if (!bodiesWritten) {
-        fs::remove(tempPath, ec);
-        return false;
-    }
-
-    if (isCancelled()) {
-        fs::remove(tempPath, ec);
-        setError("Export cancelled");
-        return false;
-    }
-
-    fs::rename(tempPath, outputPath, ec);
-    if (ec) {
-        setError("Failed to replace resource pack: " + ec.message());
-        fs::remove(tempPath, ec);
-        return false;
-    }
-
-    created = true;
     return true;
 }
 
@@ -1037,17 +803,9 @@ bool editor::Exporter::collectSourceResourcePack() {
 // Gathers a packed tree's contents before anything is removed, so the walk never
 // mutates the directory it is reading. The directory itself is left in place.
 bool editor::Exporter::collectPackedTreeEntries(const fs::path& dir, std::vector<fs::path>& out, const fs::path& keep) {
-    std::error_code ec;
-    fs::directory_iterator entries(dir, ec);
-    if (ec == std::errc::no_such_file_or_directory) return true;
-
-    for (fs::directory_iterator end; !ec && entries != end; entries.increment(ec)) {
-        if (!keep.empty() && entries->path() == keep) continue;
-
-        out.push_back(entries->path());
-    }
-    if (ec) {
-        setError("Failed to read exported directory " + dir.string() + ": " + ec.message());
+    std::string error;
+    if (!cli::collectPackedTreeEntries(dir, out, error, keep)) {
+        setError(error);
         return false;
     }
 
@@ -1312,7 +1070,7 @@ bool editor::Exporter::copyAssets() {
 
         // The engine loads a "resources.pak" at the asset root, so the name is reserved.
         // Matched without case and before the regular-file skip: a directory aliases it too.
-        if (isReservedPackName(firstComponent)) {
+        if (cli::isReservedPackName(firstComponent)) {
             setError("\"" + firstComponent + "\" is reserved for the resource pack. "
                 "Rename " + entry.path().string());
             return false;

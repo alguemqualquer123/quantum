@@ -430,6 +430,10 @@ include_directories (${SHADERCOMPILER_ROOT}/src)
 
 add_subdirectory(${DORIAX_ROOT})
 
+# Standalone game runtime exe; needs the doriax link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/doriax_engine_exe.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/doriax_reflector.cmake)
+
 # Signed alongside the exes, so it needs the same metadata. MinGW prefixes the name.
 if(WIN32 AND DORIAX_SHARED)
     doriax_add_windows_resource(
@@ -496,6 +500,7 @@ add_custom_target(generate_api_suggestions DEPENDS ${API_SUGGESTIONS_HEADER})
 set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/main.cpp
     ${EDITOR_DIR}/cli/CommandLine.cpp
+    ${EDITOR_DIR}/cli/ResourceCompilerCli.cpp
     ${EDITOR_DIR}/App.cpp
     ${EDITOR_DIR}/AppSettings.cpp
     ${EDITOR_DIR}/Theme.cpp
@@ -538,6 +543,7 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/util/TerrainMapUtils.cpp
     ${EDITOR_DIR}/util/UIUtils.cpp
     ${EDITOR_DIR}/util/CommandRunner.cpp
+    ${EDITOR_DIR}/util/ProcessStats.cpp
     ${EDITOR_DIR}/util/ShellEnv.cpp
 
     ${EDITOR_DIR}/shader/ShaderBuilder.cpp
@@ -554,6 +560,10 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/window/AiChatWindow.cpp
     ${EDITOR_DIR}/window/LoadingWindow.cpp
     ${EDITOR_DIR}/window/MarkdownRenderer.cpp
+    ${EDITOR_DIR}/window/NotificationsWindow.cpp
+    ${EDITOR_DIR}/window/CommandPaletteWindow.cpp
+    ${EDITOR_DIR}/window/WelcomeScreenWindow.cpp
+    ${EDITOR_DIR}/window/ResourceMonitorWindow.cpp
     ${EDITOR_DIR}/window/dialog/SceneSaveDialog.cpp
     ${EDITOR_DIR}/window/dialog/ComponentAddDialog.cpp
     ${EDITOR_DIR}/window/dialog/ProjectSaveDialog.cpp
@@ -663,7 +673,7 @@ function(configure_doriax_editor_target target_name)
 
     if(WIN32)
         # dbghelp resolves the crash-report backtrace.
-        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp)
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi)
     else()
         target_link_libraries(${target_name} PRIVATE CURL::libcurl)
         # -rdynamic names the editor's own frames in the crash backtrace, at about 10 MB of
@@ -844,6 +854,9 @@ if(WIN32)
     add_dependencies(doriax-editor-cmd copy_doriax_editor_engine)
     list(APPEND DORIAX_EDITOR_INSTALL_TARGETS doriax-editor-cmd)
 endif()
+
+# Headless asset compiler (pak/shaders/inspect); target defined in the .cmake.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/doriax_resource_compiler.cmake)
 
 # The bundle already holds the dylib and engine/.
 if(APPLE)

@@ -3,6 +3,7 @@
 
 #include "Backend.h"
 #include "cli/CommandLine.h"
+#include "cli/ResourceCompilerCli.h"
 #include "util/ShellEnv.h"
 
 #include <cstring>
@@ -18,6 +19,21 @@ int main(int argc, char* argv[]) {
     if (argc >= 2 && std::strcmp(argv[1], "export") == 0) {
         return editor::CommandLine::runExportCommand(argc - 1, argv + 1, argv[0]);
     }
+#ifdef DORIAX_CLI_FRONTEND
+    // doriax-resource-compiler: headless asset tool. Only the recognized
+    // subcommands run, and the backend never starts, so no window opens even
+    // when invoked without arguments or with an unknown one.
+    if (argc >= 2 && std::strcmp(argv[1], "shaders") == 0) {
+        return editor::cli::runShadersCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "pak") == 0) {
+        return editor::cli::runPakCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "inspect") == 0) {
+        return editor::cli::runInspectCommand(argc - 1, argv + 1, argv[0]);
+    }
+    return editor::cli::runResourceCompilerHelpCommand(argc - 1, argv + 1, argv[0]);
+#else
     if (argc >= 2 && std::strcmp(argv[1], "shaders") == 0) {
         return editor::CommandLine::runShadersCommand(argc - 1, argv + 1, argv[0]);
     }
@@ -26,4 +42,5 @@ int main(int argc, char* argv[]) {
     }
 
     return editor::Backend::init(argc, argv);
+#endif
 }
