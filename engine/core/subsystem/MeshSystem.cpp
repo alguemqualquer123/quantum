@@ -8,6 +8,7 @@
 #include "buffer/InterleavedBuffer.h"
 #include "io/FileData.h"
 #include "io/Data.h"
+#include "io/BuiltinModel.h"
 #include "io/ResourcePack.h"
 #include "pool/ModelPool.h"
 #include "thread/ResourceProgress.h"
@@ -867,6 +868,29 @@ bool MeshSystem::getFileSizeInBytes(size_t *filesize_out, std::string *err, cons
     return true;
 }
 
+namespace {
+
+// One place chooses between the engine's own bytes and a file lookup, so the
+// synchronous parse and the async worker parse cannot drift apart.
+bool parseGLTFFromPath(tinygltf::TinyGLTF &loader, tinygltf::Model *model,
+                       const std::string &filename, std::string &err, std::string &warn) {
+    if (const std::vector<unsigned char> *builtin = BuiltinModels::find(filename)) {
+        // A builtin GLB embeds its buffers and images, so there is no base_dir
+        // for tinygltf to resolve external URIs against.
+        return loader.LoadBinaryFromMemory(model, &err, &warn, builtin->data(),
+                                           static_cast<unsigned int>(builtin->size()),
+                                           std::string());
+    }
+
+    std::string ext = FileData::getFilePathExtension(filename);
+    if (ext.compare("glb") == 0) {
+        return loader.LoadBinaryFromFile(model, &err, &warn, filename);
+    }
+    return loader.LoadASCIIFromFile(model, &err, &warn, filename);
+}
+
+}
+
 std::string MeshSystem::getAsyncModelLoadScenePrefix(const Scene* scene){
     std::ostringstream key;
     key << reinterpret_cast<uintptr_t>(scene) << '|';
@@ -1116,12 +1140,8 @@ std::shared_ptr<MeshSystem::AsyncModelLoadResult> MeshSystem::loadModelFileOnWor
             loader.SetFsCallbacks({&fileExists, &tinygltf::ExpandFilePath, &readWholeFile, &tinygltf::WriteWholeFile, &getFileSizeInBytes});
             loader.SetImagesAsIs(true); // keep images encoded; decode in parallel below
 
-            std::string ext = FileData::getFilePathExtension(filename);
-            if (ext.compare("glb") == 0) {
-                result->success = loader.LoadBinaryFromFile(result->gltfModel.get(), &result->err, &result->warn, filename);
-            }else{
-                result->success = loader.LoadASCIIFromFile(result->gltfModel.get(), &result->err, &result->warn, filename);
-            }
+            result->success = parseGLTFFromPath(loader, result->gltfModel.get(), filename,
+                                                result->err, result->warn);
             if (result->success) {
                 decodeGLTFImagesParallel(*result->gltfModel, 0); // background loads are full resolution
 
@@ -3498,13 +3518,7 @@ bool MeshSystem::loadGLTF(Entity entity, const std::string filename, bool asyncL
             loader.SetFsCallbacks({&fileExists, &tinygltf::ExpandFilePath, &readWholeFile, &tinygltf::WriteWholeFile, &getFileSizeInBytes});
             loader.SetImagesAsIs(true); // keep images encoded; decode in parallel below
 
-            std::string ext = FileData::getFilePathExtension(filename);
-
-            if (ext.compare("glb") == 0) {
-                res = loader.LoadBinaryFromFile(model.gltfModel.get(), &err, &warn, filename); // for binary glTF(.glb)
-            }else{
-                res = loader.LoadASCIIFromFile(model.gltfModel.get(), &err, &warn, filename);
-            }
+            res = parseGLTFFromPath(loader, model.gltfModel.get(), filename, err, warn);
 
             if (!warn.empty()) {
                 Log::warn("Loading GLTF model (%s): %s", filename.c_str(), warn.c_str());

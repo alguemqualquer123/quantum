@@ -58,6 +58,7 @@
 #include "component/PanelComponent.h"
 #include "util/SHA1.h"
 #include "util/ProjectUtils.h"
+#include "io/BuiltinModel.h"
 #include "Stream.h"
 #include "Out.h"
 #include "subsystem/ActionSystem.h"
@@ -6048,6 +6049,15 @@ void editor::Properties::drawModelComponent(ComponentType cpType, SceneProject* 
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
+        }
+
+        // The engine carries its own model, so an entity can be made visible
+        // without hunting for an asset; setting it is a normal, undoable edit.
+        if (BuiltinModels::isBuiltinPath(currentPath)) {
+            ImGui::TextDisabled("Built into the engine");
+        } else if (ImGui::SmallButton("Use engine default model")) {
+            CommandHandle::get(project->getSelectedSceneId())->addCommandNoMerge(
+                new ModelLoadCmd(project, sceneProject->id, entity, BuiltinModels::defaultPath()));
         }
 
         ImGui::EndGroup();
