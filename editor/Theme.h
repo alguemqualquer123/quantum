@@ -9,6 +9,11 @@ namespace doriax::editor {
 
     class Theme {
     public:
+        enum class Preset {
+            Dark,
+            Light,
+        };
+
         struct Colors {
             static ImVec4 ButtonActivated;
             static ImVec4 FileCardBackground;
@@ -32,6 +37,15 @@ namespace doriax::editor {
 
         static void apply();
         static void applyDpiScale(float dpiScale);
+
+        // apply() must run again after these for the style to change; the
+        // setters only store state so callers can batch changes at boot.
+        static void setPreset(Preset preset);
+        static Preset getPreset();
+
+        // "#RRGGBB" or "#RRGGBBAA"; invalid values keep the previous accent.
+        static bool setAccentColor(const char* hex);
+        static const char* getAccentColor();
 
         static float dpiScale();
         static float dpi(float value);
