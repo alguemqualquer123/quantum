@@ -19,10 +19,14 @@ struct ServerOptions {
     bool verbose = false;
     bool once = false;       // single scan, print summary, exit
     std::string token;       // when set, every request must carry "token"
+    // The editor process that spawned this server (0 when unknown). Only the
+    // tray menu uses it, for "Close server and editor".
+    unsigned long long parentPid = 0;
 };
 
-// Runs until the process is asked to terminate (Ctrl+C on Windows). Returns
-// the process exit code. Handles WSAStartup/cleanup internally.
+// Runs until the process is asked to terminate (Ctrl+C, or the tray menu's
+// "Close server"). Returns the process exit code. Handles WSAStartup/cleanup
+// internally. Outlives the editor on purpose: see TrayIcon.h.
 int runResourceServer(const ServerOptions& options);
 
 // Scans once and prints a human-readable summary (the --once mode, and the

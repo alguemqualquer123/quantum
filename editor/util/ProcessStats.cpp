@@ -221,6 +221,7 @@ namespace doriax::editor {
 #if defined(_WIN32)
             HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, static_cast<DWORD>(pid));
             if (process) {
+                sample.alive = true;
                 sample.name = processName(process);
 
                 PROCESS_MEMORY_COUNTERS_EX pmc{};
@@ -238,6 +239,8 @@ namespace doriax::editor {
             // macOS has no /proc, so every read fails and the sample stays zeroed.
             const long nativePid = static_cast<long>(pid);
             sample.name = readProcessName(nativePid);
+            // A readable comm file is the cheapest liveness check available.
+            sample.alive = !sample.name.empty();
             // RSS doubles as the working set; Linux exposes no cheap per-process private-byte count.
             sample.workingSetBytes = readRssBytes("/proc/" + std::to_string(pid) + "/status");
 

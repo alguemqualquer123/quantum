@@ -17,6 +17,9 @@ namespace doriax::editor {
         double cpuPercent = 0.0;
         uint64_t workingSetBytes = 0;
         uint64_t privateBytes = 0;
+        // False when the pid could not be opened/read: the child exited or is
+        // protected. Every other field is zeroed in that case.
+        bool alive = false;
     };
 
     // Dependency-free process sampler for the Resource Monitor window. Reads the

@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -175,6 +176,30 @@ std::string absoluteOr(const fs::path& p) {
     std::error_code ec;
     fs::path a = fs::absolute(p, ec);
     return (ec ? p : a).generic_u8string();
+}
+
+// Splits one record line on '\t' (port, pid, project). Anything else is a
+// truncated or hand-edited file, which readServerRecord() reports as stale.
+bool splitRecordLine(const std::string& line, int& portOut, unsigned long long& pidOut,
+                     fs::path& projectOut) {
+    const size_t first = line.find('\t');
+    const size_t second = line.find('\t', first == std::string::npos ? 0 : first + 1);
+    if (first == std::string::npos || second == std::string::npos || first == 0) return false;
+
+    const std::string portText = line.substr(0, first);
+    const std::string pidText = line.substr(first + 1, second - first - 1);
+    const std::string projectText = line.substr(second + 1);
+    if (portText.empty() || pidText.empty() || projectText.empty()) return false;
+    if (!std::all_of(portText.begin(), portText.end(),
+                     [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; }))
+        return false;
+
+    const long port = std::strtol(portText.c_str(), nullptr, 10);
+    if (port <= 0 || port > 65535) return false;
+    pidOut = std::strtoull(pidText.c_str(), nullptr, 10);
+    portOut = static_cast<int>(port);
+    projectOut = fs::path(projectText);
+    return pidOut != 0;
 }
 
 #ifdef _WIN32
@@ -349,7 +374,8 @@ bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut) 
 // detached (no wait, handles closed after the port line arrives).
 // ---------------------------------------------------------------------------
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
-                         unsigned long long& pidOut, std::string& errorOut) {
+                         unsigned long long& pidOut, std::string& errorOut,
+                         unsigned long long parentPid) {
     portOut = 0;
     pidOut = 0;
     errorOut.clear();
@@ -362,6 +388,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
 
     std::string cmd = "\"" + absoluteOr(exe) + "\" --project \"" + absoluteOr(projectDir) +
                       "\" --port 0";
+    if (parentPid != 0) cmd += " --parent " + std::to_string(parentPid);
 
     SECURITY_ATTRIBUTES sa{ sizeof(sa), nullptr, TRUE };
     HANDLE hRead = nullptr, hWrite = nullptr;
@@ -456,7 +483,8 @@ bool stopResourceServer(unsigned long long pid, std::string& errorOut) {
 // the child is left in its own process group and never reaped here.
 // ---------------------------------------------------------------------------
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
-                         unsigned long long& pidOut, std::string& errorOut) {
+                         unsigned long long& pidOut, std::string& errorOut,
+                         unsigned long long parentPid) {
     portOut = 0;
     pidOut = 0;
     errorOut.clear();
@@ -470,9 +498,16 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
     std::string exeStr = absoluteOr(exe);
     std::string projStr = absoluteOr(projectDir);
     std::string portStr = "0";
-    char* argv[] = { const_cast<char*>(exeStr.c_str()), const_cast<char*>("--project"),
-                     const_cast<char*>(projStr.c_str()), const_cast<char*>("--port"),
-                     portStr.data(), nullptr };
+    std::string parentStr = std::to_string(parentPid);
+    std::vector<char*> args = { const_cast<char*>(exeStr.c_str()), const_cast<char*>("--project"),
+                                const_cast<char*>(projStr.c_str()), const_cast<char*>("--port"),
+                                portStr.data() };
+    if (parentPid != 0) {
+        args.push_back(const_cast<char*>("--parent"));
+        args.push_back(parentStr.data());
+    }
+    args.push_back(nullptr);
+    char** argv = args.data();
 
     int pipefd[2];
     if (pipe(pipefd) != 0) { errorOut = "pipe() failed"; return false; }
@@ -557,7 +592,75 @@ bool stopResourceServer(unsigned long long pid, std::string& errorOut) {
 
 bool spawnResourceServer(const fs::path& projectDir, int& portOut, unsigned long long& pidOut,
                          std::string& errorOut) {
-    return spawnResourceServer(projectDir, fs::path(), portOut, pidOut, errorOut);
+    return spawnResourceServer(projectDir, fs::path(), portOut, pidOut, errorOut, 0);
+}
+
+bool processIsRunning(unsigned long long pid) {
+    if (pid == 0) return false;
+#ifdef _WIN32
+    HANDLE handle = OpenProcess(SYNCHRONIZE, FALSE, static_cast<DWORD>(pid));
+    if (!handle) return false;
+    const bool running = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
+    CloseHandle(handle);
+    return running;
+#else
+    if (kill(static_cast<pid_t>(pid), 0) == 0) return true;
+    // EPERM: the process exists, it simply is not ours to signal.
+    return errno == EPERM;
+#endif
+}
+
+unsigned long long currentProcessId() {
+#ifdef _WIN32
+    return static_cast<unsigned long long>(GetCurrentProcessId());
+#else
+    return static_cast<unsigned long long>(getpid());
+#endif
+}
+
+bool writeServerRecord(const fs::path& recordFile, int port, unsigned long long pid,
+                       const fs::path& projectDir, std::string& errorOut) {
+    errorOut.clear();
+    std::error_code ec;
+    const fs::path parent = recordFile.parent_path();
+    if (!parent.empty()) fs::create_directories(parent, ec);
+
+    std::ofstream out(recordFile, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        errorOut = "cannot write " + recordFile.generic_u8string();
+        return false;
+    }
+    out << port << '\t' << pid << '\t' << projectDir.generic_u8string() << '\n';
+    out.close();
+    return static_cast<bool>(out);
+}
+
+bool readServerRecord(const fs::path& recordFile, int& portOut, unsigned long long& pidOut,
+                      fs::path& projectOut, std::string& errorOut) {
+    portOut = 0;
+    pidOut = 0;
+    projectOut.clear();
+
+    std::ifstream in(recordFile);
+    if (!in) {
+        errorOut = "no server record";
+        return false;
+    }
+    std::string line;
+    std::getline(in, line);
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (!splitRecordLine(line, portOut, pidOut, projectOut)) {
+        errorOut = "unreadable server record";
+        portOut = 0;
+        pidOut = 0;
+        return false;
+    }
+    return true;
+}
+
+void removeServerRecord(const fs::path& recordFile) {
+    std::error_code ec;
+    fs::remove(recordFile, ec);
 }
 
 }

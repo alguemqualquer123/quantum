@@ -139,13 +139,18 @@ namespace doriax::editor{
 
         // doriax-resource-server (tools/resource-server): the local asset index
         // service. One server runs per opened project, so a project switch stops
-        // the old one before spawning the next.
+        // the old one before spawning the next. Closing the editor instead leaves
+        // it alive in the Windows notification area, which is what the record
+        // file exists for: the next session adopts it instead of doubling up.
         std::thread resourceServerThread;
         unsigned long long resourceServerGeneration = 0;
         unsigned long long resourceServerPid = 0;
         int resourceServerPort = 0;
+        std::filesystem::path resourceServerRecord;
         void updateResourceServer(const std::filesystem::path& projectPath);
         void stopResourceServer();
+        void detachResourceServer();
+        static std::filesystem::path resourceServerRecordFile(const std::filesystem::path& projectPath);
 
         std::vector<std::string> droppedExternalPaths;
         bool isDroppedExternalPaths;

@@ -17,6 +17,7 @@
 #include "util/ProjectUtils.h"
 #include "util/Util.h"
 #include "util/FileUtils.h"
+#include "util/SystemStats.h"
 #include "cli/ResourceServerClient.h"
 
 #include "window/NotificationsWindow.h"
@@ -38,6 +39,8 @@
 #include "subsystem/MeshSystem.h"
 
 #include <filesystem>
+#include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
@@ -775,6 +778,35 @@ void editor::App::showMenu(){
     showImGuiMenu(menu);
 }
 
+namespace {
+    // Footer-sized byte strings: 8.4 GB, 512 MB, 47 KB. The footer redraws every
+    // frame, so the formatting stays snprintf-into-a-stack-buffer.
+    char* footerBytes(char* buffer, size_t size, unsigned long long bytes) {
+        const double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
+        if (mb >= 1024.0) {
+            std::snprintf(buffer, size, "%.1f GB", mb / 1024.0);
+        } else if (mb >= 1.0) {
+            std::snprintf(buffer, size, "%.0f MB", mb);
+        } else {
+            std::snprintf(buffer, size, "%.0f KB", static_cast<double>(bytes) / 1024.0);
+        }
+        return buffer;
+    }
+
+    char* footerRate(char* buffer, size_t size, double bytesPerSecond) {
+        if (bytesPerSecond < 0.0) bytesPerSecond = 0.0;
+        const double kb = bytesPerSecond / 1024.0;
+        if (kb >= 1024.0) {
+            std::snprintf(buffer, size, "%.1f MB/s", kb / 1024.0);
+        } else if (kb >= 1.0) {
+            std::snprintf(buffer, size, "%.0f KB/s", kb);
+        } else {
+            std::snprintf(buffer, size, "0 KB/s");
+        }
+        return buffer;
+    }
+}
+
 void editor::App::showFooter(){
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     if (!viewport) {
@@ -910,18 +942,88 @@ void editor::App::showFooter(){
             ImGui::EndDisabled();
         }
 
-        // Right side: Performance stats
+        // Right side: performance stats. FPS and frame time are pinned to the
+        // right edge; the machine cluster (CPU, RAM, GPU/VRAM, network) rides to
+        // their left while it fits. On narrow windows the cluster sheds from the
+        // tail (network first) instead of shoving the pinned stats off-screen.
         char fpsText[32];
         char msText[32];
         sprintf(fpsText, ICON_FA_GAUGE_HIGH " %.1f FPS", fps);
         sprintf(msText, ICON_FA_CLOCK " %.2f ms", deltaMs);
 
-        // Calculate width to position at right
-        float statsWidth = ImGui::CalcTextSize(fpsText).x + ImGui::CalcTextSize(msText).x + 30.0f;
-        float statsStartX = ImGui::GetWindowContentRegionMax().x - statsWidth;
+        struct FooterStat {
+            const char* text;
+            ImVec4 color;
+        };
+        FooterStat machineStats[6];
+        int machineStatCount = 0;
+
+        char cpuText[48];
+        char ramText[64];
+        char gpuText[48];
+        char vramText[64];
+        char downText[48];
+        char upText[48];
+        char scratch[32];
+
+        const SystemSample& machine = SystemStats::current();
+        if (machine.valid) {
+            const auto pressureColor = [](double fraction) {
+                if (fraction >= 0.90) return Theme::Colors::DangerText;
+                if (fraction >= 0.70) return Theme::Colors::WarningText;
+                return Theme::Colors::SuccessText;
+            };
+
+            sprintf(cpuText, ICON_FA_MICROCHIP " %.0f%%", machine.cpu.usagePercent);
+            machineStats[machineStatCount++] = {cpuText, pressureColor(machine.cpu.usagePercent / 100.0)};
+
+            sprintf(ramText, ICON_FA_MEMORY " %s",
+                    footerBytes(scratch, sizeof(scratch), machine.memory.usedBytes));
+            machineStats[machineStatCount++] = {ramText, ImGui::GetStyleColorVec4(ImGuiCol_Text)};
+
+            if (machine.gpu.usagePercent >= 0.0) {
+                sprintf(gpuText, ICON_FA_VIDEO " %.0f%%", machine.gpu.usagePercent);
+                machineStats[machineStatCount++] = {gpuText, pressureColor(machine.gpu.usagePercent / 100.0)};
+            }
+            if (machine.gpu.vramTotalBytes > 0) {
+                sprintf(vramText, ICON_FA_HARD_DRIVE " %s",
+                        footerBytes(scratch, sizeof(scratch), machine.gpu.vramUsedBytes));
+                machineStats[machineStatCount++] = {vramText, Theme::Colors::SubtleText};
+            }
+
+            sprintf(downText, ICON_FA_ARROW_DOWN " %s",
+                    footerRate(scratch, sizeof(scratch), machine.network.downBytesPerSec));
+            machineStats[machineStatCount++] = {downText, Theme::Colors::NetworkDown};
+            sprintf(upText, ICON_FA_ARROW_UP " %s",
+                    footerRate(scratch, sizeof(scratch), machine.network.upBytesPerSec));
+            machineStats[machineStatCount++] = {upText, Theme::Colors::NetworkUp};
+        }
+
+        // Width the whole cluster needs, separators included, then shed entries
+        // from the tail until the remainder fits beside the left side.
+        const float separatorWidth = ImGui::CalcTextSize("|").x + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+        float statsWidth = ImGui::CalcTextSize(fpsText).x + ImGui::CalcTextSize(msText).x + separatorWidth;
+        for (int i = 0; i < machineStatCount; ++i) {
+            statsWidth += separatorWidth + ImGui::CalcTextSize(machineStats[i].text).x;
+        }
+
+        const float minStartX = ImGui::GetCursorPosX() + Theme::dpi(8.0f);
+        while (machineStatCount > 0 && ImGui::GetWindowContentRegionMax().x - statsWidth < minStartX) {
+            --machineStatCount;
+            statsWidth -= separatorWidth + ImGui::CalcTextSize(machineStats[machineStatCount].text).x;
+        }
+
+        const float statsStartX = ImGui::GetWindowContentRegionMax().x - statsWidth;
         if (statsStartX > ImGui::GetCursorPosX()) {
             ImGui::SameLine(statsStartX);
         } else {
+            ImGui::SameLine();
+        }
+
+        for (int i = 0; i < machineStatCount; ++i) {
+            ImGui::TextColored(machineStats[i].color, "%s", machineStats[i].text);
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
             ImGui::SameLine();
         }
 
@@ -2036,7 +2138,9 @@ void editor::App::setWakeCallback(std::function<void()> cb) {
 void editor::App::shutdownBackgroundWork() {
     // Before glfwTerminate/SDL_Quit, or a late reply posts to a dead window system.
     if (aiChatWindow) aiChatWindow->shutdown();
-    stopResourceServer();
+    // Not stop: the server is built to outlive the editor and wait in the
+    // notification area, where its own menu offers to close it.
+    detachResourceServer();
     wakeCallback = nullptr;
 }
 
@@ -2162,14 +2266,47 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
     std::filesystem::path serverExe;
     if (!editor::cli::findResourceServerExecutable(serverExe)) return;
 
+    resourceServerRecord = resourceServerRecordFile(projectPath);
+
+    // A server started by an earlier editor session survives on purpose (it lives
+    // in the notification area). Adopt it rather than indexing the same project
+    // twice; anything the record points at that no longer answers is pruned.
+    int recordedPort = 0;
+    unsigned long long recordedPid = 0;
+    std::filesystem::path recordedProject;
+    std::string recordError;
+    bool adopted = false;
+    if (editor::cli::readServerRecord(resourceServerRecord, recordedPort, recordedPid,
+                                      recordedProject, recordError) &&
+        recordedProject == projectPath && editor::cli::processIsRunning(recordedPid)) {
+        std::string statusJson;
+        if (editor::cli::requestStatus(recordedPort, statusJson, recordError)) {
+            adopted = true;
+            resourceServerPort = recordedPort;
+            resourceServerPid = recordedPid;
+            if (g_resourceMonitorWindow) {
+                g_resourceMonitorWindow->addChildProcess(recordedPid,
+                    "doriax-resource-server:" + std::to_string(recordedPort));
+            }
+            Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
+                      recordedPort);
+        }
+    }
+    if (!adopted) {
+        editor::cli::removeServerRecord(resourceServerRecord);
+    } else {
+        return;
+    }
+
     const unsigned long long generation = ++resourceServerGeneration;
     // spawnResourceServer waits on the child's stdout, so keep it off the UI thread.
     resourceServerThread = std::thread([this, projectPath, serverExe, generation]() {
         int port = 0;
         unsigned long long pid = 0;
         std::string error;
-        const bool ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error);
-        enqueueMainThreadTask([this, generation, ok, port, pid, error]() {
+        const bool ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error,
+                                                         editor::cli::currentProcessId());
+        enqueueMainThreadTask([this, generation, ok, port, pid, error, projectPath]() {
             if (generation != resourceServerGeneration) {
                 std::string ignored;
                 if (ok) editor::cli::stopResourceServer(pid, ignored);
@@ -2181,6 +2318,11 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             }
             resourceServerPort = port;
             resourceServerPid = pid;
+            std::string recordError;
+            if (!editor::cli::writeServerRecord(resourceServerRecord, port, pid, projectPath,
+                                                recordError) && !recordError.empty()) {
+                Out::warning("Resource server: %s", recordError.c_str());
+            }
             if (g_resourceMonitorWindow) {
                 g_resourceMonitorWindow->addChildProcess(pid,
                     "doriax-resource-server:" + std::to_string(port));
@@ -2190,15 +2332,47 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
     });
 }
 
+std::filesystem::path editor::App::resourceServerRecordFile(const std::filesystem::path& projectPath) {
+    // Keyed by project so servers for different projects never overwrite each
+    // other's record; hashed because a full path is not a legal filename.
+    uint64_t hash = 1469598103934665603ull;
+    for (unsigned char c : projectPath.string()) {
+        hash ^= c;
+        hash *= 1099511628211ull;
+    }
+    char name[32];
+    std::snprintf(name, sizeof(name), "%016llx.record", static_cast<unsigned long long>(hash));
+    return App::getUserCacheBaseDir() / "doriax" / "resource-server" / name;
+}
+
 void editor::App::stopResourceServer() {
     if (resourceServerThread.joinable()) resourceServerThread.join();
     ++resourceServerGeneration;   // drop any in-flight spawn
+    if (!resourceServerRecord.empty()) {
+        editor::cli::removeServerRecord(resourceServerRecord);
+        resourceServerRecord.clear();
+    }
     if (resourceServerPid == 0) return;
     std::string error;
     if (!editor::cli::stopResourceServer(resourceServerPid, error) && !error.empty()) {
         Out::warning("Resource server: %s", error.c_str());
     }
     if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
+    resourceServerPid = 0;
+    resourceServerPort = 0;
+}
+
+void editor::App::detachResourceServer() {
+    if (resourceServerThread.joinable()) resourceServerThread.join();
+    ++resourceServerGeneration;
+    if (resourceServerPid != 0) {
+        if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
+        Out::info("Resource server: still running on 127.0.0.1:%d (close it from its tray icon)",
+                  resourceServerPort);
+    }
+    // The record file is left behind on purpose: it is how the next editor
+    // session finds this server instead of starting a second one.
+    resourceServerRecord.clear();
     resourceServerPid = 0;
     resourceServerPort = 0;
 }

@@ -13,9 +13,10 @@
 # doriax-reflector block it relies on the root project()'d compilers and
 # standard settings.
 #
-# Deliberately links NOTHING but the C++17 standard library and, on Windows,
-# ws2_32: no engine code, no editor code, no third-party dependencies, so it
-# builds fast and independently of the rest of the suite.
+# Deliberately links NOTHING but the C++17 standard library and, on Windows, the
+# socket and shell-notification libraries: no engine code, no editor code, no
+# third-party dependencies, so it builds fast and independently of the rest of
+# the suite.
 
 if(TARGET doriax-resource-server)
     return()
@@ -23,12 +24,27 @@ endif()
 
 set(DORIAX_RESOURCE_SERVER_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
+if(WIN32)
+    # The tray icon is the service's only visible presence, so the executable
+    # carries the editor brand icon and reads it back with LoadImageW(). Its own
+    # resource because every suite executable installs to the same folder.
+    doriax_add_windows_resource(
+        DORIAX_RESOURCE_SERVER_ICON_OBJECTS
+        doriax-resource-server
+        "doriax-editor.ico"
+        "doriax-resource-server.exe"
+        "Doriax Resource Server"
+    )
+endif()
+
 add_executable(doriax-resource-server
     "${DORIAX_RESOURCE_SERVER_DIR}/main.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/JsonMini.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/ResourceIndex.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/ResourceServer.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/Sha1.cpp"
+    "${DORIAX_RESOURCE_SERVER_DIR}/TrayIcon.cpp"
+    ${DORIAX_RESOURCE_SERVER_ICON_OBJECTS}
 )
 
 set_target_properties(doriax-resource-server PROPERTIES
@@ -47,7 +63,9 @@ if(WIN32)
         WIN32_LEAN_AND_MEAN
         NOMINMAX
     )
-    target_link_libraries(doriax-resource-server PRIVATE ws2_32)
+    # ws2_32 serves the socket; shell32 is Shell_NotifyIconW and user32 the
+    # message-only window behind the tray menu (tools/resource-server/TrayIcon.cpp).
+    target_link_libraries(doriax-resource-server PRIVATE ws2_32 shell32 user32)
 endif()
 
 # Install beside the editor executables: editor/cli/ResourceServerClient.cpp

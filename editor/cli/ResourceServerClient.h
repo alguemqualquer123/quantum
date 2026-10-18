@@ -46,12 +46,32 @@ bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut);
 // and returns the discovered port and the child pid. The process keeps running
 // after this call returns; use stopResourceServer() to end it. The overload
 // with serverExe overrides the executable lookup (tests / custom layouts).
+// parentPid is handed to the server as --parent so its tray menu can close the
+// editor that owns it; 0 means nobody may.
 bool spawnResourceServer(const fs::path& projectDir, int& portOut, unsigned long long& pidOut,
                          std::string& errorOut);
 bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, int& portOut,
-                         unsigned long long& pidOut, std::string& errorOut);
+                         unsigned long long& pidOut, std::string& errorOut,
+                         unsigned long long parentPid = 0);
 
 // Terminates a server spawned by spawnResourceServer() (best effort).
 bool stopResourceServer(unsigned long long pid, std::string& errorOut);
+
+// True when the pid still names a live process. Used to tell "the server is in
+// the tray" from "the record is stale".
+bool processIsRunning(unsigned long long pid);
+
+// This process' id, for the --parent argument above.
+unsigned long long currentProcessId();
+
+// The record that lets a server outliving the editor be found again: three
+// tab-separated fields (port, pid, project directory) in one text file. The
+// editor writes it after a spawn and removes it when it stops the server,
+// because a terminated process gets no chance to clean up after itself.
+bool writeServerRecord(const fs::path& recordFile, int port, unsigned long long pid,
+                       const fs::path& projectDir, std::string& errorOut);
+bool readServerRecord(const fs::path& recordFile, int& portOut, unsigned long long& pidOut,
+                      fs::path& projectOut, std::string& errorOut);
+void removeServerRecord(const fs::path& recordFile);
 
 }

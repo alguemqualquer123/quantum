@@ -4,6 +4,7 @@
 #include "ResourceServer.h"
 #include "JsonMini.h"
 #include "ResourceIndex.h"
+#include "TrayIcon.h"
 
 #include <atomic>
 #include <algorithm>
@@ -40,6 +41,7 @@ namespace {
 
 constexpr int kWatchTickMs = 1000;
 constexpr int kSelectSliceMs = 200;
+constexpr int kParentCheckSeconds = 2;
 constexpr int kRequestTimeoutMs = 3000;
 constexpr size_t kMaxRequestBytes = 65536;
 constexpr size_t kMaxIndexEntriesInResponse = 5000;
@@ -283,6 +285,22 @@ int lastErrorValue() {
 #endif
 }
 
+// Tray/menu text for the current state. `editorRunning` drives whether
+// "Close server and editor" is offered.
+TraySnapshot makeTraySnapshot(const ServerOptions& options, const ResourceIndex& index,
+                              int port, bool editorRunning) {
+    TraySnapshot snap;
+    std::string name = options.projectDir.filename().generic_u8string();
+    if (name.empty()) name = options.projectDir.parent_path().filename().generic_u8string();
+    snap.projectName = name;
+    snap.projectPath = options.projectDir.generic_u8string();
+    snap.address = "127.0.0.1:" + std::to_string(port);
+    snap.watchedLine = std::to_string(index.fileCount()) + " files (scan " +
+                       std::to_string(static_cast<unsigned long long>(index.scanId())) + ")";
+    snap.editorRunning = editorRunning;
+    return snap;
+}
+
 }
 
 int runOnceSummary(const ServerOptions& options) {
@@ -367,7 +385,18 @@ int runResourceServer(const ServerOptions& options) {
                      static_cast<unsigned long long>(index.scanId()));
     }
 
+    // The server outlives the editor on purpose, so the notification-area icon
+    // is how the user reaches it. Failing to add one is not an error: the
+    // service still answers, and POSIX has no tray at all.
+    TrayIcon tray;
+    bool editorRunning = options.parentPid != 0 && processIsRunning(options.parentPid);
+    TraySnapshot traySnapshot = makeTraySnapshot(options, index, actualPort, editorRunning);
+    if (!tray.create(traySnapshot) && options.verbose) {
+        std::fprintf(stderr, "doriax-resource-server: no tray icon (system tray unavailable)\n");
+    }
+
     auto nextScan = std::chrono::steady_clock::now() + std::chrono::milliseconds(kWatchTickMs);
+    auto nextParentCheck = nextScan;
     while (!g_stopRequested.load()) {
         auto now = std::chrono::steady_clock::now();
         auto msToScan = std::chrono::duration_cast<std::chrono::milliseconds>(nextScan - now).count();
@@ -386,6 +415,15 @@ int runResourceServer(const ServerOptions& options) {
             msToScan = kWatchTickMs;
         }
         int waitMs = int(std::min<long long>(msToScan, kSelectSliceMs));
+
+        // A pid can be recycled once its process is gone, so the editor is only
+        // ever considered running while the one we started with is alive.
+        if (options.parentPid != 0 && editorRunning && now >= nextParentCheck) {
+            editorRunning = processIsRunning(options.parentPid);
+            nextParentCheck = now + std::chrono::seconds(kParentCheckSeconds);
+        }
+        traySnapshot = makeTraySnapshot(options, index, actualPort, editorRunning);
+        tray.setSnapshot(traySnapshot);
 
 #ifdef _WIN32
         fd_set rfds;
@@ -408,8 +446,24 @@ int runResourceServer(const ServerOptions& options) {
             if (client != kInvalidSocket)
                 serveConnection(client, index, options.token, startUnix, options.verbose);
         }
+
+        // Shell messages are pumped right after the socket wait so a tray click
+        // is seen within one slice (200 ms) without its own blocking wait.
+        const TrayChoice choice = tray.pump();
+        if (choice == TrayChoice::QuitServer) break;
+        if (choice == TrayChoice::QuitServerAndEditor) {
+            // WM_CLOSE, never TerminateProcess: the editor flushes the scene it
+            // has open and gets to ask about unsaved work first.
+            if (options.parentPid != 0 && requestProcessCloseWindow(options.parentPid) &&
+                options.verbose) {
+                std::fprintf(stderr, "doriax-resource-server: asked editor %llu to close\n",
+                             options.parentPid);
+            }
+            break;
+        }
     }
 
+    tray.destroy();
     closeSocket(listenSock);
 #ifdef _WIN32
     WSACleanup();

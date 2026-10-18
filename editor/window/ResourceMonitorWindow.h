@@ -12,11 +12,14 @@
 #include "imgui.h"
 
 #include "util/ProcessStats.h"
+#include "util/SystemStats.h"
 
 namespace doriax::editor {
-    // Task-Manager / GMS-debugger style panel: live CPU & RAM for the editor and any
-    // child processes it launches, plus caller-fed asset/GPU counters. All sampling is
-    // time-gated inside show() on the UI thread; there is no worker thread.
+    // System-monitor style panel: machine-wide CPU, memory, GPU/VRAM, temperature
+    // and network throughput from SystemStats, plus live CPU & RAM for the editor
+    // and any child process it launches, plus caller-fed asset/GPU counters. All
+    // sampling is time-gated on the UI thread inside show(); there is no worker
+    // thread, and the machine-wide side is shared with the footer HUD.
     class ResourceMonitorWindow {
     private:
         struct ChildProcess {
@@ -32,14 +35,22 @@ namespace doriax::editor {
             double max = 0.0;               // <= 0 hides the bar and shows a plain number instead
         };
 
-        static constexpr int HISTORY_SAMPLES = 240;      // one point per refresh, so ~60s of graphs
-        static constexpr float REFRESH_INTERVAL = 0.25f;  // ~4 samples/second, keeps the UI cost low
+        static constexpr int HISTORY_SAMPLES = 240;  // one point per refresh; window length follows the rate
 
-        // Fixed-size rings plot straight through ImGui's values_offset wrap, so no realloc
-        // and no per-frame heap churn once the window exists.
-        std::vector<float> cpuHistory;
-        std::vector<float> ramHistory;      // megabytes
-        int historyHead = 0;                // next write slot; doubles as the PlotLines offset
+        // Fixed-size rings plot straight through ImGui's values_offset wrap, so no
+        // realloc and no per-frame heap churn once the window exists.
+        std::vector<float> editorCpuHistory;
+        std::vector<float> editorRamHistory;   // megabytes
+        std::vector<float> systemCpuHistory;   // percent
+        std::vector<float> systemRamHistory;   // megabytes
+        std::vector<float> gpuHistory;         // percent
+        std::vector<float> vramHistory;        // megabytes
+        std::vector<float> downHistory;        // kilobytes per second
+        std::vector<float> upHistory;          // kilobytes per second
+        int historyHead = 0;                   // next write slot; doubles as the PlotLines offset
+
+        SystemSample system;                   // last machine-wide snapshot (frozen while paused)
+        unsigned long long lastRevision = 0;   // SystemStats revision `system` was captured at
 
         double editorCpuPercent = 0.0;
         uint64_t editorRssBytes = 0;
@@ -52,10 +63,14 @@ namespace doriax::editor {
         bool windowOpen;
         bool focusRequested;
         bool paused;
-        double lastSampleTime;            // accumulated UI clock value of the last refresh
+        int refreshRateIndex = 1;             // index into the sampling-rate combo
 
         void sampleOnce();
         void pushHistory();
+        void drawToolbar();
+        void drawSystemCard();
+        void drawGpuCard();
+        void drawNetworkCard();
         void drawEditorSection();
         void drawChildSection();
         void drawCounterSection();

@@ -33,6 +33,38 @@ endif()
 
 message(STATUS "Doriax version is ${DORIAXEDITOR_VERSION}")
 
+# One build tree per checkout. Its folder name is the DORIAX_BUILD_DIR environment
+# variable, defaulting to "build"; scripts/doriax-build-dir.bat, the CI workflows
+# and the docs all read the same value. Extra trees (build-debug/, build-release/,
+# build-ninja/) were each carrying their own CMakeCache, their own generated
+# headers and their own copy of every object file.
+if(DEFINED ENV{DORIAX_BUILD_DIR} AND NOT "$ENV{DORIAX_BUILD_DIR}" STREQUAL "")
+    set(DORIAX_BUILD_DIR "$ENV{DORIAX_BUILD_DIR}")
+else()
+    set(DORIAX_BUILD_DIR "build")
+endif()
+file(TO_CMAKE_PATH "${DORIAX_BUILD_DIR}" DORIAX_BUILD_DIR_PATH)
+if(NOT DORIAX_BUILD_DIR_PATH MATCHES "^([A-Za-z]:/|/)")
+    # A bare name is relative to the repository root, which is how the scripts
+    # and CI use it.
+    set(DORIAX_BUILD_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${DORIAX_BUILD_DIR_PATH}")
+endif()
+file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}" DORIAX_ACTIVE_TREE)
+get_filename_component(DORIAX_ACTIVE_TREE_PARENT "${DORIAX_ACTIVE_TREE}" DIRECTORY)
+string(TOLOWER "${DORIAX_ACTIVE_TREE}" DORIAX_ACTIVE_TREE_LOWER)
+string(TOLOWER "${DORIAX_ACTIVE_TREE_PARENT}" DORIAX_ACTIVE_TREE_PARENT_LOWER)
+string(TOLOWER "${DORIAX_BUILD_DIR_PATH}" DORIAX_BUILD_DIR_PATH_LOWER)
+string(TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" DORIAX_SOURCE_DIR_LOWER)
+# Only a sibling folder of the checkout is questioned: building into an unrelated
+# directory (a scratch disk, an SSD) is exactly what the variable is for.
+if(DORIAX_ACTIVE_TREE_PARENT_LOWER STREQUAL DORIAX_SOURCE_DIR_LOWER AND
+   NOT DORIAX_ACTIVE_TREE_LOWER STREQUAL DORIAX_BUILD_DIR_PATH_LOWER)
+    message(WARNING
+        "doriax: this build tree is ${CMAKE_BINARY_DIR}, but DORIAX_BUILD_DIR names "
+        "${DORIAX_BUILD_DIR_PATH}. Configure with -B ${DORIAX_BUILD_DIR_PATH} (or set "
+        "DORIAX_BUILD_DIR) so the checkout keeps a single tree.")
+endif()
+
 if(APPLE)
     enable_language(OBJCXX)
 endif()
@@ -546,6 +578,7 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/util/UIUtils.cpp
     ${EDITOR_DIR}/util/CommandRunner.cpp
     ${EDITOR_DIR}/util/ProcessStats.cpp
+    ${EDITOR_DIR}/util/SystemStats.cpp
     ${EDITOR_DIR}/util/ShellEnv.cpp
 
     ${EDITOR_DIR}/shader/ShaderBuilder.cpp
@@ -675,10 +708,12 @@ function(configure_doriax_editor_target target_name)
 
     if(WIN32)
         # dbghelp resolves the crash-report backtrace. ws2_32 serves the
-        # resource-server client in editor/cli.
-        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32)
+        # resource-server client in editor/cli. pdh/iphlpapi/dxgi feed the
+        # system monitor: PDH counters, interface stats and the DXGI adapter.
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32 pdh iphlpapi dxgi)
     else()
-        target_link_libraries(${target_name} PRIVATE CURL::libcurl)
+        # ${CMAKE_DL_LIBS} lets the monitor dlopen NVML for NVIDIA GPU data where present.
+        target_link_libraries(${target_name} PRIVATE CURL::libcurl ${CMAKE_DL_LIBS})
         # -rdynamic names the editor's own frames in the crash backtrace, at about 10 MB of
         # symbol table. A Release build stays lean and is resolved with addr2line instead.
         if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")

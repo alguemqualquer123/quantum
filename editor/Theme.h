@@ -33,6 +33,13 @@ namespace doriax::editor {
             static ImVec4 SubSelectionText;
             // Amber warning text, e.g. alert notes; matches OutputWindow's Warning log color.
             static ImVec4 WarningText;
+            // Resource Monitor pressure colors: healthy/busy values read green->red
+            // without hardcoding RGBA at the call site, so both presets stay legible.
+            static ImVec4 SuccessText;
+            static ImVec4 DangerText;
+            // Downstream/upstream plot series in the Resource Monitor network graphs.
+            static ImVec4 NetworkDown;
+            static ImVec4 NetworkUp;
         };
 
         static void apply();

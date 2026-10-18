@@ -6,11 +6,13 @@
 // sockets only; no engine or editor includes.
 //
 // Usage:
-//   doriax-resource-server --project <dir> [--port 0] [--once] [--verbose] [--token <hex>]
+//   doriax-resource-server --project <dir> [--port 0] [--once] [--verbose]
+//                          [--token <hex>] [--parent <pid>]
 
 #include "ResourceServer.h"
 
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 
 namespace {
@@ -18,13 +20,17 @@ namespace {
 void printUsage(const char* argv0) {
     std::printf(
         "doriax-resource-server - local doriax asset index service\n"
-        "Usage: %s --project <dir> [--port 0] [--once] [--verbose] [--token <hex>]\n"
+        "Usage: %s --project <dir> [--port 0] [--once] [--verbose] [--token <hex>] [--parent <pid>]\n"
         "  --project <dir>  Project directory to watch (assets/ lua/ scenes/ scripts/).\n"
         "  --port <n>       TCP port on 127.0.0.1; 0 (default) picks an ephemeral port\n"
         "                   and prints 'doriax-resource-server: listening on 127.0.0.1:<port>'.\n"
         "  --once           Scan once, print a summary, exit 0 (no socket).\n"
         "  --verbose        Log scans and requests to stderr.\n"
         "  --token <hex>    Require {\"token\":\"<hex>\"} in every request.\n"
+        "  --parent <pid>   Editor process id, used only by the tray menu's\n"
+        "                   'Close server and editor'. Without a tray (POSIX) it is ignored.\n"
+        "The server keeps running after the editor closes and lives in the Windows\n"
+        "notification area; its menu has 'Close server'.\n"
         "Protocol: one newline-delimited JSON request/response per TCP connection:\n"
         "  {\"cmd\":\"ping\"} | {\"cmd\":\"status\"} | {\"cmd\":\"index\"}\n"
         "  {\"cmd\":\"entry\",\"path\":\"assets/sprite.png\"} | {\"cmd\":\"changes\",\"since\":<scanId>}\n",
@@ -32,7 +38,7 @@ void printUsage(const char* argv0) {
 }
 
 bool needsValue(const std::string& flag) {
-    return flag == "--project" || flag == "--port" || flag == "--token";
+    return flag == "--project" || flag == "--port" || flag == "--token" || flag == "--parent";
 }
 
 }
@@ -65,6 +71,15 @@ int main(int argc, char** argv) {
                     std::fprintf(stderr, "doriax-resource-server: bad --port '%s'\n", value.c_str());
                     return 1;
                 }
+            } else if (a == "--parent") {
+                char* end = nullptr;
+                const unsigned long long pid = std::strtoull(value.c_str(), &end, 10);
+                if (end == value.c_str() || (end && *end != '\0') || pid == 0) {
+                    std::fprintf(stderr, "doriax-resource-server: bad --parent '%s'\n",
+                                 value.c_str());
+                    return 1;
+                }
+                options.parentPid = pid;
             } else { // --token
                 options.token = value;
             }

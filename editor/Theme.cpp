@@ -121,6 +121,10 @@ ImVec4 doriax::editor::Theme::Colors::DisabledGreenText;
 ImVec4 doriax::editor::Theme::Colors::ChildSceneText;
 ImVec4 doriax::editor::Theme::Colors::SubSelectionText;
 ImVec4 doriax::editor::Theme::Colors::WarningText;
+ImVec4 doriax::editor::Theme::Colors::SuccessText;
+ImVec4 doriax::editor::Theme::Colors::DangerText;
+ImVec4 doriax::editor::Theme::Colors::NetworkDown;
+ImVec4 doriax::editor::Theme::Colors::NetworkUp;
 
 void doriax::editor::Theme::setPreset(Preset preset) {
     g_preset = preset;
@@ -248,6 +252,14 @@ void doriax::editor::Theme::apply() {
                                   : ImVec4(0.15f, 0.45f, 0.52f, 1.0f);
     Colors::SubSelectionText = ImVec4(1.00f, 0.60f, 0.00f, 1.00f);
     Colors::WarningText = ImVec4(1.00f, 0.85f, 0.40f, 1.00f);
+    Colors::SuccessText = dark ? ImVec4(0.42f, 0.80f, 0.52f, 1.0f)
+                               : ImVec4(0.14f, 0.50f, 0.26f, 1.0f);
+    Colors::DangerText = dark ? ImVec4(0.92f, 0.42f, 0.40f, 1.0f)
+                              : ImVec4(0.68f, 0.18f, 0.16f, 1.0f);
+    // Downstream keeps the accent hue; upstream stays cyan-ish so the two series
+    // read apart at a glance in the network graphs.
+    Colors::NetworkDown = ImLerp(colors[ImGuiCol_PlotLines], t.accentBright, dark ? 0.45f : 0.35f);
+    Colors::NetworkUp = ImLerp(colors[ImGuiCol_PlotLines], Colors::ChildSceneText, dark ? 0.70f : 0.60f);
 
     // main
     style.WindowPadding = ImVec2(8, 8);
