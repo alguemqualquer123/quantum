@@ -16,6 +16,13 @@
 #include "util/CrashHandler.h"
 #include "util/ProjectUtils.h"
 #include "util/Util.h"
+#include "util/FileUtils.h"
+#include "cli/ResourceServerClient.h"
+
+#include "window/NotificationsWindow.h"
+#include "window/CommandPaletteWindow.h"
+#include "window/WelcomeScreenWindow.h"
+#include "window/ResourceMonitorWindow.h"
 
 #include "EditorVersion.h"
 #include "Out.h"
@@ -76,6 +83,13 @@ void scaleDockChildren(ImGuiDockNode* node, float ratio) {
     }
 }
 
+// App.h is frozen for this change, so the four new panels are not members; a
+// single editor instance means these TU-local pointers are the whole lifetime.
+editor::NotificationsWindow* g_notificationsWindow = nullptr;
+editor::CommandPaletteWindow* g_commandPaletteWindow = nullptr;
+editor::WelcomeScreenWindow* g_welcomeScreenWindow = nullptr;
+editor::ResourceMonitorWindow* g_resourceMonitorWindow = nullptr;
+
 }
 
 ImFont* editor::App::codeFont = nullptr;
@@ -94,6 +108,11 @@ editor::App::App(){
     animationWindow = new AnimationWindow(&project);
     terrainEditWindow = new TerrainEditWindow(&project);
     aiChatWindow = new AiChatWindow(&project, resourcesWindow);
+
+    g_notificationsWindow = new NotificationsWindow();
+    g_commandPaletteWindow = new CommandPaletteWindow();
+    g_welcomeScreenWindow = new WelcomeScreenWindow();
+    g_resourceMonitorWindow = new ResourceMonitorWindow();
 
     isInitialized = false;
     dockspaceNeedsRebuild = false;
@@ -191,6 +210,14 @@ enum class AppMenuCommand : uint32_t {
     ResumeScene,
     StopScene,
     RemoveScene,
+    ToggleNotifications,
+    ToggleResourceMonitor,
+    CommandPalette,
+    ThemeToggle,
+    AccentBlue,
+    AccentTeal,
+    AccentAmber,
+    AccentViolet,
     About
 };
 
@@ -245,6 +272,68 @@ editor::PlatformMenuItem menuSubmenu(std::string label,
     item.enabled = enabled;
     item.children = std::move(children);
     return item;
+}
+
+editor::PaletteCommand paletteCmd(AppMenuCommand command,
+                                  std::string label,
+                                  std::string shortcut = {},
+                                  std::string description = {}) {
+    editor::PaletteCommand command_;
+    command_.id = std::to_string(static_cast<uint32_t>(command));
+    command_.label = std::move(label);
+    command_.shortcut = std::move(shortcut);
+    command_.description = std::move(description);
+    return command_;
+}
+
+// Same command set the menus expose, so a palette entry behaves exactly like the
+// menu item it mirrors (the ids round-trip through the AppMenuCommand switch).
+std::vector<editor::PaletteCommand> buildPaletteCommands() {
+    return {
+        paletteCmd(AppMenuCommand::NewProject, "File: New Project"),
+        paletteCmd(AppMenuCommand::NewScene3D, "File: New 3D Scene"),
+        paletteCmd(AppMenuCommand::NewScene2D, "File: New 2D Scene"),
+        paletteCmd(AppMenuCommand::NewSceneUI, "File: New UI Scene"),
+        paletteCmd(AppMenuCommand::OpenProject, "File: Open Project...", "Ctrl+O"),
+        paletteCmd(AppMenuCommand::SaveProject, "File: Save Project"),
+        paletteCmd(AppMenuCommand::SaveProjectAs, "File: Save Project As..."),
+        paletteCmd(AppMenuCommand::Save, "File: Save", "Ctrl+S"),
+        paletteCmd(AppMenuCommand::SaveAll, "File: Save All", "Ctrl+Shift+S"),
+        paletteCmd(AppMenuCommand::ExportProject, "File: Export Project..."),
+        paletteCmd(AppMenuCommand::Undo, "Edit: Undo", "Ctrl+Z"),
+        paletteCmd(AppMenuCommand::Redo, "Edit: Redo", "Ctrl+Y"),
+        paletteCmd(AppMenuCommand::ToggleStructure, "View: Toggle Structure"),
+        paletteCmd(AppMenuCommand::ToggleProperties, "View: Toggle Properties"),
+        paletteCmd(AppMenuCommand::ToggleResources, "View: Toggle Resources"),
+        paletteCmd(AppMenuCommand::ToggleOutput, "View: Toggle Output"),
+        paletteCmd(AppMenuCommand::ToggleAnimation, "View: Toggle Animation"),
+        paletteCmd(AppMenuCommand::ToggleTerrain, "View: Toggle Terrain"),
+        paletteCmd(AppMenuCommand::ToggleAiChat, "View: Toggle AI Chat"),
+        paletteCmd(AppMenuCommand::ToggleNotifications, "View: Toggle Notifications"),
+        paletteCmd(AppMenuCommand::ToggleResourceMonitor, "View: Toggle Resource Monitor"),
+        paletteCmd(AppMenuCommand::ResetLayout, "View: Reset Layout"),
+        paletteCmd(AppMenuCommand::ThemeToggle, "View: Toggle Dark/Light Theme"),
+        paletteCmd(AppMenuCommand::ProjectSettings, "Project: Project Settings..."),
+        paletteCmd(AppMenuCommand::ProjectScenes, "Project: Scenes..."),
+        paletteCmd(AppMenuCommand::ProjectBundles, "Project: Bundles..."),
+        paletteCmd(AppMenuCommand::ClearTrash, "Project: Clear Trash"),
+        paletteCmd(AppMenuCommand::ClearShaderCache, "Project: Clear Shader Cache"),
+        paletteCmd(AppMenuCommand::RunScene, "Scene: Run", "F5"),
+        paletteCmd(AppMenuCommand::PauseScene, "Scene: Pause", "F6"),
+        paletteCmd(AppMenuCommand::StopScene, "Scene: Stop", "F7"),
+        paletteCmd(AppMenuCommand::RemoveScene, "Scene: Remove"),
+        paletteCmd(AppMenuCommand::About, "Help: About Doriax"),
+    };
+}
+
+const char* accentForCommand(AppMenuCommand command) {
+    switch (command) {
+        case AppMenuCommand::AccentBlue: return "#4B79F6";
+        case AppMenuCommand::AccentTeal: return "#17A398";
+        case AppMenuCommand::AccentAmber: return "#D9911F";
+        case AppMenuCommand::AccentViolet: return "#8A5CC8";
+        default: return nullptr;
+    }
 }
 
 const char* imguiMenuLabel(const editor::PlatformMenuItem& item) {
@@ -352,6 +441,20 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
                    terrainEditWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleAiChat, AiChatWindow::WINDOW_NAME,
                    aiChatWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleNotifications, NotificationsWindow::WINDOW_NAME,
+                   g_notificationsWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleResourceMonitor, ResourceMonitorWindow::WINDOW_NAME,
+                   g_resourceMonitorWindow->isOpen()),
+        menuSeparator(),
+        menuShortcut(AppMenuCommand::CommandPalette, "Command Palette...", "Ctrl+K"),
+        menuCommand(AppMenuCommand::ThemeToggle,
+                    Theme::getPreset() == Theme::Preset::Dark ? "Light Theme" : "Dark Theme"),
+        menuSubmenu("Accent Color", {
+            menuCommand(AppMenuCommand::AccentBlue, "Blue"),
+            menuCommand(AppMenuCommand::AccentTeal, "Teal"),
+            menuCommand(AppMenuCommand::AccentAmber, "Amber"),
+            menuCommand(AppMenuCommand::AccentViolet, "Violet")
+        }),
         menuSeparator(),
         menuToggle(AppMenuCommand::ToggleDetachableWindows, "Detachable Windows",
                    AppSettings::getMultiViewportEnabled()),
@@ -534,6 +637,8 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             animationWindow->setOpen(true);
             terrainEditWindow->setOpen(false);
             aiChatWindow->setOpen(true);
+            g_notificationsWindow->setOpen(true);
+            g_resourceMonitorWindow->setOpen(false);
             buildDockspace(true);
             break;
         case AppMenuCommand::ProjectSettings:
@@ -584,6 +689,33 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
                     project.removeScene(sceneId);
                 });
             }
+            break;
+        }
+        case AppMenuCommand::ToggleNotifications:
+            g_notificationsWindow->setOpen(!g_notificationsWindow->isOpen());
+            break;
+        case AppMenuCommand::ToggleResourceMonitor:
+            g_resourceMonitorWindow->setOpen(!g_resourceMonitorWindow->isOpen());
+            break;
+        case AppMenuCommand::CommandPalette:
+            g_commandPaletteWindow->toggle();
+            break;
+        case AppMenuCommand::ThemeToggle: {
+            const Theme::Preset next = Theme::getPreset() == Theme::Preset::Dark
+                ? Theme::Preset::Light : Theme::Preset::Dark;
+            Theme::setPreset(next);
+            Theme::apply();
+            AppSettings::setThemePreset(next == Theme::Preset::Light ? 1 : 0);
+            break;
+        }
+        case AppMenuCommand::AccentBlue:
+        case AppMenuCommand::AccentTeal:
+        case AppMenuCommand::AccentAmber:
+        case AppMenuCommand::AccentViolet: {
+            const char* hex = accentForCommand(action);
+            Theme::setAccentColor(hex);
+            Theme::apply();
+            AppSettings::setAccentColor(hex);
             break;
         }
         case AppMenuCommand::About:
@@ -967,6 +1099,7 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderSetNodeSize(dock_id_right, ImVec2(preferredSize(19, viewport.x, 0.3f), viewport.y));
     ImGui::DockBuilderDockWindow(Properties::WINDOW_NAME, dock_id_right);
     ImGui::DockBuilderDockWindow(AiChatWindow::WINDOW_NAME, dock_id_right);
+    ImGui::DockBuilderDockWindow(NotificationsWindow::WINDOW_NAME, dock_id_right);
 
     auto stampPanelDockOrder = [](const char* windowName, short order) {
         ImGuiID windowId = ImHashStr(windowName);
@@ -985,6 +1118,7 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderSetNodeSize(dock_id_middle_bottom, ImVec2(viewport.x, preferredSize(10, viewport.y, 0.4f)));
     ImGui::DockBuilderDockWindow(OutputWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(AnimationWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(ResourceMonitorWindow::WINDOW_NAME, dock_id_middle_bottom);
 
     // Mark the scene area as the central node. CentralNode is a saved flag, so it
     // persists in the ini and lets getCentralDockId() recover this node on the
@@ -1308,6 +1442,10 @@ void editor::App::setup() {
     //io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
 
     //ImGui::StyleColorsDark();
+    // Setters only store state, so they run before apply() for the first paint.
+    Theme::setPreset(AppSettings::getThemePreset() == 1 ? Theme::Preset::Light
+                                                        : Theme::Preset::Dark);
+    Theme::setAccentColor(AppSettings::getAccentColor().c_str());
     Theme::apply();
 
     // Fonts follow each viewport's monitor DPI. Style paddings are global, so
@@ -1320,6 +1458,46 @@ void editor::App::setup() {
         dpiScale = ImGui::GetPlatformIO().Monitors[0].DpiScale;
     }
     Theme::applyDpiScale(dpiScale);
+
+    g_commandPaletteWindow->setCustomCommands(buildPaletteCommands());
+    // Palette ids are the numeric AppMenuCommand values, so the callback reuses
+    // the exact menu dispatch. Non-numeric ids (the AI tools the palette adds on
+    // its own) need arguments the palette can't collect, so they are left alone.
+    g_commandPaletteWindow->setExecuteCallback([this](const std::string& actionId) {
+        char* end = nullptr;
+        const unsigned long id = std::strtoul(actionId.c_str(), &end, 10);
+        if (end && *end == '\0' && end != actionId.c_str()) {
+            PlatformMenuCommand command;
+            command.id = static_cast<uint32_t>(id);
+            executeMenuCommand(command);
+        }
+    });
+
+    WelcomeCallbacks welcomeCallbacks;
+    welcomeCallbacks.openProjectDialog = [this]() { openProjectFunc(); };
+    welcomeCallbacks.createEmptyProject = [this]() {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::NewProject);
+        executeMenuCommand(command);
+    };
+    welcomeCallbacks.openRecentProject = [this](const std::filesystem::path& projectPath) {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::OpenRecentProject);
+        command.payload = projectPath.string();
+        executeMenuCommand(command);
+    };
+    welcomeCallbacks.openDocumentation = []() {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        if (platform_io.Platform_OpenInShellFn) {
+            platform_io.Platform_OpenInShellFn(ImGui::GetCurrentContext(), "https://doriaxengine.org");
+        }
+    };
+    g_welcomeScreenWindow->setCallbacks(welcomeCallbacks);
+    g_welcomeScreenWindow->setTemplatesDirectory(FileUtils::getExecutableDir() / "templates");
+
+    // First-run screen only: never persisted, so it appears solely while there is
+    // no recent project to fall back to.
+    g_welcomeScreenWindow->setOpen(AppSettings::getRecentProjects().empty());
 }
 
 void editor::App::show(){
@@ -1355,6 +1533,11 @@ void editor::App::show(){
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
         // CTRL+O opens a project
         openProjectFunc();
+    }
+
+    // CTRL+K opens/closes the command palette. Ctrl+P is left free for future use.
+    if (io.KeyCtrl && !io.KeyShift && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_K)) {
+        g_commandPaletteWindow->toggle();
     }
 
     // Play/Pause/Stop shortcuts
@@ -1552,7 +1735,31 @@ void editor::App::show(){
     codeEditor->show();
     sceneWindow->show();
 
+    // Feed the monitor from cheap App-side numbers only while it is visible.
+    static double lastMonitorFeed = 0.0;
+    if (g_resourceMonitorWindow->isOpen() && ImGui::GetTime() - lastMonitorFeed > 0.5) {
+        lastMonitorFeed = ImGui::GetTime();
+        g_resourceMonitorWindow->setCounter("Scene", "Scenes",
+                                            static_cast<double>(project.getScenes().size()), 0.0);
+        g_resourceMonitorWindow->setCounter("Resources", "Queued",
+                                            static_cast<double>(Engine::getQueuedResourceCount()), 0.0);
+        const uint32_t selectedSceneId = project.getSelectedSceneId();
+        if (const SceneProject* scene = project.getScene(selectedSceneId)) {
+            g_resourceMonitorWindow->setCounter("GPU", "Shaders",
+                                                static_cast<double>(scene->shaderKeys.size()), 0.0);
+            g_resourceMonitorWindow->setCounter("Scene", "Entities",
+                                                static_cast<double>(project.getEntities(selectedSceneId).size()), 0.0);
+        }
+    }
+
+    g_resourceMonitorWindow->show();
+    g_notificationsWindow->show();
+
     loadingWindow->show();
+
+    // Overlay windows draw after the docked ones so they float above the dockspace.
+    g_welcomeScreenWindow->show();
+    g_commandPaletteWindow->show();
 
     // Keep the persisted tab list in sync with the live tab order so a user's
     // drag-reordering of scene/code tabs is saved (and restored on next launch).
@@ -1829,6 +2036,7 @@ void editor::App::setWakeCallback(std::function<void()> cb) {
 void editor::App::shutdownBackgroundWork() {
     // Before glfwTerminate/SDL_Quit, or a late reply posts to a dead window system.
     if (aiChatWindow) aiChatWindow->shutdown();
+    stopResourceServer();
     wakeCallback = nullptr;
 }
 
@@ -1862,6 +2070,7 @@ void editor::App::clearSceneWindowState(uint32_t sceneId) {
 }
 
 void editor::App::prepareForProjectSwitch() {
+    stopResourceServer();
     imageViewerWindow->closeAll();
     resourcesWindow->cancelThumbnailWork();
     // Thumbnail cancellation prevents new preview loads from being queued;
@@ -1932,12 +2141,66 @@ void editor::App::updateResourcesPath(){
         }
     }
 
+    if (projectPathChanged) {
+        updateResourceServer(currentProjectPath);
+    }
+
     // Initial project loading happens before the Resources window is initialized,
     // but prepareForProjectSwitch() still suspends its worker.
     resourcesWindow->resumeThumbnailWork();
 
     lastResourcesProjectPath = currentProjectPath;
     resourcesWindow->cleanupThumbnails();
+}
+
+void editor::App::updateResourceServer(const std::filesystem::path& projectPath) {
+    // One server per project: retire the previous spawn before starting another.
+    if (resourceServerThread.joinable()) resourceServerThread.join();
+    stopResourceServer();
+    if (projectPath.empty()) return;
+
+    std::filesystem::path serverExe;
+    if (!editor::cli::findResourceServerExecutable(serverExe)) return;
+
+    const unsigned long long generation = ++resourceServerGeneration;
+    // spawnResourceServer waits on the child's stdout, so keep it off the UI thread.
+    resourceServerThread = std::thread([this, projectPath, serverExe, generation]() {
+        int port = 0;
+        unsigned long long pid = 0;
+        std::string error;
+        const bool ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error);
+        enqueueMainThreadTask([this, generation, ok, port, pid, error]() {
+            if (generation != resourceServerGeneration) {
+                std::string ignored;
+                if (ok) editor::cli::stopResourceServer(pid, ignored);
+                return;
+            }
+            if (!ok) {
+                Out::warning("Resource server: %s", error.c_str());
+                return;
+            }
+            resourceServerPort = port;
+            resourceServerPid = pid;
+            if (g_resourceMonitorWindow) {
+                g_resourceMonitorWindow->addChildProcess(pid,
+                    "doriax-resource-server:" + std::to_string(port));
+            }
+            Out::info("Resource server listening on 127.0.0.1:%d", port);
+        });
+    });
+}
+
+void editor::App::stopResourceServer() {
+    if (resourceServerThread.joinable()) resourceServerThread.join();
+    ++resourceServerGeneration;   // drop any in-flight spawn
+    if (resourceServerPid == 0) return;
+    std::string error;
+    if (!editor::cli::stopResourceServer(resourceServerPid, error) && !error.empty()) {
+        Out::warning("Resource server: %s", error.c_str());
+    }
+    if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
+    resourceServerPid = 0;
+    resourceServerPort = 0;
 }
 
 void editor::App::requestDockspaceRebuild() {
@@ -2337,6 +2600,8 @@ void editor::App::applyPanelVisibilitySettings() {
     animationWindow->setOpen(visibility.animation);
     terrainEditWindow->setOpen(visibility.terrain);
     aiChatWindow->setOpen(visibility.aiChat);
+    g_notificationsWindow->setOpen(visibility.notifications);
+    g_resourceMonitorWindow->setOpen(visibility.resourceMonitor);
 }
 
 void editor::App::persistPanelVisibilitySettings() {
@@ -2348,6 +2613,8 @@ void editor::App::persistPanelVisibilitySettings() {
     visibility.animation = animationWindow->isOpen();
     visibility.terrain = terrainEditWindow->isOpen();
     visibility.aiChat = aiChatWindow->isOpen();
+    visibility.notifications = g_notificationsWindow->isOpen();
+    visibility.resourceMonitor = g_resourceMonitorWindow->isOpen();
 
     if (visibility != AppSettings::getPanelVisibility()) {
         AppSettings::setPanelVisibility(visibility);

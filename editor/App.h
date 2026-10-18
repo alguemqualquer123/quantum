@@ -137,6 +137,16 @@ namespace doriax::editor{
         bool saveDialogInProgress = false;
         std::filesystem::path lastResourcesProjectPath;
 
+        // doriax-resource-server (tools/resource-server): the local asset index
+        // service. One server runs per opened project, so a project switch stops
+        // the old one before spawning the next.
+        std::thread resourceServerThread;
+        unsigned long long resourceServerGeneration = 0;
+        unsigned long long resourceServerPid = 0;
+        int resourceServerPort = 0;
+        void updateResourceServer(const std::filesystem::path& projectPath);
+        void stopResourceServer();
+
         std::vector<std::string> droppedExternalPaths;
         bool isDroppedExternalPaths;
 

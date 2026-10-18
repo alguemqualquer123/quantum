@@ -501,6 +501,8 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/main.cpp
     ${EDITOR_DIR}/cli/CommandLine.cpp
     ${EDITOR_DIR}/cli/ResourceCompilerCli.cpp
+    ${EDITOR_DIR}/cli/BuildGeneratorCli.cpp
+    ${EDITOR_DIR}/cli/ResourceServerClient.cpp
     ${EDITOR_DIR}/App.cpp
     ${EDITOR_DIR}/AppSettings.cpp
     ${EDITOR_DIR}/Theme.cpp
@@ -672,8 +674,9 @@ function(configure_doriax_editor_target target_name)
     )
 
     if(WIN32)
-        # dbghelp resolves the crash-report backtrace.
-        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi)
+        # dbghelp resolves the crash-report backtrace. ws2_32 serves the
+        # resource-server client in editor/cli.
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32)
     else()
         target_link_libraries(${target_name} PRIVATE CURL::libcurl)
         # -rdynamic names the editor's own frames in the crash backtrace, at about 10 MB of
@@ -857,6 +860,9 @@ endif()
 
 # Headless asset compiler (pak/shaders/inspect); target defined in the .cmake.
 include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/doriax_resource_compiler.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/build-generator/doriax_build_generator.cmake)
+# Local asset index service the editor talks to over 127.0.0.1 JSON-lines.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-server/doriax_resource_server.cmake)
 
 # The bundle already holds the dylib and engine/.
 if(APPLE)

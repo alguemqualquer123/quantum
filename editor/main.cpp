@@ -3,6 +3,7 @@
 
 #include "Backend.h"
 #include "cli/CommandLine.h"
+#include "cli/BuildGeneratorCli.h"
 #include "cli/ResourceCompilerCli.h"
 #include "util/ShellEnv.h"
 
@@ -31,6 +32,22 @@ int main(int argc, char* argv[]) {
     }
     if (argc >= 2 && std::strcmp(argv[1], "inspect") == 0) {
         return editor::cli::runInspectCommand(argc - 1, argv + 1, argv[0]);
+    }
+    // doriax-build-generator: headless project generation and build orchestration.
+    if (argc >= 2 && std::strcmp(argv[1], "generate") == 0) {
+        return editor::cli::runGenerateCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "configure") == 0) {
+        return editor::cli::runConfigureCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "build") == 0) {
+        return editor::cli::runBuildCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argc >= 2 && std::strcmp(argv[1], "status") == 0) {
+        return editor::cli::runStatusCommand(argc - 1, argv + 1, argv[0]);
+    }
+    if (argv[0] && std::strstr(argv[0], "build-generator")) {
+        return editor::cli::runBuildGeneratorHelpCommand(argc - 1, argv + 1, argv[0]);
     }
     return editor::cli::runResourceCompilerHelpCommand(argc - 1, argv + 1, argv[0]);
 #else

@@ -96,6 +96,8 @@ float AppSettings::codeEditorFontSize = AppSettings::defaultCodeEditorFontSize;
 bool AppSettings::multiViewportEnabled = false;
 bool AppSettings::editorVSyncEnabled = true;
 PanelVisibilitySettings AppSettings::panelVisibility;
+int AppSettings::themePreset = 0;
+std::string AppSettings::accentColor;
 ai::Settings AppSettings::aiSettings;
 
 bool AppSettings::initialize() {
@@ -249,6 +251,14 @@ bool AppSettings::loadSettings() {
                 if (panelsNode["animation"]) panelVisibility.animation = panelsNode["animation"].as<bool>();
                 if (panelsNode["terrain"]) panelVisibility.terrain = panelsNode["terrain"].as<bool>();
                 if (panelsNode["ai_chat"]) panelVisibility.aiChat = panelsNode["ai_chat"].as<bool>();
+                if (panelsNode["notifications"]) panelVisibility.notifications = panelsNode["notifications"].as<bool>();
+                if (panelsNode["resource_monitor"]) panelVisibility.resourceMonitor = panelsNode["resource_monitor"].as<bool>();
+            }
+            if (editorNode["theme_preset"]) {
+                themePreset = editorNode["theme_preset"].as<int>();
+            }
+            if (editorNode["accent_color"]) {
+                accentColor = editorNode["accent_color"].as<std::string>();
             }
         }
 
@@ -375,7 +385,11 @@ bool AppSettings::saveSettings() {
         panelsNode["animation"] = panelVisibility.animation;
         panelsNode["terrain"] = panelVisibility.terrain;
         panelsNode["ai_chat"] = panelVisibility.aiChat;
+        panelsNode["notifications"] = panelVisibility.notifications;
+        panelsNode["resource_monitor"] = panelVisibility.resourceMonitor;
         editorNode["panels"] = panelsNode;
+        editorNode["theme_preset"] = themePreset;
+        editorNode["accent_color"] = accentColor;
         settingsData["editor"] = editorNode;
 
         // AI assistant settings. Secrets must never be serialized here.
@@ -599,6 +613,24 @@ PanelVisibilitySettings AppSettings::getPanelVisibility() {
 
 void AppSettings::setPanelVisibility(const PanelVisibilitySettings& visibility) {
     panelVisibility = visibility;
+    saveSettings();
+}
+
+int AppSettings::getThemePreset() {
+    return themePreset;
+}
+
+void AppSettings::setThemePreset(int preset) {
+    themePreset = preset;
+    saveSettings();
+}
+
+std::string AppSettings::getAccentColor() {
+    return accentColor;
+}
+
+void AppSettings::setAccentColor(const std::string& color) {
+    accentColor = color;
     saveSettings();
 }
 
