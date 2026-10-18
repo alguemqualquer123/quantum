@@ -924,6 +924,12 @@ if(DORIAX_SHARED)
     )
 endif()
 
+if(WIN32)
+    # Without this, windows.h pulls winsock.h and it clashes with winsock2.h in
+    # any TU that touches the Winsock2 API.
+    target_compile_definitions(doriax PRIVATE WIN32_LEAN_AND_MEAN)
+endif()
+
 # =============================================================
 # STANDALONE EXECUTABLE BUILD
 # Only runs when this file is used as the top-level build.
