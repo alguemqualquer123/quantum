@@ -5,7 +5,9 @@ by Eduardo Doria.
 Layout: `engine/` (runtime lib, target `doriax`), `editor/` (the editor app),
 `templates/` (sample game projects), `tools/` (headless executables),
 `engine/libs/` + `libs/` (vendored deps: sokol, imgui, Lua/LuaBridge, box2d, Jolt,
-glslang/SPIRV-Cross, yaml-cpp, tinygltf, stb, sheenbidi, harfbuzz), `scripts/`,
+glslang/SPIRV-Cross, yaml-cpp, tinygltf, stb, sheenbidi, harfbuzz, and `libs/uilab` —
+the editor's own UI component library, pristine upstream + `doriax-patches/`, so edit it
+only through `scripts/sync-uilab.sh regen`), `scripts/`,
 `.github/workflows/cmake.yml` (authoritative CI job is MSVC).
 
 Every file needs the `// (c) Eduardo Doria` + `SPDX-License-Identifier: MIT` header.
