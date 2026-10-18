@@ -77,5 +77,6 @@ launcher, needs `setExecuteCallback` + `setCustomCommands` from `App` because
 `ai::EditorActionRegistry::tools()` exposes only AI tool names, no ids/shortcuts),
 `WelcomeScreenWindow` (recents via `AppSettings::getRecentProjects()`, template cards
 from `templates/`, all actions injected through `WelcomeCallbacks`),
-`ResourceMonitorWindow` (process/asset counters; children registered by pid with
-`addChildProcess`).
+`ResourceMonitorWindow` (system monitor: machine-wide CPU/RAM/GPU/VRAM/network from
+the shared `util/SystemStats` sampler - also used by the footer HUD in `App::showFooter` -
+plus editor/child process stats; children registered by pid with `addChildProcess`).
