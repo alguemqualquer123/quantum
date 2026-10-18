@@ -475,6 +475,11 @@ if(DORIAX_BUILD_TESTS)
     include(${CMAKE_CURRENT_SOURCE_DIR}/tests/doriax_tests.cmake)
 endif()
 
+# Slate module: the Slate/UMG/CommonUI-style retained UI (engine/slate), its
+# widget-gallery executable and its GPU-free tests. Own static lib, so nothing in
+# engine/CMakeLists.txt changes.
+include(${CMAKE_CURRENT_SOURCE_DIR}/engine/slate/doriax_slate.cmake)
+
 # Signed alongside the exes, so it needs the same metadata. MinGW prefixes the name.
 if(WIN32 AND DORIAX_SHARED)
     doriax_add_windows_resource(
