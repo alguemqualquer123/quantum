@@ -17,6 +17,7 @@
 #include "util/FileDialogs.h"
 #include "util/Util.h"
 #include "window/CodeEditor.h"
+#include "window/MarkdownRenderer.h"
 #include "window/Widgets.h"
 #include "window/widget/InputTextContextMenu.h"
 #include "imgui.h"
@@ -856,63 +857,6 @@ std::string compactRelativeTime(int64_t updatedAt, int64_t now) {
 // Light Markdown pass for assistant text: turns "- "/"* "/"+ " bullets into a
 // bullet glyph and renders fenced ``` code blocks ``` in a monospace font. Other
 // Markdown (bold, headings, inline code) is left as plain text on purpose.
-void appendMarkdownParagraphs(const std::string& content, ImU32 textColor, ImU32 codeColor,
-                              ImFont* codeFont,
-                              std::vector<SelectableTextView::Paragraph>& out) {
-    const size_t n = content.size();
-    size_t pos = 0;
-    bool inCode = false;
-
-    while (pos <= n) {
-        size_t nl = content.find('\n', pos);
-        std::string line = content.substr(pos, (nl == std::string::npos ? n : nl) - pos);
-        if (!line.empty() && line.back() == '\r') {
-            line.pop_back();
-        }
-
-        size_t firstNonSpace = line.find_first_not_of(" \t");
-        bool isFence = (firstNonSpace != std::string::npos &&
-                        line.compare(firstNonSpace, 3, "```") == 0);
-
-        if (isFence) {
-            inCode = !inCode; // swallow the fence line itself
-        } else if (inCode) {
-            out.push_back({line, codeColor, codeFont});
-        } else {
-            // Base indent so list items sit in from the message text. Existing
-            // leading whitespace (nested lists) is preserved on top of it.
-            static const std::string kListIndent = "    ";
-            size_t i = (firstNonSpace == std::string::npos) ? line.size() : firstNonSpace;
-
-            bool bullet = (i < line.size()) &&
-                          (line[i] == '-' || line[i] == '*' || line[i] == '+') &&
-                          (i + 1 < line.size()) && (line[i + 1] == ' ' || line[i + 1] == '\t');
-
-            bool ordered = false;
-            if (!bullet && i < line.size() && line[i] >= '0' && line[i] <= '9') {
-                size_t j = i;
-                while (j < line.size() && line[j] >= '0' && line[j] <= '9') ++j;
-                ordered = (j < line.size()) && (line[j] == '.' || line[j] == ')') &&
-                          (j + 1 < line.size()) && (line[j + 1] == ' ' || line[j + 1] == '\t');
-            }
-
-            if (bullet) {
-                size_t rest = i + 1;
-                while (rest < line.size() && (line[rest] == ' ' || line[rest] == '\t')) ++rest;
-                out.push_back({kListIndent + line.substr(0, i) + "\xE2\x80\xA2 " + line.substr(rest),
-                               textColor, nullptr});
-            } else if (ordered) {
-                out.push_back({kListIndent + line, textColor, nullptr});
-            } else {
-                out.push_back({line, textColor, nullptr});
-            }
-        }
-
-        if (nl == std::string::npos) break;
-        pos = nl + 1;
-    }
-}
-
 } // namespace
 
 AiChatWindow::AiChatWindow(Project* project, ResourcesWindow* resourcesWindow)
@@ -1236,6 +1180,10 @@ void AiChatWindow::drawTranscript(float height) {
         if (!first) paragraphs.push_back({"", textCol});
         first = false;
     };
+    auto separator = [&]() {
+        // Thin horizontal line separator between messages.
+        paragraphs.push_back({"", textCol, nullptr, true}); // rule line
+    };
 
     // Divider shown when a user message was sent with a different model than the
     // one before it (never before the conversation's first message).
@@ -1246,6 +1194,7 @@ void AiChatWindow::drawTranscript(float height) {
             case ai::ChatRole::System:
                 break;
             case ai::ChatRole::User:
+                separator();
                 if (!message.model.empty()) {
                     if (!lastModel.empty() && lastModel != message.model) {
                         spacer();
@@ -1270,10 +1219,63 @@ void AiChatWindow::drawTranscript(float height) {
                 }
                 break;
             case ai::ChatRole::Assistant:
-                if (!message.content.empty()) {
+                if (!message.thinkingBlocks.empty() || !message.content.empty()) {
                     spacer();
                     paragraphs.push_back({"Assistant", assistantCol});
-                    appendMarkdownParagraphs(message.content, textCol, codeCol, codeFont, paragraphs);
+                    // Render thinking blocks as collapsible sections.
+                    for (const auto& block : message.thinkingBlocks) {
+                        if (!block.is_object()) continue;
+                        std::string type = block.value("type", "");
+                        if (type == "thinking" && block.contains("thinking") && block["thinking"].is_string()) {
+                            std::string thinkingText = block["thinking"].get<std::string>();
+                            if (!thinkingText.empty()) {
+                                // Show thinking as indented dim text with brain icon.
+                                std::string header = ICON_FA_BRAIN "  Thinking...";
+                                paragraphs.push_back({header, dimCol});
+                                // Split thinking text into lines and add each as a dim paragraph.
+                                size_t tpos = 0;
+                                while (tpos < thinkingText.size()) {
+                                    size_t tnl = thinkingText.find('\n', tpos);
+                                    std::string tline = thinkingText.substr(tpos,
+                                        (tnl == std::string::npos ? std::string::npos : tnl - tpos));
+                                    paragraphs.push_back({"    " + tline, dimCol, codeFont});
+                                    if (tnl == std::string::npos) break;
+                                    tpos = tnl + 1;
+                                }
+                            }
+                        } else if (type == "redacted_thinking") {
+                            paragraphs.push_back({ICON_FA_BRAIN "  Thinking (redacted)", dimCol});
+                        }
+                    }
+                    if (!message.content.empty()) {
+                        MarkdownStyle mdStyle;
+                        mdStyle.textColor = textCol;
+                        mdStyle.boldColor = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                        mdStyle.italicColor = ImGui::GetColorU32(ImVec4(0.8f, 0.85f, 0.95f, 1.0f));
+                        mdStyle.codeColor = codeCol;
+                        mdStyle.codeBgColor = ImGui::GetColorU32(ImVec4(0.15f, 0.15f, 0.18f, 0.8f));
+                        mdStyle.headingColor = ImGui::GetColorU32(ImVec4(0.9f, 0.95f, 1.0f, 1.0f));
+                        mdStyle.linkColor = ImGui::GetColorU32(ImGuiCol_TextLink);
+                        mdStyle.blockquoteColor = ImGui::GetColorU32(ImVec4(0.65f, 0.7f, 0.8f, 1.0f));
+                        mdStyle.hrColor = ImGui::GetColorU32(ImGuiCol_Border);
+                        mdStyle.codeFont = codeFont;
+                        renderMarkdown(message.content, mdStyle, paragraphs);
+                    }
+                    // Show token usage if available.
+                    if (message.totalTokens >= 0) {
+                        std::string tokenInfo;
+                        if (message.promptTokens >= 0 && message.completionTokens >= 0) {
+                            tokenInfo = ICON_FA_CHART_BAR "  \xE2\x86\x91" +
+                                        std::to_string(message.promptTokens) +
+                                        "  \xE2\x86\x93" +
+                                        std::to_string(message.completionTokens) +
+                                        "  (" + std::to_string(message.totalTokens) + " total)";
+                        } else {
+                            tokenInfo = ICON_FA_CHART_BAR "  " +
+                                        std::to_string(message.totalTokens) + " tokens";
+                        }
+                        paragraphs.push_back({tokenInfo, dimCol});
+                    }
                 }
                 break;
             case ai::ChatRole::Tool: {
@@ -1301,11 +1303,20 @@ void AiChatWindow::drawTranscript(float height) {
     }
 
     if (busy) {
+        separator();
         spacer();
+        std::string activityText = service.getActivityText();
+        // Show a streaming indicator with animated dots.
+        std::string dots;
+        int dotCount = static_cast<int>(ImGui::GetTime() * 3.0) % 4;
+        for (int i = 0; i < dotCount; ++i) dots += ".";
         paragraphs.push_back({
-            std::string(ICON_FA_SPINNER) + "  " + service.getActivityText(),
+            std::string(ICON_FA_ROBOT) + "  Thinking" + dots + "  " + ICON_FA_SPINNER,
             dimCol
         });
+        if (!activityText.empty() && activityText != "Thinking") {
+            paragraphs.push_back({"    " + activityText, dimCol});
+        }
     }
 
     // Tighten transcript line spacing only; keep default ItemSpacing for the
@@ -1554,6 +1565,27 @@ void AiChatWindow::drawComposer(float inputHeight) {
             ImGui::SetItemTooltip("%s", disabledReason.c_str());
         } else {
             ImGui::SetItemTooltip("Send  (Enter - Ctrl+Enter for newline)");
+        }
+
+        // Show resend button when there's at least one user message and we're not busy.
+        const auto& msgs = cachedMessages();
+        bool hasUserMessage = false;
+        for (const auto& m : msgs) {
+            if (m.role == ai::ChatRole::User) { hasUserMessage = true; break; }
+        }
+        if (hasUserMessage) {
+            ImGui::SameLine();
+            ImGui::PushStyleColor(ImGuiCol_Button, style.Colors[ImGuiCol_FrameBg]);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, style.Colors[ImGuiCol_FrameBgHovered]);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, style.Colors[ImGuiCol_FrameBgActive]);
+            if (Widgets::iconButton("##AiResend", ICON_FA_ROTATE_RIGHT,
+                                    ImVec2(buttonWidth, inputHeight))) {
+                // Remove the last assistant message (if any) and resend the last user message.
+                service.resendLastMessage();
+                scrollToBottom = true;
+            }
+            ImGui::PopStyleColor(3);
+            ImGui::SetItemTooltip("Resend last message");
         }
     }
 

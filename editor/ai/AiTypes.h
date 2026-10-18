@@ -6,6 +6,7 @@
 #include "json.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -140,6 +141,11 @@ struct ChatMessage {
     // Human-readable label for the transcript (from EditorActionRegistry::describe).
     std::string toolDescription;
     bool toolSuccess = true;
+
+    // Token usage from the provider response (assistant messages only).
+    int promptTokens = -1;
+    int completionTokens = -1;
+    int totalTokens = -1;
 };
 
 struct ToolDefinition {
@@ -189,6 +195,7 @@ struct HttpRequest {
     std::vector<std::string> headers;
     std::string body;
     long timeoutSeconds = 90;
+    bool stream = false;
 };
 
 struct HttpResponse {
@@ -261,5 +268,9 @@ ChatRole chatRoleFromString(const std::string& value);
 
 std::string toString(ApprovalMode mode);
 ApprovalMode approvalModeFromString(const std::string& value);
+
+// Streaming support: called for each text delta received during a streaming response.
+// Return false to cancel the stream.
+using StreamingCallback = std::function<bool(const std::string& deltaText)>;
 
 } // namespace doriax::editor::ai

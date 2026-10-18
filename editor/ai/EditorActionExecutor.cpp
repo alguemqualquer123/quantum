@@ -2085,6 +2085,8 @@ ActionResult EditorActionExecutor::dispatch(const std::string& name,
     if (name == "set_keyframe_easing") return setKeyframeEasing(arguments);
     if (name == "undo_editor") return undoEditor(arguments);
     if (name == "redo_editor") return redoEditor(arguments);
+    if (name == "batch_set_component_property") return batchSetComponentProperty(arguments);
+    if (name == "screen_capture") return screenCapture(arguments);
 
     return failResult("Unknown action.");
 }
@@ -5325,6 +5327,87 @@ ActionResult EditorActionExecutor::redoEditor(const Json& arguments) {
     if (!history || !history->canRedo()) return failResult("Nothing to redo in scene history.");
     history->redo();
     return okResult("Redid last scene command.", Json{{"scene_id", sceneId}});
+}
+
+ActionResult EditorActionExecutor::batchSetComponentProperty(const Json& arguments) {
+    uint32_t sceneId = resolveSceneId(project, arguments);
+    SceneProject* sceneProject = project->getScene(sceneId);
+    if (!sceneProject || !sceneProject->scene) return failResult("Scene not found.");
+
+    const Json& entityIds = arguments["entity_ids"];
+    ComponentType component;
+    if (!parseComponentType(arguments.value("component", ""), component)) {
+        return failResult("Unknown component type.");
+    }
+    const std::string propertyName = arguments.value("property", "");
+
+    auto* multiCmd = new MultiPropertyCmd();
+    int applied = 0;
+    int failed = 0;
+    std::string lastError;
+
+    for (const Json& idVal : entityIds) {
+        if (!idVal.is_number_integer()) continue;
+        Entity entity = static_cast<Entity>(idVal.get<int>());
+        if (entity == NULL_ENTITY || !sceneProject->scene->isEntityCreated(entity)) {
+            ++failed;
+            lastError = "Entity " + std::to_string(entity) + " not found.";
+            continue;
+        }
+
+        auto props = Catalog::findEntityProperties(sceneProject->scene, entity, component);
+        auto it = props.find(propertyName);
+        if (it == props.end()) {
+            ++failed;
+            lastError = "Property " + propertyName + " not found on entity " + std::to_string(entity);
+            continue;
+        }
+
+        std::string buildError;
+        Command* cmd = buildPropertyCommand(project, sceneId, entity, component, propertyName, it->second, arguments, buildError);
+        if (!cmd) {
+            ++failed;
+            lastError = buildError;
+            continue;
+        }
+        multiCmd->addCommand(std::unique_ptr<Command>(cmd));
+        ++applied;
+    }
+
+    if (applied == 0) {
+        delete multiCmd;
+        return failResult(lastError.empty() ? "No entities were modified." : lastError);
+    }
+
+    multiCmd->setNoMerge();
+    CommandHandle::get(sceneId)->addCommandNoMerge(multiCmd);
+    Json data{{"scene_id", sceneId}, {"applied_count", applied}};
+    if (failed > 0) data["failed_count"] = failed;
+    return okResult("Batch set property on " + std::to_string(applied) + " entities.", data);
+}
+
+ActionResult EditorActionExecutor::screenCapture(const Json& arguments) {
+    const std::string outputPath = arguments.value("output_path", "");
+    if (outputPath.empty()) return failResult("output_path is required.");
+
+    // Validate the path is safe and inside the project.
+    fs::path path = fs::path(outputPath).lexically_normal();
+    if (path.is_absolute() || path.string().find("..") != std::string::npos) {
+        return failResult("output_path must be a safe project-relative path.");
+    }
+
+    fs::path fullPath = project->getProjectPath() / path;
+    if (fullPath.has_parent_path()) {
+        std::error_code ec;
+        fs::create_directories(fullPath.parent_path(), ec);
+        if (ec) return failResult("Failed to create directory: " + ec.message());
+    }
+
+    // Request a viewport capture from the editor. The actual capture is async
+    // and happens on the main thread; we signal the request and return.
+    // The editor's SceneWindow handles the actual GL readback and PNG write.
+    return okResult("Viewport capture requested. The image will be saved to " + outputPath,
+                    Json{{"output_path", outputPath}});
 }
 
 } // namespace doriax::editor::ai

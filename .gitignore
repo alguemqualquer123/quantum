@@ -81,3 +81,11 @@ $RECYCLE.BIN/
 
 # Installation directory for container build artefacts
 /installdir
+
+### Local artifacts ###
+.vs/
+build-clean/
+build-ninja/
+.claude/
+*_stdout.txt
+*_stderr.txt

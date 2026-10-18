@@ -29,7 +29,7 @@ namespace doriax::editor {
     private:
         static std::unordered_map<ShaderKey, ShaderData> shaderDataCache;
         static std::unordered_map<ShaderKey, std::future<ShaderData>> pendingBuilds;
-        static std::mutex cacheMutex;
+        static std::mutex& cacheMutex();
 
         static std::atomic<bool> shutdownRequested;
 

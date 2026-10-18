@@ -1,0 +1,185 @@
+id: 1
+name: "Main Scene"
+sceneType: "scene_3d"
+mainCamera: 2
+maxValues:
+  maxSubmeshes: 64
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 0
+scene:
+  backgroundColor: [0.25, 0.45, 0.65, 1.0]
+  shadowQuality: "low"
+  lightState: "on"
+  globalIlluminationIntensity: 0.2
+  globalIlluminationColor: [1.0, 1.0, 1.0]
+  ambientLight2DIntensity: 1.0
+  ambientLight2DColor: [1.0, 1.0, 1.0]
+  shadow2DQuality: "low"
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1.0
+  ssaoBias: 0.025
+  ssrEnabled: false
+  ssrMaxDistance: 8.0
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1.0
+  ssrBlur: 0.0
+  gravity2D: [0.0, -9.81]
+  gravity3D: [0.0, -9.81, 0.0]
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: "nearest"
+  enableUIEvents: "enabled"
+entities:
+  - type: "Entity"
+    entity: 1
+    name: "Sun"
+    components:
+      Transform:
+        position: [0.0, 10.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+        type: "directional"
+        color: [1.0, 1.0, 1.0]
+        intensity: 4.0
+        range: 100.0
+        innerAngle: 30.0
+        outerAngle: 45.0
+        shadows: true
+  - type: "Entity"
+    entity: 2
+    name: "PlayerCamera"
+    components:
+      Transform:
+        position: [0.0, 3.0, -5.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: "camera_perspective"
+        target: [0.0, 1.0, 0.0]
+        up: [0.0, 1.0, 0.0]
+        leftClip: 0.0
+        rightClip: 0.0
+        bottomClip: 0.0
+        topClip: 0.0
+        yfov: 60.0
+        aspect: 1.778
+        nearClip: 0.1
+        farClip: 1000.0
+        renderToTexture: false
+        transparentSort: false
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: "linear"
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/third_person_camera.lua"
+            enabled: true
+            properties:
+              - name: "distance"
+                displayName: "Camera Distance"
+                type: "Float"
+                value: 6.0
+                defaultValue: 6.0
+              - name: "height"
+                displayName: "Camera Height"
+                type: "Float"
+                value: 3.0
+                defaultValue: 3.0
+              - name: "followSpeed"
+                displayName: "Follow Speed"
+                type: "Float"
+                value: 8.0
+                defaultValue: 8.0
+  - type: "Entity"
+    entity: 3
+    name: "Player"
+    components:
+      Transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [0.6, 1.2, 0.6]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        meshType: "capsule"
+        path: ""
+        submeshIndex: 0
+      body3d:
+        type: "kinematic"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "capsule"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            radius: 0.3
+            halfHeight: 0.6
+            density: 1.0
+            source: "none"
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/third_person_player.lua"
+            enabled: true
+            properties:
+              - name: "moveSpeed"
+                displayName: "Move Speed"
+                type: "Float"
+                value: 5.0
+                defaultValue: 5.0
+              - name: "rotationSpeed"
+                displayName: "Rotation Speed"
+                type: "Float"
+                value: 10.0
+                defaultValue: 10.0
+  - type: "Entity"
+    entity: 4
+    name: "Ground"
+    components:
+      Transform:
+        position: [0.0, -0.5, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [50.0, 1.0, 50.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        meshType: "box"
+        path: ""
+        submeshIndex: 0
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 1.0
+            height: 1.0
+            depth: 1.0
+            density: 1.0
+            source: "none"

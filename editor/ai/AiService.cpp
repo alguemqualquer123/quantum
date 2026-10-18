@@ -387,6 +387,11 @@ Settings AiService::getSettings() const {
     return settings;
 }
 
+void AiService::setEditorContext(const EditorContext& context) {
+    std::lock_guard<std::mutex> lock(mutex);
+    editorContext = context;
+}
+
 bool AiService::sendUserMessage(const std::string& text,
                                 std::vector<ChatAttachment>&& attachments) {
     // No move has happened yet: refusing here leaves the caller's vector
@@ -629,6 +634,37 @@ void AiService::removeProposal(uint64_t proposalId) {
     }
 }
 
+void AiService::resendLastMessage() {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (busy || messages.empty()) return;
+
+    // Find the last user message.
+    int lastUserIdx = -1;
+    for (int i = static_cast<int>(messages.size()) - 1; i >= 0; --i) {
+        if (messages[i].role == ChatRole::User) {
+            lastUserIdx = i;
+            break;
+        }
+    }
+    if (lastUserIdx < 0) return;
+
+    // Extract the user message content and attachments before erasing.
+    std::string content = std::move(messages[lastUserIdx].content);
+    std::vector<ChatAttachment> attachments = std::move(messages[lastUserIdx].attachments);
+
+    // Remove everything after and including the last user message.
+    messages.erase(messages.begin() + lastUserIdx, messages.end());
+
+    // Bump revision so the UI refreshes.
+    ++revision;
+
+    // Note: sendUserMessage will re-acquire the mutex, so we can't hold it here.
+    // Since both this and sendUserMessage run on the UI thread, we save state first.
+    pendingResendContent = std::move(content);
+    pendingResendAttachments = std::move(attachments);
+    needsResend = true;
+}
+
 // Ensures every assistant tool call is answered exactly once, by a tool
 // result inside the contiguous run that follows its assistant message. Live
 // turns keep this shape through the proposal list; this covers histories that
@@ -788,6 +824,34 @@ std::string AiService::buildSystemPrompt() const {
         << "To print or log from scripts use the Log class: C++ Log::print(\"pos %f %f %f\", p.x, p.y, p.z) with #include \"Log.h\" (Log::warn/Log::error for severity); Lua Log.print(\"pos \" .. tostring(p)). Engine has no log method; never use Engine::log, printf, std::cout, or bare print().\n"
         << "Custom shaders are per-component on Mesh/UI/Points/Lines/Sky via the customShader property. To customize, call fork_shader (it copies the built-in <type>.vert/.frag into a project-relative directory and sets customShader in one undoable step; directory defaults to shaders, and fork_includes optionally copies the engine includes into an editable includes/ folder beside the fork). Never set customShader by hand to files that do not exist; the value is a base path with no extension (vert=base.vert, frag=base.frag) or two explicit paths joined by '|' (\"a.vert|b.frag\") when the entry points have different names. Both a .vert and a .frag are always required. Clear customShader (empty string) to reset to the built-in shader.\n"
         << "The forked .vert/.frag are complete, compiling engine shaders with a strict structure: a #version line, #include \"includes/...\" (resolved against the engine library), #ifdef variant guards, uniform blocks, texture and sampler declarations, in/out varyings, and a specific fragment output variable. Editing them with write_shader_file REQUIRES first calling read_resource_file on the forked file, then making minimal targeted changes that PRESERVE the #version, #include lines, uniform blocks, ALL original texture and sampler declarations (uniform sampler2D/samplerCube/textureN/samplerN and their #ifdef guards), in/out declarations, and the existing output variable name. Keep every original texture/sampler declaration even if your new code does not sample it - the engine binds them by fixed slot, so removing or renaming one breaks the texture bindings. Likewise keep the original main() code that READS the in varyings (v_position, v_normal, v_uv1, v_color, v_lightProjPos, etc.): if you delete a varying's usage the GLSL compiler strips that fragment input and the shader fails to cross-compile with a vertex/fragment interface mismatch (\"vertex shader output X does not exist in fragment shader inputs\"). Prefer to keep the original main() body that consumes the varyings and layer your effect on the final color (e.g. compute the original color, then posterize/override it), rather than deleting the existing computations. Only change the shading math (usually near the end of main()). Never rewrite a shader from scratch, drop the #version/#include lines, or invent uniform, sampler, texture, or output names - that produces compile errors (e.g. missing precision qualifier / wrong #version) or broken bindings. A stylized custom shader (e.g. toon/cel) may legitimately replace the lighting model and stop sampling the shadow or IBL maps; that is allowed - keep their declarations (the engine harmlessly skips the now-unused bindings), but briefly tell the user when your shader changes lighting behavior such as no longer receiving shadows, so they can ask to keep it. If a custom shader fails to compile, the object falls back to the built-in shader and the error appears in the output window; read that error and the forked source, then fix minimally.\n";
+
+    // Append dynamic editor context so the model knows the current state.
+    if (!editorContext.sceneName.empty() || editorContext.selectedEntityId >= 0) {
+        prompt << "\n## Current Editor State\n";
+        if (!editorContext.sceneName.empty()) {
+            prompt << "Current scene: \"" << editorContext.sceneName << "\"";
+            if (!editorContext.sceneType.empty()) {
+                prompt << " (type: " << editorContext.sceneType << ")";
+            }
+            prompt << "\n";
+        }
+        if (editorContext.selectedEntityId >= 0) {
+            prompt << "Selected entity: \"" << editorContext.selectedEntityName
+                   << "\" (id: " << editorContext.selectedEntityId << ")";
+            if (!editorContext.selectedEntityComponents.empty()) {
+                prompt << " components: ";
+                for (size_t i = 0; i < editorContext.selectedEntityComponents.size(); ++i) {
+                    if (i > 0) prompt << ", ";
+                    prompt << editorContext.selectedEntityComponents[i];
+                }
+            }
+            prompt << "\n";
+        }
+        if (!editorContext.projectType.empty()) {
+            prompt << "Project type: " << editorContext.projectType << "\n";
+        }
+    }
+
     return prompt.str();
 }
 
@@ -879,67 +943,164 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
     ProviderResponse parsed;
     try {
         std::unique_ptr<Provider> provider = createProvider(request.settings.provider);
-        HttpRequest httpRequest = provider->buildRequest(request);
-        httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
-        HttpResponse httpResponse = httpClient.send(httpRequest, &cancelRequested);
 
-        if (cancelRequested.load()) {
-            std::lock_guard<std::mutex> lock(mutex);
-            appendAssistantMessageLocked("Request cancelled.");
-            turnFailed = true;
-            busy.store(false);
-            return;
-        }
+        // Use streaming when the provider supports it — responses appear token by token.
+        if (provider->supportsStreaming()) {
+            HttpRequest httpRequest = provider->buildStreamingRequest(request);
+            httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
 
-        if (!httpResponse.error.empty()) {
-            parsed.error = "Connection error: " + httpResponse.error;
-        } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
-            // Reuse the provider parser to pull error.message out of the body.
-            ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
-            if (isRetryableRateLimit(httpResponse.status, errorBody) &&
-                retryAttempt < kMaxRateLimitRetries) {
-                const int nextAttempt = retryAttempt + 1;
-                const std::chrono::milliseconds delay =
-                    retryDelay(httpResponse, errorBody, nextAttempt);
-                bool scheduled = false;
-                bool cancelled = false;
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    if (cancelRequested.load()) {
-                        appendAssistantMessageLocked("Request cancelled.");
-                        turnFailed = true;
-                        cancelled = true;
-                    } else {
-                        pendingRetry = PendingRetry{
-                            std::move(request),
-                            std::chrono::steady_clock::now() + delay,
-                            nextAttempt
-                        };
-                        retryScheduled.store(true);
-                        scheduled = true;
-                    }
-                }
-                if (cancelled) {
-                    busy.store(false);
-                    return;
-                }
-                if (scheduled) {
-                    Out::warning(
-                        "AI provider rate limit reached; retrying in %.2f seconds "
-                        "(attempt %d/%d)",
-                        static_cast<double>(delay.count()) / 1000.0,
-                        nextAttempt, kMaxRateLimitRetries);
-                    busy.store(false);
-                    return;
-                }
+            // Create the assistant message placeholder before the stream starts
+            // so the UI can display it incrementally.
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                ChatMessage assistant;
+                assistant.role = ChatRole::Assistant;
+                assistant.model = request.settings.model;
+                messages.push_back(assistant);
+                ++revision;
             }
 
-            parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
-            Out::error("AI provider request failed (HTTP %ld): %s",
-                httpResponse.status,
-                errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            ProviderResponse streamingAccumulated;
+            HttpResponse httpResponse = httpClient.sendStreaming(
+                httpRequest,
+                [&](const std::string& line) -> bool {
+                    if (cancelRequested.load()) return false;
+
+                    provider->parseStreamingChunk(line, streamingAccumulated);
+
+                    // Update the assistant message with the latest accumulated text.
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (!messages.empty() && messages.back().role == ChatRole::Assistant) {
+                            messages.back().content = streamingAccumulated.text;
+                            messages.back().thinkingBlocks = streamingAccumulated.thinkingBlocks;
+                            ++revision;
+                        }
+                    }
+                    notifyWake();
+                    return true;
+                },
+                &cancelRequested);
+
+            if (cancelRequested.load()) {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (!messages.empty() && messages.back().role == ChatRole::Assistant) {
+                    messages.back().content += "\n\nRequest cancelled.";
+                }
+                ++revision;
+                turnFailed = true;
+                busy.store(false);
+                return;
+            }
+
+            if (!httpResponse.error.empty()) {
+                parsed.error = "Connection error: " + httpResponse.error;
+            } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
+                ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
+                if (isRetryableRateLimit(httpResponse.status, errorBody) &&
+                    retryAttempt < kMaxRateLimitRetries) {
+                    // Remove the empty assistant message we created.
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (!messages.empty() && messages.back().role == ChatRole::Assistant &&
+                            messages.back().content.empty() && messages.back().toolCalls.empty()) {
+                            messages.pop_back();
+                            ++revision;
+                        }
+                    }
+                    const int nextAttempt = retryAttempt + 1;
+                    const std::chrono::milliseconds delay =
+                        retryDelay(httpResponse, errorBody, nextAttempt);
+                    bool scheduled = false;
+                    bool cancelled = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (cancelRequested.load()) {
+                            appendAssistantMessageLocked("Request cancelled.");
+                            turnFailed = true;
+                            cancelled = true;
+                        } else {
+                            pendingRetry = PendingRetry{
+                                std::move(request),
+                                std::chrono::steady_clock::now() + delay,
+                                nextAttempt
+                            };
+                            retryScheduled.store(true);
+                            scheduled = true;
+                        }
+                    }
+                    if (cancelled) { busy.store(false); return; }
+                    if (scheduled) {
+                        Out::warning("AI provider rate limit reached; retrying in %.2f seconds (attempt %d/%d)",
+                            static_cast<double>(delay.count()) / 1000.0, nextAttempt, kMaxRateLimitRetries);
+                        busy.store(false);
+                        return;
+                    }
+                }
+                parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
+                Out::error("AI provider request failed (HTTP %ld): %s",
+                    httpResponse.status,
+                    errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            } else {
+                // Stream completed successfully — use accumulated state.
+                parsed = std::move(streamingAccumulated);
+            }
         } else {
-            parsed = provider->parseResponse(httpResponse.body);
+            // Non-streaming path (original behavior).
+            HttpRequest httpRequest = provider->buildRequest(request);
+            httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
+            HttpResponse httpResponse = httpClient.send(httpRequest, &cancelRequested);
+
+            if (cancelRequested.load()) {
+                std::lock_guard<std::mutex> lock(mutex);
+                appendAssistantMessageLocked("Request cancelled.");
+                turnFailed = true;
+                busy.store(false);
+                return;
+            }
+
+            if (!httpResponse.error.empty()) {
+                parsed.error = "Connection error: " + httpResponse.error;
+            } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
+                ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
+                if (isRetryableRateLimit(httpResponse.status, errorBody) &&
+                    retryAttempt < kMaxRateLimitRetries) {
+                    const int nextAttempt = retryAttempt + 1;
+                    const std::chrono::milliseconds delay =
+                        retryDelay(httpResponse, errorBody, nextAttempt);
+                    bool scheduled = false;
+                    bool cancelled = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (cancelRequested.load()) {
+                            appendAssistantMessageLocked("Request cancelled.");
+                            turnFailed = true;
+                            cancelled = true;
+                        } else {
+                            pendingRetry = PendingRetry{
+                                std::move(request),
+                                std::chrono::steady_clock::now() + delay,
+                                nextAttempt
+                            };
+                            retryScheduled.store(true);
+                            scheduled = true;
+                        }
+                    }
+                    if (cancelled) { busy.store(false); return; }
+                    if (scheduled) {
+                        Out::warning("AI provider rate limit reached; retrying in %.2f seconds (attempt %d/%d)",
+                            static_cast<double>(delay.count()) / 1000.0, nextAttempt, kMaxRateLimitRetries);
+                        busy.store(false);
+                        return;
+                    }
+                }
+                parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
+                Out::error("AI provider request failed (HTTP %ld): %s",
+                    httpResponse.status,
+                    errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            } else {
+                parsed = provider->parseResponse(httpResponse.body);
+            }
         }
     } catch (const std::exception& e) {
         parsed.error = e.what();
@@ -951,10 +1112,6 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
             appendAssistantMessageLocked(parsed.error);
             turnFailed = true;
         } else if (parsed.toolCalls.empty() && parsed.truncated) {
-            // A truncated reply often drops an incomplete tool call mid-JSON, so
-            // it arrives with no usable tool call. Use provider usage, when
-            // available, to distinguish the editor's output cap from a full
-            // provider/model context window.
             std::string message = buildTruncationMessage(request, parsed);
             if (!parsed.text.empty()) {
                 message = parsed.text + "\n\n" + message;
@@ -965,13 +1122,33 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
             appendAssistantMessageLocked("The provider returned no text or tool calls.");
             turnFailed = true;
         } else {
-            ChatMessage assistant;
-            assistant.role = ChatRole::Assistant;
-            assistant.content = parsed.text;
-            assistant.toolCalls = parsed.toolCalls;
-            assistant.thinkingBlocks = parsed.thinkingBlocks;
-            messages.push_back(assistant);
-            ++revision;
+            // For streaming, the assistant message was already created and
+            // updated incrementally. Just finalize it with tool calls and tokens.
+            // For non-streaming, create the message now.
+            bool streamingMessageExists = !messages.empty() &&
+                messages.back().role == ChatRole::Assistant &&
+                messages.back().content == parsed.text;
+
+            if (streamingMessageExists) {
+                // Update the existing streaming message with final data.
+                messages.back().toolCalls = parsed.toolCalls;
+                messages.back().thinkingBlocks = parsed.thinkingBlocks;
+                messages.back().promptTokens = parsed.promptTokens;
+                messages.back().completionTokens = parsed.completionTokens;
+                messages.back().totalTokens = parsed.totalTokens;
+                ++revision;
+            } else {
+                ChatMessage assistant;
+                assistant.role = ChatRole::Assistant;
+                assistant.content = parsed.text;
+                assistant.toolCalls = parsed.toolCalls;
+                assistant.thinkingBlocks = parsed.thinkingBlocks;
+                assistant.promptTokens = parsed.promptTokens;
+                assistant.completionTokens = parsed.completionTokens;
+                assistant.totalTokens = parsed.totalTokens;
+                messages.push_back(assistant);
+                ++revision;
+            }
             for (const ToolCall& call : parsed.toolCalls) {
                 addToolCallProposalLocked(call);
             }

@@ -1,0 +1,238 @@
+id: 1
+name: "Main Scene"
+sceneType: "scene_2d"
+mainCamera: 1
+maxValues:
+  maxSubmeshes: 0
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 0
+scene:
+  backgroundColor: [0.15, 0.15, 0.2, 1.0]
+  shadowQuality: "low"
+  lightState: "auto"
+  globalIlluminationIntensity: 0.0
+  globalIlluminationColor: [1.0, 1.0, 1.0]
+  ambientLight2DIntensity: 1.0
+  ambientLight2DColor: [1.0, 1.0, 1.0]
+  shadow2DQuality: "low"
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1.0
+  ssaoBias: 0.025
+  ssrEnabled: false
+  ssrMaxDistance: 8.0
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1.0
+  ssrBlur: 0.0
+  gravity2D: [0.0, -9.81]
+  gravity3D: [0.0, -9.81, 0.0]
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: "nearest"
+  enableUIEvents: "enabled"
+entities:
+  - type: "Entity"
+    entity: 1
+    name: "Camera"
+    components:
+      Transform:
+        position: [0.0, 0.0, 10.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: "camera_ortho"
+        target: [0.0, 0.0, 0.0]
+        up: [0.0, 1.0, 0.0]
+        leftClip: -10.0
+        rightClip: 10.0
+        bottomClip: -6.0
+        topClip: 6.0
+        yfov: 45.0
+        aspect: 1.778
+        nearClip: -1.0
+        farClip: 1.0
+        renderToTexture: false
+        transparentSort: false
+        useTarget: false
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: "linear"
+  - type: "Entity"
+    entity: 2
+    name: "Player"
+    components:
+      Transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        meshType: "box"
+        path: ""
+        submeshIndex: 0
+      body2d:
+        type: "dynamic"
+        numShapes: 1
+        shapes:
+          - type: "polygon"
+            density: 1.0
+            friction: 0.3
+            restitution: 0.0
+            enableHitEvents: false
+            contactEvents: false
+            preSolveEvents: false
+            sensorEvents: false
+            categoryBits: 1
+            maskBits: 65535
+            groupIndex: 0
+            vertices:
+              - [-0.4, -0.5]
+              - [0.4, -0.5]
+              - [0.4, 0.5]
+              - [-0.4, 0.5]
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/mobile_player.lua"
+            enabled: true
+            properties:
+              - name: "moveSpeed"
+                displayName: "Move Speed"
+                type: "Float"
+                value: 5.0
+                defaultValue: 5.0
+              - name: "joystickRadius"
+                displayName: "Joystick Radius"
+                type: "Float"
+                value: 80.0
+                defaultValue: 80.0
+  - type: "Entity"
+    entity: 3
+    name: "JoystickBase"
+    components:
+      Transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: false
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      uilayout:
+        anchorPointLeft: 0.0
+        anchorPointTop: 1.0
+        anchorPointRight: 0.0
+        anchorPointBottom: 1.0
+        anchorOffsetLeft: 20
+        anchorOffsetTop: -20
+        anchorOffsetRight: 180
+        anchorOffsetBottom: -200
+        anchorPreset: "BOTTOM_LEFT"
+        width: 160
+        height: 160
+      ui:
+        interactable: true
+        focusable: false
+      image:
+        patchMarginLeft: 0
+        patchMarginRight: 0
+        patchMarginTop: 0
+        patchMarginBottom: 0
+        textureScaleFactor: 1.0
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/virtual_joystick.lua"
+            enabled: true
+            properties:
+              - name: "radius"
+                displayName: "Joystick Radius"
+                type: "Float"
+                value: 60.0
+                defaultValue: 60.0
+  - type: "Entity"
+    entity: 4
+    name: "JoystickKnob"
+    components:
+      Transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: false
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      uilayout:
+        anchorPointLeft: 0.0
+        anchorPointTop: 1.0
+        anchorPointRight: 0.0
+        anchorPointBottom: 1.0
+        anchorOffsetLeft: 50
+        anchorOffsetTop: -50
+        anchorOffsetRight: 110
+        anchorOffsetBottom: -110
+        anchorPreset: "BOTTOM_LEFT"
+        width: 60
+        height: 60
+      ui:
+        interactable: false
+        focusable: false
+      image:
+        patchMarginLeft: 0
+        patchMarginRight: 0
+        patchMarginTop: 0
+        patchMarginBottom: 0
+        textureScaleFactor: 1.0
+  - type: "Entity"
+    entity: 5
+    name: "ActionButton"
+    components:
+      Transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      uilayout:
+        anchorPointLeft: 1.0
+        anchorPointTop: 1.0
+        anchorPointRight: 1.0
+        anchorPointBottom: 1.0
+        anchorOffsetLeft: -140
+        anchorOffsetTop: -20
+        anchorOffsetRight: -20
+        anchorOffsetBottom: -140
+        anchorPreset: "BOTTOM_RIGHT"
+        width: 120
+        height: 120
+      ui:
+        interactable: true
+        focusable: false
+      image:
+        patchMarginLeft: 0
+        patchMarginRight: 0
+        patchMarginTop: 0
+        patchMarginBottom: 0
+        textureScaleFactor: 1.0
+      button:
+        label: 0
+        colorNormal: [0.8, 0.2, 0.2, 0.7]
+        colorHovered: [1.0, 0.3, 0.3, 0.8]
+        colorPressed: [0.6, 0.1, 0.1, 0.9]
+        colorDisabled: [0.4, 0.4, 0.4, 0.5]
+        disabled: false

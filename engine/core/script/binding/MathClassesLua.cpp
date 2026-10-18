@@ -146,6 +146,8 @@ void LuaBinding::registerMathClasses(lua_State *L){
         .addFunction("makeCeil", &Vector3::makeCeil)
         .addFunction("perpendicular", &Vector3::perpendicular)
         .addFunction("reflect", &Vector3::reflect)
+        .addFunction("moveTowards", &Vector3::moveTowards)
+        .addFunction("lerp", &Vector3::lerp)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -264,6 +266,7 @@ void LuaBinding::registerMathClasses(lua_State *L){
             luabridge::overload<const Vector3&>(&Matrix3::scaleMatrix),
             luabridge::overload<const float>(&Matrix3::scaleMatrix))
         .addFunction("decomposeQDU", &Matrix3::decomposeQDU)
+        .addFunction("determinant", &Matrix3::determinant)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -312,6 +315,8 @@ void LuaBinding::registerMathClasses(lua_State *L){
         .addFunction("decomposeStandard", &Matrix4::decomposeStandard)
         .addFunction("decomposeQDU", &Matrix4::decomposeQDU)
         .addFunction("decompose", &Matrix4::decompose)
+        .addStaticFunction("reflectMatrix", &Matrix4::reflectMatrix)
+        .addFunction("obliqueNearClip", &Matrix4::obliqueNearClip)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -379,6 +384,7 @@ void LuaBinding::registerMathClasses(lua_State *L){
         .addFunction("getRoll", &Quaternion::getRoll)
         .addFunction("getPitch", &Quaternion::getPitch)
         .addFunction("getYaw", &Quaternion::getYaw)
+        .addFunction("equals", &Quaternion::equals)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -609,7 +615,8 @@ void LuaBinding::registerMathClasses(lua_State *L){
             luabridge::overload<Scene*, uint8_t, Entity>(&Ray::intersects),
             luabridge::overload<Scene*, uint8_t, const std::vector<Entity>&>(&Ray::intersects),
             luabridge::overload<Scene*, uint8_t, uint16_t, uint16_t, Entity>(&Ray::intersects),
-            luabridge::overload<Scene*, uint8_t, uint16_t, uint16_t, const std::vector<Entity>&>(&Ray::intersects))
+            luabridge::overload<Scene*, uint8_t, uint16_t, uint16_t, const std::vector<Entity>&>(&Ray::intersects),
+            luabridge::overload<const Sphere&>(&Ray::intersects))
         .endClass();
 
 #endif //DISABLE_LUA_BINDINGS

@@ -1,0 +1,280 @@
+id: 1
+name: "Main Scene"
+sceneType: "scene_2d"
+mainCamera: 2
+maxValues:
+  maxSubmeshes: 0
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 0
+scene:
+  backgroundColor: [0.4, 0.6, 0.9, 1.0]
+  shadowQuality: "low"
+  lightState: "auto"
+  globalIlluminationIntensity: 0.0
+  globalIlluminationColor: [1.0, 1.0, 1.0]
+  ambientLight2DIntensity: 1.0
+  ambientLight2DColor: [1.0, 1.0, 1.0]
+  shadow2DQuality: "low"
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1.0
+  ssaoBias: 0.025
+  ssrEnabled: false
+  ssrMaxDistance: 8.0
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1.0
+  ssrBlur: 0.0
+  gravity2D: [0.0, -20.0]
+  gravity3D: [0.0, -9.81, 0.0]
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: "nearest"
+  enableUIEvents: "enabled"
+entities:
+  - type: "Entity"
+    entity: 1
+    name: "Camera"
+    components:
+      Transform:
+        position: [0.0, 2.0, 10.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: "camera_ortho"
+        target: [0.0, 0.0, 0.0]
+        up: [0.0, 1.0, 0.0]
+        leftClip: -10.0
+        rightClip: 10.0
+        bottomClip: -6.0
+        topClip: 6.0
+        yfov: 45.0
+        aspect: 1.778
+        nearClip: -1.0
+        farClip: 1.0
+        renderToTexture: false
+        transparentSort: false
+        useTarget: false
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: "linear"
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/camera_follow.lua"
+            enabled: true
+            properties:
+              - name: "followSpeed"
+                displayName: "Follow Speed"
+                type: "Float"
+                value: 8.0
+                defaultValue: 8.0
+  - type: "Entity"
+    entity: 2
+    name: "Player"
+    components:
+      Transform:
+        position: [-3.0, 1.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        meshType: "box"
+        path: ""
+        submeshIndex: 0
+      body2d:
+        type: "dynamic"
+        numShapes: 1
+        shapes:
+          - type: "polygon"
+            density: 1.0
+            friction: 0.3
+            restitution: 0.0
+            enableHitEvents: false
+            contactEvents: false
+            preSolveEvents: false
+            sensorEvents: false
+            categoryBits: 1
+            maskBits: 65535
+            groupIndex: 0
+            vertices:
+              - [-0.4, -0.5]
+              - [0.4, -0.5]
+              - [0.4, 0.5]
+              - [-0.4, 0.5]
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/platformer_player.lua"
+            enabled: true
+            properties:
+              - name: "moveSpeed"
+                displayName: "Move Speed"
+                type: "Float"
+                value: 8.0
+                defaultValue: 8.0
+              - name: "jumpForce"
+                displayName: "Jump Force"
+                type: "Float"
+                value: 12.0
+                defaultValue: 12.0
+  - type: "Entity"
+    entity: 3
+    name: "Ground"
+    children:
+      - type: "Entity"
+        entity: 4
+        name: "GroundCenter"
+        components:
+          Transform:
+            position: [0.0, -1.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            scale: [20.0, 1.0, 1.0]
+            visible: true
+            billboard: false
+            fakeBillboard: false
+            cylindricalBillboard: false
+          mesh:
+            meshType: "box"
+            path: ""
+            submeshIndex: 0
+          body2d:
+            type: "static"
+            numShapes: 1
+            shapes:
+              - type: "polygon"
+                density: 1.0
+                friction: 0.5
+                restitution: 0.0
+                enableHitEvents: false
+                contactEvents: false
+                preSolveEvents: false
+                sensorEvents: false
+                categoryBits: 1
+                maskBits: 65535
+                groupIndex: 0
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+      - type: "Entity"
+        entity: 5
+        name: "Platform1"
+        components:
+          Transform:
+            position: [4.0, 1.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            scale: [4.0, 0.5, 1.0]
+            visible: true
+            billboard: false
+            fakeBillboard: false
+            cylindricalBillboard: false
+          mesh:
+            meshType: "box"
+            path: ""
+            submeshIndex: 0
+          body2d:
+            type: "static"
+            numShapes: 1
+            shapes:
+              - type: "polygon"
+                density: 1.0
+                friction: 0.5
+                restitution: 0.0
+                enableHitEvents: false
+                contactEvents: false
+                preSolveEvents: false
+                sensorEvents: false
+                categoryBits: 1
+                maskBits: 65535
+                groupIndex: 0
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+      - type: "Entity"
+        entity: 6
+        name: "Platform2"
+        components:
+          Transform:
+            position: [7.0, 2.5, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            scale: [3.0, 0.5, 1.0]
+            visible: true
+            billboard: false
+            fakeBillboard: false
+            cylindricalBillboard: false
+          mesh:
+            meshType: "box"
+            path: ""
+            submeshIndex: 0
+          body2d:
+            type: "static"
+            numShapes: 1
+            shapes:
+              - type: "polygon"
+                density: 1.0
+                friction: 0.5
+                restitution: 0.0
+                enableHitEvents: false
+                contactEvents: false
+                preSolveEvents: false
+                sensorEvents: false
+                categoryBits: 1
+                maskBits: 65535
+                groupIndex: 0
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]
+      - type: "Entity"
+        entity: 7
+        name: "Platform3"
+        components:
+          Transform:
+            position: [-5.0, 2.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            scale: [3.5, 0.5, 1.0]
+            visible: true
+            billboard: false
+            fakeBillboard: false
+            cylindricalBillboard: false
+          mesh:
+            meshType: "box"
+            path: ""
+            submeshIndex: 0
+          body2d:
+            type: "static"
+            numShapes: 1
+            shapes:
+              - type: "polygon"
+                density: 1.0
+                friction: 0.5
+                restitution: 0.0
+                enableHitEvents: false
+                contactEvents: false
+                preSolveEvents: false
+                sensorEvents: false
+                categoryBits: 1
+                maskBits: 65535
+                groupIndex: 0
+                vertices:
+                  - [-0.5, -0.5]
+                  - [0.5, -0.5]
+                  - [0.5, 0.5]
+                  - [-0.5, 0.5]

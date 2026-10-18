@@ -20,6 +20,7 @@ public:
         int begin = 0;           // UTF-8 byte offset, inclusive
         int end = 0;             // UTF-8 byte offset, exclusive
         ImU32 color = 0;
+        ImU32 bgColor = 0;       // optional background color (0 = transparent)
     };
 
     struct Paragraph {
@@ -39,6 +40,7 @@ private:
     ImVector<int> lineOffsets;        // size = lineCount + 1
     std::vector<ImU32> lineColors;    // one per line
     std::vector<ImU32> byteColors;    // one per UTF-8 byte in buf
+    std::vector<ImU32> byteBgColors;  // one per UTF-8 byte in buf (background)
     std::vector<ImFont*> lineFonts;   // one per line; nullptr = default font
     std::vector<char> lineHardBreak;  // 1 = real newline, 0 = soft wrap
     std::vector<char> lineRule;       // 1 = rule line (centered text between horizontal lines)

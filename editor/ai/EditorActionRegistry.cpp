@@ -1166,6 +1166,30 @@ const std::vector<ToolDefinition>& cachedTools() {
                 {"errors_only", boolSchema("When true, return only error/warning/build entries")}
             }),
             true
+        },
+        {
+            "batch_set_component_property",
+            "Set the same component property on multiple entities atomically through BatchPropertyCmd. Each entity gets the same component, property, and value.",
+            objectSchemaFromProperties(propertyValueFields({
+                {"scene_id", integerSchema("Scene id. Omit to use the selected scene")},
+                {"entity_ids", {
+                    {"type", "array"},
+                    {"description", "List of entity ids to modify"},
+                    {"items", {{"type", "integer"}}}
+                }},
+                {"component", stringSchema("Component name")},
+                {"property", stringSchema("Property path from inspect_component")}
+            }), {"entity_ids", "component", "property"}),
+            false
+        },
+        {
+            "screen_capture",
+            "Capture the current scene viewport as a PNG image file.",
+            objectSchema({
+                {"scene_id", integerSchema("Scene id. Omit to use the selected scene")},
+                {"output_path", stringSchema("Safe project-relative output file path, e.g. assets/screenshots/scene.png")}
+            }, {"output_path"}),
+            false
         }
     };
     return definitions;
@@ -1627,6 +1651,19 @@ ValidationResult EditorActionRegistry::validate(const std::string& name, const J
     if (name == "undo_editor" || name == "redo_editor") {
         return ok();
     }
+    if (name == "batch_set_component_property") {
+        if (!arguments.contains("entity_ids") || !arguments["entity_ids"].is_array() ||
+            arguments["entity_ids"].empty()) {
+            return fail("batch_set_component_property requires a non-empty entity_ids array.");
+        }
+        if (!hasString(arguments, "component") || !hasString(arguments, "property")) {
+            return fail("batch_set_component_property requires component and property.");
+        }
+        return hasAnyValueField(arguments) ? ok() : fail("batch_set_component_property requires one typed value field.");
+    }
+    if (name == "screen_capture") {
+        return hasString(arguments, "output_path") ? ok() : fail("screen_capture requires output_path.");
+    }
 
     return ok();
 }
@@ -1951,6 +1988,12 @@ std::string EditorActionRegistry::describe(const std::string& name, const Json& 
     }
     if (name == "redo_editor") {
         return "Redo " + arguments.value("scope", "scene") + " command";
+    }
+    if (name == "batch_set_component_property") {
+        return "Batch set " + arguments.value("component", "component") + "." + arguments.value("property", "property");
+    }
+    if (name == "screen_capture") {
+        return "Capture viewport to " + arguments.value("output_path", "");
     }
     return name;
 }

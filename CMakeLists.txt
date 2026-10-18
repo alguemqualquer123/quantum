@@ -553,6 +553,7 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/window/TerrainEditWindow.cpp
     ${EDITOR_DIR}/window/AiChatWindow.cpp
     ${EDITOR_DIR}/window/LoadingWindow.cpp
+    ${EDITOR_DIR}/window/MarkdownRenderer.cpp
     ${EDITOR_DIR}/window/dialog/SceneSaveDialog.cpp
     ${EDITOR_DIR}/window/dialog/ComponentAddDialog.cpp
     ${EDITOR_DIR}/window/dialog/ProjectSaveDialog.cpp
@@ -885,3 +886,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         )
     endforeach()
 endif()
+add_subdirectory(engine/voxel)
+add_subdirectory(engine/voxel_demo)
+

@@ -139,6 +139,31 @@ namespace doriax{
 		Vector4 params; // x = flip source Y on sample (GL swapchain destination), yzw unused
 	} fs_blit_t;
 
+	typedef struct fs_bloom_threshold_t {
+		Vector4 params; // x = threshold, y = soft knee (smooth step), zw = unused
+	} fs_bloom_threshold_t;
+
+	typedef struct fs_bloom_downsample_t {
+		Vector4 texelSize; // 1.0/textureSize in .xy, zw = unused
+	} fs_bloom_downsample_t;
+
+	typedef struct fs_bloom_upsample_t {
+		Vector4 texelSize; // 1.0/textureSize in .xy, zw = unused
+	} fs_bloom_upsample_t;
+
+	typedef struct fs_bloom_composite_t {
+		Vector4 params; // x = intensity, y = dirt intensity, zw = unused
+	} fs_bloom_composite_t;
+
+	typedef struct fs_tonemap_t {
+		Vector4 params; // x = exposure, y = tonemap mode (0=ACES,1=Reinhard,...), z = auto exposure, w = unused
+	} fs_tonemap_t;
+
+	typedef struct fs_colorgrading_t {
+		Vector4 params; // x = saturation, y = contrast, z = brightness, w = hue shift
+		Vector4 params2; // x = temperature, y = tint, z = has LUT, w = unused
+	} fs_colorgrading_t;
+
 	typedef struct vs_points_params_t {
 		Matrix4 mvpMatrix;
 		float pointScale;
@@ -416,6 +441,52 @@ namespace doriax{
 		CameraRender postProcessPassRender;    // drives the offscreen post passes
 		std::vector<PostProcessRuntime> postProcessPasses;
 
+		// HDR Bloom: extracts bright pixels, downsamples via Gaussian, upsamples with
+		// tent filter, and composites onto scene color before tone mapping.
+		bool bloomLoaded;
+		unsigned int bloomWidth;
+		unsigned int bloomHeight;
+		Framebuffer bloomThresholdFramebuffer;  // extracted bright pixels (half-res)
+		Framebuffer bloomDownsampleFramebuffers[5]; // downsample chain (halving each)
+		Framebuffer bloomUpsampleFramebuffers[5];   // upsample chain (doubling each)
+		CameraRender bloomPassRender;            // drives the fullscreen bloom passes
+		ObjectRender bloomThresholdRender;       // threshold extraction draw
+		ObjectRender bloomDownsampleRender;      // Gaussian downsample draw
+		ObjectRender bloomUpsampleRender;        // tent upsample draw
+		ObjectRender bloomCompositeRender;       // composite onto scene color draw
+		std::shared_ptr<ShaderRender> bloomThresholdShader;
+		std::shared_ptr<ShaderRender> bloomDownsampleShader;
+		std::shared_ptr<ShaderRender> bloomUpsampleShader;
+		std::shared_ptr<ShaderRender> bloomCompositeShader;
+		fs_bloom_threshold_t fs_bloom_threshold;
+		fs_bloom_downsample_t fs_bloom_downsample;
+		fs_bloom_upsample_t fs_bloom_upsample;
+		fs_bloom_composite_t fs_bloom_composite;
+		int bloomThresholdSlotParams;
+		int bloomDownsampleSlotParams;
+		int bloomUpsampleSlotParams;
+		int bloomCompositeSlotParams;
+		int activeBloomMipLevels; // clamped to [1,5] from scene settings
+		float bloomIntensity;    // bloom composite multiplier (0..10)
+
+		// Tone mapping: HDR → LDR conversion after bloom composite.
+		bool tonemapLoaded;
+		CameraRender tonemapPassRender;
+		ObjectRender tonemapRender;
+		std::shared_ptr<ShaderRender> tonemapShader;
+		fs_tonemap_t fs_tonemap;
+		int tonemapSlotParams;
+
+		// Color grading: LUT-based or procedural color adjustments after tone mapping.
+		bool colorGradingLoaded;
+		CameraRender colorGradingPassRender;
+		ObjectRender colorGradingRender;
+		std::shared_ptr<ShaderRender> colorGradingShader;
+		fs_colorgrading_t fs_colorgrading;
+		int colorGradingSlotParams;
+		TextureRender lut3DTexture;  // 3D LUT texture (64x64x64 or 32x32x32)
+		bool lut3DLoaded;
+
 		static void changeLoaded(void* data);
 		static void changeDestroy(void* data);
 
@@ -524,6 +595,24 @@ namespace doriax{
 		bool ensurePostProcessFramebuffers(unsigned int width, unsigned int height);
 		// runs the chain from ping-pong buffer 0 into destination (swapchain when null)
 		void renderPostProcess(FramebufferRender* destination);
+
+		// HDR bloom
+		void loadBloom();
+		void destroyBloom();
+		bool ensureBloomFramebuffers(unsigned int width, unsigned int height);
+		// reads scene color, writes bloom mip chain into bloomUpsampleFramebuffers[0]
+		void renderBloom(TextureRender* sceneColorTexture, FramebufferRender* destination);
+
+		// Tone mapping
+		void loadTonemap();
+		void destroyTonemap();
+		void renderTonemap(TextureRender* inputTexture, FramebufferRender* destination);
+
+		// Color grading
+		void loadColorGrading();
+		void destroyColorGrading();
+		void renderColorGrading(TextureRender* inputTexture, FramebufferRender* destination);
+		bool loadLUT3D(const std::string& path);
 
 		bool drawUI(UIComponent& ui, Transform& transform, bool renderToTexture);
 		void destroyUI(Entity entity, UIComponent& ui);

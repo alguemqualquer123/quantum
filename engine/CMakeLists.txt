@@ -851,6 +851,7 @@ set(DORIAX_SRCS
     core/subsystem/MeshSystem.cpp
     core/subsystem/PhysicsSystem.cpp
     core/subsystem/RenderSystem.cpp
+    core/subsystem/NetworkSystem.cpp
     core/subsystem/UISystem.cpp
     core/texture/Framebuffer.cpp
     core/texture/IBLEnvironment.cpp
@@ -888,7 +889,7 @@ add_library(
 )
 
 find_package(Threads REQUIRED)
-target_link_libraries(doriax PRIVATE Threads::Threads)
+target_link_libraries(doriax PRIVATE ws2_32)
 
 if(EMSCRIPTEN AND EMSCRIPTEN_THREAD_SUPPORT)
 	target_compile_options(doriax PRIVATE -pthread)

@@ -211,25 +211,27 @@ bool editor::Generator::configureCMake(const fs::path& projectPath, const fs::pa
                 }
             }
         } else if (fs::exists(cacheFile)) {
-            std::ifstream cache(cacheFile);
-            std::string line;
             std::string cachedGenerator;
             std::string cachedCCompiler;
             std::string cachedCxxCompiler;
+            {
+                std::ifstream cache(cacheFile);
+                std::string line;
 
-            while (std::getline(cache, line)) {
-                const std::string genPrefix = "CMAKE_GENERATOR:INTERNAL=";
-                const std::string cPrefix = "CMAKE_C_COMPILER:FILEPATH=";
-                const std::string cxxPrefix = "CMAKE_CXX_COMPILER:FILEPATH=";
+                while (std::getline(cache, line)) {
+                    const std::string genPrefix = "CMAKE_GENERATOR:INTERNAL=";
+                    const std::string cPrefix = "CMAKE_C_COMPILER:FILEPATH=";
+                    const std::string cxxPrefix = "CMAKE_CXX_COMPILER:FILEPATH=";
 
-                if (line.compare(0, genPrefix.size(), genPrefix) == 0) {
-                    cachedGenerator = line.substr(genPrefix.size());
-                } else if (line.compare(0, cPrefix.size(), cPrefix) == 0) {
-                    cachedCCompiler = line.substr(cPrefix.size());
-                } else if (line.compare(0, cxxPrefix.size(), cxxPrefix) == 0) {
-                    cachedCxxCompiler = line.substr(cxxPrefix.size());
+                    if (line.compare(0, genPrefix.size(), genPrefix) == 0) {
+                        cachedGenerator = line.substr(genPrefix.size());
+                    } else if (line.compare(0, cPrefix.size(), cPrefix) == 0) {
+                        cachedCCompiler = line.substr(cPrefix.size());
+                    } else if (line.compare(0, cxxPrefix.size(), cxxPrefix) == 0) {
+                        cachedCxxCompiler = line.substr(cxxPrefix.size());
+                    }
                 }
-            }
+            } // ifstream closed here, releasing the file lock before cleanBuildDirectory
 
             bool kitChanged = false;
             if (!generator.empty()) {

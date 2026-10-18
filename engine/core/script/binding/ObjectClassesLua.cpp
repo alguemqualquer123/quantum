@@ -312,6 +312,10 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("automaticShadowCamera", &Light::isAutomaticShadowCamera, &Light::setAutomaticShadowCamera)
         .addProperty("numCascades", &Light::getNumCascades, &Light::setNumCascades)
         .addFunction("setNumCascades", &Light::setNumCascades)
+        .addProperty("bias", &Light::getBias, &Light::setBias)
+        .addFunction("setBias", &Light::setBias)
+        .addProperty("shadowMapSize", &Light::getShadowMapSize, &Light::setShadowMapSize)
+        .addFunction("setShadowMapSize", &Light::setShadowMapSize)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -344,7 +348,9 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .deriveClass<Occluder2D, Object>("Occluder2D")
         .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
         .addProperty("shape", &Occluder2D::getShape, &Occluder2D::setShape)
-        .addFunction("addVertex", (void(Occluder2D::*)(float, float))&Occluder2D::addVertex)
+        .addFunction("addVertex",
+            (void(Occluder2D::*)(float, float))&Occluder2D::addVertex,
+            (void(Occluder2D::*)(Vector2))&Occluder2D::addVertex)
         .addFunction("clearVertices", &Occluder2D::clearVertices)
         .addFunction("getVertexCount", &Occluder2D::getVertexCount)
         .addProperty("closed", &Occluder2D::isClosed, &Occluder2D::setClosed)
@@ -518,8 +524,11 @@ void LuaBinding::registerObjectClasses(lua_State *L){
     luabridge::getGlobalNamespace(L)
         .deriveClass<Terrain, Mesh>("Terrain")
         .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
-        .addFunction("setHeightMap", (void(Terrain::*)(const std::string&))&Terrain::setHeightMap)
-        .addFunction("setBlendMap", (void(Terrain::*)(const std::string&))&Terrain::setBlendMap)
+        .addFunction("createTerrain", &Terrain::createTerrain)
+        .addFunction("setHeightMap",
+            (void(Terrain::*)(const std::string&))&Terrain::setHeightMap)
+        .addFunction("setBlendMap",
+            (void(Terrain::*)(const std::string&))&Terrain::setBlendMap)
         .addFunction("setTextureDetailRed", (void(Terrain::*)(const std::string&))&Terrain::setTextureDetailRed)
         .addFunction("setTextureDetailGreen", (void(Terrain::*)(const std::string&))&Terrain::setTextureDetailGreen)
         .addFunction("setTextureDetailBlue", (void(Terrain::*)(const std::string&))&Terrain::setTextureDetailBlue)
@@ -608,6 +617,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addFunction("addVertex", 
             luabridge::overload<Vector3>(&MeshPolygon::addVertex),
             luabridge::overload<float, float>(&MeshPolygon::addVertex))
+        .addFunction("clearVertices", &MeshPolygon::clearVertices)
         .addProperty("width", [] (MeshPolygon* self) -> int { return self->getWidth(); })
         .addProperty("height", [] (MeshPolygon* self) -> int { return self->getHeight(); })
         .addProperty("flipY", &MeshPolygon::isFlipY, &MeshPolygon::setFlipY)
@@ -710,6 +720,8 @@ void LuaBinding::registerObjectClasses(lua_State *L){
             luabridge::overload<const std::string&, int, bool>(&Sprite::startAnimation))
         .addFunction("pauseAnimation", &Sprite::pauseAnimation)
         .addFunction("stopAnimation", &Sprite::stopAnimation)
+        .addFunction("resumeAnimation", &Sprite::resumeAnimation)
+        .addFunction("createSprite", &Sprite::createSprite)
         .endClass();
 
     luabridge::getGlobalNamespace(L)

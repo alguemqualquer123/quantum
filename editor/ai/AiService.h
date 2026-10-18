@@ -17,6 +17,15 @@ namespace doriax::editor::ai {
 
 class EditorActionExecutor;
 
+struct EditorContext {
+    std::string sceneName;
+    std::string sceneType;       // "2d", "3d", or "ui"
+    int selectedEntityId = -1;
+    std::string selectedEntityName;
+    std::vector<std::string> selectedEntityComponents;
+    std::string projectType;     // "2d", "3d", or "mixed"
+};
+
 class AiService {
 public:
     AiService();
@@ -24,6 +33,7 @@ public:
 
     void setSettings(const Settings& settings);
     Settings getSettings() const;
+    void setEditorContext(const EditorContext& context);
 
     // Invoked from the worker when a reply lands, so the editor's ~100 ms idle wait
     // does not add a tick per agent step. Must be safe off the main thread.
@@ -62,11 +72,15 @@ public:
     ActionResult executeProposal(uint64_t proposalId, EditorActionExecutor& executor);
     void removeProposal(uint64_t proposalId);
 
+    // Removes the last assistant message (if any) and resends the last user message.
+    void resendLastMessage();
+
     const HttpClient& getHttpClient() const { return httpClient; }
 
 private:
     mutable std::mutex mutex;
     Settings settings;
+    EditorContext editorContext;
     std::vector<ChatMessage> messages;
     std::vector<ActionProposal> proposals;
     std::thread worker;
@@ -79,6 +93,9 @@ private:
     // Tracks one user-message agent turn (send → final assistant reply).
     bool turnActive = false;
     bool turnFailed = false;
+    bool needsResend = false;
+    std::string pendingResendContent;
+    std::vector<ChatAttachment> pendingResendAttachments;
     HttpClient httpClient;
 
     struct PendingRetry {

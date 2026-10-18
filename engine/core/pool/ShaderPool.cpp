@@ -402,6 +402,29 @@ std::string ShaderPool::getShaderTypeName(ShaderType shaderType, bool lowerCase)
         case ShaderType::COMPOSITE: return lowerCase ? "composite" : "Composite";
         case ShaderType::SHADOW2D: return lowerCase ? "shadow2d" : "Shadow 2D";
         case ShaderType::BLIT:   return lowerCase ? "blit"   : "Blit";
+        // --- HDR pipeline ---
+        case ShaderType::BLOOM_THRESHOLD: return lowerCase ? "bloom_threshold" : "Bloom Threshold";
+        case ShaderType::BLOOM_DOWNSAMPLE: return lowerCase ? "bloom_downsample" : "Bloom Downsample";
+        case ShaderType::BLOOM_UPSAMPLE: return lowerCase ? "bloom_upsample" : "Bloom Upsample";
+        case ShaderType::BLOOM_COMPOSITE: return lowerCase ? "bloom_composite" : "Bloom Composite";
+        case ShaderType::TONEMAP: return lowerCase ? "tonemap" : "Tone Map";
+        case ShaderType::EXPOSURE: return lowerCase ? "exposure" : "Exposure";
+        case ShaderType::COLORGRADING: return lowerCase ? "colorgrading" : "Color Grading";
+        // --- Anti-aliasing ---
+        case ShaderType::VELOCITY: return lowerCase ? "velocity" : "Velocity";
+        case ShaderType::TAA: return lowerCase ? "taa" : "TAA";
+        case ShaderType::FXAA: return lowerCase ? "fxaa" : "FXAA";
+        // --- Post-process effects ---
+        case ShaderType::DOF_COC: return lowerCase ? "dof_coc" : "DOF CoC";
+        case ShaderType::DOF_BLUR: return lowerCase ? "dof_blur" : "DOF Blur";
+        case ShaderType::DOF_COMPOSITE: return lowerCase ? "dof_composite" : "DOF Composite";
+        case ShaderType::MOTIONBLUR: return lowerCase ? "motionblur" : "Motion Blur";
+        case ShaderType::CHROMATIC: return lowerCase ? "chromatic" : "Chromatic Aberration";
+        case ShaderType::VIGNETTE: return lowerCase ? "vignette" : "Vignette";
+        case ShaderType::FILMGRAIN: return lowerCase ? "filmgrain" : "Film Grain";
+        case ShaderType::CONTACT_SHADOWS: return lowerCase ? "contact_shadows" : "Contact Shadows";
+        case ShaderType::HIZ_GEN: return lowerCase ? "hiz_gen" : "Hi-Z Generation";
+        case ShaderType::SSR_HIZ: return lowerCase ? "ssr_hiz" : "SSR Hi-Z";
         case ShaderType::POSTPROCESS: return lowerCase ? "postprocess" : "Post-process";
         default:                 return lowerCase ? "unknown": "Unknown";
     }
@@ -423,6 +446,29 @@ int ShaderPool::getShaderPropertyCount(ShaderType shaderType){
         case ShaderType::COMPOSITE: return 0;
         case ShaderType::SHADOW2D: return 0;
         case ShaderType::BLIT:   return 0;
+        // --- HDR pipeline ---
+        case ShaderType::BLOOM_THRESHOLD: return 1;
+        case ShaderType::BLOOM_DOWNSAMPLE: return 1;
+        case ShaderType::BLOOM_UPSAMPLE: return 1;
+        case ShaderType::BLOOM_COMPOSITE: return 1;
+        case ShaderType::TONEMAP: return 3;
+        case ShaderType::EXPOSURE: return 1;
+        case ShaderType::COLORGRADING: return 2;
+        // --- Anti-aliasing ---
+        case ShaderType::VELOCITY: return 2;
+        case ShaderType::TAA: return 1;
+        case ShaderType::FXAA: return 0;
+        // --- Post-process effects ---
+        case ShaderType::DOF_COC: return 0;
+        case ShaderType::DOF_BLUR: return 1;
+        case ShaderType::DOF_COMPOSITE: return 1;
+        case ShaderType::MOTIONBLUR: return 0;
+        case ShaderType::CHROMATIC: return 0;
+        case ShaderType::VIGNETTE: return 0;
+        case ShaderType::FILMGRAIN: return 0;
+        case ShaderType::CONTACT_SHADOWS: return 0;
+        case ShaderType::HIZ_GEN: return 0;
+        case ShaderType::SSR_HIZ: return 1;
         default:                 return 0;
     }
 }
@@ -498,6 +544,74 @@ std::string ShaderPool::getShaderPropertyName(ShaderType shaderType, int bit, bo
         switch (bit) {
             case 0: return shortName ? "Vc3" : "Vertex Color 3";
             case 1: return shortName ? "Vc4" : "Vertex Color 4";
+        }
+    } else if (shaderType == ShaderType::BLOOM_THRESHOLD) {
+        switch (bit) {
+            case 0: return shortName ? "Sft" : "Soft Knee";
+        }
+    } else if (shaderType == ShaderType::BLOOM_DOWNSAMPLE) {
+        switch (bit) {
+            case 0: return shortName ? "Hgh" : "High Quality";
+        }
+    } else if (shaderType == ShaderType::BLOOM_UPSAMPLE) {
+        switch (bit) {
+            case 0: return shortName ? "Hgh" : "High Quality";
+        }
+    } else if (shaderType == ShaderType::BLOOM_COMPOSITE) {
+        switch (bit) {
+            case 0: return shortName ? "Drt" : "Lens Dirt";
+        }
+    } else if (shaderType == ShaderType::TONEMAP) {
+        switch (bit) {
+            case 0: return shortName ? "Acs" : "ACES";
+            case 1: return shortName ? "AgX" : "AgX";
+            case 2: return shortName ? "PNt" : "PBR Neutral";
+        }
+    } else if (shaderType == ShaderType::EXPOSURE) {
+        switch (bit) {
+            case 0: return shortName ? "Hst" : "Histogram";
+        }
+    } else if (shaderType == ShaderType::COLORGRADING) {
+        switch (bit) {
+            case 0: return shortName ? "Lut" : "3D LUT";
+            case 1: return shortName ? "SMH" : "Shadows/Midtones/Highlights";
+        }
+    } else if (shaderType == ShaderType::VELOCITY) {
+        switch (bit) {
+            case 0: return shortName ? "Skn" : "Skinning";
+            case 1: return shortName ? "Mtg" : "Morph Target";
+        }
+    } else if (shaderType == ShaderType::TAA) {
+        switch (bit) {
+            case 0: return shortName ? "Hst" : "History";
+        }
+    } else if (shaderType == ShaderType::FXAA) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::DOF_COC) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::DOF_BLUR) {
+        switch (bit) {
+            case 0: return shortName ? "Bkh" : "Bokeh";
+        }
+    } else if (shaderType == ShaderType::DOF_COMPOSITE) {
+        switch (bit) {
+            case 0: return shortName ? "Vgn" : "Vignette";
+        }
+    } else if (shaderType == ShaderType::MOTIONBLUR) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::CHROMATIC) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::VIGNETTE) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::FILMGRAIN) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::CONTACT_SHADOWS) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::HIZ_GEN) {
+        return shortName ? "?" : "Unknown";
+    } else if (shaderType == ShaderType::SSR_HIZ) {
+        switch (bit) {
+            case 0: return shortName ? "Gls" : "Glossy";
         }
     }
     return shortName ? "?" : "Unknown";

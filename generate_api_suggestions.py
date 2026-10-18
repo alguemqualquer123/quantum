@@ -530,7 +530,7 @@ def main():
     output_path = sys.argv[2]
     engine_core_dir = sys.argv[3] if len(sys.argv) > 3 else os.path.abspath(os.path.join(binding_dir, '..', '..'))
 
-    binding_files = sorted(glob.glob(os.path.join(binding_dir, '*.cpp')))
+    binding_files = sorted(glob.glob(os.path.join(glob.escape(binding_dir), '*.cpp')))
     if not binding_files:
         print(f'WARNING: No binding files found in {binding_dir}')
         sys.exit(1)

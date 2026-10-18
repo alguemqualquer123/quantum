@@ -162,16 +162,16 @@ struct MaterialInfo{
     vec3 n;
     vec3 baseColor; // getBaseColor()
 
-    //float sheenRoughnessFactor;
-    //vec3 sheenColorFactor;
+    float sheenRoughnessFactor;
+    vec3 sheenColorFactor;
 
-    //vec3 clearcoatF0;
-    //vec3 clearcoatF90;
-    //float clearcoatFactor;
-    //vec3 clearcoatNormal;
-    //float clearcoatRoughness;
+    vec3 clearcoatF0;
+    vec3 clearcoatF90;
+    float clearcoatFactor;
+    vec3 clearcoatNormal;
+    float clearcoatRoughness;
 
-    //float transmissionFactor;
+    float transmissionFactor;
 };
 
 struct NormalInfo {
@@ -188,6 +188,8 @@ const float M_PI = 3.141592653589793;
 
 #include "includes/pbr.glsl"
 #include "includes/brdf.glsl"
+#include "includes/clearcoat.glsl"
+#include "includes/transmission.glsl"
 #ifndef MATERIAL_UNLIT
     #include "includes/ibl.glsl"
 #endif
@@ -254,7 +256,7 @@ void main() {
         vec3 t = normalInfo.t;
         vec3 b = normalInfo.b;
 
-        MaterialInfo materialInfo = {0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), vec3(0.0)};
+        MaterialInfo materialInfo = {0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), 0.0, vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), 0.0, vec3(0.0), 0.0, 0.0};
         materialInfo.baseColor = baseColor.rgb;
 
         // The default index of refraction of 1.5 yields a dielectric normal incidence reflectance of 0.04.

@@ -752,12 +752,13 @@ void processMessages(bool waitForMessage) {
 
 } // namespace
 
-editor::App editor::Backend::app;
+editor::App* editor::Backend::app = nullptr;
 std::string editor::Backend::title;
 
 int editor::Backend::init(int argc, char* argv[]) {
-    setEditorHost(&app);
-    app.initializeSettings();
+    app = new App();
+    setEditorHost(app);
+    app->initializeSettings();
 
     backend = new WinBackendData();
 
@@ -767,10 +768,10 @@ int editor::Backend::init(int argc, char* argv[]) {
     WindowWin::enableDpiAwareness();
 
     const float uiScale = WindowWin::monitorScale(nullptr);
-    const int initialWidth = app.getInitialWindowWidth(uiScale);
-    const int initialHeight = app.getInitialWindowHeight(uiScale);
+    const int initialWidth = app->getInitialWindowWidth(uiScale);
+    const int initialHeight = app->getInitialWindowHeight(uiScale);
     if (!initializeWindow(initialWidth, initialHeight,
-                          app.getInitialWindowMaximized())) {
+                          app->getInitialWindowMaximized())) {
         shutdownWindow();
         return -1;
     }
@@ -794,7 +795,7 @@ int editor::Backend::init(int argc, char* argv[]) {
     platformIO.Platform_CreateWindow = createThemedImGuiWindow;
     installViewportHooks(platformIO);
 
-    app.setup();
+    app->setup();
     int clientWidth = 0;
     int clientHeight = 0;
     WindowWin::getClientSize(clientWidth, clientHeight);
@@ -809,17 +810,17 @@ int editor::Backend::init(int argc, char* argv[]) {
         return -1;
     }
 
-    backend->editorFrame.init(*backend->renderer, app, []() {
+    backend->editorFrame.init(*backend->renderer, *app, []() {
         ImGui_ImplWin32_NewFrame();
         applyRelativeMouseData();
     });
 
-    app.engineInit(argc, argv);
+    app->engineInit(argc, argv);
     // Keep the initial hide soft so ImGui can restore the normal editor cursor.
     SetCursor(nullptr);
-    app.engineViewLoaded();
+    app->engineViewLoaded();
 
-    app.setWakeCallback([]() {
+    app->setWakeCallback([]() {
         if (backend && backend->window)
             PostMessageW(backend->window, WM_DORIAX_WAKE, 0, 0);
     });
@@ -853,26 +854,26 @@ int editor::Backend::init(int argc, char* argv[]) {
     KillTimer(backend->window, LIVE_RESIZE_TIMER_ID);
     backend->inSizeMove = false;
 
-    app.shutdownBackgroundWork();
+    app->shutdownBackgroundWork();
     int width = 0;
     int height = 0;
     WindowWin::getClientSize(width, height);
-    app.saveWindowSettings(width, height, IsZoomed(backend->window) != FALSE,
+    app->saveWindowSettings(width, height, IsZoomed(backend->window) != FALSE,
                            WindowWin::monitorScale(backend->window));
 
     backend->renderer->shutdownImGui();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
-    app.engineViewDestroyed();
+    app->engineViewDestroyed();
     NFD_Quit();
     backend->renderer.reset();
     shutdownWindow();
-    app.engineShutdown();
+    app->engineShutdown();
     return 0;
 }
 
 editor::App& editor::Backend::getApp() {
-    return app;
+    return *app;
 }
 
 void editor::Backend::disableMouseCursor() {
