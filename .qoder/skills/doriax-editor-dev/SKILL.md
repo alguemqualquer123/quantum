@@ -34,7 +34,9 @@ Every panel follows the same shape (`OutputWindow`, `Structure` are the models):
    a missing entry means the window silently never appears.
 
 `references/window-pattern.md` has the finer points (thread-safe pushes, redraw
-requests, modal/toast windows, theme usage).
+requests, modal/toast windows, theme usage). `doriax-ui` covers the in-game UI system
+and the editor theming/docking details; `doriax-safety-rules` states the rules that
+override any convenience here (never launch the editor, one build tree, no `git add -A`).
 
 ## Supporting APIs
 

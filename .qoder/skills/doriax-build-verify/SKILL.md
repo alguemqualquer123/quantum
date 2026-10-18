@@ -71,6 +71,12 @@ and diffs it against `$DORIAX_BUILD_DIR/generated/engine_api_suggestions.h`
 
 ## Fast check when a full build is not feasible
 
+Shader sources are embedded, not read from disk: after any change under
+`engine/tools/shaderlib/` run `cmake --build "$DORIAX_BUILD_DIR" --target
+generate_shaders` before recompiling, or the edit is invisible
+(`doriax-shaders`). Compiled variants are also cached per-user in
+`%LOCALAPPDATA%/doriax/shaders/v23/*.sdat`, which can hide a broken shader.
+
 A full editor build is minutes-long and the repo frequently has unrelated breakage.
 Rank checks by cost:
 

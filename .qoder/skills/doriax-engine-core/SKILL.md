@@ -12,6 +12,11 @@ entity -> components -> subsystems, all owned by a `Scene`. Follow the checklist
 `references/` before touching a new area: the registration touchpoints are spread
 across several files and are easy to miss.
 
+Specialised skills that go deeper than this overview: `doriax-api` (the full
+add-a-component/persist-a-property checklist and the caps), `doriax-scripting` (Lua and
+C++ script hooks), `doriax-performance` (threading, pools, `MAX_*` limits),
+`doriax-rendering`, `doriax-physics`, `doriax-ui`, `doriax-safety-rules`.
+
 ## Architecture in one screen
 
 - `Engine` is all-static (`engine/core/Engine.h:199`). The platform `System` pumps
@@ -58,6 +63,19 @@ Copy the closest existing one. `ReflectionProbeComponent` is the reference path;
   `DPROPERTY("Name", Type)` (`core/script/ScriptProperty.h:16-24`). The editor
   discovers them statically via `editor/util/ScriptParser.cpp`; `Factory.cpp` emits
   `extern "C" initScripts/cleanupScripts` and hot-reloads through `Conector`.
+
+## Assets the engine carries itself
+
+`BuiltinModels` (`engine/core/io/BuiltinModel.{h,cpp}`) serves GLB bytes compiled
+into the dll behind a `builtin://Name.glb` path, so a project without the asset
+still renders it. Anything that resolves a model path must let that scheme
+through untouched - `FileData::getSystemPath()` (`core/io/FileData.cpp:158+`)
+returns it as-is, which is what keeps cache keys from claiming to be files - and
+`MeshSystem` picks bytes over disk in one place, `parseGLTFFromPath()`, used by
+both the sync `loadGLTF` and the async worker.
+Regenerate the header with `engine/tools/generate_builtin_model.py`; it emits a
+byte array like `editor/resources/fonts/*_ttf.h`, because MSVC folds a 17k-part
+string-literal concatenation into one token and dies with C1060.
 
 ## Conventions
 

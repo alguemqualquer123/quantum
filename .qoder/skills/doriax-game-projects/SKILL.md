@@ -58,6 +58,9 @@ runner logs this explicitly rather than failing silently.
 
 ## Lua vs C++ scripts
 
+- Full hook/VFS/hot-reload detail is in `doriax-scripting`; gameplay-relevant limits
+  (physics components, water, procedural noise) are in `doriax-physics`,
+  `doriax-water` and `doriax-procedural-noise`.
 - Lua is the fast path for gameplay; API surface is what `engine/core/script/binding/*.cpp`
   exposes, and `engine_api_suggestions.h` (regenerate with `doriax-reflector`, see
   `doriax-build-verify`) is the completion list - use it to confirm a method exists
