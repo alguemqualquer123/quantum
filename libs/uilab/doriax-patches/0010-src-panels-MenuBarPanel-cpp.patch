@@ -1,0 +1,16 @@
+--- a/src/panels/MenuBarPanel.cpp
++++ b/src/panels/MenuBarPanel.cpp
+@@ -275,6 +275,13 @@
+     if (!ImGui::BeginMainMenuBar())
+         return;
+ 
++    // An embedding host owns the menu items; the bar itself stays here.
++    if (ctx.host.menuBar) {
++        ctx.host.menuBar(ctx);
++        ImGui::EndMainMenuBar();
++        return;
++    }
++
+     icons::IconText(icons::Icon::Widget, "  UI Components Lab  ", ImGui::GetColorU32(ImGuiCol_Text));
+     ImGui::Separator();
+     MenuFile(ctx);

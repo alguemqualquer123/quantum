@@ -518,6 +518,7 @@ set(IMGUI_SOURCES
     ${IMGUI_DIR}/imgui_draw.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
 )
 
 # ImGui platform backends go with API_BACKEND above, renderers with GRAPHIC_BACKEND
@@ -540,6 +541,34 @@ set_property(
 
 include_directories (${EDITOR_DIR})
 
+# ---- UILab: the editor's UI component library (libs/uilab) ------------------
+# ImGui stays compiled into each editor executable, so UILab gets the headers through
+# this INTERFACE target and links against the same objects the editor already holds.
+add_library(doriax_imgui INTERFACE)
+target_include_directories(doriax_imgui SYSTEM INTERFACE
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+    ${IMGUI_DIR}/misc/cpp
+)
+
+# The standalone laboratory app (window, GLFW, its own demo pages) is not part of the
+# editor: only the Core + Editor libraries are.
+set(UILAB_BUILD_APP OFF)
+set(UILAB_BUILD_DEMOS OFF)
+set(UILAB_FETCH_DEPS OFF)
+set(UILAB_PROVIDE_THIRD_PARTY OFF)
+set(UILAB_EXPORT_TARGETS OFF)
+set(UILAB_IMGUI_TARGET doriax_imgui)
+add_subdirectory(libs/uilab)
+
+if(MSVC)
+    # Jolt propagates _HAS_EXCEPTIONS=0 PUBLIC into the engine and the editor. These
+    # static libraries link into the same executable, so they must use that switch too.
+    foreach(uilab_lib IN ITEMS uilab_core uilab_editor)
+        target_compile_definitions(${uilab_lib} PRIVATE _HAS_EXCEPTIONS=0)
+    endforeach()
+endif()
+
 add_custom_target(generate_shaders DEPENDS ${SHADERS_HEADER})
 add_custom_target(generate_api_suggestions DEPENDS ${API_SUGGESTIONS_HEADER})
 
@@ -551,6 +580,7 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/cli/ResourceServerClient.cpp
     ${EDITOR_DIR}/App.cpp
     ${EDITOR_DIR}/AppSettings.cpp
+    ${EDITOR_DIR}/UILabHost.cpp
     ${EDITOR_DIR}/Theme.cpp
     ${EDITOR_DIR}/Factory.cpp
     ${EDITOR_DIR}/Out.cpp
@@ -720,6 +750,8 @@ function(configure_doriax_editor_target target_name)
         shadercompiler
         nfd
         yaml-cpp
+        uilab_core
+        uilab_editor
     )
 
     if(WIN32)

@@ -1,0 +1,15 @@
+--- a/src/panels/InspectorPanel.cpp
++++ b/src/panels/InspectorPanel.cpp
+@@ -567,6 +567,12 @@
+         return;
+     }
+ 
++    if (ctx.host.inspector) {
++        ctx.host.inspector(ctx);
++        ImGui::End();
++        return;
++    }
++
+     WidgetInstance* inst = ctx.SelectedWidget();
+     if (!inst) {
+         DrawNoSelection(ctx);

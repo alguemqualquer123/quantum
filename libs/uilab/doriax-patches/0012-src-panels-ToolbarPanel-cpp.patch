@@ -1,0 +1,15 @@
+--- a/src/panels/ToolbarPanel.cpp
++++ b/src/panels/ToolbarPanel.cpp
+@@ -74,6 +74,12 @@
+         return;
+     }
+ 
++    if (ctx.host.toolbar) {
++        ctx.host.toolbar(ctx);
++        ImGui::End();
++        return;
++    }
++
+     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
+     s_toolOnLine = false;
+     const ImVec2 btn(30.0f, 26.0f);

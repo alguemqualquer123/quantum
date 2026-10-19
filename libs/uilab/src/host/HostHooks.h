@@ -1,0 +1,31 @@
+// HostHooks.h - seams for an application that embeds this library instead of
+// running the standalone laboratory.
+//
+// The library keeps ownership of the chrome (the dockspace, the panel windows,
+// the scroll regions, the look) and the host supplies the content of a panel by
+// assigning a hook. A hook draws inside the panel's already-opened window or
+// menu bar and must leave the ImGui stack balanced - it does not call
+// Begin/End for the panel itself. When a hook is empty the panel draws the
+// laboratory's own demo content, so the standalone app is unaffected.
+#pragma once
+
+#include <functional>
+
+namespace uilab {
+
+class AppContext;
+
+struct HostHooks {
+    // Main menu bar contents (called between BeginMainMenuBar and EndMainMenuBar).
+    std::function<void(AppContext&)> menuBar;
+    // Contents of the toolbar / status bar windows.
+    std::function<void(AppContext&)> toolbar;
+    std::function<void(AppContext&)> statusBar;
+    // Contents of the docked data panels.
+    std::function<void(AppContext&)> componentTree;
+    std::function<void(AppContext&)> hierarchy;
+    std::function<void(AppContext&)> inspector;
+    std::function<void(AppContext&)> assetBrowser;
+};
+
+} // namespace uilab

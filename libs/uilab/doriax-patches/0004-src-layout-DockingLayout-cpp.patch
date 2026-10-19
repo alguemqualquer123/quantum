@@ -1,0 +1,26 @@
+--- a/src/layout/DockingLayout.cpp
++++ b/src/layout/DockingLayout.cpp
+@@ -81,10 +81,13 @@
+ 
+ bool IsLayoutReady() { return s_ready; }
+ 
++ImGuiID DockSpaceId() { return kDockSpaceId; }
++
+ void BeginFrame(AppContext& ctx) {
+     if (ctx.requestResetLayout) {
+         ctx.requestResetLayout = false;
+-        ApplyDefaultLayout(ctx);
++        if (ctx.installDefaultDockTree)
++            ApplyDefaultLayout(ctx);
+     }
+ 
+     const ImGuiViewport* viewport = ImGui::GetMainViewport();
+@@ -113,7 +116,7 @@
+ 
+     ImGui::PopStyleVar(3);
+ 
+-    if (!s_ready)
++    if (ctx.installDefaultDockTree && !s_ready)
+         ApplyDefaultLayout(ctx);
+ }
+ 

@@ -1,0 +1,15 @@
+--- a/src/panels/ComponentTreePanel.cpp
++++ b/src/panels/ComponentTreePanel.cpp
+@@ -135,6 +135,12 @@
+         return;
+     }
+ 
++    if (ctx.host.componentTree) {
++        ctx.host.componentTree(ctx);
++        ImGui::End();
++        return;
++    }
++
+     // ---- header ----------------------------------------------------------
+     widgets::SearchField("##tree_search", ctx.demo.searchQuery, "Filter components...", -1.0f);
+     ImGui::Spacing();

@@ -1,0 +1,15 @@
+--- a/src/panels/AssetBrowserPanel.cpp
++++ b/src/panels/AssetBrowserPanel.cpp
+@@ -248,6 +248,12 @@
+         return;
+     }
+ 
++    if (ctx.host.assetBrowser) {
++        ctx.host.assetBrowser(ctx);
++        ImGui::End();
++        return;
++    }
++
+     if (ctx.assets.dirty)
+         ctx.assets.RebuildPaths();
+ 
