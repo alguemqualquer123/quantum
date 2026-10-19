@@ -387,6 +387,11 @@ Settings AiService::getSettings() const {
     return settings;
 }
 
+void AiService::setEditorContext(const EditorContext& context) {
+    std::lock_guard<std::mutex> lock(mutex);
+    editorContext = context;
+}
+
 bool AiService::sendUserMessage(const std::string& text,
                                 std::vector<ChatAttachment>&& attachments) {
     // No move has happened yet: refusing here leaves the caller's vector
@@ -615,6 +620,37 @@ void AiService::removeProposal(uint64_t proposalId) {
     }
 }
 
+void AiService::resendLastMessage() {
+    std::lock_guard<std::mutex> lock(mutex);
+    if (busy || messages.empty()) return;
+
+    // Find the last user message.
+    int lastUserIdx = -1;
+    for (int i = static_cast<int>(messages.size()) - 1; i >= 0; --i) {
+        if (messages[i].role == ChatRole::User) {
+            lastUserIdx = i;
+            break;
+        }
+    }
+    if (lastUserIdx < 0) return;
+
+    // Extract the user message content and attachments before erasing.
+    std::string content = std::move(messages[lastUserIdx].content);
+    std::vector<ChatAttachment> attachments = std::move(messages[lastUserIdx].attachments);
+
+    // Remove everything after and including the last user message.
+    messages.erase(messages.begin() + lastUserIdx, messages.end());
+
+    // Bump revision so the UI refreshes.
+    ++revision;
+
+    // Note: sendUserMessage will re-acquire the mutex, so we can't hold it here.
+    // Since both this and sendUserMessage run on the UI thread, we save state first.
+    pendingResendContent = std::move(content);
+    pendingResendAttachments = std::move(attachments);
+    needsResend = true;
+}
+
 // Ensures every assistant tool call is answered exactly once, by a tool
 // result inside the contiguous run that follows its assistant message. Live
 // turns keep this shape through the proposal list; this covers histories that
@@ -740,8 +776,65 @@ std::string AiService::buildSystemPrompt() const {
         << "Read-only tools inspect project context. Mutating, file-writing, download, and import tools may require user approval before they run.\n"
         << "After a tool returns, use its result to decide the next step and report concise progress to the user.\n"
         << "Work efficiently within the tool-step budget: batch independent tool calls into a single step instead of one per step, and never repeat a search or read whose result you already have. Gather the API facts you need, then write the file.\n"
-        << "Never request arbitrary shell commands. Never ask for secrets in chat.\n"
-        << EditorActionRegistry::guidance();
+        << "Prefer project-relative paths. Never request arbitrary shell commands. Never ask for secrets in chat.\n"
+        << EditorActionRegistry::guidance()
+        << "For external assets, use curated sources only and preserve license/author/source attribution.\n"
+        << "For scripts and engine API code, the Doriax engine source under the editor's engine/ directory (read it with search_engine_source and read_engine_source) is the ONLY source of truth. Use ONLY classes, methods, properties, enums, macros, and constructor overloads you have confirmed exist in that source; if a symbol is not present there it does not exist in Doriax, so do not use it. Never invent APIs or carry over names, macros, or patterns from other engines or frameworks (e.g. Godot GDCLASS, Unreal GENERATED_BODY/UPROPERTY, Qt Q_OBJECT). search_engine_api is only a quick index into that same source; when a symbol is unfamiliar or you are unsure of its exact spelling or overloads, confirm it in the source before writing it (e.g. key codes are Input.KEY_* in Lua but D_KEY_* macros in C++, and Quaternion's axis-angle constructor takes the angle first: Quaternion(angle, axis)).\n"
+        << "A C++ method existing on a class does NOT mean Lua can call it. LuaBridge binds many accessors as properties instead of methods, and calling the accessor from Lua fails at runtime with \"attempt to call a nil value (method 'x')\". search_engine_api marks this: kind 'Method' with a ':' in the detail (Body2D:getMass()) is Lua-callable, while kind 'CppMethod' with '::' in the detail (Object::getPosition(), Body3D::setLinearVelocity()) is C++ only and carries lua_callable=false plus a lua_note naming the property to use (object.position, body.linearVelocity). In Lua, read and assign those properties (self.sphere.position = p, body.linearVelocity = Vector3(0,0,0)); never translate a CppMethod into obj:getX()/obj:setX(). If a class has no bound property for what you need either, check the LuaBridge binding source under engine/core/script/binding/ before writing the call.\n"
+        << "A .scene file only belongs to the project while project.yaml lists it; an unlisted one is not built, exported, opened, or usable as a child scene, so a scene file that arrived from outside the editor needs add_project_scene first.\n"
+        << "A bundle is only built and registered when a scene instantiates it or when it is listed as standalone, so a bundle that exists only to be spawned from a script with BundleManager needs set_standalone_bundle before createBundle can find it by name. Every createBundle call creates its own instance root and returns it, so the same bundle can be spawned repeatedly; the optional third argument is only the entity the new root is parented to (a name resolved in that scene, an entity id of that scene, or an object carrying its own scene), never the root itself. destroyBundle(scene, root) removes what that spawn created and leaves the parent alone.\n"
+        << "When you create a script for requested behavior, write the complete script with update_script_file instead of asking the user to edit it manually.\n"
+        << "A ScriptComponent holds a list of script entries; inspect_component on ScriptComponent lists them with index, class name, and file paths. attach_script adds an entry, so use it only for a script the entity does not have yet: to rename or repoint an entry it already has use update_script_entry, and to detach one use remove_script_entry. rename_resource already repoints the attached entries at the renamed file, so after renaming a script only its class name is left to fix with update_script_entry.\n"
+        << "A project can declare C++ script directories: get_project_summary reports them as script_dirs and set_project_script_dirs changes them. Each root is an include directory and every source under it is compiled without any ScriptComponent referencing it, so shared helper, utility, and library classes belong there. Create one with create_source_file, which writes a source or header without attaching it to an entity; create_script is only for a script an entity actually runs. A .cpp that is neither under a root nor included by an attached script is not compiled at all, so add the root instead of assuming it builds. The editor also only runs a C++ build when an enabled C++ script is attached to an entity somewhere in the project: Lua scripts never trigger one, so in a Lua-only project the helper sources are compiled first by an export, and a clean startup log is no proof they built.\n"
+        << "The project CMakeLists.txt is generated on every build and any edit to it is lost, so never edit it or ask the user to. Custom build settings -- extra include directories, linked libraries, compile definitions -- go in ProjectBuild.cmake at the project root: read the current one with read_resource_file and rewrite it whole with update_project_build_file. Attach settings to ${DORIAX_TARGET} rather than a literal target name (it differs between the editor and exported builds) and use ${DORIAX_SCRIPTS_DIR} as the root of script paths, e.g. target_include_directories(${DORIAX_TARGET} PRIVATE ${DORIAX_SCRIPTS_DIR}/Source/Public) and target_link_libraries(${DORIAX_TARGET} PRIVATE mylib).\n"
+        << "After creating or editing ANY script (C++ or Lua), verify it before telling the user it is ready: start the scene with control_play_mode (action=start), then call read_output_log to inspect the editor output. A C++ compile error appears as a build failure with compiler messages; a Lua or C++ runtime error appears as a 'Script crash in scene ...' entry. If the scene is still building, read_output_log again. If you find errors, stop play with control_play_mode (action=stop), fix the script with update_script_file, and verify again -- repeat until the log is clean, then stop play. Do not claim the script works without reading the log.\n"
+        << "Doriax Lua scripts are plain returned module tables: local Name = { properties = {} }; function Name:init() ... end; return Name.\n"
+        << "Editor-exposed Lua properties go in the properties array as { name = \"speed\", displayName = \"Speed\", type = \"float\", default = 5.0 } and are read at runtime as self.speed.\n"
+        << "Choose Lua update events by timing domain. Variable-frame logic such as UI, cameras, animation, and direct non-physics transform movement uses RegisterEngineEvent(self, \"onUpdate\") with Name:onUpdate(); scale continuous non-physics movement by Engine.deltatime. Physics-step logic uses RegisterEngineEvent(self, \"onFixedUpdate\") with Name:onFixedUpdate(). Any continuously applied body force or torque MUST run in onFixedUpdate, never onUpdate: each physics world accumulates force calls until its next fixed step, so calling them from onUpdate makes the effective force depend on render FPS. The two body types spell these differently and are not interchangeable: Body3D has applyForce(force) for a centre force plus applyForce(force, point) and applyTorque(torque), and has NO applyForceToCenter; Body2D has applyForceToCenter(force, wake) plus applyForce(force, point, wake) (no single-argument overload exists) and applyTorque(torque, wake). Prefer onFixedUpdate for velocity control and held-input polling that drives physics too. Do not multiply forces or torques by Engine.deltatime; the physics engine integrates them over the fixed step. Never move a physics body by writing its entity transform from onFixedUpdate (object.position, object:setPosition): the body is synced from the transform before the step and written back after it, so the write is silently discarded. Teleport with body.position / body.rotation (Body3D) or body.position / body.angle (Body2D), which write the simulation directly; entities with no body have no such restriction. One-shot impulses must be emitted once, not every held-input update. No manual Lua unregister is needed.\n"
+        << "For component/UI events in Lua use the global RegisterEvent(self, eventObject, \"method\"), e.g. RegisterEvent(self, Button(self.scene, self.entity):getButtonComponent().onPress, \"onPress\"). RegisterEngineEvent/RegisterEvent are Lua globals (not bindings); find them with search_engine_api.\n"
+        << "Lua script instances receive self.scene and self.entity; self.entity is a numeric Entity id, not an object. Never call self.entity:... or self.entity....\n"
+        << "They do not use Dori.Script, on_start, get_entity, get_component/getComponent, or set_property/setProperty.\n"
+        << "Do not put editor property paths such as submeshes[0].material.baseColorFactor inside Lua scripts; use runtime wrappers and APIs from search_engine_api instead.\n"
+        << "For Mesh/Shape color at runtime use Shape(self.scene, self.entity) then setColor(1,0,0,1) or setColor(Vector4(1,0,0,1)); do not call methods on self.entity directly.\n"
+        << "Doriax C++ scripts use flat quoted headers from .doriax/engine-api (e.g. \"Mesh.h\", \"ScriptBase.h\", \"Engine.h\"). Never use #include <core/...>.\n"
+        << "For mesh/cube behavior use cpp_subclass inheriting Mesh (or Shape) and call setColor() on this; do not use ScriptBase as if it had mesh APIs or onInit().\n"
+        << "cpp_script_class inherits ScriptBase for general logic. Use REGISTER_ENGINE_EVENT(onUpdate) for variable-frame logic and REGISTER_ENGINE_EVENT(onFixedUpdate) for physics-step logic, with the matching UNREGISTER_ENGINE_EVENT in the destructor. Continuous Body2D/Body3D forces and torques must run in onFixedUpdate (velocity control and physics-driving input polling belong there too); never multiply forces or torques by Engine::getDeltatime(). Never move a physics body by writing its entity transform from onFixedUpdate (Object::setPosition/setRotation): the body is synced from the transform before the step and written back after it, so the write is silently discarded. Teleport with Body3D::setPosition/setRotation or Body2D::setPosition/setAngle; entities with no body have no such restriction.\n"
+        << "A dynamic body's mass is never authored directly, it comes from the shape and its density, and the two dimensions do NOT share a formula or a default. In 3D mass is volume * density with default density 1000 (kg/m3, water), so a radius-1 sphere weighs about 4189 kg and a radius-0.5 sphere about 524 kg. In 2D mass is area * density with default density 1, and 2D shape sizes are points scaled to metres by pointsToMeterScale2D (64 by default), so a 100x100 point box weighs about 2.4 kg. Never apply 3D reasoning or the 3D default to a Body2D. Size forces from F = mass * desired acceleration, reading the real mass rather than guessing: a few hundred newtons on a multi-tonne body looks like a broken script. Mass is getMass() in C++, but in Lua it is the property body.mass on Body3D and the method body:getMass() on Body2D, so confirm the spelling in the bindings. If the user reports that movement needs an implausibly large force or feels sluggish, lower the shape density (or shrink the shape) instead of inflating the force, and say what the body actually weighs. Body3D::setMass only writes the live Jolt body and is lost on reload, so persist mass by authoring density.\n"
+        << "A Doriax script class needs no class-declaration or reflection macro (no D_OBJECT/GDCLASS/GENERATED_BODY/Q_OBJECT): just inherit the base class and declare a (Scene*, Entity) constructor. Prefer editing the class skeleton create_script generated rather than rewriting it.\n"
+        << "For component/UI events (button press, click, scrollbar change) use REGISTER_COMPONENT_EVENT(Component, event, method) or shortcuts REGISTER_UI_EVENT/REGISTER_BUTTON_EVENT/REGISTER_SCROLLBAR_EVENT/REGISTER_PANEL_EVENT in the constructor, paired with UNREGISTER_* in the destructor. These macros and DPROPERTY are C++ script macros (not Lua bindings); find them with search_engine_api.\n"
+        << "Cameras orient by target, not by rotation: CameraComponent.useTarget defaults to true and Camera::setTarget re-enables it, so while it is on the view is lookAt(position, target, up) and the entity's rotation is ignored. Call disableTarget() first if you want the rotation to drive the view (forward = rotation * Vector3(0, 0, -1)). For a third-person or orbit camera, place the camera around the target with spherical coordinates -- offset = (cos(pitch)*sin(yaw), sin(pitch), cos(pitch)*cos(yaw)); position = target + offset*distance -- then call setTarget(target), so a positive pitch means the camera sits ABOVE the target. Do not derive the position by subtracting a rotated forward vector (target - forward*distance): rotations are right-handed, so a positive pitch tilts the VIEW up and that formula silently puts the camera below the target.\n"
+        << "Engine angle arguments are in the engine's default unit, which is DEGREES unless Engine::setUseDegrees(false) was called: Quaternion(angle, axis), Quaternion::fromEulerAngles, Camera::rotateView and similar all pass their angle through Angle::defaultToRad, so never assume they take radians. Convert explicitly with Angle::degToDefault/Angle::radToDefault, and note that std::sin/std::cos always want radians (Angle::defaultToRad).\n"
+        << "To print or log from scripts use the Log class: C++ Log::print(\"pos %f %f %f\", p.x, p.y, p.z) with #include \"Log.h\" (Log::warn/Log::error for severity); Lua Log.print(\"pos \" .. tostring(p)). Engine has no log method; never use Engine::log, printf, std::cout, or bare print().\n"
+        << "Custom shaders are per-component on Mesh/UI/Points/Lines/Sky via the customShader property. To customize, call fork_shader (it copies the built-in <type>.vert/.frag into a project-relative directory and sets customShader in one undoable step; directory defaults to shaders, and fork_includes optionally copies the engine includes into an editable includes/ folder beside the fork). Never set customShader by hand to files that do not exist; the value is a base path with no extension (vert=base.vert, frag=base.frag) or two explicit paths joined by '|' (\"a.vert|b.frag\") when the entry points have different names. Both a .vert and a .frag are always required. Clear customShader (empty string) to reset to the built-in shader.\n"
+        << "The forked .vert/.frag are complete, compiling engine shaders with a strict structure: a #version line, #include \"includes/...\" (resolved against the engine library), #ifdef variant guards, uniform blocks, texture and sampler declarations, in/out varyings, and a specific fragment output variable. Editing them with write_shader_file REQUIRES first calling read_resource_file on the forked file, then making minimal targeted changes that PRESERVE the #version, #include lines, uniform blocks, ALL original texture and sampler declarations (uniform sampler2D/samplerCube/textureN/samplerN and their #ifdef guards), in/out declarations, and the existing output variable name. Keep every original texture/sampler declaration even if your new code does not sample it - the engine binds them by fixed slot, so removing or renaming one breaks the texture bindings. Likewise keep the original main() code that READS the in varyings (v_position, v_normal, v_uv1, v_color, v_lightProjPos, etc.): if you delete a varying's usage the GLSL compiler strips that fragment input and the shader fails to cross-compile with a vertex/fragment interface mismatch (\"vertex shader output X does not exist in fragment shader inputs\"). Prefer to keep the original main() body that consumes the varyings and layer your effect on the final color (e.g. compute the original color, then posterize/override it), rather than deleting the existing computations. Only change the shading math (usually near the end of main()). Never rewrite a shader from scratch, drop the #version/#include lines, or invent uniform, sampler, texture, or output names - that produces compile errors (e.g. missing precision qualifier / wrong #version) or broken bindings. A stylized custom shader (e.g. toon/cel) may legitimately replace the lighting model and stop sampling the shadow or IBL maps; that is allowed - keep their declarations (the engine harmlessly skips the now-unused bindings), but briefly tell the user when your shader changes lighting behavior such as no longer receiving shadows, so they can ask to keep it. If a custom shader fails to compile, the object falls back to the built-in shader and the error appears in the output window; read that error and the forked source, then fix minimally.\n";
+
+    // Append dynamic editor context so the model knows the current state.
+    if (!editorContext.sceneName.empty() || editorContext.selectedEntityId >= 0) {
+        prompt << "\n## Current Editor State\n";
+        if (!editorContext.sceneName.empty()) {
+            prompt << "Current scene: \"" << editorContext.sceneName << "\"";
+            if (!editorContext.sceneType.empty()) {
+                prompt << " (type: " << editorContext.sceneType << ")";
+            }
+            prompt << "\n";
+        }
+        if (editorContext.selectedEntityId >= 0) {
+            prompt << "Selected entity: \"" << editorContext.selectedEntityName
+                   << "\" (id: " << editorContext.selectedEntityId << ")";
+            if (!editorContext.selectedEntityComponents.empty()) {
+                prompt << " components: ";
+                for (size_t i = 0; i < editorContext.selectedEntityComponents.size(); ++i) {
+                    if (i > 0) prompt << ", ";
+                    prompt << editorContext.selectedEntityComponents[i];
+                }
+            }
+            prompt << "\n";
+        }
+        if (!editorContext.projectType.empty()) {
+            prompt << "Project type: " << editorContext.projectType << "\n";
+        }
+    }
+
     return prompt.str();
 }
 
@@ -835,67 +928,164 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
     ProviderResponse parsed;
     try {
         std::unique_ptr<Provider> provider = createProvider(request.settings.provider);
-        HttpRequest httpRequest = provider->buildRequest(request);
-        httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
-        HttpResponse httpResponse = httpClient.send(httpRequest, &cancelRequested);
 
-        if (cancelRequested.load()) {
-            std::lock_guard<std::mutex> lock(mutex);
-            appendAssistantMessageLocked("Request cancelled.");
-            turnFailed = true;
-            busy.store(false);
-            return;
-        }
+        // Use streaming when the provider supports it — responses appear token by token.
+        if (provider->supportsStreaming()) {
+            HttpRequest httpRequest = provider->buildStreamingRequest(request);
+            httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
 
-        if (!httpResponse.error.empty()) {
-            parsed.error = "Connection error: " + httpResponse.error;
-        } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
-            // Reuse the provider parser to pull error.message out of the body.
-            ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
-            if (isRetryableRateLimit(httpResponse.status, errorBody) &&
-                retryAttempt < kMaxRateLimitRetries) {
-                const int nextAttempt = retryAttempt + 1;
-                const std::chrono::milliseconds delay =
-                    retryDelay(httpResponse, errorBody, nextAttempt);
-                bool scheduled = false;
-                bool cancelled = false;
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    if (cancelRequested.load()) {
-                        appendAssistantMessageLocked("Request cancelled.");
-                        turnFailed = true;
-                        cancelled = true;
-                    } else {
-                        pendingRetry = PendingRetry{
-                            std::move(request),
-                            std::chrono::steady_clock::now() + delay,
-                            nextAttempt
-                        };
-                        retryScheduled.store(true);
-                        scheduled = true;
-                    }
-                }
-                if (cancelled) {
-                    busy.store(false);
-                    return;
-                }
-                if (scheduled) {
-                    Out::warning(
-                        "AI provider rate limit reached; retrying in %.2f seconds "
-                        "(attempt %d/%d)",
-                        static_cast<double>(delay.count()) / 1000.0,
-                        nextAttempt, kMaxRateLimitRetries);
-                    busy.store(false);
-                    return;
-                }
+            // Create the assistant message placeholder before the stream starts
+            // so the UI can display it incrementally.
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                ChatMessage assistant;
+                assistant.role = ChatRole::Assistant;
+                assistant.model = request.settings.model;
+                messages.push_back(assistant);
+                ++revision;
             }
 
-            parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
-            Out::error("AI provider request failed (HTTP %ld): %s",
-                httpResponse.status,
-                errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            ProviderResponse streamingAccumulated;
+            HttpResponse httpResponse = httpClient.sendStreaming(
+                httpRequest,
+                [&](const std::string& line) -> bool {
+                    if (cancelRequested.load()) return false;
+
+                    provider->parseStreamingChunk(line, streamingAccumulated);
+
+                    // Update the assistant message with the latest accumulated text.
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (!messages.empty() && messages.back().role == ChatRole::Assistant) {
+                            messages.back().content = streamingAccumulated.text;
+                            messages.back().thinkingBlocks = streamingAccumulated.thinkingBlocks;
+                            ++revision;
+                        }
+                    }
+                    notifyWake();
+                    return true;
+                },
+                &cancelRequested);
+
+            if (cancelRequested.load()) {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (!messages.empty() && messages.back().role == ChatRole::Assistant) {
+                    messages.back().content += "\n\nRequest cancelled.";
+                }
+                ++revision;
+                turnFailed = true;
+                busy.store(false);
+                return;
+            }
+
+            if (!httpResponse.error.empty()) {
+                parsed.error = "Connection error: " + httpResponse.error;
+            } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
+                ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
+                if (isRetryableRateLimit(httpResponse.status, errorBody) &&
+                    retryAttempt < kMaxRateLimitRetries) {
+                    // Remove the empty assistant message we created.
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (!messages.empty() && messages.back().role == ChatRole::Assistant &&
+                            messages.back().content.empty() && messages.back().toolCalls.empty()) {
+                            messages.pop_back();
+                            ++revision;
+                        }
+                    }
+                    const int nextAttempt = retryAttempt + 1;
+                    const std::chrono::milliseconds delay =
+                        retryDelay(httpResponse, errorBody, nextAttempt);
+                    bool scheduled = false;
+                    bool cancelled = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (cancelRequested.load()) {
+                            appendAssistantMessageLocked("Request cancelled.");
+                            turnFailed = true;
+                            cancelled = true;
+                        } else {
+                            pendingRetry = PendingRetry{
+                                std::move(request),
+                                std::chrono::steady_clock::now() + delay,
+                                nextAttempt
+                            };
+                            retryScheduled.store(true);
+                            scheduled = true;
+                        }
+                    }
+                    if (cancelled) { busy.store(false); return; }
+                    if (scheduled) {
+                        Out::warning("AI provider rate limit reached; retrying in %.2f seconds (attempt %d/%d)",
+                            static_cast<double>(delay.count()) / 1000.0, nextAttempt, kMaxRateLimitRetries);
+                        busy.store(false);
+                        return;
+                    }
+                }
+                parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
+                Out::error("AI provider request failed (HTTP %ld): %s",
+                    httpResponse.status,
+                    errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            } else {
+                // Stream completed successfully — use accumulated state.
+                parsed = std::move(streamingAccumulated);
+            }
         } else {
-            parsed = provider->parseResponse(httpResponse.body);
+            // Non-streaming path (original behavior).
+            HttpRequest httpRequest = provider->buildRequest(request);
+            httpRequest.timeoutSeconds = request.settings.requestTimeoutSeconds;
+            HttpResponse httpResponse = httpClient.send(httpRequest, &cancelRequested);
+
+            if (cancelRequested.load()) {
+                std::lock_guard<std::mutex> lock(mutex);
+                appendAssistantMessageLocked("Request cancelled.");
+                turnFailed = true;
+                busy.store(false);
+                return;
+            }
+
+            if (!httpResponse.error.empty()) {
+                parsed.error = "Connection error: " + httpResponse.error;
+            } else if (httpResponse.status < 200 || httpResponse.status >= 300) {
+                ProviderResponse errorBody = provider->parseResponse(httpResponse.body);
+                if (isRetryableRateLimit(httpResponse.status, errorBody) &&
+                    retryAttempt < kMaxRateLimitRetries) {
+                    const int nextAttempt = retryAttempt + 1;
+                    const std::chrono::milliseconds delay =
+                        retryDelay(httpResponse, errorBody, nextAttempt);
+                    bool scheduled = false;
+                    bool cancelled = false;
+                    {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        if (cancelRequested.load()) {
+                            appendAssistantMessageLocked("Request cancelled.");
+                            turnFailed = true;
+                            cancelled = true;
+                        } else {
+                            pendingRetry = PendingRetry{
+                                std::move(request),
+                                std::chrono::steady_clock::now() + delay,
+                                nextAttempt
+                            };
+                            retryScheduled.store(true);
+                            scheduled = true;
+                        }
+                    }
+                    if (cancelled) { busy.store(false); return; }
+                    if (scheduled) {
+                        Out::warning("AI provider rate limit reached; retrying in %.2f seconds (attempt %d/%d)",
+                            static_cast<double>(delay.count()) / 1000.0, nextAttempt, kMaxRateLimitRetries);
+                        busy.store(false);
+                        return;
+                    }
+                }
+                parsed.error = humanizeProviderError(httpResponse.status, errorBody.error);
+                Out::error("AI provider request failed (HTTP %ld): %s",
+                    httpResponse.status,
+                    errorBody.error.empty() ? httpResponse.body.c_str() : errorBody.error.c_str());
+            } else {
+                parsed = provider->parseResponse(httpResponse.body);
+            }
         }
     } catch (const std::exception& e) {
         parsed.error = e.what();
@@ -907,10 +1097,6 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
             appendAssistantMessageLocked(parsed.error);
             turnFailed = true;
         } else if (parsed.toolCalls.empty() && parsed.truncated) {
-            // A truncated reply often drops an incomplete tool call mid-JSON, so
-            // it arrives with no usable tool call. Use provider usage, when
-            // available, to distinguish the editor's output cap from a full
-            // provider/model context window.
             std::string message = buildTruncationMessage(request, parsed);
             if (!parsed.text.empty()) {
                 message = parsed.text + "\n\n" + message;
@@ -921,13 +1107,33 @@ void AiService::runProviderRequest(ProviderRequest request, int retryAttempt) {
             appendAssistantMessageLocked("The provider returned no text or tool calls.");
             turnFailed = true;
         } else {
-            ChatMessage assistant;
-            assistant.role = ChatRole::Assistant;
-            assistant.content = parsed.text;
-            assistant.toolCalls = parsed.toolCalls;
-            assistant.thinkingBlocks = parsed.thinkingBlocks;
-            messages.push_back(assistant);
-            ++revision;
+            // For streaming, the assistant message was already created and
+            // updated incrementally. Just finalize it with tool calls and tokens.
+            // For non-streaming, create the message now.
+            bool streamingMessageExists = !messages.empty() &&
+                messages.back().role == ChatRole::Assistant &&
+                messages.back().content == parsed.text;
+
+            if (streamingMessageExists) {
+                // Update the existing streaming message with final data.
+                messages.back().toolCalls = parsed.toolCalls;
+                messages.back().thinkingBlocks = parsed.thinkingBlocks;
+                messages.back().promptTokens = parsed.promptTokens;
+                messages.back().completionTokens = parsed.completionTokens;
+                messages.back().totalTokens = parsed.totalTokens;
+                ++revision;
+            } else {
+                ChatMessage assistant;
+                assistant.role = ChatRole::Assistant;
+                assistant.content = parsed.text;
+                assistant.toolCalls = parsed.toolCalls;
+                assistant.thinkingBlocks = parsed.thinkingBlocks;
+                assistant.promptTokens = parsed.promptTokens;
+                assistant.completionTokens = parsed.completionTokens;
+                assistant.totalTokens = parsed.totalTokens;
+                messages.push_back(assistant);
+                ++revision;
+            }
             for (const ToolCall& call : parsed.toolCalls) {
                 addToolCallProposalLocked(call);
             }

@@ -1,0 +1,341 @@
+// (c) Eduardo Doria
+// SPDX-License-Identifier: MIT
+
+#ifndef Render_h
+#define Render_h
+
+#include "Export.h"
+
+
+namespace doriax{
+
+    enum class PrimitiveType{
+        TRIANGLES,
+        TRIANGLE_STRIP,
+        POINTS,
+        LINES
+    };
+
+    enum class CullingMode{
+        BACK,
+        FRONT
+    };
+
+    enum class WindingOrder{
+        CCW,
+        CW
+    };
+
+    enum class BufferType{
+        VERTEX_BUFFER,
+        INDEX_BUFFER,
+        STORAGE_BUFFER
+    };
+
+    enum class BufferUsage{ //see sokol_gfx.h for details
+        IMMUTABLE,
+        DYNAMIC,
+        STREAM
+    };
+
+    enum class ShaderType{
+        POINTS,
+        LINES, // Not used yet
+        MESH,
+        SKYBOX,
+        DEPTH,
+        GBUFFER,    // mesh geometry pass: MRT packed depth + view-space normal/roughness/metallic (SSR)
+        UI,
+        SSAO,       // fullscreen screen-space ambient occlusion pass
+        SSAO_BLUR,  // fullscreen depth-aware blur of the SSAO result
+        SSR,        // fullscreen screen-space reflections pass
+        SSR_BLUR,   // fullscreen premultiplied blur of the SSR result (glossy)
+        COMPOSITE,  // fullscreen composite of scene color + SSR reflections
+        SHADOW2D,   // 1D polar shadow pass: occluder segments into a 2D-light atlas row
+        BLIT,       // fullscreen upscale of the fixed-resolution scene color
+        // --- HDR pipeline passes ---
+        BLOOM_THRESHOLD,  // extract bright pixels above HDR threshold
+        BLOOM_DOWNSAMPLE, // Gaussian downsample (13-tap)
+        BLOOM_UPSAMPLE,   // tent/bilinear upsample + additive blend
+        BLOOM_COMPOSITE,  // composite bloom layers onto scene color
+        TONEMAP,          // tone mapping (ACES, Reinhard, AgX, etc.)
+        EXPOSURE,         // luminance histogram + exposure calculation
+        COLORGRADING,     // 3D LUT color grading
+        // --- Anti-aliasing passes ---
+        VELOCITY,         // motion vector generation
+        TAA,              // temporal anti-aliasing
+        FXAA,             // fast approximate anti-aliasing (fallback)
+        // --- Post-process effects ---
+        DOF_COC,          // depth of field circle of confusion
+        DOF_BLUR,         // DOF blur (Gaussian/Bokeh)
+        DOF_COMPOSITE,    // DOF composite
+        MOTIONBLUR,       // motion blur
+        CHROMATIC,        // chromatic aberration
+        VIGNETTE,         // vignette darkening
+        FILMGRAIN,        // film grain noise
+        CONTACT_SHADOWS,  // screen-space contact shadows
+        HIZ_GEN,          // hierarchical Z-buffer generation
+        SSR_HIZ,          // SSR with Hi-Z acceleration
+        // keep appending: the ShaderKey stores this enum and validates cached .sdat
+        POSTPROCESS // fullscreen user post-process pass
+    };
+
+    enum class AttributeType{
+        INDEX,
+        POSITION,
+        TEXCOORD1,
+        TEXCOORD2,
+        NORMAL,
+        TANGENT,
+        COLOR,
+        POINTSIZE,
+        POINTROTATION,
+        TEXTURERECT,
+        BONEWEIGHTS,
+        BONEIDS,
+        MORPHTARGET0,
+        MORPHTARGET1,
+        MORPHTARGET2,
+        MORPHTARGET3,
+        MORPHTARGET4,
+        MORPHTARGET5,
+        MORPHTARGET6,
+        MORPHTARGET7,
+        MORPHNORMAL0,
+        MORPHNORMAL1,
+        MORPHNORMAL2,
+        MORPHNORMAL3,
+        MORPHTANGENT0,
+        MORPHTANGENT1,
+        INSTANCEMATRIXCOL1,
+        INSTANCEMATRIXCOL2,
+        INSTANCEMATRIXCOL3,
+        INSTANCEMATRIXCOL4,
+        INSTANCECOLOR,
+        INSTANCETEXTURERECT,
+        TERRAINNODEPOSITION,
+        TERRAINNODESIZE,
+        TERRAINNODERANGE,
+        TERRAINNODERESOLUTION
+    };
+
+    enum class AttributeDataType{
+        BYTE, //int8_t
+        UNSIGNED_BYTE, //uint8_t
+        SHORT, //int16_t
+        UNSIGNED_SHORT, //uint16_t
+        INT, //int32_t
+        UNSIGNED_INT, //uint32_t
+        FLOAT
+    };
+
+    enum class UniformBlockType{
+        PBR_VS_PARAMS,
+        MATERIAL,
+        PBR_FS_PARAMS,
+        PBR_FS_TEXCOORDSETS,
+        FS_LIGHTING,
+        FS_REFLECTION_PROBE,
+        FS_FOG,
+        FS_MIRROR,
+        VS_SHADOWS,
+        FS_SHADOWS,
+        FS_POINT_SHADOWS,
+        SKY_VS_PARAMS,
+        SKY_FS_PARAMS,
+        DEPTH_VS_PARAMS,
+        DEPTH_FS_MATERIAL,
+        GBUFFER_VS_PARAMS,
+        GBUFFER_FS_MATERIAL,
+        SPRITE_VS_PARAMS,
+        UI_VS_PARAMS,
+        UI_FS_PARAMS,
+        POINTS_VS_PARAMS,
+        LINES_VS_PARAMS,
+        VS_SKINNING,
+        DEPTH_VS_SKINNING,
+        VS_MORPHTARGET,
+        DEPTH_VS_MORPHTARGET,
+        TERRAIN_VS_PARAMS,
+        DEPTH_TERRAIN_VS_PARAMS,
+        SSAO_FS_PARAMS,
+        SSAO_BLUR_FS_PARAMS,
+        SSR_FS_PARAMS,
+        SSR_BLUR_FS_PARAMS,
+        COMPOSITE_FS_PARAMS,
+        FS_LIGHTING2D,
+        SHADOW2D_VS_PARAMS,
+        BLIT_FS_PARAMS,
+        // --- HDR pipeline ---
+        BLOOM_THRESHOLD_FS_PARAMS,
+        BLOOM_DOWNSAMPLE_FS_PARAMS,
+        BLOOM_UPSAMPLE_FS_PARAMS,
+        BLOOM_COMPOSITE_FS_PARAMS,
+        TONEMAP_FS_PARAMS,
+        EXPOSURE_FS_PARAMS,
+        COLORGRADING_FS_PARAMS,
+        // --- Anti-aliasing ---
+        VELOCITY_FS_PARAMS,
+        TAA_FS_PARAMS,
+        FXAA_FS_PARAMS,
+        // --- Post-process effects ---
+        DOF_COC_FS_PARAMS,
+        DOF_BLUR_FS_PARAMS,
+        DOF_COMPOSITE_FS_PARAMS,
+        MOTIONBLUR_FS_PARAMS,
+        CHROMATIC_FS_PARAMS,
+        VIGNETTE_FS_PARAMS,
+        FILMGRAIN_FS_PARAMS,
+        CONTACT_SHADOWS_FS_PARAMS,
+        HIZ_GEN_FS_PARAMS,
+        SSR_HIZ_FS_PARAMS
+    };
+
+    enum class StorageBufferType{
+        VS_VERTEX,
+        VS_SKINNING
+    };
+
+    enum class TextureShaderType{
+        BASECOLOR,
+        EMISSIVE,
+        METALLICROUGHNESS,
+        OCCULSION,
+        NORMAL,
+        SHADOWATLAS,
+        SHADOWPOINTATLAS,
+        SKYCUBE,
+        IRRADIANCEMAP,
+        PREFILTEREDMAP,
+        REFLECTIONPROBE,
+        UI,
+        POINTS,
+        HEIGHTMAP,
+        BLENDMAP,
+        TERRAINDETAIL_RED,
+        TERRAINDETAIL_GREEN,
+        TERRAINDETAIL_BLUE,
+        DEPTHTEXTURE,
+        SSAOTEXTURE,
+        NOISETEXTURE,
+        SCENECOLORTEXTURE,
+        SSRTEXTURE,
+        GBUFFERTEXTURE,      // view-space normal (rg, octahedral) + roughness (b) + metallic (a)
+        GBUFFERALBEDOTEXTURE, // linear base color (rgb) + hasIBL flag (a)
+        SHADOW2DATLAS,       // 1D polar shadow rows (one per 2D light)
+        SPOTMASKATLAS,       // projected spot masks, one horizontal tile per 3D light slot
+        BONES,
+        // --- HDR pipeline textures ---
+        SCENEDEPTHTEXTURE,    // camera-space depth for exposure/velocity
+        VELOCITYTEXTURE,      // motion vectors (RG16F)
+        EXPOSURETEXTURE,      // exposure history (R16F)
+        BLOOMTEXTURE0,        // bloom mip chain level 0
+        BLOOMTEXTURE1,        // bloom mip chain level 1
+        BLOOMTEXTURE2,        // bloom mip chain level 2
+        BLOOMTEXTURE3,        // bloom mip chain level 3
+        BLOOMTEXTURE4,        // bloom mip chain level 4
+        LUT3DTEXTURE,         // 3D color grading LUT
+        HIZTEXTURE,           // hierarchical Z-buffer mips
+        DOFTEXTURE,           // DOF blur output
+        MOTIONBLURTEXTURE,    // motion blur output
+        PREVSCENECOLORTEXTURE // previous frame scene color (for TAA/history)
+    };
+
+    enum class TextureType {
+        TEXTURE_2D,
+        TEXTURE_3D,
+        TEXTURE_CUBE,
+        TEXTURE_ARRAY
+    };
+
+    enum class TextureSamplerType {
+        SINT,
+        UINT,
+        FLOAT,
+        DEPTH,
+        UNFILTERABLE_FLOAT
+    };
+
+    enum class SamplerType {
+        COMPARISON,
+        FILTERING,
+        NONFILTERING
+    };
+
+    enum class ColorFormat{
+        RED,
+        RGBA,
+        RED16, // single channel, 16-bit unsigned normalized (2 bytes/texel)
+        RGBA16F, // 4 channel, 16-bit float (HDR render targets, 8 bytes/texel)
+        R16F     // single channel, 16-bit float (exposure, CoC, etc.)
+    };
+
+    enum class TextureFilter{
+        NEAREST,
+        LINEAR,
+        NEAREST_MIPMAP_NEAREST,
+        NEAREST_MIPMAP_LINEAR,
+        LINEAR_MIPMAP_NEAREST,
+        LINEAR_MIPMAP_LINEAR
+    };
+
+    enum class TextureWrap{
+        REPEAT,
+        MIRRORED_REPEAT,
+        CLAMP_TO_EDGE,
+        CLAMP_TO_BORDER
+    };
+
+    enum PipelineType {
+        PIP_DEFAULT     = 1 << 0,
+        PIP_RTT         = 1 << 1,
+        PIP_DEPTH       = 1 << 2,
+        PIP_RTT_INVERT  = 1 << 3, // render-to-texture with reversed winding (planar reflection)
+        PIP_GBUFFER     = 1 << 4, // geometry pass with 3 color attachments
+        PIP_SHADOW_DEPTH = 1 << 5 // depth-only projective shadow atlas
+    };
+
+    //-------Start shader definition--------
+    enum class ShaderLang{
+        GLSL,
+        MSL,
+        HLSL,
+        SPIRV
+    };
+
+    enum class ShaderVertexType{
+        FLOAT,
+        FLOAT2,
+        FLOAT3,
+        FLOAT4,
+        INT,
+        INT2,
+        INT3,
+        INT4
+    };
+
+    enum class ShaderStorageBufferType{
+        STRUCT
+    };
+
+    enum class ShaderUniformType{
+        FLOAT,
+        FLOAT2,
+        FLOAT3,
+        FLOAT4,
+        INT,
+        INT2,
+        INT3,
+        INT4,
+        MAT3,
+        MAT4
+    };
+
+    enum class ShaderStageType{
+        VERTEX,
+        FRAGMENT
+    };
+    //-------End shader definition--------
+}
+
+#endif //Render_h

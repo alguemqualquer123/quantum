@@ -4,6 +4,7 @@
 #include "CreateEntityCmd.h"
 
 #include "editor/Out.h"
+#include "io/BuiltinModel.h"
 #include "util/ShapeParameters.h"
 #include "util/ProjectUtils.h"
 #include "Stream.h"
@@ -606,7 +607,12 @@ bool editor::CreateEntityCmd::execute(){
 
         // the load adds a mesh when the geometry is not on node children
         scene->addComponent<Transform>(entity, {});
-        scene->addComponent<ModelComponent>(entity, {});
+        scene->addComponent<MeshComponent>(entity, {});
+        // An empty filename renders nothing, so a fresh model starts on the
+        // engine's own BananaMan; replacing or clearing it is normal authoring.
+        ModelComponent initialModel;
+        initialModel.filename = BuiltinModels::defaultPath();
+        scene->addComponent<ModelComponent>(entity, std::move(initialModel));
 
     }else if (type == EntityCreationType::PARTICLES){
 

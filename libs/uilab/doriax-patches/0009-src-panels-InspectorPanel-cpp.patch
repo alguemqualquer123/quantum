@@ -1,0 +1,18 @@
+--- a/src/panels/InspectorPanel.cpp
++++ b/src/panels/InspectorPanel.cpp
+@@ -562,7 +562,14 @@
+ } // namespace
+ 
+ void DrawInspector(AppContext& ctx) {
+-    if (!ImGui::Begin(kInspectorTitle)) {
++    const HostPanel& panel = ctx.host.inspectorPanel;
++    if (!ImGui::Begin(panel.titleOr(kInspectorTitle), panel.pOpen)) {
++        ImGui::End();
++        return;
++    }
++
++    if (ctx.host.inspector) {
++        ctx.host.inspector(ctx);
+         ImGui::End();
+         return;
+     }

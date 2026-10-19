@@ -408,6 +408,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("openGL", &Engine::isOpenGL)
         .addStaticProperty("framerate", &Engine::getFramerate)
         .addStaticProperty("deltatime", &Engine::getDeltatime)
+        .addStaticProperty("maxDeltatime", &Engine::getMaxDeltatime, &Engine::setMaxDeltatime)
         .addStaticProperty("systemTime", &Engine::getSystemTime)
         .addStaticProperty("asyncLoading", &Engine::isAsyncLoading, &Engine::setAsyncLoading)
         .addStaticFunction("startAsyncThread", &Engine::startAsyncThread)
@@ -420,6 +421,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("framebuffer", &Engine::getFramebuffer, &Engine::setFramebuffer)
         .addStaticFunction("clearAllSubscriptions", &Engine::clearAllSubscriptions)
         .addStaticFunction("clearComponentSubscriptions", &Engine::clearComponentSubscriptions)
+        .addStaticFunction("removeSubscriptionsByTag", &Engine::removeSubscriptionsByTag)
 
         .addStaticProperty("onViewLoaded", [] () { return &Engine::onViewLoaded; }, [] (lua_State* L) { Engine::onViewLoaded = L; })
         .addStaticProperty("onCanvasChanged", [] () { return &Engine::onViewChanged; }, [] (lua_State* L) { Engine::onViewChanged = L; })
@@ -471,7 +473,8 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .beginClass<SceneManager>("SceneManager")
         .addStaticFunction("registerScene",
             luabridge::overload<uint32_t, const std::string&, std::function<void()>>(&SceneManager::registerScene),
-            luabridge::overload<uint32_t, const std::string&, std::function<void()>, std::function<void()>>(&SceneManager::registerScene))
+            luabridge::overload<uint32_t, const std::string&, std::function<void()>, std::function<void()>>(&SceneManager::registerScene),
+            luabridge::overload<uint32_t, const std::string&, std::function<void()>, const std::vector<uint32_t>&>(&SceneManager::registerScene))
         .addStaticFunction("loadScene", 
             luabridge::overload<uint32_t>(&SceneManager::loadScene),
             luabridge::overload<const std::string&>(&SceneManager::loadScene))
@@ -533,6 +536,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticFunction("getBundleNames", &BundleManager::getBundleNames)
         .addStaticProperty("bundleCount", &BundleManager::getBundleCount)
         .addStaticFunction("clearAll", &BundleManager::clearAll)
+        .addStaticFunction("destroyAllInstances", &BundleManager::destroyAllInstances)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -910,6 +914,8 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("findEntity",
             luabridge::constOverload<const std::string&>(&EntityRegistry::findEntity),
             luabridge::constOverload<const std::string&, Entity>(&EntityRegistry::findEntity))
+        .addFunction("findEntityInParent",
+            static_cast<Entity (EntityRegistry::*)(const std::string&, Entity) const>(&EntityRegistry::findEntity))
         .addFunction("getSignature", &EntityRegistry::getSignature)
         .addFunction("addEntityChild", &EntityRegistry::addEntityChild)
         .addFunction("moveChildToIndex", &EntityRegistry::moveChildToIndex)
@@ -949,10 +955,14 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addProperty("globalIlluminationIntensity", &Scene::getGlobalIlluminationIntensity, (void (Scene::*)(float))&Scene::setGlobalIllumination)
         .addFunction("getGlobalIlluminationColorLinear", &Scene::getGlobalIlluminationColorLinear)
         .addFunction("setGlobalIllumination", (void (Scene::*)(float, Vector3))&Scene::setGlobalIllumination)
+        .addFunction("setGlobalIlluminationColor", (void (Scene::*)(Vector3))&Scene::setGlobalIllumination)
+        .addFunction("setGlobalIlluminationIntensity", (void (Scene::*)(float))&Scene::setGlobalIllumination)
         .addProperty("ambientLight2DColor", &Scene::getAmbientLight2DColor, (void (Scene::*)(Vector3))&Scene::setAmbientLight2D)
         .addProperty("ambientLight2DIntensity", &Scene::getAmbientLight2DIntensity, (void (Scene::*)(float))&Scene::setAmbientLight2D)
         .addFunction("getAmbientLight2DColorLinear", &Scene::getAmbientLight2DColorLinear)
         .addFunction("setAmbientLight2D", (void (Scene::*)(float, Vector3))&Scene::setAmbientLight2D)
+        .addFunction("setAmbientLight2DColor", (void (Scene::*)(Vector3))&Scene::setAmbientLight2D)
+        .addFunction("setAmbientLight2DIntensity", (void (Scene::*)(float))&Scene::setAmbientLight2D)
         .addProperty("shadow2DQuality", &Scene::getShadow2DQuality, &Scene::setShadow2DQuality)
         .addProperty("gravity2D", &Scene::getGravity2D, (void (Scene::*)(Vector2))&Scene::setGravity2D)
         .addFunction("setGravity2D",
@@ -1007,6 +1017,11 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("isPostProcessPassEnabled", &Scene::isPostProcessPassEnabled)
         .addFunction("canReceiveUIEvents", &Scene::canReceiveUIEvents)
         .addProperty("enableUIEvents", &Scene::getEnableUIEvents, (void (Scene::*)(UIEventState))&Scene::setEnableUIEvents)
+        .addFunction("enableUIEvents", (void (Scene::*)())&Scene::enableUIEvents)
+        .addFunction("setEnableUIEvents", (void (Scene::*)(bool))&Scene::setEnableUIEvents)
+        .addFunction("isEnableUIEvents", (bool (Scene::*)() const)&Scene::isEnableUIEvents)
+        .addFunction("setDefaultCustomShader", &Scene::setDefaultCustomShader)
+        .addFunction("getDefaultCustomShader", &Scene::getDefaultCustomShader)
         .addFunction("getActionSystem", [] (Scene* self, lua_State* L) { return self->getSystem<ActionSystem>().get(); })
         .addFunction("getAudioSystem", [] (Scene* self, lua_State* L) { return self->getSystem<AudioSystem>().get(); })
         .addFunction("getMeshSystem", [] (Scene* self, lua_State* L) { return self->getSystem<MeshSystem>().get(); })
@@ -1214,6 +1229,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticFunction("getGamepadId", &Input::getGamepadId)
         .addStaticFunction("getModifiers", &Input::getModifiers)
         .addStaticFunction("findTouchIndex", &Input::findTouchIndex)
+        .addStaticFunction("findGamepadIndex", &Input::findGamepadIndex)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -1239,6 +1255,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticFunction("getUserDataPath", [] () { return System::instance().getUserDataPath(); })
         .addStaticFunction("getLuaPath", [] () { return System::instance().getLuaPath(); })
         .addStaticFunction("getShaderPath", [] () { return System::instance().getShaderPath(); })
+        .addStaticFunction("getSampleCount", [] () { return System::instance().getSampleCount(); })
 
         //UserSettings not need here
         .endClass();

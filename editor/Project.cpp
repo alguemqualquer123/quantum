@@ -3240,6 +3240,14 @@ uint32_t editor::Project::createNewSceneInternal(std::string sceneName, SceneTyp
         data.scene->setLightState(LightState::OFF);
         data.scene->setBackgroundColor(Vector4(0.525, 0.525, 0.525, 1.0));
     }
+    else if (data.sceneType == SceneType::SCENE_2D || data.sceneType == SceneType::SCENE_UI){
+        // Scene-appearance defaults for newly created 2D scenes. Loaded scenes keep
+        // the values decoded from disk (see SceneRender2D constructor note).
+        data.scene->setLightState(LightState::OFF);
+        data.scene->setBackgroundColor(data.sceneType == SceneType::SCENE_UI
+            ? Vector4(0.525, 0.525, 0.525, 1.0)
+            : Vector4(0.231, 0.298, 0.475, 1.0));
+    }
 
     editor::getEditorHost().addNewSceneToDock(data.id);
 
@@ -4954,6 +4962,10 @@ void editor::Project::finalizeStop(SceneProject* mainSceneProject, std::vector<P
 }
 
 bool editor::Project::createTempProject(std::string projectName, bool deleteIfExists) {
+    return createNewProjectAt(std::filesystem::temp_directory_path() / projectName, projectName, deleteIfExists);
+}
+
+bool editor::Project::createNewProjectAt(const fs::path& path, std::string projectName, bool deleteIfExists) {
     if (isAnyScenePlaying()) {
         Out::warning("Cannot create a new project while a scene is running or stopping.");
         return false;
@@ -4970,10 +4982,11 @@ bool editor::Project::createTempProject(std::string projectName, bool deleteIfEx
 
         resetConfigs();
 
-        // Clear the last project path in settings when creating a new temp project
+        // Clear the last project path in settings when creating a new project:
+        // the path is registered again once the project loads.
         AppSettings::setLastProjectPath(std::filesystem::path());
 
-        projectPath = std::filesystem::temp_directory_path() / projectName;
+        projectPath = path;
         fs::path projectFile = projectPath / "project.yaml";
 
         // Set the project name so libName (used for the generated CMake target
@@ -4987,7 +5000,10 @@ bool editor::Project::createTempProject(std::string projectName, bool deleteIfEx
 
         if (!std::filesystem::exists(projectFile)) {
             if (!std::filesystem::exists(projectPath)) {
-                std::filesystem::create_directory(projectPath);
+                // create_directories: a launcher may target a path whose parent
+                // folders (for example Documents/DoriaxProjects/<name>) do not
+                // exist yet.
+                std::filesystem::create_directories(projectPath);
             }
             Out::info("Created project directory: \"%s\"", projectPath.string().c_str());
 
@@ -5027,6 +5043,84 @@ bool editor::Project::createTempProject(std::string projectName, bool deleteIfEx
     }
 
     return true;
+}
+
+bool editor::Project::createFromTemplate(const std::filesystem::path& templateName) {
+    return createFromTemplateAt(std::filesystem::temp_directory_path() / templateName, templateName.string());
+}
+
+bool editor::Project::createFromTemplateAt(const fs::path& path, const std::string& templateName) {
+    std::error_code ec;
+    const fs::path templatesRoot = FileUtils::getTemplatesDir();
+    const fs::path source = templatesRoot / templateName;
+    if (templatesRoot.empty() || !fs::is_directory(source, ec) ||
+        !fs::exists(source / "project.yaml", ec)) {
+        Out::error("Template project \"%s\" not found under \"%s\".",
+                   templateName.c_str(), templatesRoot.string().c_str());
+        return false;
+    }
+
+    if (!createNewProjectAt(path, path.filename().string(), true)) {
+        return false;
+    }
+
+    // The template folders were saved by the editor, so they carry its own log,
+    // window layout and per-project settings. That state belongs to whoever saved
+    // the template, not to the project being created from it.
+    static const char* kSkipFiles[] = {"editor.log", "editor_layout.ini", "settings.yaml"};
+    static const char* kSkipDirs[] = {"build", ".git", ".vs"};
+
+    const fs::recursive_directory_iterator end;
+    for (fs::recursive_directory_iterator it(source, fs::directory_options::skip_permission_denied, ec);
+         !ec && it != end; it.increment(ec)) {
+        const fs::path name = it->path().filename();
+        if (it->is_directory(ec)) {
+            for (const char* skip : kSkipDirs) {
+                if (name == skip) {
+                    it.disable_recursion_pending();
+                    break;
+                }
+            }
+            continue;
+        }
+
+        bool skip = false;
+        for (const char* drop : kSkipFiles) {
+            if (name == drop) {
+                skip = true;
+                break;
+            }
+        }
+        if (skip) continue;
+
+        const fs::path destination = projectPath / fs::relative(it->path(), source, ec);
+        fs::create_directories(destination.parent_path(), ec);
+        if (ec) {
+            Out::error("Failed to create \"%s\": %s", destination.parent_path().string().c_str(),
+                       ec.message().c_str());
+            return false;
+        }
+        fs::copy_file(it->path(), destination, fs::copy_options::overwrite_existing, ec);
+        if (ec) {
+            Out::error("Failed to copy \"%s\": %s", it->path().string().c_str(),
+                       ec.message().c_str());
+            return false;
+        }
+    }
+
+    if (ec) {
+        Out::error("Failed to read template \"%s\": %s", source.string().c_str(),
+                   ec.message().c_str());
+        return false;
+    }
+
+    // Reload instead of keeping the scaffold createTempProject opened: the
+    // template's own project.yaml carries its scene list and canvas settings.
+    const bool loaded = loadProject(projectPath);
+    if (loaded) {
+        Out::success("Created project from template \"%s\".", templateName.c_str());
+    }
+    return loaded;
 }
 
 bool editor::Project::saveProject(bool userCalled, std::function<void()> callback) {

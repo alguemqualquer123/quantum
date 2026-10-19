@@ -1,0 +1,103 @@
+%YAML 1.1
+--- !u!1 &1001
+Entity:
+  name: "Sun"
+  id: 1001
+  components:
+    - LightComponent:
+        type: 0  # DIRECTIONAL
+        direction: [-0.3, -0.7, 0.4]
+        shadows: true
+        intensity: 3.0
+        range: 100.0
+        color: [1.0, 1.0, 1.0]
+        shadowBias: 0.002
+        mapResolution: 2048
+        automaticShadowCamera: true
+        shadowCameraNearFar: [0.1, 100.0]
+        numShadowCascades: 3
+    - Transform:
+        position: [0, 10, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        visible: true
+        parent: -1
+
+--- !u!1 &1002
+Entity:
+  name: "Sky"
+  id: 1002
+  components:
+    - SkyComponent:
+        color: [0.5, 0.7, 1.0, 1.0]
+        rotation: 0.0
+        visible: true
+    - Transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        visible: true
+        parent: -1
+
+--- !u!1 &1003
+Entity:
+  name: "MainCamera"
+  id: 1003
+  components:
+    - CameraComponent:
+        type: 1  # CAMERA_PERSPECTIVE
+        target: [8, 4, 8]
+        up: [0, 1, 0]
+        yfov: 0.75
+        aspect: 2.6755674
+        nearClip: 0.1
+        farClip: 1000.0
+        renderToTexture: false
+        transparentSort: true
+        useTarget: true
+        autoResize: true
+    - Transform:
+        position: [20, 15, 20]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        visible: true
+        parent: -1
+
+--- !u!1 &1004
+Entity:
+  name: "VoxelChunk"
+  id: 1004
+  components:
+    - MeshComponent:
+        receiveIBL: false
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        vertexCount: 0
+        numSubmeshes: 0
+    - Transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        visible: true
+        parent: -1
+    - ScriptComponent:
+        scripts:
+          - type: 1  # ScriptType::CPP
+            path: "scripts/ChunkGenerator.cpp"
+            headerPath: "scripts/ChunkGenerator.h"
+            className: "ChunkGenerator"
+            enabled: true
+            properties:
+              - name: "seed"
+                type: 4  # ScriptPropertyType::Int
+                value: 12345
+                defaultValue: 12345
+              - name: "chunkScale"
+                type: 3  # ScriptPropertyType::Float
+                value: 1.0
+                defaultValue: 1.0
+              - name: "generateOnStart"
+                type: 1  # ScriptPropertyType::Bool
+                value: true
+                defaultValue: true

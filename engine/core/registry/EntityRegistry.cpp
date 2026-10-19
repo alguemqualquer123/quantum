@@ -64,6 +64,7 @@ EntityRegistry::EntityRegistry() {
     registerComponent<ReflectionProbeComponent>();
     registerComponent<WaterComponent>();
     registerComponent<WaterExclusionComponent>();
+    registerComponent<TagComponent>();
 }
 
 EntityRegistry::EntityRegistry(EntityPool defaultPool) : EntityRegistry() {

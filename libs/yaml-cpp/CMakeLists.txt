@@ -1,6 +1,6 @@
 # 3.5 is actually available almost everywhere, but this a good minimum.
 # 3.14 as the upper policy limit avoids CMake deprecation warnings.
-cmake_minimum_required(VERSION 3.4...3.14)
+cmake_minimum_required(VERSION 3.4...4.2)
 
 # enable MSVC_RUNTIME_LIBRARY target property
 # see https://cmake.org/cmake/help/latest/policy/CMP0091.html
@@ -61,15 +61,41 @@ if (NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     MultiThreaded$<$<CONFIG:Debug>:Debug>$<${msvc-shared_rt}:DLL>)
 endif()
 
-set(contrib-pattern "src/contrib/*.cpp")
-set(src-pattern "src/*.cpp")
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  list(INSERT contrib-pattern 0 CONFIGURE_DEPENDS)
-  list(INSERT src-pattern 0 CONFIGURE_DEPENDS)
-endif()
+set(yaml-cpp-contrib-sources
+  src/contrib/graphbuilder.cpp
+  src/contrib/graphbuilderadapter.cpp)
 
-file(GLOB yaml-cpp-contrib-sources ${contrib-pattern})
-file(GLOB yaml-cpp-sources ${src-pattern})
+set(yaml-cpp-sources
+  src/binary.cpp
+  src/convert.cpp
+  src/depthguard.cpp
+  src/directives.cpp
+  src/emit.cpp
+  src/emitfromevents.cpp
+  src/emitter.cpp
+  src/emitterstate.cpp
+  src/emitterutils.cpp
+  src/exceptions.cpp
+  src/exp.cpp
+  src/fptostring.cpp
+  src/memory.cpp
+  src/node.cpp
+  src/nodebuilder.cpp
+  src/nodeevents.cpp
+  src/node_data.cpp
+  src/null.cpp
+  src/ostream_wrapper.cpp
+  src/parse.cpp
+  src/parser.cpp
+  src/regex_yaml.cpp
+  src/scanner.cpp
+  src/scanscalar.cpp
+  src/scantag.cpp
+  src/scantoken.cpp
+  src/simplekey.cpp
+  src/singledocparser.cpp
+  src/stream.cpp
+  src/tag.cpp)
 
 set(msvc-rt $<TARGET_PROPERTY:MSVC_RUNTIME_LIBRARY>)
 
@@ -81,7 +107,7 @@ set(msvc-rt-mt-dll $<STREQUAL:${msvc-rt},MultiThreadedDLL>)
 
 set(backport-msvc-runtime $<VERSION_LESS:${CMAKE_VERSION},3.15>)
 
-add_library(yaml-cpp ${yaml-cpp-type} "")
+add_library(yaml-cpp ${yaml-cpp-type})
 add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
 
 set_property(TARGET yaml-cpp

@@ -2738,8 +2738,8 @@ bool initializeX11(editor::App& app) {
     int workHeight = 0;
     screenWorkArea(workWidth, workHeight);
     // The converted size can come out larger than this screen.
-    const int width = std::min(app.getInitialWindowWidth(uiScale), workWidth);
-    const int height = std::min(app.getInitialWindowHeight(uiScale), workHeight);
+const int width = std::min(app->getInitialWindowWidth(uiScale), workWidth);
+const int height = std::min(app->getInitialWindowHeight(uiScale), workHeight);
     const int x = std::max(0, (DisplayWidth(backend->display, backend->screen) - width) / 2);
     const int y = std::max(0, (DisplayHeight(backend->display, backend->screen) - height) / 2);
     backend->mainWindow = createNativeWindow(x, y, width, height, true, false, false);
@@ -2801,19 +2801,20 @@ void shutdownX11() {
 
 } // namespace
 
-editor::App editor::Backend::app;
+editor::App* editor::Backend::app = nullptr;
 std::string editor::Backend::title;
 
 int editor::Backend::init(int argc, char* argv[]) {
-    setEditorHost(&app);
-    app.initializeSettings();
+    app = new App();
+    setEditorHost(app);
+    app->initializeSettings();
 
     backend = new LinuxBackendData();
     if (!initializeX11(app)) {
         shutdownX11();
         return -1;
     }
-    if (app.getInitialWindowMaximized()) {
+    if (app->getInitialWindowMaximized()) {
         sendWmState(backend->mainWindow, 1,
                     backend->netWmStateMaxVert, backend->netWmStateMaxHorz);
     }
@@ -2828,7 +2829,7 @@ int editor::Backend::init(int argc, char* argv[]) {
     ImGui::CreateContext();
     initImGuiPlatform();
 
-    app.setup();
+    app->setup();
     processEvents(0.0);
     backend->renderer = std::make_unique<editor::Renderer>();
     if (!backend->renderer->init(
@@ -2842,7 +2843,7 @@ int editor::Backend::init(int argc, char* argv[]) {
         return -1;
     }
 
-    backend->editorFrame.init(*backend->renderer, app, newImGuiFrame);
+    backend->editorFrame.init(*backend->renderer, *app, newImGuiFrame);
 
     auto renderFrame = [&](bool forceRedraw) {
         if (backend->shouldClose) return;
@@ -2858,7 +2859,7 @@ int editor::Backend::init(int argc, char* argv[]) {
             backend->shouldClose = true;
     };
 
-    app.setLoadingPump([&](bool render) {
+    app->setLoadingPump([&](bool render) {
         processEvents(0.0);
         if (render && !backend->shouldClose)
             renderFrame(true);
@@ -2866,7 +2867,7 @@ int editor::Backend::init(int argc, char* argv[]) {
 
     bool engineStarted = false;
     if (!backend->shouldClose) {
-        app.engineInit(argc, argv);
+        app->engineInit(argc, argv);
         engineStarted = true;
         // Match GLFW/SDL soft hide at startup: keep the OS cursor manageable by
         // ImGui. hideEditorCursor() sets NoMouseCursorChange and would leave the
@@ -2876,13 +2877,13 @@ int editor::Backend::init(int argc, char* argv[]) {
     }
     bool engineViewReady = false;
     if (engineStarted && !backend->shouldClose) {
-        app.engineViewLoaded();
+        app->engineViewLoaded();
         engineViewReady = true;
     }
     if (engineStarted && !backend->shouldClose)
-        app.loadStartupProject();
+        app->loadStartupProject();
 
-    app.setWakeCallback([]() {
+    app->setWakeCallback([]() {
         if (!backend || backend->wakePipe[1] < 0) return;
         const char byte = 1;
         const ssize_t ignored = write(backend->wakePipe[1], &byte, 1);
@@ -2894,14 +2895,14 @@ int editor::Backend::init(int argc, char* argv[]) {
     while (!backend->shouldClose) {
         processEvents(backend->editorFrame.isIdle() ? IDLE_WAIT_TIMEOUT : 0.0);
         if (backend->shouldClose) break;
-        app.processProjectChange();
+        app->processProjectChange();
         if (backend->shouldClose) break;
         renderFrame(false);
-        if (app.consumeBenchmarkExit())
+        if (app->consumeBenchmarkExit())
             backend->shouldClose = true;
     }
 
-    app.shutdownBackgroundWork();
+    app->shutdownBackgroundWork();
     int width = 0;
     int height = 0;
     getWindowSize(backend->mainWindow, width, height);
@@ -2924,23 +2925,23 @@ int editor::Backend::init(int argc, char* argv[]) {
         maximized = vertical && horizontal;
         XFree(states);
     }
-    app.saveWindowSettings(width, height, maximized, desktopUiScale());
+    app->saveWindowSettings(width, height, maximized, desktopUiScale());
 
     backend->renderer->shutdownImGui();
     shutdownImGuiPlatform();
     ImGui::DestroyContext();
     if (engineViewReady)
-        app.engineViewDestroyed();
+        app->engineViewDestroyed();
     NFD_Quit();
     backend->renderer.reset();
     shutdownX11();
     if (engineStarted)
-        app.engineShutdown();
-    return app.getExitCode();
+        app->engineShutdown();
+    return app->getExitCode();
 }
 
 editor::App& editor::Backend::getApp() {
-    return app;
+    return *app;
 }
 
 void editor::Backend::disableMouseCursor() {

@@ -357,6 +357,60 @@ HttpResponse HttpClient::send(const HttpRequest& request, const std::atomic<bool
     return response;
 }
 
+HttpResponse HttpClient::sendStreaming(const HttpRequest& request,
+                                       const StreamingCallback& onChunk,
+                                       const std::atomic<bool>* cancel) const {
+    if (cancel && cancel->load()) {
+        return {0, {}, "Request cancelled"};
+    }
+
+    // Accumulates raw bytes from the SSE stream. Lines are split and passed to
+    // the callback as complete "data: ...\n" strings (including the prefix so
+    // each provider's parser can identify the event type).
+    std::string buffer;
+    std::string fullBody; // for error inspection / headers
+
+    HttpResponse response = performRequest(request,
+        [&](const char* data, size_t size) -> bool {
+            buffer.append(data, size);
+
+            // Process complete SSE lines (terminated by \n).
+            while (true) {
+                size_t nl = buffer.find('\n');
+                if (nl == std::string::npos) break;
+
+                std::string line = buffer.substr(0, nl);
+                buffer.erase(0, nl + 1);
+
+                // Strip trailing \r
+                if (!line.empty() && line.back() == '\r') {
+                    line.pop_back();
+                }
+
+                fullBody += line + "\n";
+
+                // SSE lines: "data: ..." or "event: ..." or empty lines.
+                // Pass all non-empty lines to the callback — each provider
+                // parser identifies what it needs.
+                if (!line.empty()) {
+                    if (!onChunk(line)) {
+                        response.error = "Stream cancelled by callback";
+                        return false;
+                    }
+                }
+            }
+            return true;
+        },
+        cancel);
+
+    response.body = std::move(fullBody);
+
+    if (cancel && cancel->load()) {
+        response.error = "Request cancelled";
+    }
+    return response;
+}
+
 HttpResponse HttpClient::get(const std::string& url,
                              const std::vector<std::string>& headers,
                              const std::atomic<bool>* cancel) const {

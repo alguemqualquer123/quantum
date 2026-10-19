@@ -33,6 +33,38 @@ endif()
 
 message(STATUS "Doriax version is ${DORIAXEDITOR_VERSION}")
 
+# One build tree per checkout. Its folder name is the DORIAX_BUILD_DIR environment
+# variable, defaulting to "build"; scripts/doriax-build-dir.bat, the CI workflows
+# and the docs all read the same value. Extra trees (build-debug/, build-release/,
+# build-ninja/) were each carrying their own CMakeCache, their own generated
+# headers and their own copy of every object file.
+if(DEFINED ENV{DORIAX_BUILD_DIR} AND NOT "$ENV{DORIAX_BUILD_DIR}" STREQUAL "")
+    set(DORIAX_BUILD_DIR "$ENV{DORIAX_BUILD_DIR}")
+else()
+    set(DORIAX_BUILD_DIR "build")
+endif()
+file(TO_CMAKE_PATH "${DORIAX_BUILD_DIR}" DORIAX_BUILD_DIR_PATH)
+if(NOT DORIAX_BUILD_DIR_PATH MATCHES "^([A-Za-z]:/|/)")
+    # A bare name is relative to the repository root, which is how the scripts
+    # and CI use it.
+    set(DORIAX_BUILD_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${DORIAX_BUILD_DIR_PATH}")
+endif()
+file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}" DORIAX_ACTIVE_TREE)
+get_filename_component(DORIAX_ACTIVE_TREE_PARENT "${DORIAX_ACTIVE_TREE}" DIRECTORY)
+string(TOLOWER "${DORIAX_ACTIVE_TREE}" DORIAX_ACTIVE_TREE_LOWER)
+string(TOLOWER "${DORIAX_ACTIVE_TREE_PARENT}" DORIAX_ACTIVE_TREE_PARENT_LOWER)
+string(TOLOWER "${DORIAX_BUILD_DIR_PATH}" DORIAX_BUILD_DIR_PATH_LOWER)
+string(TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" DORIAX_SOURCE_DIR_LOWER)
+# Only a sibling folder of the checkout is questioned: building into an unrelated
+# directory (a scratch disk, an SSD) is exactly what the variable is for.
+if(DORIAX_ACTIVE_TREE_PARENT_LOWER STREQUAL DORIAX_SOURCE_DIR_LOWER AND
+   NOT DORIAX_ACTIVE_TREE_LOWER STREQUAL DORIAX_BUILD_DIR_PATH_LOWER)
+    message(WARNING
+        "doriax: this build tree is ${CMAKE_BINARY_DIR}, but DORIAX_BUILD_DIR names "
+        "${DORIAX_BUILD_DIR_PATH}. Configure with -B ${DORIAX_BUILD_DIR_PATH} (or set "
+        "DORIAX_BUILD_DIR) so the checkout keeps a single tree.")
+endif()
+
 if(APPLE)
     enable_language(OBJCXX)
 endif()
@@ -445,6 +477,24 @@ include_directories (${SHADERCOMPILER_ROOT}/src)
 
 add_subdirectory(${DORIAX_ROOT})
 
+# Standalone game runtime exe; needs the doriax link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/doriax_engine_exe.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/doriax_reflector.cmake)
+
+# Development executable for the retained-mode UI module (engine/core/ui).
+# include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/doriax_ui_demo.cmake)
+
+# GPU-free unit tests of the UI module (EXCLUDE_FROM_ALL; never built by default).
+option(DORIAX_BUILD_TESTS "Build the doriax unit tests" ON)
+if(DORIAX_BUILD_TESTS)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/doriax_tests.cmake)
+endif()
+
+# Slate module: the Slate/UMG/CommonUI-style retained UI (engine/slate), its
+# widget-gallery executable and its GPU-free tests. Own static lib, so nothing in
+# engine/CMakeLists.txt changes.
+include(${CMAKE_CURRENT_SOURCE_DIR}/engine/slate/doriax_slate.cmake)
+
 # Signed alongside the exes, so it needs the same metadata. MinGW prefixes the name.
 if(WIN32 AND DORIAX_SHARED)
     doriax_add_windows_resource(
@@ -484,6 +534,7 @@ set(IMGUI_SOURCES
     ${IMGUI_DIR}/imgui_draw.cpp
     ${IMGUI_DIR}/imgui_tables.cpp
     ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
 )
 
 # ImGui platform backends go with API_BACKEND above, renderers with GRAPHIC_BACKEND
@@ -506,14 +557,46 @@ set_property(
 
 include_directories (${EDITOR_DIR})
 
+# ---- UILab: the editor's UI component library (libs/uilab) ------------------
+# ImGui stays compiled into each editor executable, so UILab gets the headers through
+# this INTERFACE target and links against the same objects the editor already holds.
+add_library(doriax_imgui INTERFACE)
+target_include_directories(doriax_imgui SYSTEM INTERFACE
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+    ${IMGUI_DIR}/misc/cpp
+)
+
+# The standalone laboratory app (window, GLFW, its own demo pages) is not part of the
+# editor: only the Core + Editor libraries are.
+set(UILAB_BUILD_APP OFF)
+set(UILAB_BUILD_DEMOS OFF)
+set(UILAB_FETCH_DEPS OFF)
+set(UILAB_PROVIDE_THIRD_PARTY OFF)
+set(UILAB_EXPORT_TARGETS OFF)
+set(UILAB_IMGUI_TARGET doriax_imgui)
+add_subdirectory(libs/uilab)
+
+if(MSVC)
+    # Jolt propagates _HAS_EXCEPTIONS=0 PUBLIC into the engine and the editor. These
+    # static libraries link into the same executable, so they must use that switch too.
+    foreach(uilab_lib IN ITEMS uilab_core uilab_editor)
+        target_compile_definitions(${uilab_lib} PRIVATE _HAS_EXCEPTIONS=0)
+    endforeach()
+endif()
+
 add_custom_target(generate_shaders DEPENDS ${SHADERS_HEADER})
 add_custom_target(generate_api_suggestions DEPENDS ${API_SUGGESTIONS_HEADER})
 
 set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/main.cpp
     ${EDITOR_DIR}/cli/CommandLine.cpp
+    ${EDITOR_DIR}/cli/ResourceCompilerCli.cpp
+    ${EDITOR_DIR}/cli/BuildGeneratorCli.cpp
+    ${EDITOR_DIR}/cli/ResourceServerClient.cpp
     ${EDITOR_DIR}/App.cpp
     ${EDITOR_DIR}/AppSettings.cpp
+    ${EDITOR_DIR}/UILabHost.cpp
     ${EDITOR_DIR}/Theme.cpp
     ${EDITOR_DIR}/Factory.cpp
     ${EDITOR_DIR}/Out.cpp
@@ -560,9 +643,12 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/util/TerrainErosion.cpp
     ${EDITOR_DIR}/util/UIUtils.cpp
     ${EDITOR_DIR}/util/CommandRunner.cpp
+    ${EDITOR_DIR}/util/ProcessStats.cpp
+    ${EDITOR_DIR}/util/SystemStats.cpp
     ${EDITOR_DIR}/util/ShellEnv.cpp
     ${EDITOR_DIR}/util/GitMonitor.cpp
     ${EDITOR_DIR}/util/LineDiff.cpp
+    ${EDITOR_DIR}/util/ProcessLaunch.cpp
 
     ${EDITOR_DIR}/shader/ShaderBuilder.cpp
 
@@ -577,6 +663,12 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/window/TerrainEditWindow.cpp
     ${EDITOR_DIR}/window/AiChatWindow.cpp
     ${EDITOR_DIR}/window/LoadingWindow.cpp
+    ${EDITOR_DIR}/window/MarkdownRenderer.cpp
+    ${EDITOR_DIR}/window/NotificationsWindow.cpp
+    ${EDITOR_DIR}/window/CommandPaletteWindow.cpp
+    ${EDITOR_DIR}/window/WelcomeScreenWindow.cpp
+    ${EDITOR_DIR}/window/HubWindow.cpp
+    ${EDITOR_DIR}/window/ResourceMonitorWindow.cpp
     ${EDITOR_DIR}/window/dialog/SceneSaveDialog.cpp
     ${EDITOR_DIR}/window/dialog/ComponentAddDialog.cpp
     ${EDITOR_DIR}/window/dialog/ProjectSaveDialog.cpp
@@ -685,13 +777,18 @@ function(configure_doriax_editor_target target_name)
         nfd
         yaml-cpp
         ufbx
+        uilab_core
+        uilab_editor
     )
 
     if(WIN32)
-        # dbghelp resolves the crash-report backtrace; ws2_32 serves MCP.
-        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp ws2_32)
+        # dbghelp resolves the crash-report backtrace; ws2_32 serves MCP and the
+        # resource-server client in editor/cli. pdh/iphlpapi/dxgi feed the
+        # system monitor: PDH counters, interface stats and the DXGI adapter.
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32 pdh iphlpapi dxgi)
     else()
-        target_link_libraries(${target_name} PRIVATE CURL::libcurl)
+        # ${CMAKE_DL_LIBS} lets the monitor dlopen NVML for NVIDIA GPU data where present.
+        target_link_libraries(${target_name} PRIVATE CURL::libcurl ${CMAKE_DL_LIBS})
         # -rdynamic names the editor's own frames in the crash backtrace, at about 10 MB of
         # symbol table. A Release build stays lean and is resolved with addr2line instead.
         if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -871,6 +968,12 @@ if(WIN32)
     list(APPEND DORIAX_EDITOR_INSTALL_TARGETS doriax-editor-cmd)
 endif()
 
+# Headless asset compiler (pak/shaders/inspect); target defined in the .cmake.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/doriax_resource_compiler.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/build-generator/doriax_build_generator.cmake)
+# Local asset index service the editor talks to over 127.0.0.1 JSON-lines.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-server/doriax_resource_server.cmake)
+
 # The bundle already holds the dylib and engine/.
 if(APPLE)
     install(TARGETS doriax-editor
@@ -919,3 +1022,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         )
     endforeach()
 endif()
+# add_subdirectory(engine/voxel)
+# add_subdirectory(engine/voxel_demo)
+

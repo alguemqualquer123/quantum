@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "App.h"
+#include "UILabHost.h"
 
 #include "imgui_internal.h"
 #include "Platform.h"
@@ -20,6 +21,15 @@
 #include "util/FileUtils.h"
 #include "util/ProjectUtils.h"
 #include "util/Util.h"
+#include "util/FileUtils.h"
+#include "util/SystemStats.h"
+#include "cli/LaunchOptions.h"
+#include "cli/ResourceServerClient.h"
+
+#include "window/NotificationsWindow.h"
+#include "window/CommandPaletteWindow.h"
+#include "window/WelcomeScreenWindow.h"
+#include "window/ResourceMonitorWindow.h"
 
 #include "EditorVersion.h"
 #include "Out.h"
@@ -38,6 +48,9 @@
 #include "subsystem/UISystem.h"
 
 #include <filesystem>
+#include <chrono>
+#include <cstdio>
+#include <cstdint>
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
@@ -95,6 +108,13 @@ bool holdsCentralNode(const ImGuiDockNode* node) {
     return holdsCentralNode(node->ChildNodes[0]) || holdsCentralNode(node->ChildNodes[1]);
 }
 
+// App.h is frozen for this change, so the four new panels are not members; a
+// single editor instance means these TU-local pointers are the whole lifetime.
+editor::NotificationsWindow* g_notificationsWindow = nullptr;
+editor::CommandPaletteWindow* g_commandPaletteWindow = nullptr;
+editor::WelcomeScreenWindow* g_welcomeScreenWindow = nullptr;
+editor::ResourceMonitorWindow* g_resourceMonitorWindow = nullptr;
+
 }
 
 ImFont* editor::App::codeFont = nullptr;
@@ -114,6 +134,11 @@ editor::App::App(){
     terrainEditWindow = new TerrainEditWindow(&project);
     aiChatWindow = new AiChatWindow(&project, resourcesWindow);
     mcpServer = new ai::McpServer(&project, resourcesWindow);
+
+    g_notificationsWindow = new NotificationsWindow();
+    g_commandPaletteWindow = new CommandPaletteWindow();
+    g_welcomeScreenWindow = new WelcomeScreenWindow();
+    g_resourceMonitorWindow = new ResourceMonitorWindow();
 
     isInitialized = false;
     dockspaceNeedsRebuild = false;
@@ -183,6 +208,12 @@ void editor::App::saveAllAndProject(std::function<void()> onSuccess){
 }
 
 void editor::App::openProjectFunc(){
+    // Reached from the welcome screen (mid-pass) and from Ctrl+O; the project
+    // swap behind it must not run while the pass records draw data.
+    if (uiPassActive) {
+        runWhenUiIdle([this]() { openProjectFunc(); });
+        return;
+    }
     if (project.isAnyScenePlaying()) {
         registerAlert("Scene Running", "A scene is currently running or stopping. Stop it before opening another project.");
         return;
@@ -204,8 +235,14 @@ void editor::App::openProjectFunc(){
             return;
         }
 
-        requestProjectChange([this, projectDir]() { project.loadProject(projectDir); });
+        // The welcome overlay only exists while there is nothing to edit, so a
+        // completed pick dismisses it; cancelling the picker leaves it in place.
+        requestProjectChange([this, projectDir]() {
+            if (project.loadProject(projectDir))
+                g_welcomeScreenWindow->setOpen(false);
+        });
     };
+
     if (project.hasScenesUnsavedChanges() || codeEditor->hasUnsavedChanges() || project.isTempUnsavedProject()) {
         registerConfirmAlert(
             "Unsaved Changes",
@@ -227,6 +264,7 @@ enum class AppMenuCommand : uint32_t {
     OpenProject,
     OpenRecentProject,
     ClearRecentProjects,
+    SaveProject,
     SaveProjectAs,
     Save,
     SaveAll,
@@ -245,11 +283,13 @@ enum class AppMenuCommand : uint32_t {
     ToggleTerrain,
     ToggleAiChat,
     ToggleDetachableWindows,
+    ToggleEditorVSync,
     ResetLayout,
     ProjectSettings,
     ProjectScenes,
     ProjectBundles,
     ClearTrash,
+    ClearShaderCache,
     RunScene,
     PauseScene,
     ResumeScene,
@@ -259,7 +299,17 @@ enum class AppMenuCommand : uint32_t {
     About,
     Documentation,
     KeyboardShortcuts,
-    ReportIssue
+    ReportIssue,
+    ToggleNotifications,
+    ToggleResourceMonitor,
+    CommandPalette,
+    ThemeToggle,
+    AccentBlue,
+    AccentTeal,
+    AccentAmber,
+    AccentViolet,
+    NewProjectFromTemplate,
+    ToggleWelcome
 };
 
 editor::PlatformMenuItem menuCommand(AppMenuCommand command,
@@ -316,6 +366,105 @@ editor::PlatformMenuItem menuSubmenu(std::string label,
     item.enabled = enabled;
     item.children = std::move(children);
     return item;
+}
+
+// One item per sample project shipped next to the engine, so creating a project
+// from a template needs no extra dialog: picking the item copies the template
+// over the fresh temp project and loads it.
+std::vector<editor::PlatformMenuItem> buildTemplateMenuItems() {
+    auto unavailable = []() {
+        std::vector<editor::PlatformMenuItem> items;
+        items.push_back(menuCommand(AppMenuCommand::NewProjectFromTemplate,
+                                    "No templates installed", false));
+        return items;
+    };
+
+    const std::filesystem::path root = editor::FileUtils::getTemplatesDir();
+    std::error_code ec;
+    if (root.empty() || !std::filesystem::is_directory(root, ec)) {
+        return unavailable();
+    }
+
+    std::vector<std::string> names;
+    const std::filesystem::directory_iterator end;
+    for (std::filesystem::directory_iterator it(root, ec); !ec && it != end; it.increment(ec)) {
+        if (it->is_directory(ec) && std::filesystem::exists(it->path() / "project.yaml", ec)) {
+            names.push_back(it->path().filename().string());
+        }
+    }
+    if (names.empty()) {
+        return unavailable();
+    }
+
+    std::sort(names.begin(), names.end());
+    std::vector<editor::PlatformMenuItem> items;
+    for (const std::string& name : names) {
+        items.push_back(menuPayloadCommand(AppMenuCommand::NewProjectFromTemplate, name, name));
+    }
+    return items;
+}
+
+editor::PaletteCommand paletteCmd(AppMenuCommand command,
+                                  std::string label,
+                                  std::string shortcut = {},
+                                  std::string description = {}) {
+    editor::PaletteCommand command_;
+    command_.id = std::to_string(static_cast<uint32_t>(command));
+    command_.label = std::move(label);
+    command_.shortcut = std::move(shortcut);
+    command_.description = std::move(description);
+    return command_;
+}
+
+// Same command set the menus expose, so a palette entry behaves exactly like the
+// menu item it mirrors (the ids round-trip through the AppMenuCommand switch).
+std::vector<editor::PaletteCommand> buildPaletteCommands() {
+    return {
+        paletteCmd(AppMenuCommand::NewProject, "File: New Project"),
+        paletteCmd(AppMenuCommand::ToggleWelcome, "File: Welcome Screen"),
+        paletteCmd(AppMenuCommand::NewScene3D, "File: New 3D Scene"),
+        paletteCmd(AppMenuCommand::NewScene2D, "File: New 2D Scene"),
+        paletteCmd(AppMenuCommand::NewSceneUI, "File: New UI Scene"),
+        paletteCmd(AppMenuCommand::OpenProject, "File: Open Project...", "Ctrl+O"),
+        paletteCmd(AppMenuCommand::SaveProject, "File: Save Project"),
+        paletteCmd(AppMenuCommand::SaveProjectAs, "File: Save Project As..."),
+        paletteCmd(AppMenuCommand::Save, "File: Save", "Ctrl+S"),
+        paletteCmd(AppMenuCommand::SaveAll, "File: Save All", "Ctrl+Shift+S"),
+        paletteCmd(AppMenuCommand::ExportProject, "File: Export Project..."),
+        paletteCmd(AppMenuCommand::Undo, "Edit: Undo", "Ctrl+Z"),
+        paletteCmd(AppMenuCommand::Redo, "Edit: Redo", "Ctrl+Y"),
+        paletteCmd(AppMenuCommand::ToggleStructure, "View: Toggle Structure"),
+        paletteCmd(AppMenuCommand::ToggleProperties, "View: Toggle Properties"),
+        paletteCmd(AppMenuCommand::ToggleResources, "View: Toggle Resources"),
+        paletteCmd(AppMenuCommand::ToggleOutput, "View: Toggle Output"),
+        paletteCmd(AppMenuCommand::ToggleAnimation, "View: Toggle Animation"),
+        paletteCmd(AppMenuCommand::ToggleTerrain, "View: Toggle Terrain"),
+        paletteCmd(AppMenuCommand::ToggleAiChat, "View: Toggle AI Chat"),
+        paletteCmd(AppMenuCommand::ToggleNotifications, "View: Toggle Notifications"),
+        paletteCmd(AppMenuCommand::ToggleResourceMonitor, "View: Toggle Resource Monitor"),
+        paletteCmd(AppMenuCommand::ResetLayout, "View: Reset Layout"),
+        paletteCmd(AppMenuCommand::ThemeToggle, "View: Toggle Dark/Light Theme"),
+        paletteCmd(AppMenuCommand::ProjectSettings, "Project: Project Settings..."),
+        paletteCmd(AppMenuCommand::ProjectScenes, "Project: Scenes..."),
+        paletteCmd(AppMenuCommand::ProjectBundles, "Project: Bundles..."),
+        paletteCmd(AppMenuCommand::ClearTrash, "Project: Clear Trash"),
+        paletteCmd(AppMenuCommand::ClearShaderCache, "Project: Clear Shader Cache"),
+        paletteCmd(AppMenuCommand::RunScene, "Scene: Run", "F5"),
+        paletteCmd(AppMenuCommand::PauseScene, "Scene: Pause", "F6"),
+        paletteCmd(AppMenuCommand::StopScene, "Scene: Stop", "F7"),
+        paletteCmd(AppMenuCommand::RemoveScene, "Scene: Remove"),
+        paletteCmd(AppMenuCommand::About, "Help: About Doriax"),
+    };
+}
+
+const char* accentForCommand(AppMenuCommand command) {
+    switch (command) {
+        case AppMenuCommand::AccentBlue: return "#4B79F6";
+        case AppMenuCommand::AccentTeal: return "#17A398";
+        case AppMenuCommand::AccentAmber: return "#D9911F";
+        case AppMenuCommand::AccentViolet: return "#8A5CC8";
+        default: return nullptr;
+    }
 }
 
 const char* imguiMenuLabel(const editor::PlatformMenuItem& item) {
@@ -392,13 +541,22 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
 
     PlatformMenuModel menu;
     menu.menus.push_back(menuSubmenu("File", {
+        menuCommand(AppMenuCommand::ToggleWelcome, "Welcome Screen"),
         menuCommand(AppMenuCommand::NewProject, "New Project", !isProjectBusy),
+        menuSubmenu("New Project From Template", buildTemplateMenuItems(), !isProjectBusy),
+        menuSubmenu("New Scene", {
+            menuCommand(AppMenuCommand::NewScene3D, "3D Scene"),
+            menuCommand(AppMenuCommand::NewScene2D, "2D Scene"),
+            menuCommand(AppMenuCommand::NewSceneUI, "UI Scene")
+        }, !isProjectBusy),
+        menuSeparator(),
         menuShortcut(AppMenuCommand::OpenProject, "Open Project...", "Ctrl+O",
                      !isProjectBusy),
         menuSubmenu("Recent Projects", std::move(recentItems), !isProjectBusy),
         menuSeparator(),
         menuShortcut(AppMenuCommand::Save, "Save", "Ctrl+S", canSave),
         menuShortcut(AppMenuCommand::SaveAll, "Save All", "Ctrl+Shift+S", canSaveAll),
+        menuCommand(AppMenuCommand::SaveProject, "Save Project", canSaveAll),
         menuCommand(AppMenuCommand::SaveProjectAs, "Save Project As...", canSaveAll),
         menuSeparator(),
         menuCommand(AppMenuCommand::ExportProject, "Export Project..."),
@@ -431,9 +589,25 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
                    terrainEditWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleAiChat, AiChatWindow::WINDOW_NAME,
                    aiChatWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleNotifications, NotificationsWindow::WINDOW_NAME,
+                   g_notificationsWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleResourceMonitor, ResourceMonitorWindow::WINDOW_NAME,
+                   g_resourceMonitorWindow->isOpen()),
+        menuSeparator(),
+        menuShortcut(AppMenuCommand::CommandPalette, "Command Palette...", "Ctrl+K"),
+        menuCommand(AppMenuCommand::ThemeToggle,
+                    Theme::getPreset() == Theme::Preset::Dark ? "Light Theme" : "Dark Theme"),
+        menuSubmenu("Accent Color", {
+            menuCommand(AppMenuCommand::AccentBlue, "Blue"),
+            menuCommand(AppMenuCommand::AccentTeal, "Teal"),
+            menuCommand(AppMenuCommand::AccentAmber, "Amber"),
+            menuCommand(AppMenuCommand::AccentViolet, "Violet")
+        }),
         menuSeparator(),
         menuToggle(AppMenuCommand::ToggleDetachableWindows, "Detachable Windows",
                    AppSettings::getMultiViewportEnabled()),
+        menuToggle(AppMenuCommand::ToggleEditorVSync, "Editor VSync",
+                   AppSettings::getEditorVSyncEnabled()),
         menuSeparator(),
         menuCommand(AppMenuCommand::ResetLayout, "Reset Layout")
     }));
@@ -443,7 +617,8 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
         menuCommand(AppMenuCommand::ProjectScenes, "Manage Scenes...", !isProjectBusy),
         menuCommand(AppMenuCommand::ProjectBundles, "Bundles..."),
         menuSeparator(),
-        menuCommand(AppMenuCommand::ClearTrash, "Empty Project Trash...", !isProjectBusy)
+        menuCommand(AppMenuCommand::ClearTrash, "Empty Project Trash...", !isProjectBusy),
+        menuCommand(AppMenuCommand::ClearShaderCache, "Clear Shader Cache")
     }));
 
     PlatformMenuItem detachCameraItem = menuShortcut(AppMenuCommand::DetachCamera, "Detach Camera", "F8", canDetachCamera);
@@ -476,6 +651,14 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
 }
 
 void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
+    // The command palette, the welcome screen and confirm alerts fire while
+    // the pass is recording draw data; a project swap there would delete
+    // textures whose names are already in this pass's draw commands (see
+    // uiPassActive). Do the work at the frame boundary instead.
+    if (uiPassActive) {
+        runWhenUiIdle([this, command]() { executeMenuCommand(command); });
+        return;
+    }
     if (projectLoading || pendingProjectChange) return;
 
     const auto action = static_cast<AppMenuCommand>(command.id);
@@ -497,6 +680,24 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
                     startFreshProject);
             } else {
                 startFreshProject();
+            }
+            break;
+        }
+        case AppMenuCommand::NewProjectFromTemplate: {
+            if (project.isAnyScenePlaying()) return;
+            const std::filesystem::path templateName(command.payload);
+            auto startFromTemplate = [this, templateName]() {
+                if (project.createFromTemplate(templateName)) aiChatWindow->startNewChat();
+            };
+            if (project.hasScenesUnsavedChanges() || codeEditor->hasUnsavedChanges() ||
+                project.isTempUnsavedProject()) {
+                registerConfirmAlert(
+                    "Unsaved Changes",
+                    "There are unsaved changes. Do you want to save them before creating a project from a template?",
+                    [this, startFromTemplate]() { saveAllAndProject(startFromTemplate); },
+                    startFromTemplate);
+            } else {
+                startFromTemplate();
             }
             break;
         }
@@ -535,6 +736,9 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
         }
         case AppMenuCommand::ClearRecentProjects:
             AppSettings::clearRecentProjects();
+            break;
+        case AppMenuCommand::SaveProject:
+            project.saveProject(true);
             break;
         case AppMenuCommand::SaveProjectAs:
             if (project.isAnyScenePlaying() || saveDialogInProgress) return;
@@ -615,6 +819,10 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
 #endif
             break;
         }
+        case AppMenuCommand::ToggleEditorVSync:
+            AppSettings::setEditorVSyncEnabled(!AppSettings::getEditorVSyncEnabled());
+            AppSettings::saveSettings();
+            break;
         case AppMenuCommand::ResetLayout:
             structureWindow->setOpen(true);
             propertiesWindow->setOpen(true);
@@ -623,6 +831,8 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             animationWindow->setOpen(true);
             terrainEditWindow->setOpen(false);
             aiChatWindow->setOpen(true);
+            g_notificationsWindow->setOpen(true);
+            g_resourceMonitorWindow->setOpen(false);
             buildDockspace(true);
             break;
         case AppMenuCommand::ProjectSettings:
@@ -646,6 +856,11 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
                 [this, projectPath]() {
                     if (project.getProjectPath() == projectPath && !project.isAnyScenePlaying()) project.clearTrash();
                 });
+            break;
+        }
+        case AppMenuCommand::ClearShaderCache: {
+            const std::filesystem::path cacheDir = getUserShaderCacheDir();
+            if (std::filesystem::exists(cacheDir)) std::filesystem::remove_all(cacheDir);
             break;
         }
         case AppMenuCommand::RunScene:
@@ -681,6 +896,36 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
                     project.removeScene(sceneId);
                 });
             }
+            break;
+        }
+        case AppMenuCommand::ToggleNotifications:
+            g_notificationsWindow->setOpen(!g_notificationsWindow->isOpen());
+            break;
+        case AppMenuCommand::ToggleResourceMonitor:
+            g_resourceMonitorWindow->setOpen(!g_resourceMonitorWindow->isOpen());
+            break;
+        case AppMenuCommand::CommandPalette:
+            g_commandPaletteWindow->toggle();
+            break;
+        case AppMenuCommand::ToggleWelcome:
+            g_welcomeScreenWindow->setOpen(!g_welcomeScreenWindow->isOpen());
+            break;
+        case AppMenuCommand::ThemeToggle: {
+            const Theme::Preset next = Theme::getPreset() == Theme::Preset::Dark
+                ? Theme::Preset::Light : Theme::Preset::Dark;
+            Theme::setPreset(next);
+            Theme::apply();
+            AppSettings::setThemePreset(next == Theme::Preset::Light ? 1 : 0);
+            break;
+        }
+        case AppMenuCommand::AccentBlue:
+        case AppMenuCommand::AccentTeal:
+        case AppMenuCommand::AccentAmber:
+        case AppMenuCommand::AccentViolet: {
+            const char* hex = accentForCommand(action);
+            Theme::setAccentColor(hex);
+            Theme::apply();
+            AppSettings::setAccentColor(hex);
             break;
         }
         case AppMenuCommand::About:
@@ -746,14 +991,18 @@ void editor::App::showImGuiMenuItems(const std::vector<PlatformMenuItem>& items)
     }
 }
 
+void editor::App::showMenuModelContent(const PlatformMenuModel& menu){
+    for (const PlatformMenuItem& topLevel : menu.menus) {
+        if (ImGui::BeginMenu(topLevel.label.c_str(), topLevel.enabled)) {
+            showImGuiMenuItems(topLevel.children);
+            ImGui::EndMenu();
+        }
+    }
+}
+
 void editor::App::showImGuiMenu(const PlatformMenuModel& menu){
     if (ImGui::BeginMainMenuBar()) {
-        for (const PlatformMenuItem& topLevel : menu.menus) {
-            if (ImGui::BeginMenu(topLevel.label.c_str(), topLevel.enabled)) {
-                showImGuiMenuItems(topLevel.children);
-                ImGui::EndMenu();
-            }
-        }
+        showMenuModelContent(menu);
         ImGui::EndMainMenuBar();
     }
 }
@@ -775,7 +1024,40 @@ void editor::App::showMenu(){
         ImGui::End();
         return;
     }
-    showImGuiMenu(menu);
+    // The library owns the bar; doriax owns its items.
+    if (uilabHost)
+        uilabHost->drawMenuBar(menu);
+    else
+        showImGuiMenu(menu);
+}
+
+namespace {
+    // Footer-sized byte strings: 8.4 GB, 512 MB, 47 KB. The footer redraws every
+    // frame, so the formatting stays snprintf-into-a-stack-buffer.
+    char* footerBytes(char* buffer, size_t size, unsigned long long bytes) {
+        const double mb = static_cast<double>(bytes) / (1024.0 * 1024.0);
+        if (mb >= 1024.0) {
+            std::snprintf(buffer, size, "%.1f GB", mb / 1024.0);
+        } else if (mb >= 1.0) {
+            std::snprintf(buffer, size, "%.0f MB", mb);
+        } else {
+            std::snprintf(buffer, size, "%.0f KB", static_cast<double>(bytes) / 1024.0);
+        }
+        return buffer;
+    }
+
+    char* footerRate(char* buffer, size_t size, double bytesPerSecond) {
+        if (bytesPerSecond < 0.0) bytesPerSecond = 0.0;
+        const double kb = bytesPerSecond / 1024.0;
+        if (kb >= 1024.0) {
+            std::snprintf(buffer, size, "%.1f MB/s", kb / 1024.0);
+        } else if (kb >= 1.0) {
+            std::snprintf(buffer, size, "%.0f KB/s", kb);
+        } else {
+            std::snprintf(buffer, size, "0 KB/s");
+        }
+        return buffer;
+    }
 }
 
 void editor::App::showFooter(){
@@ -915,7 +1197,10 @@ void editor::App::showFooter(){
             ImGui::EndDisabled();
         }
 
-        // Right side: Performance stats
+        // Right side: performance stats. FPS and frame time are pinned to the
+        // right edge; the machine cluster (CPU, RAM, GPU/VRAM, network) rides to
+        // their left while it fits. On narrow windows the cluster sheds from the
+        // tail (network first) instead of shoving the pinned stats off-screen.
         char fpsText[32];
         char msText[32];
         char drawText[48];
@@ -926,13 +1211,79 @@ void editor::App::showFooter(){
         sprintf(drawText, ICON_FA_CUBES " %u", frameStats.drawCalls);
         sprintf(triText, ICON_FA_DRAW_POLYGON " %llu", (unsigned long long)frameStats.triangles);
 
-        // Calculate width to position at right
-        float statsWidth = ImGui::CalcTextSize(fpsText).x + ImGui::CalcTextSize(msText).x
-            + ImGui::CalcTextSize(drawText).x + ImGui::CalcTextSize(triText).x + 70.0f;
-        float statsStartX = ImGui::GetWindowContentRegionMax().x - statsWidth;
+        struct FooterStat {
+            const char* text;
+            ImVec4 color;
+        };
+        FooterStat machineStats[6];
+        int machineStatCount = 0;
+
+        char cpuText[48];
+        char ramText[64];
+        char gpuText[48];
+        char vramText[64];
+        char downText[48];
+        char upText[48];
+        char scratch[32];
+
+        const SystemSample& machine = SystemStats::current();
+        if (machine.valid) {
+            const auto pressureColor = [](double fraction) {
+                if (fraction >= 0.90) return Theme::Colors::DangerText;
+                if (fraction >= 0.70) return Theme::Colors::WarningText;
+                return Theme::Colors::SuccessText;
+            };
+
+            sprintf(cpuText, ICON_FA_MICROCHIP " %.0f%%", machine.cpu.usagePercent);
+            machineStats[machineStatCount++] = {cpuText, pressureColor(machine.cpu.usagePercent / 100.0)};
+
+            sprintf(ramText, ICON_FA_MEMORY " %s",
+                    footerBytes(scratch, sizeof(scratch), machine.memory.usedBytes));
+            machineStats[machineStatCount++] = {ramText, ImGui::GetStyleColorVec4(ImGuiCol_Text)};
+
+            if (machine.gpu.usagePercent >= 0.0) {
+                sprintf(gpuText, ICON_FA_VIDEO " %.0f%%", machine.gpu.usagePercent);
+                machineStats[machineStatCount++] = {gpuText, pressureColor(machine.gpu.usagePercent / 100.0)};
+            }
+            if (machine.gpu.vramTotalBytes > 0) {
+                sprintf(vramText, ICON_FA_HARD_DRIVE " %s",
+                        footerBytes(scratch, sizeof(scratch), machine.gpu.vramUsedBytes));
+                machineStats[machineStatCount++] = {vramText, Theme::Colors::SubtleText};
+            }
+
+            sprintf(downText, ICON_FA_ARROW_DOWN " %s",
+                    footerRate(scratch, sizeof(scratch), machine.network.downBytesPerSec));
+            machineStats[machineStatCount++] = {downText, Theme::Colors::NetworkDown};
+            sprintf(upText, ICON_FA_ARROW_UP " %s",
+                    footerRate(scratch, sizeof(scratch), machine.network.upBytesPerSec));
+            machineStats[machineStatCount++] = {upText, Theme::Colors::NetworkUp};
+        }
+
+        // Width the whole cluster needs, separators included, then shed entries
+        // from the tail until the remainder fits beside the left side.
+        const float separatorWidth = ImGui::CalcTextSize("|").x + ImGui::GetStyle().ItemSpacing.x * 2.0f;
+        float statsWidth = ImGui::CalcTextSize(fpsText).x + ImGui::CalcTextSize(msText).x + separatorWidth;
+        for (int i = 0; i < machineStatCount; ++i) {
+            statsWidth += separatorWidth + ImGui::CalcTextSize(machineStats[i].text).x;
+        }
+
+        const float minStartX = ImGui::GetCursorPosX() + Theme::dpi(8.0f);
+        while (machineStatCount > 0 && ImGui::GetWindowContentRegionMax().x - statsWidth < minStartX) {
+            --machineStatCount;
+            statsWidth -= separatorWidth + ImGui::CalcTextSize(machineStats[machineStatCount].text).x;
+        }
+
+        const float statsStartX = ImGui::GetWindowContentRegionMax().x - statsWidth;
         if (statsStartX > ImGui::GetCursorPosX()) {
             ImGui::SameLine(statsStartX);
         } else {
+            ImGui::SameLine();
+        }
+
+        for (int i = 0; i < machineStatCount; ++i) {
+            ImGui::TextColored(machineStats[i].color, "%s", machineStats[i].text);
+            ImGui::SameLine();
+            ImGui::TextDisabled("|");
             ImGui::SameLine();
         }
 
@@ -1039,7 +1390,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onYes) {
-                        alert.onYes();
+                        runWhenUiIdle(alert.onYes);
                     }
                 }
                 ImGui::SameLine();
@@ -1047,7 +1398,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onNo) {
-                        alert.onNo();
+                        runWhenUiIdle(alert.onNo);
                     }
                 }
             } else if (alert.type == AlertType::ThreeButton) {
@@ -1060,7 +1411,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onYes) {
-                        alert.onYes();
+                        runWhenUiIdle(alert.onYes);
                     }
                 }
                 ImGui::SameLine();
@@ -1068,7 +1419,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onNo) {
-                        alert.onNo();
+                        runWhenUiIdle(alert.onNo);
                     }
                 }
                 ImGui::SameLine();
@@ -1076,7 +1427,7 @@ void editor::App::showAlert(){
                     alert.needShow = false;
                     ImGui::CloseCurrentPopup();
                     if (alert.onCancel) {
-                        alert.onCancel();
+                        runWhenUiIdle(alert.onCancel);
                     }
                 }
             }
@@ -1245,6 +1596,7 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderSetNodeSize(dock_id_right, ImVec2(preferredSize(19, viewport.x, sidePanelMaxShare), viewport.y));
     ImGui::DockBuilderDockWindow(Properties::WINDOW_NAME, dock_id_right);
     ImGui::DockBuilderDockWindow(AiChatWindow::WINDOW_NAME, dock_id_right);
+    ImGui::DockBuilderDockWindow(NotificationsWindow::WINDOW_NAME, dock_id_right);
 
     auto stampPanelDockOrder = [](const char* windowName, short order) {
         ImGuiID windowId = ImHashStr(windowName);
@@ -1263,6 +1615,11 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderSetNodeSize(dock_id_middle_bottom, ImVec2(viewport.x, preferredSize(10, viewport.y, bottomPanelMaxShare)));
     ImGui::DockBuilderDockWindow(OutputWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(AnimationWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(ResourceMonitorWindow::WINDOW_NAME, dock_id_middle_bottom);
+    // The library's console reads the same lines Out mirrors, so it joins the strip
+    // as a sibling tab while Output still draws its own list.
+    if (uilabHost)
+        ImGui::DockBuilderDockWindow(uilabHost->consoleTitle(), dock_id_middle_bottom);
 
     // Mark the scene area as the central node. CentralNode is a saved flag, so it
     // persists in the ini and lets getCentralDockId() recover this node on the
@@ -1587,6 +1944,10 @@ void editor::App::setup() {
     //io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
 
     //ImGui::StyleColorsDark();
+    // Setters only store state, so they run before apply() for the first paint.
+    Theme::setPreset(AppSettings::getThemePreset() == 1 ? Theme::Preset::Light
+                                                        : Theme::Preset::Dark);
+    Theme::setAccentColor(AppSettings::getAccentColor().c_str());
     Theme::apply();
 
     // Fonts follow each viewport's monitor DPI. Style paddings are global, so
@@ -1602,6 +1963,53 @@ void editor::App::setup() {
     Theme::applyDpiScale(dpiScale);
 
     mcpServer->applySettings(AppSettings::getMcpSettings());
+    g_commandPaletteWindow->setCustomCommands(buildPaletteCommands());
+    // Palette ids are the numeric AppMenuCommand values, so the callback reuses
+    // the exact menu dispatch. Non-numeric ids (the AI tools the palette adds on
+    // its own) need arguments the palette can't collect, so they are left alone.
+    g_commandPaletteWindow->setExecuteCallback([this](const std::string& actionId) {
+        char* end = nullptr;
+        const unsigned long id = std::strtoul(actionId.c_str(), &end, 10);
+        if (end && *end == '\0' && end != actionId.c_str()) {
+            PlatformMenuCommand command;
+            command.id = static_cast<uint32_t>(id);
+            executeMenuCommand(command);
+        }
+    });
+
+    WelcomeCallbacks welcomeCallbacks;
+    welcomeCallbacks.openProjectDialog = [this]() { openProjectFunc(); };
+    welcomeCallbacks.createEmptyProject = [this]() {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::NewProject);
+        executeMenuCommand(command);
+    };
+    welcomeCallbacks.openRecentProject = [this](const std::filesystem::path& projectPath) {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::OpenRecentProject);
+        command.payload = projectPath.string();
+        executeMenuCommand(command);
+    };
+    // Same deferral the other welcome actions use: the panel is drawn inside the
+    // UI pass, and switching projects there tears down windows mid-frame.
+    welcomeCallbacks.createFromTemplate = [this](const std::filesystem::path& templateName) {
+        PlatformMenuCommand command;
+        command.id = static_cast<uint32_t>(AppMenuCommand::NewProjectFromTemplate);
+        command.payload = templateName.string();
+        executeMenuCommand(command);
+    };
+    welcomeCallbacks.openDocumentation = []() {
+        ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+        if (platform_io.Platform_OpenInShellFn) {
+            platform_io.Platform_OpenInShellFn(ImGui::GetCurrentContext(), "https://doriaxengine.org");
+        }
+    };
+    g_welcomeScreenWindow->setCallbacks(welcomeCallbacks);
+    g_welcomeScreenWindow->setTemplatesDirectory(FileUtils::getTemplatesDir());
+
+    // First-run screen only: never persisted, so it appears solely while there is
+    // no recent project to fall back to.
+    g_welcomeScreenWindow->setOpen(AppSettings::getRecentProjects().empty());
 }
 
 bool editor::App::canEditSelection(bool duplicate) {
@@ -1717,11 +2125,24 @@ void editor::App::duplicateSelection() {
 void editor::App::show(){
     applyUiScale();
 
+    // Actions deferred by the previous pass (project swaps triggered from the
+    // palette, the welcome screen or alerts) run now, before this pass records
+    // any draw command that could reference a texture they destroy.
+    processDeferredUiActions();
+
     float dpiScale = 1.0f;
     if (const ImGuiViewport* mainViewport = ImGui::GetMainViewport()) {
         dpiScale = mainViewport->DpiScale;
     }
     Theme::applyDpiScale(dpiScale);
+
+    if (hubMode) {
+        // Hub mode: the launcher owns the window. No dockspace, menu or editor
+        // panels; projects are opened by spawning separate editor processes.
+        hubWindow.show();
+        uiPassActive = false;
+        return;
+    }
 
     if (projectLoading) {
         if (isInitialized) {
@@ -1769,6 +2190,11 @@ void editor::App::show(){
         if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
             // CTRL+O opens a project
             openProjectFunc();
+        }
+
+        // CTRL+K opens/closes the command palette. Ctrl+P is left free for future use.
+        if (io.KeyCtrl && !io.KeyShift && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_K)) {
+            g_commandPaletteWindow->toggle();
         }
 
         // Play/Pause/Stop shortcuts
@@ -1846,16 +2272,27 @@ void editor::App::show(){
         }
     }
 
-    dockspace_id = ImGui::GetID("MyDockspace");
+    // Created on the first frame, once the ImGui context exists: the library's
+    // AppContext is a real object with its own model, not a POD.
+    if (!uilabHost) {
+        uilabHost.reset(new UILabHost(*this, structureWindow, propertiesWindow, resourcesWindow));
+        dockspaceNeedsRebuild = true;
+    }
+    dockspace_id = uilabHost->dockSpaceId();
 
     gitMonitor.update(project.getProjectPath(), project.hasVersionControlMetadata());
 
     showMenu();
     showFooter();
 
+    // Windows below record draw commands, and the palette/welcome overlays run
+    // their callbacks after recording; nothing may tear down the project from
+    // here until the end of the pass (see uiPassActive).
+    uiPassActive = true;
+
     isInitialized = true;
 
-    // Before DockSpaceOverViewport() below lays the restored sizes out.
+    // Before the library's host window lays the restored sizes out.
     rescaleRestoredLayout();
 
     if (dockspaceNeedsRebuild || ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
@@ -1863,7 +2300,9 @@ void editor::App::show(){
         dockspaceNeedsRebuild = false;
     }
 
-    ImGui::DockSpaceOverViewport(dockspace_id, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    // The library's host window carries the dockspace: same root node id, same
+    // PassthruCentralNode behaviour as DockSpaceOverViewport had.
+    uilabHost->beginFrame();
 
     #ifdef SHOW_STYLE_WINDOW
     showStyleEditor();
@@ -1888,14 +2327,43 @@ void editor::App::show(){
     resourcesWindow->show();
     imageViewerWindow->show();
     outputWindow->show();
+    if (uilabHost)
+        uilabHost->drawConsole();
     animationWindow->show();
     terrainEditWindow->show();
     propertiesWindow->show();
+    // The three panels above draw their contents inside windows the library opened.
+    if (uilabHost)
+        uilabHost->drawDataPanels();
     aiChatWindow->show();
     codeEditor->show();
     sceneWindow->show();
 
+    // Feed the monitor from cheap App-side numbers only while it is visible.
+    static double lastMonitorFeed = 0.0;
+    if (g_resourceMonitorWindow->isOpen() && ImGui::GetTime() - lastMonitorFeed > 0.5) {
+        lastMonitorFeed = ImGui::GetTime();
+        g_resourceMonitorWindow->setCounter("Scene", "Scenes",
+                                            static_cast<double>(project.getScenes().size()), 0.0);
+        g_resourceMonitorWindow->setCounter("Resources", "Queued",
+                                            static_cast<double>(Engine::getQueuedResourceCount()), 0.0);
+        const uint32_t selectedSceneId = project.getSelectedSceneId();
+        if (const SceneProject* scene = project.getScene(selectedSceneId)) {
+            g_resourceMonitorWindow->setCounter("GPU", "Shaders",
+                                                static_cast<double>(scene->shaderKeys.size()), 0.0);
+            g_resourceMonitorWindow->setCounter("Scene", "Entities",
+                                                static_cast<double>(project.getEntities(selectedSceneId).size()), 0.0);
+        }
+    }
+
+    g_resourceMonitorWindow->show();
+    g_notificationsWindow->show();
+
     loadingWindow->show();
+
+    // Overlay windows draw after the docked ones so they float above the dockspace.
+    g_welcomeScreenWindow->show();
+    g_commandPaletteWindow->show();
 
     // Keep the persisted tab list in sync with the live tab order so a user's
     // drag-reordering of scene/code tabs is saved (and restored on next launch).
@@ -1904,6 +2372,8 @@ void editor::App::show(){
     // Closing a panel through its title-bar button changes the same state as the
     // View menu, so mirror the live state after all panels have rendered.
     persistPanelVisibilitySettings();
+
+    uiPassActive = false;
 }
 
 void editor::App::setLoadingPump(std::function<void(bool)> pump) {
@@ -2050,6 +2520,16 @@ void editor::App::engineInit(int argc, char** argv) {
     reportLoadingProgress("Initializing engine...");
     Engine::systemInit(argc, argv, new editor::Platform(&project));
 
+    // Hub mode: the launcher manages projects and installs and spawns separate
+    // editor processes; it never loads a project itself.
+    if (editor::LaunchOptions::get().hub) {
+        hubMode = true;
+        Backend::updateWindowTitle("Doriax Hub");
+        Engine::pauseGameEvents(true);
+        Engine::setAsyncLoading(true);
+        return;
+    }
+
     Engine::pauseGameEvents(true);
 
     // Any edit/undo/redo flags its scene for redraw, so the loop can idle otherwise.
@@ -2111,16 +2591,50 @@ void editor::App::loadStartupProject() {
         return;
     }
 
-    std::filesystem::path lastProjectPath = AppSettings::getLastProjectPath();
+    // Hub mode: the launcher manages projects and installs and spawns separate
+    // editor processes; it never loads a project itself.
+    if (hubMode)
+        return;
 
-    if (!lastProjectPath.empty() && std::filesystem::exists(lastProjectPath)) {
-        if (project.loadProject(lastProjectPath)) {
-            Out::info("Loaded last opened project: \"%s\"", lastProjectPath.string().c_str());
+    const editor::LaunchOptions& launch = editor::LaunchOptions::get();
+
+    if (!launch.projectPath.empty()) {
+        // A launcher (Hub, desktop shortcut) opened or created this project.
+        std::error_code ec;
+        if (std::filesystem::exists(launch.projectPath / "project.yaml", ec)) {
+            if (!project.loadProject(launch.projectPath)) {
+                Out::error("Failed to open project: \"%s\"", launch.projectPath.string().c_str());
+                project.createTempProject("MyDoriaxProject");
+            }
+        } else if (launch.create) {
+            const std::string projectName = launch.projectPath.filename().string();
+            const bool created = launch.templateName.empty()
+                ? project.createNewProjectAt(launch.projectPath, projectName)
+                : project.createFromTemplateAt(launch.projectPath, launch.templateName);
+            if (!created) {
+                Out::error("Failed to create project: \"%s\"", launch.projectPath.string().c_str());
+                project.createTempProject("MyDoriaxProject");
+            }
         } else {
+            Out::error("Not a Doriax project: \"%s\" (no project.yaml)", launch.projectPath.string().c_str());
             project.createTempProject("MyDoriaxProject");
         }
     } else {
-        project.createTempProject("MyDoriaxProject");
+        // Check if there's a last opened project
+        std::filesystem::path lastProjectPath = AppSettings::getLastProjectPath();
+
+        if (!lastProjectPath.empty() && std::filesystem::exists(lastProjectPath)) {
+            // Try to load the last project
+            if (project.loadProject(lastProjectPath)) {
+                Out::info("Loaded last opened project: \"%s\"", lastProjectPath.string().c_str());
+            } else {
+                // If loading fails, create a new temp project
+                project.createTempProject("MyDoriaxProject");
+            }
+        } else {
+            // No last project, create a new temp project
+            project.createTempProject("MyDoriaxProject");
+        }
     }
 
     projectLoading = false;
@@ -2520,6 +3034,29 @@ void editor::App::finishBenchmark() {
     benchmarkExit = true;
 }
 
+void editor::App::runWhenUiIdle(std::function<void()> action) {
+    if (uiPassActive) {
+        deferredUiActions.push_back(action);
+    } else {
+        action();
+    }
+}
+
+void editor::App::processDeferredUiActions() {
+    if (deferredUiActions.empty()) return;
+    std::vector<std::function<void()>> actions;
+    actions.swap(deferredUiActions);
+    // An action may queue more work (alert callbacks chain, for instance), and
+    // this may run while the pass happened to be marked active: run everything
+    // as if outside the pass, restoring the flag afterwards.
+    const bool wasActive = uiPassActive;
+    uiPassActive = false;
+    for (std::function<void()>& action : actions) {
+        action();
+    }
+    uiPassActive = wasActive;
+}
+
 void editor::App::enqueueMainThreadTask(std::function<void()> task) {
     if (!task) return;
     std::function<void()> wake;
@@ -2584,6 +3121,9 @@ void editor::App::shutdownBackgroundWork() {
     if (aiChatWindow) aiChatWindow->shutdown();
     if (mcpServer) mcpServer->shutdown();
     gitMonitor.shutdown();
+    // Not stop: the server is built to outlive the editor and wait in the
+    // notification area, where its own menu offers to close it.
+    detachResourceServer();
     std::lock_guard<std::mutex> lock(mainThreadTaskMutex);
     wakeCallback = nullptr;
 }
@@ -2629,6 +3169,7 @@ void editor::App::clearSceneWindowState(uint32_t sceneId) {
 }
 
 void editor::App::prepareForProjectSwitch() {
+    stopResourceServer();
     imageViewerWindow->closeAll();
     resourcesWindow->cancelThumbnailWork();
     // Thumbnail cancellation prevents new preview loads from being queued;
@@ -2707,12 +3248,187 @@ void editor::App::updateResourcesPath(){
         }
     }
 
+    if (projectPathChanged) {
+        updateResourceServer(currentProjectPath);
+    }
+
     // Initial project loading happens before the Resources window is initialized,
     // but prepareForProjectSwitch() still suspends its worker.
     resourcesWindow->resumeThumbnailWork();
 
     lastResourcesProjectPath = currentProjectPath;
     resourcesWindow->cleanupThumbnails();
+}
+
+void editor::App::updateResourceServer(const std::filesystem::path& projectPath) {
+    // One server per project: retire the previous spawn before starting another.
+    // (stopResourceServer() bumps the generation first, which is what wakes a
+    // worker still waiting on a booting server out of its poll loop.)
+    stopResourceServer();
+    if (projectPath.empty()) return;
+
+    std::filesystem::path serverExe;
+    if (!editor::cli::findResourceServerExecutable(serverExe)) return;
+
+    resourceServerRecord = resourceServerRecordFile(projectPath);
+
+    // A server started by an earlier editor session survives on purpose (it lives
+    // in the notification area). Adopt it rather than indexing the same project
+    // twice; anything the record points at that no longer answers is pruned.
+    int recordedPort = 0;
+    unsigned long long recordedPid = 0;
+    std::filesystem::path recordedProject;
+    std::string recordError;
+    bool adopted = false;
+    bool recordedServerBooting = false;
+    if (editor::cli::readServerRecord(resourceServerRecord, recordedPort, recordedPid,
+                                      recordedProject, recordError) &&
+        recordedProject == projectPath && editor::cli::processIsRunning(recordedPid)) {
+        std::string statusJson;
+        if (editor::cli::requestStatus(recordedPort, statusJson, recordError)) {
+            adopted = true;
+            resourceServerPort = recordedPort;
+            resourceServerPid = recordedPid;
+            if (g_resourceMonitorWindow) {
+                g_resourceMonitorWindow->addChildProcess(recordedPid,
+                    "doriax-resource-server:" + std::to_string(recordedPort));
+            }
+            Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
+                      recordedPort);
+        } else {
+            // Alive but not answering: the server indexes the project before it
+            // starts listening, so this is what restarting right after an editor
+            // crash during its boot looks like. Wait for it below instead of
+            // pruning the record and spawning a duplicate.
+            recordedServerBooting = true;
+        }
+    }
+    if (adopted) return;
+    if (!recordedServerBooting) {
+        editor::cli::removeServerRecord(resourceServerRecord);
+    }
+
+    const unsigned long long generation = ++resourceServerGeneration;
+    // Captured by value: the worker thread writes the record the moment the
+    // child exists, before the handshake, so an editor crash during boot still
+    // leaves an adoptable record instead of an invisible orphan.
+    const std::filesystem::path recordFile = resourceServerRecord;
+    const int bootingPort = recordedServerBooting ? recordedPort : 0;
+    const unsigned long long bootingPid = recordedServerBooting ? recordedPid : 0;
+    // spawnResourceServer waits on the child's stdout, so keep it off the UI thread.
+    resourceServerThread = std::thread([this, projectPath, serverExe, generation, recordFile,
+                                        bootingPort, bootingPid]() {
+        int port = 0;
+        unsigned long long pid = 0;
+        std::string error;
+        bool ok = false;
+        bool adoptedBooting = false;
+        if (bootingPort > 0) {
+            // As long as a cold spawn can take to index a project; a server that
+            // dies or never answers falls through to a fresh spawn.
+            constexpr int kBootWaitMs = 30000;
+            const auto deadline = std::chrono::steady_clock::now() +
+                                  std::chrono::milliseconds(kBootWaitMs);
+            while (std::chrono::steady_clock::now() < deadline) {
+                if (resourceServerGeneration.load() != generation) return;
+                std::string statusJson;
+                std::string statusError;
+                if (editor::cli::requestStatus(bootingPort, statusJson, statusError)) {
+                    port = bootingPort;
+                    pid = bootingPid;
+                    adoptedBooting = true;
+                    ok = true;
+                    break;
+                }
+                if (!editor::cli::processIsRunning(bootingPid)) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(400));
+            }
+            if (!ok) editor::cli::removeServerRecord(recordFile);
+        }
+        if (!ok) {
+            ok = editor::cli::spawnResourceServer(projectPath, serverExe, port, pid, error,
+                                                  editor::cli::currentProcessId(), recordFile);
+        }
+        enqueueMainThreadTask([this, generation, ok, port, pid, error, projectPath, adoptedBooting]() {
+            if (generation != resourceServerGeneration) {
+                std::string ignored;
+                if (ok && !adoptedBooting) editor::cli::stopResourceServer(pid, ignored);
+                return;
+            }
+            if (!ok) {
+                Out::warning("Resource server: %s", error.c_str());
+                return;
+            }
+            resourceServerPort = port;
+            resourceServerPid = pid;
+            if (adoptedBooting) {
+                if (g_resourceMonitorWindow) {
+                    g_resourceMonitorWindow->addChildProcess(pid,
+                        "doriax-resource-server:" + std::to_string(port));
+                }
+                Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
+                          port);
+                return;
+            }
+            std::string recordError;
+            if (!editor::cli::writeServerRecord(resourceServerRecord, port, pid, projectPath,
+                                                recordError) && !recordError.empty()) {
+                Out::warning("Resource server: %s", recordError.c_str());
+            }
+            if (g_resourceMonitorWindow) {
+                g_resourceMonitorWindow->addChildProcess(pid,
+                    "doriax-resource-server:" + std::to_string(port));
+            }
+            Out::info("Resource server listening on 127.0.0.1:%d", port);
+        });
+    });
+}
+
+std::filesystem::path editor::App::resourceServerRecordFile(const std::filesystem::path& projectPath) {
+    // Keyed by project so servers for different projects never overwrite each
+    // other's record; hashed because a full path is not a legal filename.
+    uint64_t hash = 1469598103934665603ull;
+    for (unsigned char c : projectPath.string()) {
+        hash ^= c;
+        hash *= 1099511628211ull;
+    }
+    char name[32];
+    std::snprintf(name, sizeof(name), "%016llx.record", static_cast<unsigned long long>(hash));
+    return App::getUserCacheBaseDir() / "doriax" / "resource-server" / name;
+}
+
+void editor::App::stopResourceServer() {
+    // Bump before the join: the worker may be polling a booting server and only
+    // exits its loop once it sees the generation change.
+    ++resourceServerGeneration;   // drop any in-flight spawn or boot wait
+    if (resourceServerThread.joinable()) resourceServerThread.join();
+    if (!resourceServerRecord.empty()) {
+        editor::cli::removeServerRecord(resourceServerRecord);
+        resourceServerRecord.clear();
+    }
+    if (resourceServerPid == 0) return;
+    std::string error;
+    if (!editor::cli::stopResourceServer(resourceServerPid, error) && !error.empty()) {
+        Out::warning("Resource server: %s", error.c_str());
+    }
+    if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
+    resourceServerPid = 0;
+    resourceServerPort = 0;
+}
+
+void editor::App::detachResourceServer() {
+    ++resourceServerGeneration;
+    if (resourceServerThread.joinable()) resourceServerThread.join();
+    if (resourceServerPid != 0) {
+        if (g_resourceMonitorWindow) g_resourceMonitorWindow->removeChildProcess(resourceServerPid);
+        Out::info("Resource server: still running on 127.0.0.1:%d (close it from its tray icon)",
+                  resourceServerPort);
+    }
+    // The record file is left behind on purpose: it is how the next editor
+    // session finds this server instead of starting a second one.
+    resourceServerRecord.clear();
+    resourceServerPid = 0;
+    resourceServerPort = 0;
 }
 
 void editor::App::requestDockspaceRebuild() {
@@ -3176,6 +3892,8 @@ void editor::App::applyPanelVisibilitySettings() {
     animationWindow->setOpen(visibility.animation);
     terrainEditWindow->setOpen(visibility.terrain);
     aiChatWindow->setOpen(visibility.aiChat);
+    g_notificationsWindow->setOpen(visibility.notifications);
+    g_resourceMonitorWindow->setOpen(visibility.resourceMonitor);
 }
 
 void editor::App::persistPanelVisibilitySettings() {
@@ -3187,6 +3905,8 @@ void editor::App::persistPanelVisibilitySettings() {
     visibility.animation = animationWindow->isOpen();
     visibility.terrain = terrainEditWindow->isOpen();
     visibility.aiChat = aiChatWindow->isOpen();
+    visibility.notifications = g_notificationsWindow->isOpen();
+    visibility.resourceMonitor = g_resourceMonitorWindow->isOpen();
 
     if (visibility != AppSettings::getPanelVisibility()) {
         AppSettings::setPanelVisibility(visibility);

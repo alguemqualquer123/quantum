@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) Eduardo Doria
 // SPDX-License-Identifier: MIT
 
 #include "TextureDataPool.h"
@@ -13,7 +13,7 @@
 
 using namespace doriax;
 
-std::unordered_map<std::string, std::future<std::array<TextureData,6>>> TextureDataPool::pendingBuilds;
+std::unordered_map<std::string, std::future<TextureBuildResult>> TextureDataPool::pendingBuilds;
 std::mutex TextureDataPool::cacheMutex;
 std::atomic<bool> TextureDataPool::shutdownRequested{false};
 
@@ -111,7 +111,9 @@ TextureLoadResult TextureDataPool::loadFromFile(const std::string& id, const std
         std::lock_guard<std::mutex> lock(cacheMutex);
 
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            result.state = ResourceLoadState::Failed;
+            result.errorMessage = "Shutdown requested";
+            return result;
         }
 
         // Check if already building
@@ -120,21 +122,18 @@ TextureLoadResult TextureDataPool::loadFromFile(const std::string& id, const std
             auto& future = it->second;
             if (future.valid() && future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
                 // Build finished, move to cache
-                try {
-                    std::array<TextureData,6> data = future.get();
-                    shared = std::make_shared<std::array<TextureData,6>>(data);
-                    pendingBuilds.erase(it);
-
-                    result.state = ResourceLoadState::Finished;
-                    result.data = shared;
-                    return result;
-                } catch (const std::exception& e) {
-                    pendingBuilds.erase(it);
-
+                TextureBuildResult built = future.get();
+                pendingBuilds.erase(it);
+                if (!built.ok()) {
                     result.state = ResourceLoadState::Failed;
-                    result.errorMessage = e.what();
+                    result.errorMessage = built.error;
                     return result;
                 }
+
+                shared = std::make_shared<std::array<TextureData,6>>(built.data);
+                result.state = ResourceLoadState::Finished;
+                result.data = shared;
+                return result;
             } else if (future.valid()) {
                 // Still building
                 result.state = ResourceLoadState::Loading;
@@ -149,11 +148,13 @@ TextureLoadResult TextureDataPool::loadFromFile(const std::string& id, const std
         }
 
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            result.state = ResourceLoadState::Failed;
+            result.errorMessage = "Shutdown requested";
+            return result;
         }
 
         // Start new async build
-        std::string textureName = getTextureDisplayName(paths[0].empty() ? id : paths[0]);
+        std::string textureName = getTextureDisplayName(id);
         uint64_t buildId = std::hash<std::string>{}(id);
 
         ResourceProgress::startBuild(buildId, ResourceType::Texture, textureName);
@@ -166,31 +167,35 @@ TextureLoadResult TextureDataPool::loadFromFile(const std::string& id, const std
         );
 
     } else {
-        // Synchronous loading remains the same
-        try {
-            std::array<TextureData,6> data = loadTextureInternal(id, paths, numFaces, fixAlphaBorder, false);
-            shared = std::make_shared<std::array<TextureData,6>>(data);
-
-            result.state = ResourceLoadState::Finished;
-            result.data = shared;
-            return result;
-        } catch (const std::exception& e) {
+        // Synchronous loading runs the same build on this thread, so a failure is
+        // still just a result rather than something that unwinds the caller.
+        TextureBuildResult built = loadTextureInternal(id, paths, numFaces, fixAlphaBorder, false);
+        if (!built.ok()) {
             result.state = ResourceLoadState::Failed;
-            result.errorMessage = e.what();
+            result.errorMessage = built.error;
             return result;
         }
+
+        shared = std::make_shared<std::array<TextureData,6>>(built.data);
+        result.state = ResourceLoadState::Finished;
+        result.data = shared;
+        return result;
     }
 
     result.state = ResourceLoadState::Loading;
     return result;
 }
 
-std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string& id, const std::array<std::string, 6>& paths, size_t numFaces, bool fixAlphaBorder, bool trackProgress) {
+TextureBuildResult TextureDataPool::loadTextureInternal(const std::string& id, const std::array<std::string, 6>& paths, size_t numFaces, bool fixAlphaBorder, bool trackProgress) {
     uint64_t buildId = std::hash<std::string>{}(id);
+    TextureBuildResult build;
+    std::array<TextureData, 6>& data = build.data;
 
     if (trackProgress) {
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            ResourceProgress::failBuild(buildId);
+            build.error = "Shutdown requested";
+            return build;
         }
 
         // Calculate starting progress based on number of faces
@@ -198,8 +203,6 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
         float startProgress = numFaces == 1 ? 0.5f : (1.0f / (numFaces * 2.0f));
         ResourceProgress::updateProgress(buildId, startProgress);
     }
-
-    std::array<TextureData,6> data;
 
     bool isSingleFileCube = (!paths[0].empty());
     for (int f = 1; f < 6 && isSingleFileCube; f++){
@@ -213,7 +216,8 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
                 ResourceProgress::failBuild(std::hash<std::string>{}(id));
             }
             Log::error("Failed to load cube texture from file: %s", paths[0].c_str());
-            throw std::runtime_error("Failed to load cube texture from file: " + paths[0]);
+            build.error = "Failed to load cube texture from file: " + paths[0];
+            return build;
         }
 
         std::string validationError = validateTextureFaces(data, numFaces);
@@ -222,18 +226,21 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
                 ResourceProgress::failBuild(std::hash<std::string>{}(id));
             }
             Log::error("%s in cubemap: %s", validationError.c_str(), paths[0].c_str());
-            throw std::runtime_error(validationError + " in cubemap: " + paths[0]);
+            build.error = validationError + " in cubemap: " + paths[0];
+            return build;
         }
 
         if (trackProgress) {
             if (shutdownRequested.load()) {
-                throw std::runtime_error("Shutdown requested");
+                ResourceProgress::failBuild(buildId);
+                build.error = "Shutdown requested";
+                return build;
             }
             ResourceProgress::updateProgress(buildId, 1.0f);
             ResourceProgress::completeBuild(buildId);
         }
 
-        return data;
+        return build;
     }
 
     for (size_t f = 0; f < numFaces; f++) {
@@ -242,7 +249,8 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
                 ResourceProgress::failBuild(std::hash<std::string>{}(id));
             }
             Log::error("Texture is missing texture for face %zu", f);
-            throw std::runtime_error("Texture is missing texture for face " + std::to_string(f));
+            build.error = "Texture is missing texture for face " + std::to_string(f);
+            return build;
         }
 
         bool success = data[f].loadTextureFromFile(paths[f].c_str());
@@ -252,10 +260,12 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
             }
             if (numFaces == 1){
                 Log::error("Failed to load texture from file: %s", paths[f].c_str());
-                throw std::runtime_error("Failed to load texture from file: " + paths[f]);
+                build.error = "Failed to load texture from file: " + paths[f];
+                return build;
             }else{
                 Log::error("Failed to load texture face %zu from file: %s", f, paths[f].c_str());
-                throw std::runtime_error("Failed to load texture face " + std::to_string(f) + " from file: " + paths[f]);
+                build.error = "Failed to load texture face " + std::to_string(f) + " from file: " + paths[f];
+                return build;
             }
         }
 
@@ -277,7 +287,9 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
 
         if (trackProgress) {
             if (shutdownRequested.load()) {
-                throw std::runtime_error("Shutdown requested");
+                ResourceProgress::failBuild(buildId);
+                build.error = "Shutdown requested";
+                return build;
             }
 
             // Calculate progress with better distribution
@@ -302,18 +314,21 @@ std::array<TextureData,6> TextureDataPool::loadTextureInternal(const std::string
             ResourceProgress::failBuild(std::hash<std::string>{}(id));
         }
         Log::error("%s", validationError.c_str());
-        throw std::runtime_error(validationError);
+        build.error = validationError;
+        return build;
     }
 
     if (trackProgress) {
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            ResourceProgress::failBuild(buildId);
+            build.error = "Shutdown requested";
+            return build;
         }
         ResourceProgress::updateProgress(buildId, 1.0f);  // Completing
         ResourceProgress::completeBuild(std::hash<std::string>{}(id));
     }
 
-    return data;
+    return build;
 }
 
 std::string TextureDataPool::getTextureDisplayName(const std::string& path) {

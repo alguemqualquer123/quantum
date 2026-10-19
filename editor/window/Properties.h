@@ -101,6 +101,10 @@ namespace doriax::editor{
         int nameFocusFrames = 0;   // visible frames left for focusNameInput() to take
         bool finishProperty;
 
+        // Window state the library's Begin writes while doriax only draws contents.
+        bool hostedWindow = false;
+        bool hostedWasOpen = true;
+
         std::set<std::string> usedPreviewIds;
 
         std::map<std::string, MaterialRender> materialRenders;
@@ -438,6 +442,15 @@ namespace doriax::editor{
         void setOpen(bool open);
         bool isOpen() const;
         void focusNameInput();
+
+        // Draws the panel's contents inside a window somebody else opened. The
+        // UILab host calls this from its inspector panel.
+        void drawContent();
+
+        // True when the UILab host owns the window: show() then keeps the per-frame
+        // bookkeeping and leaves Begin/End to the library.
+        void setHostedWindow(bool hosted);
+        bool* openFlag();
     };
 
 }

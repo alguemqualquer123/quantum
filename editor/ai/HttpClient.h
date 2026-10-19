@@ -14,6 +14,9 @@ namespace doriax::editor::ai {
 class HttpClient {
 public:
     HttpResponse send(const HttpRequest& request, const std::atomic<bool>* cancel = nullptr) const;
+    HttpResponse sendStreaming(const HttpRequest& request,
+                               const StreamingCallback& onChunk,
+                               const std::atomic<bool>* cancel = nullptr) const;
     HttpResponse get(const std::string& url,
                      const std::vector<std::string>& headers = {},
                      const std::atomic<bool>* cancel = nullptr) const;

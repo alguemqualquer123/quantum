@@ -2414,33 +2414,14 @@ void editor::Structure::rebuildEntityTree(SceneProject* sceneProject, TreeNode& 
     markBundleScripts(root);
 }
 
-void editor::Structure::show(){
-    if (!windowOpen) {
-        return;
-    }
-
+void editor::Structure::drawContent(){
     SceneProject* sceneProject = project->getSelectedScene();
     if (!sceneProject || !sceneProject->scene) {
         return;
     }
 
-    if (focusRequested) {
-        ImGui::SetNextWindowFocus();
-        focusRequested = false;
-    }
-
-    bool wasOpen = windowOpen;
-
-    if (!ImGui::Begin(Structure::WINDOW_NAME, &windowOpen)) {
-        ImGui::End();
-        if (wasOpen && !windowOpen) {
-            setOpen(false);
-        }
-        return;
-    }
-
-    // Rebuild the tree only when it changed. Key = scene + structureVersion + entity count +
-    // child-scene signature; a 0.5s rebuild catches the rest, runtime entities included.
+    // Rebuild the tree only when it changed. Key = scene + structureVersion + entity
+    // count + child-scene signature; a 0.5s safety rebuild catches anything missed.
     size_t childSignature = 0;
     auto hashCombine = [](size_t& h, size_t v){ h ^= v + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2); };
     for (const ChildSceneRef& childSceneRef : sceneProject->childScenes) {
@@ -2589,10 +2570,56 @@ void editor::Structure::show(){
         }
         ImGui::EndDragDropTarget();
     }
+}
+
+void editor::Structure::show(){
+    if (hostedWindow) {
+        // The library opens the window and calls drawContent() inside it, so its
+        // title bar close button writes straight into windowOpen.
+        if (focusRequested) {
+            ImGui::SetWindowFocus(Structure::WINDOW_NAME);
+            focusRequested = false;
+        }
+        if (hostedWasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        hostedWasOpen = windowOpen;
+        return;
+    }
+
+    if (!windowOpen) {
+        return;
+    }
+
+    if (focusRequested) {
+        ImGui::SetNextWindowFocus();
+        focusRequested = false;
+    }
+
+    bool wasOpen = windowOpen;
+
+    if (!ImGui::Begin(Structure::WINDOW_NAME, &windowOpen)) {
+        ImGui::End();
+        if (wasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        return;
+    }
+
+    drawContent();
 
     ImGui::End();
 
     if (wasOpen && !windowOpen) {
         setOpen(false);
     }
+}
+
+void editor::Structure::setHostedWindow(bool hosted){
+    hostedWindow = hosted;
+    hostedWasOpen = windowOpen;
+}
+
+bool* editor::Structure::openFlag(){
+    return &windowOpen;
 }

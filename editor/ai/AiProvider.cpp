@@ -279,6 +279,63 @@ void parseGeminiUsage(const Json& root, ProviderResponse& result) {
 
 // --- Provider adapters ----------------------------------------------------
 
+// Shared streaming chunk parser for OpenAI-compatible providers (OpenAI, DeepSeek,
+// OpenAI-Compatible). Parses SSE "data: ..." lines from the Chat Completions
+// streaming format.
+ProviderResponse parseChatCompletionsStreamingChunk(const std::string& line,
+                                                     ProviderResponse& accumulated) {
+    // SSE format: "data: {json}" or "data: [DONE]"
+    if (line.rfind("data: ", 0) != 0) {
+        return {}; // not a data line
+    }
+    std::string jsonStr = line.substr(6);
+    if (jsonStr == "[DONE]") {
+        return accumulated; // stream finished
+    }
+
+    try {
+        Json chunk = Json::parse(jsonStr);
+
+        // Accumulate usage if present (usually only in the final chunk).
+        parseOpenAiUsage(chunk, accumulated);
+
+        if (chunk.contains("choices") && chunk["choices"].is_array() && !chunk["choices"].empty()) {
+            const Json& choice = chunk["choices"][0];
+            accumulated.stopReason = choice.value("finish_reason", accumulated.stopReason);
+            accumulated.truncated = accumulated.stopReason == "length";
+
+            const Json& delta = choice.value("delta", Json::object());
+            if (delta.contains("content") && delta["content"].is_string()) {
+                accumulated.text += delta["content"].get<std::string>();
+            }
+            // Tool calls arrive as incremental deltas with index-based merging.
+            if (delta.contains("tool_calls") && delta["tool_calls"].is_array()) {
+                for (const auto& tc : delta["tool_calls"]) {
+                    int idx = tc.value("index", 0);
+                    // Ensure the vector is large enough.
+                    while (static_cast<int>(accumulated.toolCalls.size()) <= idx) {
+                        accumulated.toolCalls.push_back({});
+                    }
+                    ToolCall& call = accumulated.toolCalls[idx];
+                    const Json& fn = tc.value("function", Json::object());
+                    if (fn.contains("name") && fn["name"].is_string()) {
+                        call.name = fn["name"].get<std::string>();
+                    }
+                    if (fn.contains("arguments") && fn["arguments"].is_string()) {
+                        call.arguments = fn["arguments"].get<std::string>();
+                    }
+                    if (tc.contains("id") && tc["id"].is_string() && call.id.empty()) {
+                        call.id = tc["id"].get<std::string>();
+                    }
+                }
+            }
+        }
+    } catch (...) {
+        // Malformed chunk — ignore and continue.
+    }
+    return accumulated;
+}
+
 class OpenAIProvider : public Provider {
 public:
     ProviderId id() const override { return ProviderId::OpenAI; }
@@ -297,6 +354,27 @@ public:
     ProviderResponse parseResponse(const std::string& body) const override {
         return parseChatCompletionsBody(body);
     }
+
+    bool supportsStreaming() const override { return true; }
+
+    HttpRequest buildStreamingRequest(const ProviderRequest& request) const override {
+        Json payload = buildChatCompletionsPayload(request);
+        payload["stream"] = true;
+        HttpRequest http;
+        http.url = "https://api.openai.com/v1/chat/completions";
+        http.headers = {
+            "Content-Type: application/json",
+            "Authorization: Bearer " + request.apiKey
+        };
+        http.body = payload.dump();
+        http.stream = true;
+        return http;
+    }
+
+    ProviderResponse parseStreamingChunk(const std::string& line,
+                                          ProviderResponse& accumulated) const override {
+        return parseChatCompletionsStreamingChunk(line, accumulated);
+    }
 };
 
 class OpenAICompatibleProvider : public Provider {
@@ -307,11 +385,9 @@ public:
         HttpRequest http;
         http.url = activeEndpointUrl(request.settings);
         http.headers = {"Content-Type: application/json"};
-        // A local server may take no credentials; an empty bearer gets rejected.
         if (!request.apiKey.empty()) {
             http.headers.push_back("Authorization: Bearer " + request.apiKey);
         }
-        // Attribution headers only OpenRouter reads.
         if (http.url.find("openrouter.ai") != std::string::npos) {
             http.headers.push_back("HTTP-Referer: https://doriaxengine.org");
             http.headers.push_back("X-Title: Doriax Editor");
@@ -322,6 +398,31 @@ public:
 
     ProviderResponse parseResponse(const std::string& body) const override {
         return parseChatCompletionsBody(body);
+    }
+
+    bool supportsStreaming() const override { return true; }
+
+    HttpRequest buildStreamingRequest(const ProviderRequest& request) const override {
+        Json payload = buildChatCompletionsPayload(request);
+        payload["stream"] = true;
+        HttpRequest http;
+        http.url = activeEndpointUrl(request.settings);
+        http.headers = {"Content-Type: application/json"};
+        if (!request.apiKey.empty()) {
+            http.headers.push_back("Authorization: Bearer " + request.apiKey);
+        }
+        if (http.url.find("openrouter.ai") != std::string::npos) {
+            http.headers.push_back("HTTP-Referer: https://doriaxengine.org");
+            http.headers.push_back("X-Title: Doriax Editor");
+        }
+        http.body = payload.dump();
+        http.stream = true;
+        return http;
+    }
+
+    ProviderResponse parseStreamingChunk(const std::string& line,
+                                          ProviderResponse& accumulated) const override {
+        return parseChatCompletionsStreamingChunk(line, accumulated);
     }
 };
 
@@ -342,6 +443,27 @@ public:
 
     ProviderResponse parseResponse(const std::string& body) const override {
         return parseChatCompletionsBody(body);
+    }
+
+    bool supportsStreaming() const override { return true; }
+
+    HttpRequest buildStreamingRequest(const ProviderRequest& request) const override {
+        Json payload = buildChatCompletionsPayload(request);
+        payload["stream"] = true;
+        HttpRequest http;
+        http.url = "https://api.deepseek.com/chat/completions";
+        http.headers = {
+            "Content-Type: application/json",
+            "Authorization: Bearer " + request.apiKey
+        };
+        http.body = payload.dump();
+        http.stream = true;
+        return http;
+    }
+
+    ProviderResponse parseStreamingChunk(const std::string& line,
+                                          ProviderResponse& accumulated) const override {
+        return parseChatCompletionsStreamingChunk(line, accumulated);
     }
 };
 
@@ -364,6 +486,130 @@ public:
     ProviderResponse parseResponse(const std::string& body) const override {
         return parseAnthropicBody(body);
     }
+
+    bool supportsStreaming() const override { return true; }
+
+    HttpRequest buildStreamingRequest(const ProviderRequest& request) const override {
+        Json payload = buildAnthropicPayload(request);
+        payload["stream"] = true;
+        HttpRequest http;
+        http.url = "https://api.anthropic.com/v1/messages";
+        http.headers = {
+            "Content-Type: application/json",
+            "x-api-key: " + request.apiKey,
+            "anthropic-version: 2023-06-01"
+        };
+        http.body = payload.dump();
+        http.stream = true;
+        return http;
+    }
+
+    // Anthropic SSE format:
+    //   event: message_start  → {"type":"message_start","message":{"usage":{...}}}
+    //   event: content_block_start → {"type":"content_block_start","index":N,"content_block":{"type":"thinking",...}}
+    //   event: content_block_delta → {"type":"content_block_delta","index":N,"delta":{"type":"text_delta","text":"..."}}
+    //   event: message_delta → {"type":"message_delta","delta":{"stop_reason":"..."},"usage":{"output_tokens":N}}
+    //   event: message_stop  → done
+    ProviderResponse parseStreamingChunk(const std::string& line,
+                                          ProviderResponse& accumulated) const override {
+        // Parse "event: xxx" lines to track current event type.
+        if (line.rfind("event: ", 0) == 0) {
+            accumulated.errorType = line.substr(7); // reuse errorType as event_type
+            return accumulated;
+        }
+        if (line.rfind("data: ", 0) != 0) {
+            return accumulated;
+        }
+
+        std::string jsonStr = line.substr(6);
+        try {
+            Json event = Json::parse(jsonStr);
+            std::string eventType = accumulated.errorType; // saved from event: line
+            accumulated.errorType.clear(); // reset for next event
+
+            if (eventType == "message_start") {
+                if (event.contains("message")) {
+                    parseAnthropicUsage(event["message"], accumulated);
+                }
+            } else if (eventType == "content_block_start") {
+                // Track thinking blocks.
+                if (event.contains("content_block")) {
+                    const Json& block = event["content_block"];
+                    std::string type = block.value("type", "");
+                    if (type == "thinking" || type == "redacted_thinking") {
+                        accumulated.thinkingBlocks.push_back(block);
+                    }
+                }
+            } else if (eventType == "content_block_delta") {
+                if (event.contains("delta")) {
+                    const Json& delta = event["delta"];
+                    std::string type = delta.value("type", "");
+                    if (type == "text_delta" && delta.contains("text")) {
+                        accumulated.text += delta["text"].get<std::string>();
+                    } else if (type == "thinking_delta" && delta.contains("thinking")) {
+                        // Append thinking text to the last thinking block.
+                        if (!accumulated.thinkingBlocks.empty()) {
+                            Json& last = accumulated.thinkingBlocks.back();
+                            if (last.contains("thinking") && last["thinking"].is_string()) {
+                                last["thinking"] = last["thinking"].get<std::string>() +
+                                                   delta["thinking"].get<std::string>();
+                            } else {
+                                last["thinking"] = delta["thinking"].get<std::string>();
+                            }
+                        }
+                    } else if (type == "input_json_delta" && delta.contains("partial_json")) {
+                        // Incremental tool call arguments.
+                        if (!accumulated.toolCalls.empty()) {
+                            ToolCall& last = accumulated.toolCalls.back();
+                            if (last.arguments.is_string()) {
+                                last.arguments = last.arguments.get<std::string>() +
+                                                 delta["partial_json"].get<std::string>();
+                            }
+                        }
+                    }
+                }
+            } else if (eventType == "content_block_stop") {
+                // Tool call block finished — parse accumulated arguments.
+                if (!accumulated.toolCalls.empty()) {
+                    ToolCall& call = accumulated.toolCalls.back();
+                    if (call.arguments.is_string()) {
+                        call.arguments = parseArgumentObject(call.arguments);
+                    }
+                }
+            } else if (eventType == "message_delta") {
+                if (event.contains("delta")) {
+                    accumulated.stopReason = event["delta"].value("stop_reason", "");
+                    accumulated.truncated = accumulated.stopReason == "max_tokens";
+                }
+                if (event.contains("usage")) {
+                    const Json& usage = event["usage"];
+                    accumulated.completionTokens = readTokenCount(usage, "output_tokens");
+                    if (accumulated.promptTokens >= 0 && accumulated.completionTokens >= 0) {
+                        accumulated.totalTokens = accumulated.promptTokens +
+                                                  accumulated.completionTokens;
+                    }
+                }
+            } else if (eventType == "message_stop") {
+                // Stream complete.
+            } else if (eventType == "content_block_start" ||
+                       event.contains("type")) {
+                // Handle tool_use content block start.
+                std::string type = event.value("type", "");
+                if (type == "content_block_start" && event.contains("content_block")) {
+                    const Json& block = event["content_block"];
+                    if (block.value("type", "") == "tool_use") {
+                        ToolCall call;
+                        call.id = block.value("id", "");
+                        call.name = block.value("name", "");
+                        accumulated.toolCalls.push_back(std::move(call));
+                    }
+                }
+            }
+        } catch (...) {
+            // Malformed chunk — ignore and continue.
+        }
+        return accumulated;
+    }
 };
 
 class GeminiProvider : public Provider {
@@ -382,6 +628,66 @@ public:
 
     ProviderResponse parseResponse(const std::string& body) const override {
         return parseGeminiBody(body);
+    }
+
+    bool supportsStreaming() const override { return true; }
+
+    HttpRequest buildStreamingRequest(const ProviderRequest& request) const override {
+        // Gemini uses :streamGenerateContent?alt=sse for SSE streaming.
+        HttpRequest http;
+        http.url = "https://generativelanguage.googleapis.com/v1beta/models/" +
+                   request.settings.model + ":streamGenerateContent?alt=sse&key=" +
+                   HttpClient::urlEncode(request.apiKey);
+        http.headers = {"Content-Type: application/json"};
+        http.body = buildGeminiPayload(request).dump();
+        http.stream = true;
+        return http;
+    }
+
+    // Gemini SSE streaming: each "data: ..." line is a full JSON response chunk
+    // with candidates[0].content.parts[0].text containing incremental text.
+    ProviderResponse parseStreamingChunk(const std::string& line,
+                                          ProviderResponse& accumulated) const override {
+        if (line.rfind("data: ", 0) != 0) {
+            return accumulated;
+        }
+        std::string jsonStr = line.substr(6);
+        try {
+            Json chunk = Json::parse(jsonStr);
+            parseGeminiUsage(chunk, accumulated);
+
+            if (chunk.contains("candidates") && chunk["candidates"].is_array() &&
+                !chunk["candidates"].empty()) {
+                const Json& candidate = chunk["candidates"][0];
+                accumulated.stopReason = candidate.value("finishReason", accumulated.stopReason);
+                accumulated.truncated = accumulated.stopReason == "MAX_TOKENS";
+
+                if (candidate.contains("content")) {
+                    const Json& parts = candidate["content"].value("parts", Json::array());
+                    if (parts.is_array()) {
+                        for (const Json& part : parts) {
+                            if (part.contains("text") && part["text"].is_string()) {
+                                accumulated.text += part["text"].get<std::string>();
+                            }
+                            if (part.contains("functionCall")) {
+                                const Json& fn = part["functionCall"];
+                                ToolCall call;
+                                call.id = fn.value("id", "");
+                                call.name = fn.value("name", "");
+                                if (call.id.empty()) call.id = call.name;
+                                call.arguments = parseArgumentObject(fn.value("args", Json::object()));
+                                call.thoughtSignature = part.value("thoughtSignature",
+                                    part.value("thought_signature", ""));
+                                accumulated.toolCalls.push_back(std::move(call));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (...) {
+            // Malformed chunk — ignore.
+        }
+        return accumulated;
     }
 };
 

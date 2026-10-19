@@ -40,7 +40,10 @@ struct CustomSourceSnapshot {
     std::string signature;
 };
 
-std::mutex customSourceCacheMutex;
+std::mutex& customSourceCacheMutex() {
+    static std::mutex m;
+    return m;
+}
 std::unordered_map<std::string, std::shared_ptr<const CustomSourceSnapshot>> customSourceCache;
 
 bool readTextFile(const std::filesystem::path& path, std::string& content) {
@@ -73,7 +76,7 @@ std::shared_ptr<const CustomSourceSnapshot> resolveCustomSources(editor::Project
     }
 
     std::string cacheKey = customSourceCacheKey(project, customShader);
-    std::lock_guard<std::mutex> lock(customSourceCacheMutex);
+    std::lock_guard<std::mutex> lock(customSourceCacheMutex());
     if (auto it = customSourceCache.find(cacheKey); it != customSourceCache.end())
         return it->second;
 
@@ -165,7 +168,7 @@ bool readSourceSignature(const std::filesystem::path& path, std::string& signatu
 }
 
 void clearCustomSourceCache() {
-    std::lock_guard<std::mutex> lock(customSourceCacheMutex);
+    std::lock_guard<std::mutex> lock(customSourceCacheMutex());
     customSourceCache.clear();
 }
 
@@ -183,7 +186,15 @@ bool hasAnnotation(const shadercompiler::args_t& args, const char* tag,
 
 std::unordered_map<ShaderKey, ShaderData> editor::ShaderBuilder::shaderDataCache;
 std::unordered_map<ShaderKey, std::future<ShaderData>> editor::ShaderBuilder::pendingBuilds;
-std::mutex editor::ShaderBuilder::cacheMutex;
+std::set<ShaderKey> editor::ShaderBuilder::failedBuilds;
+std::mutex& editor::ShaderBuilder::failedBuildsMutex() {
+    static std::mutex m;
+    return m;
+}
+std::mutex& editor::ShaderBuilder::cacheMutex() {
+    static std::mutex m;
+    return m;
+}
 std::atomic<bool> editor::ShaderBuilder::shutdownRequested{false};
 
 editor::ShaderBuilder::ShaderBuilder(){
@@ -518,7 +529,7 @@ void editor::ShaderBuilder::addWaterPropertyDefinitions(std::vector<shadercompil
 }
 
 ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Project* project) {
-    std::unique_lock<std::mutex> lock(cacheMutex);
+    std::unique_lock<std::mutex> lock(cacheMutex());
 
     // Check if already in cache
     if (shaderDataCache.count(shaderKey)){
@@ -553,6 +564,15 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
     if (pendingBuilds.count(shaderKey)) {
         auto& future = pendingBuilds[shaderKey];
         if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+            bool buildFailed = false;
+            {
+                std::lock_guard<std::mutex> failedLock(failedBuildsMutex());
+                buildFailed = failedBuilds.erase(shaderKey) > 0;
+            }
+            if (buildFailed) {
+                pendingBuilds.erase(shaderKey);
+                return ShaderBuildResult({}, ResourceLoadState::Failed);
+            }
             // Build finished, move to cache
             try {
                 ShaderData data = future.get();
@@ -594,10 +614,21 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
     std::string shaderName = getShaderDisplayName(shaderKey);
     ResourceProgress::startBuild(shaderKey, ResourceType::Shader, shaderName);
 
+    {
+        std::lock_guard<std::mutex> failedLock(failedBuildsMutex());
+        failedBuilds.erase(shaderKey);
+    }
+
     // Use thread pool instead of std::async
     pendingBuilds[shaderKey] = ThreadPoolManager::getInstance().enqueue(
         [this, shaderKey, project]() {
-            return buildShaderInternal(shaderKey, project, true);
+            try {
+                return buildShaderInternal(shaderKey, project, true);
+            } catch (...) {
+                std::lock_guard<std::mutex> failedLock(failedBuildsMutex());
+                failedBuilds.insert(shaderKey);
+                return ShaderData{};
+            }
         }
     );
 
@@ -629,7 +660,7 @@ void editor::ShaderBuilder::buildMissingShaders(const std::set<ShaderKey>& shade
 }
 
 void editor::ShaderBuilder::requestShutdown() {
-    std::lock_guard<std::mutex> lock(cacheMutex);
+    std::lock_guard<std::mutex> lock(cacheMutex());
     shutdownRequested = true;
 
     // Wait for all pending builds to complete
@@ -1010,7 +1041,7 @@ std::string editor::ShaderBuilder::getShaderDisplayName(ShaderKey key) {
 }
 
 void editor::ShaderBuilder::invalidateCustomShaders() {
-    std::lock_guard<std::mutex> lock(cacheMutex);
+    std::lock_guard<std::mutex> lock(cacheMutex());
     for (auto it = shaderDataCache.begin(); it != shaderDataCache.end(); ) {
         if (ShaderPool::getCustomIdFromKey(it->first) != 0)
             it = shaderDataCache.erase(it);
@@ -1021,8 +1052,11 @@ void editor::ShaderBuilder::invalidateCustomShaders() {
     // future into the cache. ThreadPoolManager futures don't block on destruction; an
     // in-flight task simply discards its result and the next get() restarts the build.
     for (auto it = pendingBuilds.begin(); it != pendingBuilds.end(); ) {
-        if (ShaderPool::getCustomIdFromKey(it->first) != 0)
+        if (ShaderPool::getCustomIdFromKey(it->first) != 0) {
+            std::lock_guard<std::mutex> failedLock(failedBuildsMutex());
+            failedBuilds.erase(it->first);
             it = pendingBuilds.erase(it);
+        }
         else
             ++it;
     }
@@ -1030,7 +1064,7 @@ void editor::ShaderBuilder::invalidateCustomShaders() {
 }
 
 ShaderData& editor::ShaderBuilder::getShaderData(ShaderKey shaderKey) { 
-    std::lock_guard<std::mutex> lock(cacheMutex);
+    std::lock_guard<std::mutex> lock(cacheMutex());
     return shaderDataCache[shaderKey]; 
 }
 

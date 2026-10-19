@@ -7,7 +7,9 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <cstdint>
 #include <limits>
+#include <deque>
 #include "Entity.h"
 #include "Signature.h"
 #include "Log.h"
@@ -17,6 +19,9 @@ namespace doriax{
     struct EntityMetadata{
         std::string name;
         Signature signature;
+        // Generation counter: incremented each time an entity slot is recycled.
+        // Allows detection of stale entity handles without full validation.
+        uint32_t generation = 0;
     };
 
     class DORIAX_API EntityManager {
@@ -27,6 +32,14 @@ namespace doriax{
 
         Entity lastUserEntity = LAST_SYSTEM_ENTITY; // next user entity starts at 1001
         std::map<Entity, EntityMetadata> metadata;
+
+        // Free-list: destroyed user entity IDs waiting to be recycled.
+        // Populated in LIFO order (most recently destroyed reused first) for cache friendliness.
+        std::deque<Entity> freeList;
+
+        // Maximum number of free-list entries to keep before falling back to monotonic allocation.
+        // Prevents unbounded memory growth when entities are created/destroyed in bursts.
+        static constexpr size_t MAX_FREE_LIST_SIZE = 4096;
 
     public:
 
@@ -54,6 +67,21 @@ namespace doriax{
             return this->lastUserEntity;
         }
 
+        // Returns the generation counter for an entity. Useful for stale handle detection.
+        uint32_t getGeneration(Entity entity) const {
+            auto it = metadata.find(entity);
+            if (it == metadata.end()) return 0;
+            return it->second.generation;
+        }
+
+        // Checks whether a handle is still valid by comparing stored generation.
+        // Usage: store {entity, generation} at handle creation time, then call this each access.
+        bool isHandleValid(Entity entity, uint32_t storedGeneration) const {
+            auto it = metadata.find(entity);
+            if (it == metadata.end()) return false;
+            return it->second.generation == storedGeneration;
+        }
+
         // System entity in range [1,100], first free slot
         Entity createSystemEntity() {
             for (Entity e = FIRST_SYSTEM_ENTITY; e <= LAST_SYSTEM_ENTITY; ++e){
@@ -66,8 +94,20 @@ namespace doriax{
             return NULL_ENTITY;
         }
 
-        // User entity in range [101..max], monotonically increasing, skipping used ids
+        // User entity in range [101..max], with free-list recycling.
+        // Destroyed user entity IDs are pushed onto a free-list and reused
+        // before allocating new monotonic IDs.
         Entity createUserEntity() {
+            // Try recycling from free-list first
+            if (!freeList.empty()){
+                Entity recycled = freeList.back();
+                freeList.pop_back();
+                // Generation is already incremented at destroy time
+                metadata[recycled];
+                return recycled;
+            }
+
+            // Fall back to monotonic allocation
             if (lastUserEntity < LAST_SYSTEM_ENTITY){
                 lastUserEntity = LAST_SYSTEM_ENTITY;
             }
@@ -100,11 +140,43 @@ namespace doriax{
         }
 
         void destroy(Entity entity) {
-            metadata.erase(entity);
+            auto it = metadata.find(entity);
+            if (it == metadata.end()) return;
+
+            // Only recycle user entities (system entities don't go through free-list)
+            if (entity >= FIRST_USER_ENTITY && freeList.size() < MAX_FREE_LIST_SIZE){
+                // Increment generation before recycling so stale handles are detected
+                it->second.generation++;
+                it->second.name.clear();
+                it->second.signature.reset();
+                freeList.push_back(entity);
+                // Keep the metadata entry alive with incremented generation
+                // so isHandleValid() correctly rejects old handles
+            } else {
+                metadata.erase(it);
+            }
+        }
+
+        // Returns the current number of recycled entity slots in the free-list.
+        size_t getFreeListSize() const {
+            return freeList.size();
+        }
+
+        // Returns an estimate of live (active) user entities.
+        size_t getLivingEntityCount() const {
+            // Total metadata entries minus system entities minus free-list slots
+            size_t systemCount = 0;
+            for (Entity e = FIRST_SYSTEM_ENTITY; e <= LAST_SYSTEM_ENTITY; ++e){
+                if (metadata.count(e) > 0) systemCount++;
+            }
+            size_t total = metadata.size();
+            if (total < systemCount + freeList.size()) return 0;
+            return total - systemCount - freeList.size();
         }
 
         std::vector<Entity> getEntityList() const{
             std::vector<Entity> list;
+            list.reserve(metadata.size());
             for (auto const& [key, val] : metadata){
                 list.push_back(key);
             }

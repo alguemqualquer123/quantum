@@ -785,6 +785,7 @@ endif()
 include_directories(SYSTEM libs/harfbuzz)
 include_directories(SYSTEM libs/sheenbidi/Headers)
 include_directories(SYSTEM libs/meshoptimizer)
+include_directories(SYSTEM libs/yoga)
 
 add_subdirectory(libs/sokol)
 add_subdirectory(libs/lua)
@@ -799,6 +800,7 @@ endforeach()
 add_subdirectory(libs/harfbuzz)
 add_subdirectory(libs/sheenbidi)
 add_subdirectory(libs/meshoptimizer)
+add_subdirectory(libs/yoga)
 
 # Set again here because standalone builds skip the root CMakeLists
 if(MSVC)
@@ -809,7 +811,7 @@ endif()
 
 foreach(lib IN ITEMS
     sokol lua stb soloud tinyobjloader tinygltf tinyxml2
-    harfbuzz sheenbidi meshoptimizer ${DORIAX_PHYSICS_LIBS})
+    harfbuzz sheenbidi meshoptimizer yoga ${DORIAX_PHYSICS_LIBS})
     target_compile_options(${lib} PRIVATE ${EXTERNAL_WARNING_FLAG})
 endforeach()
 
@@ -851,6 +853,7 @@ set(DORIAX_SRCS
     core/buffer/IndexBuffer.cpp
     core/buffer/InterleavedBuffer.cpp
     core/ecs/ComponentManager.cpp
+    core/io/BuiltinModel.cpp
     core/io/Data.cpp
     core/io/File.cpp
     core/io/FileData.cpp
@@ -942,6 +945,7 @@ set(DORIAX_SRCS
     core/subsystem/MeshSystem.cpp
     core/subsystem/PhysicsSystem.cpp
     core/subsystem/RenderSystem.cpp
+    core/subsystem/NetworkSystem.cpp
     core/subsystem/UISystem.cpp
     core/texture/Framebuffer.cpp
     core/texture/IBLEnvironment.cpp
@@ -949,6 +953,14 @@ set(DORIAX_SRCS
     core/texture/TextureData.cpp
     core/thread/ResourceProgress.cpp
     core/thread/ThreadPoolManager.cpp
+    core/ui/UIRuntime.cpp
+    core/ui/controls/Label.cpp
+    core/ui/core/VisualElement.cpp
+    core/ui/layout/Panels.cpp
+    core/ui/layout/YogaLayout.cpp
+    core/ui/render/FontAtlas.cpp
+    core/ui/render/PaintList.cpp
+    core/ui/render/VertexBuilder.cpp
     core/util/Angle.cpp
     core/util/Base64.cpp
     core/util/Color.cpp
@@ -985,6 +997,7 @@ set(RENDER_SOKOL_SRC
     renders/sokol/SokolShader.cpp
     renders/sokol/SokolCmdQueue.cpp
     renders/sokol/SokolFramebuffer.cpp
+    renders/sokol/SokolUIRenderer.cpp
 )
 
 add_library(
@@ -1003,7 +1016,7 @@ target_compile_definitions(doriax
 )
 
 find_package(Threads REQUIRED)
-target_link_libraries(doriax PRIVATE Threads::Threads)
+target_link_libraries(doriax PRIVATE ws2_32)
 
 if(EMSCRIPTEN AND EMSCRIPTEN_THREAD_SUPPORT)
 	target_compile_options(doriax PRIVATE -pthread)
@@ -1014,7 +1027,7 @@ target_link_libraries(
 
     PUBLIC
 
-    sokol lua stb tinyobjloader tinygltf tinyxml2 soloud harfbuzz sheenbidi meshoptimizer
+    sokol lua stb tinyobjloader tinygltf tinyxml2 soloud harfbuzz sheenbidi meshoptimizer yoga
     ${DORIAX_PHYSICS_LIBS}
 )
 
@@ -1063,6 +1076,12 @@ if(DORIAX_SHARED AND DORIAX_PHYSICS_3D)
     if(MINGW)
         target_compile_options(joltphysics PRIVATE "SHELL:-include \"${CMAKE_CURRENT_SOURCE_DIR}/platform/win/JoltExport.h\"")
     endif()
+endif()
+
+if(WIN32)
+    # Without this, windows.h pulls winsock.h and it clashes with winsock2.h in
+    # any TU that touches the Winsock2 API.
+    target_compile_definitions(doriax PRIVATE WIN32_LEAN_AND_MEAN)
 endif()
 
 # =============================================================

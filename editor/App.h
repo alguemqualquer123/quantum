@@ -19,6 +19,7 @@
 #include "window/AnimationWindow.h"
 #include "window/TerrainEditWindow.h"
 #include "window/AiChatWindow.h"
+#include "window/HubWindow.h"
 
 #include "window/LoadingWindow.h"
 
@@ -34,10 +35,12 @@
 #include "render/SceneRender.h"
 #include "util/GitMonitor.h"
 
+#include <atomic>
 #include <chrono>
 #include <filesystem>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -47,6 +50,7 @@ struct ImGuiDockNode;
 namespace doriax::editor{
 
     namespace ai { class McpServer; }
+    class UILabHost;
 
     enum class AlertType {
         Info,
@@ -77,6 +81,9 @@ namespace doriax::editor{
     };
 
     class App : public EditorHost{
+        // The chrome host draws the menu model and the dock node tree out of here.
+        friend class UILabHost;
+
     private:
         Project project;
 
@@ -99,6 +106,16 @@ namespace doriax::editor{
         std::function<void(bool)> loadingPump;
         std::function<void()> pendingProjectChange;
         std::chrono::steady_clock::time_point lastLoadingFrame{};
+
+        // From the middle of App::show() (after the menu/footer) until the end
+        // of the pass, ImGui records draw commands for the windows and the
+        // palette/welcome overlays run their callbacks. Nothing may swap or
+        // tear down the project then: the teardown deletes GL texture names
+        // synchronously (sokol), and draw commands already recorded in the
+        // pass would bind dead names in RenderDrawData (GL_INVALID_OPERATION,
+        // then sokol asserts at end of pass). runWhenUiIdle() defers them.
+        bool uiPassActive = false;
+        std::vector<std::function<void()>> deferredUiActions;
 
         // Footer stats, sampled only from consecutive drawn frames (see engineRender).
         bool renderedScenePrevFrame = false;
@@ -134,6 +151,8 @@ namespace doriax::editor{
         ImGuiID dockspace_id;
         ImGuiID dock_id_middle_top;
 
+        std::unique_ptr<UILabHost> uilabHost;
+
         static ImFont* codeFont;
 
         Structure* structureWindow;
@@ -152,6 +171,10 @@ namespace doriax::editor{
 
         bool isInitialized;
         bool dockspaceNeedsRebuild;
+
+        // Hub mode (`--hub`): the launcher UI replaces the editor and no
+        // project is loaded.
+        bool hubMode = false;
 
         // True only during an explicit "Reset Layout": forces tabs back to their
         // default dock slot even when the ini has a saved position for them.
@@ -187,10 +210,28 @@ namespace doriax::editor{
         BundlesWindow bundlesWindow;
         AboutWindow aboutWindow;
         ScenesWindow scenesWindow;
+        HubWindow hubWindow;
 
         std::queue<SaveDialogQueueItem> saveDialogQueue;
         bool saveDialogInProgress = false;
         std::filesystem::path lastResourcesProjectPath;
+
+        // doriax-resource-server (tools/resource-server): the local asset index
+        // service. One server runs per opened project, so a project switch stops
+        // the old one before spawning the next. Closing the editor instead leaves
+        // it alive in the Windows notification area, which is what the record
+        // file exists for: the next session adopts it instead of doubling up.
+        std::thread resourceServerThread;
+        // Atomic so a worker still polling for a recorded server that is booting
+        // can notice a project switch and bail out (stopResourceServer joins it).
+        std::atomic<unsigned long long> resourceServerGeneration{0};
+        unsigned long long resourceServerPid = 0;
+        int resourceServerPort = 0;
+        std::filesystem::path resourceServerRecord;
+        void updateResourceServer(const std::filesystem::path& projectPath);
+        void stopResourceServer();
+        void detachResourceServer();
+        static std::filesystem::path resourceServerRecordFile(const std::filesystem::path& projectPath);
 
         std::vector<std::string> droppedExternalPaths;
         bool isDroppedExternalPaths;
@@ -219,6 +260,9 @@ namespace doriax::editor{
         void executeMenuCommand(const PlatformMenuCommand& command);
         void showImGuiMenuItems(const std::vector<PlatformMenuItem>& items);
         void showImGuiMenu(const PlatformMenuModel& menu);
+        // The menu items only, no main menu bar: the chrome host draws them inside
+        // the library's own bar.
+        void showMenuModelContent(const PlatformMenuModel& menu);
         void showMenu();
         void showAlert();
         void showFooter();
@@ -309,6 +353,14 @@ namespace doriax::editor{
 
         // Thread-safe: schedules a task to run on the main/GL thread during the next frame.
         void enqueueMainThreadTask(std::function<void()> task) override;
+
+        // Main thread: runs the action now, or - while the UI pass is recording
+        // draw data - queues it for the next frame boundary (see uiPassActive).
+        // UI callbacks that can swap or tear down the project must use this.
+        void runWhenUiIdle(std::function<void()> action);
+        // Main thread only: runs the actions deferred by the previous pass,
+        // right before this pass starts recording anything.
+        void processDeferredUiActions();
 
         bool didRenderScene() const { return renderedSceneThisFrame; }
         bool hasPendingMainThreadTasks();

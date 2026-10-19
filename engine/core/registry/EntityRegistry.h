@@ -65,6 +65,7 @@
 #include "component/Joint3DComponent.h"
 #include "component/InstancedMeshComponent.h"
 #include "component/BundleComponent.h"
+#include "ecs/components/TagComponent.h"
 
 namespace doriax {
 

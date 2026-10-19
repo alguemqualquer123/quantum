@@ -33,7 +33,10 @@ void EditorHost::resetLastActivatedScene() {
 }
 
 bool EditorHost::shouldSyncEngineApi() const {
-    return false;
+    // This base host is only ever installed headless (App overrides it), and a
+    // project generated without the engine-api snapshot cannot configure: the
+    // generated CMakeLists compiles platform sources straight out of it.
+    return true;
 }
 
 bool EditorHost::recordsRecentProjects() const {

@@ -238,25 +238,27 @@ bool editor::Generator::configureCMake(const fs::path& projectPath, const fs::pa
                 }
             }
         } else if (fs::exists(cacheFile)) {
-            std::ifstream cache(cacheFile);
-            std::string line;
             std::string cachedGenerator;
             std::string cachedCCompiler;
             std::string cachedCxxCompiler;
+            {
+                std::ifstream cache(cacheFile);
+                std::string line;
 
-            while (std::getline(cache, line)) {
-                const std::string genPrefix = "CMAKE_GENERATOR:INTERNAL=";
-                const std::string cPrefix = "CMAKE_C_COMPILER:FILEPATH=";
-                const std::string cxxPrefix = "CMAKE_CXX_COMPILER:FILEPATH=";
+                while (std::getline(cache, line)) {
+                    const std::string genPrefix = "CMAKE_GENERATOR:INTERNAL=";
+                    const std::string cPrefix = "CMAKE_C_COMPILER:FILEPATH=";
+                    const std::string cxxPrefix = "CMAKE_CXX_COMPILER:FILEPATH=";
 
-                if (line.compare(0, genPrefix.size(), genPrefix) == 0) {
-                    cachedGenerator = line.substr(genPrefix.size());
-                } else if (line.compare(0, cPrefix.size(), cPrefix) == 0) {
-                    cachedCCompiler = line.substr(cPrefix.size());
-                } else if (line.compare(0, cxxPrefix.size(), cxxPrefix) == 0) {
-                    cachedCxxCompiler = line.substr(cxxPrefix.size());
+                    if (line.compare(0, genPrefix.size(), genPrefix) == 0) {
+                        cachedGenerator = line.substr(genPrefix.size());
+                    } else if (line.compare(0, cPrefix.size(), cPrefix) == 0) {
+                        cachedCCompiler = line.substr(cPrefix.size());
+                    } else if (line.compare(0, cxxPrefix.size(), cxxPrefix) == 0) {
+                        cachedCxxCompiler = line.substr(cxxPrefix.size());
+                    }
                 }
-            }
+            } // ifstream closed here, releasing the file lock before cleanBuildDirectory
 
             bool kitChanged = false;
             if (!generator.empty()) {
@@ -1140,11 +1142,18 @@ void editor::Generator::writeSourceFiles(const fs::path& projectPath, const fs::
     cmakeContent += "    " + engineApiPathStr + "/core/util\n";
     cmakeContent += ")\n\n";
 
-    cmakeContent += "# libdoriax is searched in DORIAX_LIB_DIR; by default it points to the Doriax editor\n";
-    cmakeContent += "# executable directory, which differs per machine and so comes from LocalPaths.cmake.\n";
+    cmakeContent += "# libdoriax is searched in DORIAX_LIB_DIR, in this order: -DDORIAX_LIB_DIR=...,\n";
+    cmakeContent += "# the DORIAX_LIB_DIR environment variable (the global knob that points every\n";
+    cmakeContent += "# project at one engine build tree), then DORIAX_DEFAULT_LIB_DIR, the Doriax\n";
+    cmakeContent += "# editor executable directory recorded in LocalPaths.cmake when the project\n";
+    cmakeContent += "# was last opened.\n";
     cmakeContent += "include(${INTERNAL_DIR}/LocalPaths.cmake OPTIONAL)\n";
     cmakeContent += "if(NOT DEFINED DORIAX_LIB_DIR OR DORIAX_LIB_DIR STREQUAL \"\")\n";
-    cmakeContent += "    set(DORIAX_LIB_DIR \"${DORIAX_DEFAULT_LIB_DIR}\")\n";
+    cmakeContent += "    if(DEFINED ENV{DORIAX_LIB_DIR} AND NOT \"$ENV{DORIAX_LIB_DIR}\" STREQUAL \"\")\n";
+    cmakeContent += "        file(TO_CMAKE_PATH \"$ENV{DORIAX_LIB_DIR}\" DORIAX_LIB_DIR)\n";
+    cmakeContent += "    else()\n";
+    cmakeContent += "        set(DORIAX_LIB_DIR \"${DORIAX_DEFAULT_LIB_DIR}\")\n";
+    cmakeContent += "    endif()\n";
     cmakeContent += "    # Default target is the editor's own engine build (shared, editor layouts).\n";
     cmakeContent += "    # Match its macros so symbols link (DORIAX_SHARED, JPH_SHARED_LIBRARY -> dllimport on MSVC)\n";
     cmakeContent += "    # and data layouts stay ABI-compatible (DORIAX_EDITOR), avoiding ODR/ABI mismatch.\n";

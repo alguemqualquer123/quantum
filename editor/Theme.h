@@ -9,6 +9,11 @@ namespace doriax::editor {
 
     class Theme {
     public:
+        enum class Preset {
+            Dark,
+            Light,
+        };
+
         struct Colors {
             static ImVec4 ButtonActivated;
             // Hover/press tint for transparent icon buttons (find close, replace toggle).
@@ -31,6 +36,13 @@ namespace doriax::editor {
             static ImVec4 SubSelectionText;
             // Amber warning text, e.g. alert notes; matches OutputWindow's Warning log color.
             static ImVec4 WarningText;
+            // Resource Monitor pressure colors: healthy/busy values read green->red
+            // without hardcoding RGBA at the call site, so both presets stay legible.
+            static ImVec4 SuccessText;
+            static ImVec4 DangerText;
+            // Downstream/upstream plot series in the Resource Monitor network graphs.
+            static ImVec4 NetworkDown;
+            static ImVec4 NetworkUp;
         };
 
         static void apply();
@@ -38,6 +50,15 @@ namespace doriax::editor {
         // Editor scale on top of the monitor DPI
         static void setUiScale(float uiScale);
         static float uiScale();
+
+        // apply() must run again after these for the style to change; the
+        // setters only store state so callers can batch changes at boot.
+        static void setPreset(Preset preset);
+        static Preset getPreset();
+
+        // "#RRGGBB" or "#RRGGBBAA"; invalid values keep the previous accent.
+        static bool setAccentColor(const char* hex);
+        static const char* getAccentColor();
 
         static float dpiScale();
         static float dpi(float value);

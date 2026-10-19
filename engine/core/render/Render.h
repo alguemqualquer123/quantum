@@ -53,6 +53,29 @@ namespace doriax{
         COMPOSITE,  // fullscreen composite of scene color + SSR reflections
         SHADOW2D,   // 1D polar shadow pass: occluder segments into a 2D-light atlas row
         BLIT,       // fullscreen upscale of the fixed-resolution scene color
+        // --- HDR pipeline passes ---
+        BLOOM_THRESHOLD,  // extract bright pixels above HDR threshold
+        BLOOM_DOWNSAMPLE, // Gaussian downsample (13-tap)
+        BLOOM_UPSAMPLE,   // tent/bilinear upsample + additive blend
+        BLOOM_COMPOSITE,  // composite bloom layers onto scene color
+        TONEMAP,          // tone mapping (ACES, Reinhard, AgX, etc.)
+        EXPOSURE,         // luminance histogram + exposure calculation
+        COLORGRADING,     // 3D LUT color grading
+        // --- Anti-aliasing passes ---
+        VELOCITY,         // motion vector generation
+        TAA,              // temporal anti-aliasing
+        FXAA,             // fast approximate anti-aliasing (fallback)
+        // --- Post-process effects ---
+        DOF_COC,          // depth of field circle of confusion
+        DOF_BLUR,         // DOF blur (Gaussian/Bokeh)
+        DOF_COMPOSITE,    // DOF composite
+        MOTIONBLUR,       // motion blur
+        CHROMATIC,        // chromatic aberration
+        VIGNETTE,         // vignette darkening
+        FILMGRAIN,        // film grain noise
+        CONTACT_SHADOWS,  // screen-space contact shadows
+        HIZ_GEN,          // hierarchical Z-buffer generation
+        SSR_HIZ,          // SSR with Hi-Z acceleration
         // keep appending: the ShaderKey stores this enum and validates cached .sdat
         POSTPROCESS, // fullscreen user post-process pass
         WATER,      // water surface displaced by Gerstner waves
@@ -150,7 +173,30 @@ namespace doriax{
         BLIT_FS_PARAMS,
         WATER_VS_PARAMS,
         WATER_FS_PARAMS,
-        UNDERWATER_FS_PARAMS
+        UNDERWATER_FS_PARAMS,
+        // --- HDR pipeline ---
+        BLOOM_THRESHOLD_FS_PARAMS,
+        BLOOM_DOWNSAMPLE_FS_PARAMS,
+        BLOOM_UPSAMPLE_FS_PARAMS,
+        BLOOM_COMPOSITE_FS_PARAMS,
+        TONEMAP_FS_PARAMS,
+        EXPOSURE_FS_PARAMS,
+        COLORGRADING_FS_PARAMS,
+        // --- Anti-aliasing ---
+        VELOCITY_FS_PARAMS,
+        TAA_FS_PARAMS,
+        FXAA_FS_PARAMS,
+        // --- Post-process effects ---
+        DOF_COC_FS_PARAMS,
+        DOF_BLUR_FS_PARAMS,
+        DOF_COMPOSITE_FS_PARAMS,
+        MOTIONBLUR_FS_PARAMS,
+        CHROMATIC_FS_PARAMS,
+        VIGNETTE_FS_PARAMS,
+        FILMGRAIN_FS_PARAMS,
+        CONTACT_SHADOWS_FS_PARAMS,
+        HIZ_GEN_FS_PARAMS,
+        SSR_HIZ_FS_PARAMS
     };
 
     enum class StorageBufferType{
@@ -190,7 +236,21 @@ namespace doriax{
         WATERNORMAL,         // water ripple normal map
         WATERREFLECTION,     // water planar reflection camera target
         WATERREFRACTION,     // copy of the scene drawn before the water
-        WATEREXCLUSION       // hull maps of the volumes keeping the water out
+        WATEREXCLUSION,      // hull maps of the volumes keeping the water out
+        // --- HDR pipeline textures ---
+        SCENEDEPTHTEXTURE,    // camera-space depth for exposure/velocity
+        VELOCITYTEXTURE,      // motion vectors (RG16F)
+        EXPOSURETEXTURE,      // exposure history (R16F)
+        BLOOMTEXTURE0,        // bloom mip chain level 0
+        BLOOMTEXTURE1,        // bloom mip chain level 1
+        BLOOMTEXTURE2,        // bloom mip chain level 2
+        BLOOMTEXTURE3,        // bloom mip chain level 3
+        BLOOMTEXTURE4,        // bloom mip chain level 4
+        LUT3DTEXTURE,         // 3D color grading LUT
+        HIZTEXTURE,           // hierarchical Z-buffer mips
+        DOFTEXTURE,           // DOF blur output
+        MOTIONBLURTEXTURE,    // motion blur output
+        PREVSCENECOLORTEXTURE // previous frame scene color (for TAA/history)
     };
 
     enum class TextureType {
@@ -217,7 +277,9 @@ namespace doriax{
     enum class ColorFormat{
         RED,
         RGBA,
-        RED16 // single channel, 16-bit unsigned normalized (2 bytes/texel)
+        RED16, // single channel, 16-bit unsigned normalized (2 bytes/texel)
+        RGBA16F, // 4 channel, 16-bit float (HDR render targets, 8 bytes/texel)
+        R16F     // single channel, 16-bit float (exposure, CoC, etc.)
     };
 
     enum class TextureFilter{

@@ -58,6 +58,7 @@
 #include "component/PanelComponent.h"
 #include "util/SHA1.h"
 #include "util/ProjectUtils.h"
+#include "io/BuiltinModel.h"
 #include "Stream.h"
 #include "Out.h"
 #include "subsystem/ActionSystem.h"
@@ -2162,34 +2163,40 @@ void editor::Properties::drawNinePatchesPreview(const ImageComponent& img, Textu
     float scaledBottomMargin = img.patchMarginBottom * scaleY;
 
     // Draw left margin line
+    //AddLineV/AddLineH: 1.93 dropped the implicit (+0.5,+0.5) offset, so these
+    //1px nine-patch guides would straddle two pixel rows instead of filling one
     float leftX = cursor.x + scaledLeftMargin;
-    draw_list->AddLine(
-        ImVec2(leftX, cursor.y),
-        ImVec2(leftX, cursor.y + displayHeight),
+    draw_list->AddLineV(
+        leftX,
+        cursor.y,
+        cursor.y + displayHeight,
         line_color, 1.0f
     );
 
     // Draw right margin line
     float rightX = cursor.x + displayWidth - scaledRightMargin;
-    draw_list->AddLine(
-        ImVec2(rightX, cursor.y),
-        ImVec2(rightX, cursor.y + displayHeight),
+    draw_list->AddLineV(
+        rightX,
+        cursor.y,
+        cursor.y + displayHeight,
         line_color, 1.0f
     );
 
     // Draw top margin line
     float topY = cursor.y + scaledTopMargin;
-    draw_list->AddLine(
-        ImVec2(cursor.x, topY),
-        ImVec2(cursor.x + displayWidth, topY),
+    draw_list->AddLineH(
+        cursor.x,
+        cursor.x + displayWidth,
+        topY,
         line_color, 1.0f
     );
 
     // Draw bottom margin line
     float bottomY = cursor.y + displayHeight - scaledBottomMargin;
-    draw_list->AddLine(
-        ImVec2(cursor.x, bottomY),
-        ImVec2(cursor.x + displayWidth, bottomY),
+    draw_list->AddLineH(
+        cursor.x,
+        cursor.x + displayWidth,
+        bottomY,
         line_color, 1.0f
     );
 }
@@ -6508,6 +6515,15 @@ void editor::Properties::drawModelComponent(ComponentType cpType, SceneProject* 
                 ImGui::CloseCurrentPopup();
             }
             ImGui::EndPopup();
+        }
+
+        // The engine carries its own model, so an entity can be made visible
+        // without hunting for an asset; setting it is a normal, undoable edit.
+        if (BuiltinModels::isBuiltinPath(currentPath)) {
+            ImGui::TextDisabled("Built into the engine");
+        } else if (ImGui::SmallButton("Use engine default model")) {
+            CommandHandle::get(project->getSelectedSceneId())->addCommandNoMerge(
+                new ModelLoadCmd(project, sceneProject->id, entity, BuiltinModels::defaultPath()));
         }
 
         ImGui::EndGroup();
@@ -13643,28 +13659,7 @@ void editor::Properties::drawMorphTracksComponent(ComponentType cpType, ScenePro
     endTable();
 }
 
-void editor::Properties::show(){
-    // Flush any debounced material file writes
-    flushDirtyMaterials(ImGui::GetIO().DeltaTime);
-
-    if (!windowOpen) {
-        return;
-    }
-
-    if (focusRequested) {
-        ImGui::SetNextWindowFocus();
-        focusRequested = false;
-    }
-
-    bool wasOpen = windowOpen;
-
-    if (!ImGui::Begin(Properties::WINDOW_NAME, &windowOpen)) {
-        ImGui::End();
-        if (wasOpen && !windowOpen) {
-            setOpen(false);
-        }
-        return;
-    }
+void editor::Properties::drawContent(){
     if (nameFocusFrames > 0) nameFocusFrames--;
 
     uint32_t propertiesSceneId = project->getSelectedSceneForProperties();
@@ -13674,7 +13669,6 @@ void editor::Properties::show(){
     }
     if (!sceneProject) {
         stopTransientPreviews();
-        ImGui::End();
         return;
     }
 
@@ -14379,10 +14373,62 @@ void editor::Properties::show(){
     scriptCreateDialog.show();
     shaderForkDialog.show();
     textureSlicerToolDialog.show();
+}
+
+void editor::Properties::show(){
+    // Flush any debounced material file writes
+    flushDirtyMaterials(ImGui::GetIO().DeltaTime);
+
+    if (hostedWindow) {
+        // The library opens the window and calls drawContent() inside it, so its
+        // title bar close button writes straight into windowOpen.
+        if (focusRequested) {
+            ImGui::SetWindowFocus(Properties::WINDOW_NAME);
+            focusRequested = false;
+        }
+        if (hostedWasOpen && !windowOpen) {
+            // setOpen() would skip the previews: the close button already cleared
+            // the flag it checks.
+            stopTransientPreviews();
+            focusRequested = false;
+        }
+        hostedWasOpen = windowOpen;
+        return;
+    }
+
+    if (!windowOpen) {
+        return;
+    }
+
+    if (focusRequested) {
+        ImGui::SetNextWindowFocus();
+        focusRequested = false;
+    }
+
+    bool wasOpen = windowOpen;
+
+    if (!ImGui::Begin(Properties::WINDOW_NAME, &windowOpen)) {
+        ImGui::End();
+        if (wasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        return;
+    }
+
+    drawContent();
 
     ImGui::End();
 
     if (wasOpen && !windowOpen) {
         setOpen(false);
     }
+}
+
+void editor::Properties::setHostedWindow(bool hosted){
+    hostedWindow = hosted;
+    hostedWasOpen = windowOpen;
+}
+
+bool* editor::Properties::openFlag(){
+    return &windowOpen;
 }

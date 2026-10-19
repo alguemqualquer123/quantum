@@ -158,6 +158,12 @@ std::string FileData::getSystemPath(std::string path){
         path = path.substr(6, path.length());
         return System::instance().getLuaPath() + "/" + FileData::simplifyPath(path);
     }
+    if (beginWith(path, "builtin://")){
+        // Models the engine carries in its own binary (see io/BuiltinModel.cpp):
+        // no project directory may be prefixed, or their cache keys would claim
+        // to be files on disk.
+        return path;
+    }
     if (beginWith(path, "shader://")){
         path = path.substr(9, path.length());
         return System::instance().getShaderPath() + "/" + FileData::simplifyPath(path);

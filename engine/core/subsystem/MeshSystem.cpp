@@ -9,6 +9,7 @@
 #include "buffer/InterleavedBuffer.h"
 #include "io/FileData.h"
 #include "io/Data.h"
+#include "io/BuiltinModel.h"
 #include "io/ResourcePack.h"
 #include "pool/ModelPool.h"
 #include "pool/TexturePool.h"
@@ -984,6 +985,14 @@ bool MeshSystem::fileExists(const std::string &abs_filename, void *) {
 }
 
 bool MeshSystem::loadGLTFFile(tinygltf::TinyGLTF& loader, tinygltf::Model* model, std::string* err, std::string* warn, const std::string& filename){
+    if (const std::vector<unsigned char>* builtin = BuiltinModels::find(filename)) {
+        // A builtin GLB embeds its buffers and images, so there is no base_dir
+        // for tinygltf to resolve external URIs against.
+        return loader.LoadBinaryFromMemory(model, err, warn, builtin->data(),
+                                           static_cast<unsigned int>(builtin->size()),
+                                           std::string());
+    }
+
     std::string ext = FileData::getFilePathExtension(filename);
     std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
     if (ext == "fbx"){

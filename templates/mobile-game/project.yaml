@@ -1,0 +1,35 @@
+name: "Mobile Game Template"
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: "fitwidth"
+textureStrategy: "resize"
+vsync: true
+windowMode: "windowed"
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+startSceneId: 1
+scenes:
+  - filepath: "scenes/main.scene"
+    showAllJoints: false
+    showAllBones: false
+    showAllBodies: false
+    hideCameraView: false
+    hideLightIcons: false
+    hideSoundIcons: false
+    hideContainerGuides: false
+    showOrigin: false
+    showGrid2D: true
+    gridSpacing2D: 0.5
+    hideSelectionOutline: false
+    editorCamera:
+      type: "camera_ortho"
+      target: [0.0, 0.0, 0.0]
+      up: [0.0, 1.0, 0.0]
+      nearClip: -1.0
+      farClip: 1.0
+      leftClip: -10.0
+      rightClip: 10.0
+      bottomClip: -6.0
+      topClip: 6.0
+      position: [0.0, 0.0, 10.0]

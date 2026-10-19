@@ -29,6 +29,7 @@
 #include "pool/FontPool.h"
 #include "pool/ModelPool.h"
 #include "pool/MeshLodPool.h"
+#include "ui/UIRuntime.h"
 #ifndef NO_THREAD_SUPPORT
     #include "thread/ThreadPoolManager.h"
 #endif
@@ -107,6 +108,7 @@ FunctionSubscribe<void()> Engine::onViewLoaded;
 FunctionSubscribe<void()> Engine::onViewChanged;
 FunctionSubscribe<void()> Engine::onViewDestroyed;
 FunctionSubscribe<void()> Engine::onDraw;
+FunctionSubscribe<void()> Engine::onPostDraw;
 FunctionSubscribe<void()> Engine::onUpdate;
 FunctionSubscribe<void()> Engine::onFixedUpdate;
 FunctionSubscribe<void()> Engine::onPostUpdate;
@@ -805,6 +807,7 @@ void Engine::removeSubscriptionsByTag(const std::string& substring) {
     onViewChanged.removeByTagSubstring(substring);
     onViewDestroyed.removeByTagSubstring(substring);
     onDraw.removeByTagSubstring(substring);
+    onPostDraw.removeByTagSubstring(substring);
     onPause.removeByTagSubstring(substring);
     onResume.removeByTagSubstring(substring);
     onShutdown.removeByTagSubstring(substring);
@@ -853,6 +856,7 @@ void Engine::clearAllSubscriptions(bool includeLifecycle) {
         onViewChanged.clear();
         onViewDestroyed.clear();
         onDraw.clear();
+        onPostDraw.clear();
         onPause.clear();
         onResume.clear();
         onShutdown.clear();
@@ -1199,6 +1203,14 @@ void Engine::runFrame(bool draw){
         for (int i = 0; i < scenes.size(); i++){
             scenes[i]->draw();
         }
+
+        // The retained-mode UI module (doriax::ui) paints on top of the scenes,
+        // into the same target the composite framebuffer is currently bound to.
+        ui::UIRuntime::render();
+
+        // Subscribed overlays draw last in the same pass (retained UIs that live
+        // outside the library, like engine/slate, and any game-side HUD layer).
+        Engine::onPostDraw.call();
 
         endCompositeFramebuffer();
     }else{

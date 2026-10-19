@@ -1,0 +1,32 @@
+--- a/src/core/AppContext.h
++++ b/src/core/AppContext.h
+@@ -16,6 +16,7 @@
+ #include "core/Types.h"
+ #include "core/UndoStack.h"
+ #include "canvas/CanvasScene.h"
++#include "host/HostHooks.h"
+ #include "panels/AssetLibrary.h"
+ #include "themes/Theme.h"
+ #include "ui/Texture.h"
+@@ -115,6 +116,10 @@
+     // context exists (null in the headless self-test).
+     TextureLibrary* textures = nullptr;
+ 
++    // Content overrides for an embedding application. Empty here means every panel
++    // draws the laboratory's own data, which is what the standalone app does.
++    HostHooks host;
++
+     // ---- selection -----------------------------------------------------
+     SelectionRef selection;
+     Category activeCategory = Category::Basic;
+@@ -122,6 +127,10 @@
+ 
+     // ---- requests raised by panels, consumed by the application --------
+     bool requestExit = false;
++    // A host that docks its own windows keeps its own node tree and its own ini
++    // arrangement: layout::BeginFrame() then creates the dockspace but never installs
++    // the laboratory's default tree.
++    bool installDefaultDockTree = true;
+     bool requestResetLayout = false;
+     bool requestSaveLayout = false;
+     bool requestLoadLayout = false;

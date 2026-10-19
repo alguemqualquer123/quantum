@@ -1,11 +1,17 @@
 .vscode
+# The build tree DORIAX_BUILD_DIR names (default "build") and any extra tree a
+# stray -B flag created beside it. One tree per checkout; see scripts/doriax-build-dir.bat.
 build
-build-rel
-build-release
+build-*/
 settings.yaml
 editor_layout.ini
 editor.log
 ai_keys.dat
+
+.qoder
+.freebuff
+.claude
+.opencode
 
 ### Linux ###
 *~
@@ -82,3 +88,9 @@ $RECYCLE.BIN/
 
 # Installation directory for container build artefacts
 /installdir
+
+### Local artifacts ###
+.vs/
+.claude/
+*_stdout.txt
+*_stderr.txt

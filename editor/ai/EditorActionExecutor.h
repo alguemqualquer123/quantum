@@ -141,6 +141,8 @@ private:
     ActionResult setKeyframeTrack(const Json& arguments);
     ActionResult undoEditor(const Json& arguments);
     ActionResult redoEditor(const Json& arguments);
+    ActionResult batchSetComponentProperty(const Json& arguments);
+    ActionResult screenCapture(const Json& arguments);
 };
 
 } // namespace doriax::editor::ai

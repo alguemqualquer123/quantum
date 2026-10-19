@@ -17,6 +17,7 @@
 #include "manager/BundleManager.h"
 #include "object/EntityHandle.h"
 #include "util/Color.h"
+#include "subsystem/NetworkSystem.h"
 
 using namespace doriax;
 
@@ -34,7 +35,8 @@ void Scene::init(){
     registerSystem<UISystem>();
     registerSystem<RenderSystem>();
     registerSystem<PhysicsSystem>();
-    registerSystem<AudioSystem>();
+    	registerSystem<AudioSystem>();
+	registerSystem<NetworkSystem>();
 
     camera = NULL_ENTITY;
     defaultCamera = NULL_ENTITY;

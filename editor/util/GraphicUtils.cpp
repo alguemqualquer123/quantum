@@ -12,6 +12,7 @@
 #include <future>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #ifndef USE_GL_READPIXELS
 #define USE_GL_READPIXELS 0
@@ -403,4 +404,37 @@ bool editor::GraphicUtils::saveFramebufferImage(Framebuffer* framebuffer, fs::pa
         return false;
     }
     return true;
+}
+
+bool editor::GraphicUtils::captureEditorFrame(const fs::path& path, int width, int height) {
+    if (width <= 0 || height <= 0) {
+        Out::error("Frame capture: invalid size %dx%d", width, height);
+        return false;
+    }
+
+#if defined(SOKOL_GLCORE) || defined(SOKOL_GLES3)
+    const size_t rowBytes = static_cast<size_t>(width) * 4;
+    std::vector<uint8_t> rows(static_cast<size_t>(height) * rowBytes);
+    glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rows.data());
+
+    // glReadPixels gives bottom-up rows and stb writes top-down.
+    std::vector<uint8_t> pixels(static_cast<size_t>(height) * rowBytes);
+    for (int y = 0; y < height; ++y) {
+        std::memcpy(&pixels[static_cast<size_t>(y) * rowBytes],
+                    &rows[static_cast<size_t>(height - 1 - y) * rowBytes], rowBytes);
+    }
+
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    if (!stbi_write_png(path.string().c_str(), width, height, 4, pixels.data(),
+                        static_cast<int>(rowBytes))) {
+        Out::error("Frame capture: could not write %s", path.string().c_str());
+        return false;
+    }
+    Out::success("Frame capture: %s", path.string().c_str());
+    return true;
+#else
+    Out::error("Frame capture: only the OpenGL backend can read the backbuffer");
+    return false;
+#endif
 }

@@ -290,14 +290,25 @@ bool SokolTexture::createTexture(
             TextureFilter minFilter, TextureFilter magFilter, TextureWrap wrapU, TextureWrap wrapV){
 
     sg_pixel_format pixelFormat;
-    if (colorFormat == ColorFormat::RGBA){
-        pixelFormat = SG_PIXELFORMAT_RGBA8;
-    }else if (colorFormat == ColorFormat::RED){
-        pixelFormat = SG_PIXELFORMAT_R8;
-    }else if (colorFormat == ColorFormat::RED16){
-        pixelFormat = SG_PIXELFORMAT_R16;
-    }else{
-        Log::error("Renders only support 8bpp, 16bpp and 32bpp textures");
+    switch (colorFormat){
+        case ColorFormat::RGBA:
+            pixelFormat = SG_PIXELFORMAT_RGBA8;
+            break;
+        case ColorFormat::RED:
+            pixelFormat = SG_PIXELFORMAT_R8;
+            break;
+        case ColorFormat::RED16:
+            pixelFormat = SG_PIXELFORMAT_R16;
+            break;
+        case ColorFormat::R16F:
+            pixelFormat = SG_PIXELFORMAT_R16F;
+            break;
+        case ColorFormat::RGBA16F:
+            pixelFormat = SG_PIXELFORMAT_RGBA16F;
+            break;
+        default:
+            pixelFormat = SG_PIXELFORMAT_RGBA8;
+            break;
     }
 
     sg_image_desc image_desc = {0};
@@ -415,13 +426,22 @@ bool SokolTexture::createTextureCubeWithMips(
             TextureFilter minFilter, TextureFilter magFilter, TextureWrap wrapU, TextureWrap wrapV){
 
     sg_pixel_format pixelFormat;
-    if (colorFormat == ColorFormat::RGBA){
-        pixelFormat = SG_PIXELFORMAT_RGBA8;
-    }else if (colorFormat == ColorFormat::RED){
-        pixelFormat = SG_PIXELFORMAT_R8;
-    }else{
-        Log::error("Renders only support 8bpp and 32bpp textures");
-        return false;
+    switch (colorFormat){
+        case ColorFormat::RGBA:
+            pixelFormat = SG_PIXELFORMAT_RGBA8;
+            break;
+        case ColorFormat::RED:
+            pixelFormat = SG_PIXELFORMAT_R8;
+            break;
+        case ColorFormat::RGBA16F:
+            pixelFormat = SG_PIXELFORMAT_RGBA16F;
+            break;
+        case ColorFormat::R16F:
+            pixelFormat = SG_PIXELFORMAT_R16F;
+            break;
+        default:
+            pixelFormat = SG_PIXELFORMAT_RGBA8;
+            break;
     }
 
     if (numMipmaps > SG_MAX_MIPMAPS){
@@ -519,7 +539,24 @@ bool SokolTexture::createFramebufferTexture(
         img_desc.pixel_format = SG_PIXELFORMAT_DEPTH;
         img_desc.label = "framebuffer-depth-image";
     } else {
-        img_desc.pixel_format = (colorFormat == ColorFormat::RED) ? SG_PIXELFORMAT_R8 : SG_PIXELFORMAT_RGBA8;
+        switch (colorFormat){
+            case ColorFormat::RED:
+                img_desc.pixel_format = SG_PIXELFORMAT_R8;
+                break;
+            case ColorFormat::RED16:
+                img_desc.pixel_format = SG_PIXELFORMAT_R16;
+                break;
+            case ColorFormat::R16F:
+                img_desc.pixel_format = SG_PIXELFORMAT_R16F;
+                break;
+            case ColorFormat::RGBA16F:
+                img_desc.pixel_format = SG_PIXELFORMAT_RGBA16F;
+                break;
+            case ColorFormat::RGBA:
+            default:
+                img_desc.pixel_format = SG_PIXELFORMAT_RGBA8;
+                break;
+        }
         img_desc.label = "framebuffer-color-image";
     }
 

@@ -1,0 +1,18 @@
+--- a/src/panels/HierarchyPanel.cpp
++++ b/src/panels/HierarchyPanel.cpp
+@@ -100,7 +100,14 @@
+ } // namespace
+ 
+ void DrawHierarchy(AppContext& ctx) {
+-    if (!ImGui::Begin(kHierarchyTitle)) {
++    const HostPanel& panel = ctx.host.hierarchyPanel;
++    if (!ImGui::Begin(panel.titleOr(kHierarchyTitle), panel.pOpen)) {
++        ImGui::End();
++        return;
++    }
++
++    if (ctx.host.hierarchy) {
++        ctx.host.hierarchy(ctx);
+         ImGui::End();
+         return;
+     }

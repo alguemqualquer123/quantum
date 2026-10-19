@@ -19,6 +19,8 @@ struct PanelVisibilitySettings {
     bool animation = true;
     bool terrain = false;
     bool aiChat = true;
+    bool notifications = true;
+    bool resourceMonitor = false;
 
     bool operator==(const PanelVisibilitySettings& other) const {
         return structure == other.structure
@@ -27,7 +29,9 @@ struct PanelVisibilitySettings {
             && output == other.output
             && animation == other.animation
             && terrain == other.terrain
-            && aiChat == other.aiChat;
+            && aiChat == other.aiChat
+            && notifications == other.notifications
+            && resourceMonitor == other.resourceMonitor;
     }
 
     bool operator!=(const PanelVisibilitySettings& other) const {
@@ -95,6 +99,11 @@ private:
     static bool editorVSyncEnabled;
     static float uiScale;
     static PanelVisibilitySettings panelVisibility;
+
+    // Theme preset (0=dark, 1=light) and the accent color as "#RRGGBB" (or
+    // "#RRGGBBAA"). Empty accent keeps whatever Theme's preset already picked.
+    static int themePreset;
+    static std::string accentColor;
 
     // AI assistant settings (API keys are intentionally not stored here)
     static ai::Settings aiSettings;
@@ -188,6 +197,12 @@ public:
     // Panels toggled from the View menu
     static PanelVisibilitySettings getPanelVisibility();
     static void setPanelVisibility(const PanelVisibilitySettings& visibility);
+
+    // Theme preset (0=dark, 1=light) and accent color ("#RRGGBB"); persist on set.
+    static int getThemePreset();
+    static void setThemePreset(int preset);
+    static std::string getAccentColor();
+    static void setAccentColor(const std::string& color);
 
     // AI assistant settings
     static ai::Settings getAiSettings();

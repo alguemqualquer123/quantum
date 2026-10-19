@@ -87,6 +87,33 @@ namespace doriax{
         float ssrBlur = 0.0f;          // glossy blur amount [0..1] (0 = sharp/mirror)
         int ssrDebugMode = 0;          // 0=off,1=reflection,2=normal,3=roughness,4=metallic,5=albedo,6=IBL specular
 
+        // HDR Bloom
+        bool bloomEnabled = false;
+        float bloomThreshold = 1.0f;     // luminance threshold for bright pixel extraction
+        float bloomIntensity = 1.0f;     // bloom strength multiplier
+        float bloomSoftKnee = 0.5f;      // soft knee for threshold (0=hard, 1=smooth)
+        int bloomMipLevels = 5;          // number of downsample/upsample mip levels (1-5)
+        float bloomDirtIntensity = 0.0f; // lens dirt intensity (0 = no dirt)
+
+        // Tone mapping
+        bool tonemapEnabled = false;
+        int tonemapMode = 0;             // 0=ACES, 1=Reinhard, 2=Reinhard Extended, 3=Uncharted2, 4=AgX
+        float exposure = 1.0f;           // manual exposure (when auto-exposure off)
+        bool autoExposure = false;       // use luminance histogram for auto exposure
+        float autoExposureSpeed = 1.0f;  // adaptation speed
+        float autoExposureMinEV = -2.0f; // minimum exposure value
+        float autoExposureMaxEV = 8.0f;  // maximum exposure value
+
+        // Color Grading
+        bool colorGradingEnabled = false;
+        float colorGradingSaturation = 1.0f;  // 0=desaturated, 1=normal, 2=oversaturated
+        float colorGradingContrast = 1.0f;    // 0=flat, 1=normal, 2=high contrast
+        float colorGradingBrightness = 0.0f;  // -1=dark, 0=normal, 1=bright
+        float colorGradingHueShift = 0.0f;    // hue rotation in degrees [-180, 180]
+        float colorGradingTemperature = 0.0f; // -1=cool (blue), 0=neutral, 1=warm (orange)
+        float colorGradingTint = 0.0f;        // -1=green, 0=neutral, 1=magenta
+        std::string colorGradingLUTPath;      // path to 3D LUT texture (empty = use built-in adjustments)
+
         // Initial physics gravity. The live value is owned by PhysicsSystem (it must be pushed
         // to the Box2D/Jolt worlds on change); this is the default it initializes from.
         Vector2 gravity2D = Vector2(0.0f, -9.81f);

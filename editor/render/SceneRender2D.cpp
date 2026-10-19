@@ -40,6 +40,10 @@ editor::SceneRender2D::SceneRender2D(Scene* scene, unsigned int width, unsigned 
 
     createLines(width, height);
 
+    // A preview render must not restyle the scene it draws: the background color
+    // and light state of a loaded scene come from disk, so the defaults for new
+    // scenes live in Project::createNewSceneInternal instead.
+
     viewportWidth = width;
     viewportHeight = height;
     applyZoomProjection();

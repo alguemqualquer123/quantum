@@ -18,6 +18,7 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
     lineOffsets.push_back(0);
     lineColors.clear();
     byteColors.clear();
+    byteBgColors.clear();
     lineFonts.clear();
     lineHardBreak.clear();
     lineRule.clear();
@@ -30,13 +31,16 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
     const float fontSize = ImGui::GetFontSize();
 
     auto pushLine = [&](const std::string& line, const std::vector<ImU32>& lineByteColors,
+                        const std::vector<ImU32>& lineByteBgColors,
                         ImU32 color, ImFont* lineFont,
                         bool hardBreak, bool appendNewline, bool rule = false) {
         buf.append(line.data(), line.data() + line.size());
         byteColors.insert(byteColors.end(), lineByteColors.begin(), lineByteColors.end());
+        byteBgColors.insert(byteBgColors.end(), lineByteBgColors.begin(), lineByteBgColors.end());
         if (appendNewline) {
             buf.append("\n");
             byteColors.push_back(color);
+            byteBgColors.push_back(0);
         }
         lineOffsets.push_back(buf.size());
         lineColors.push_back(color);
@@ -51,20 +55,25 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
         ImFont* font = para.font ? para.font : defaultFont;
 
         std::vector<ImU32> sourceColors(para.text.size(), para.color);
+        std::vector<ImU32> sourceBgColors(para.text.size(), 0);
         for (const ColorSpan& span : para.colorSpans) {
             const int begin = std::clamp(span.begin, 0, static_cast<int>(para.text.size()));
             const int end = std::clamp(span.end, begin, static_cast<int>(para.text.size()));
             std::fill(sourceColors.begin() + begin, sourceColors.begin() + end, span.color);
+            if (span.bgColor != 0) {
+                std::fill(sourceBgColors.begin() + begin, sourceBgColors.begin() + end, span.bgColor);
+            }
         }
 
         if (para.rule) {
             // Rule labels are short; keep them on one centered line instead of wrapping.
-            pushLine(para.text, sourceColors, para.color, para.font, true, !lastPara, true);
+            pushLine(para.text, sourceColors, sourceBgColors, para.color, para.font, true, !lastPara, true);
             continue;
         }
 
         std::string currentLine;
         std::vector<ImU32> currentColors;
+        std::vector<ImU32> currentBgColors;
         float currentWidth = 0.0f;
         int lastBreakPos = 0;       // byte offset in currentLine just past the last space
         float widthAtBreak = 0.0f;  // width of currentLine up to lastBreakPos
@@ -83,9 +92,10 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
                 continue;
             }
             if (cp == '\n') {
-                pushLine(currentLine, currentColors, para.color, para.font, true, true);
+                pushLine(currentLine, currentColors, currentBgColors, para.color, para.font, true, true);
                 currentLine.clear();
                 currentColors.clear();
+                currentBgColors.clear();
                 currentWidth = 0.0f;
                 lastBreakPos = 0;
                 widthAtBreak = 0.0f;
@@ -101,18 +111,24 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
                     std::string tail = currentLine.substr(lastBreakPos);
                     std::vector<ImU32> tailColors(currentColors.begin() + lastBreakPos,
                                                   currentColors.end());
+                    std::vector<ImU32> tailBgColors(currentBgColors.begin() + lastBreakPos,
+                                                    currentBgColors.end());
                     std::vector<ImU32> headColors(currentColors.begin(),
                                                  currentColors.begin() + lastBreakPos);
-                    pushLine(currentLine.substr(0, lastBreakPos), headColors,
+                    std::vector<ImU32> headBgColors(currentBgColors.begin(),
+                                                   currentBgColors.begin() + lastBreakPos);
+                    pushLine(currentLine.substr(0, lastBreakPos), headColors, headBgColors,
                              para.color, para.font, false, true);
                     currentLine = tail;
                     currentColors = std::move(tailColors);
+                    currentBgColors = std::move(tailBgColors);
                     currentWidth -= widthAtBreak;
                 } else {
                     // A single word longer than the line: fall back to char wrap.
-                    pushLine(currentLine, currentColors, para.color, para.font, false, true);
+                    pushLine(currentLine, currentColors, currentBgColors, para.color, para.font, false, true);
                     currentLine.clear();
                     currentColors.clear();
+                    currentBgColors.clear();
                     currentWidth = 0.0f;
                 }
                 lastBreakPos = 0;
@@ -123,6 +139,8 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
             const size_t sourceOffset = static_cast<size_t>(s - para.text.data());
             currentColors.insert(currentColors.end(), sourceColors.begin() + sourceOffset,
                                  sourceColors.begin() + sourceOffset + len);
+            currentBgColors.insert(currentBgColors.end(), sourceBgColors.begin() + sourceOffset,
+                                   sourceBgColors.begin() + sourceOffset + len);
             currentWidth += cw;
             if (cp == ' ' || cp == '\t') {
                 lastBreakPos = (int)currentLine.size();
@@ -133,10 +151,11 @@ void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float
 
         // Final line of the paragraph carries a hard break; no trailing newline
         // for the very last paragraph so the buffer never ends on a blank line.
-        pushLine(currentLine, currentColors, para.color, para.font, true, !lastPara);
+        pushLine(currentLine, currentColors, currentBgColors, para.color, para.font, true, !lastPara);
     }
 
     IM_ASSERT(byteColors.size() == static_cast<size_t>(buf.size()));
+    IM_ASSERT(byteBgColors.size() == static_cast<size_t>(buf.size()));
 
     if (selectionStart > buf.size() || selectionEnd > buf.size()) {
         selectionStart = selectionEnd = -1;
@@ -450,13 +469,13 @@ void SelectableTextView::draw(const char* id, const ImVec2& size,
                 const float midY = linePos.y + lineBoxHeight * 0.5f;
                 ImDrawList* drawList = ImGui::GetWindowDrawList();
                 if (textOffsetX > gap) {
-                    drawList->AddLine(ImVec2(linePos.x, midY),
-                                      ImVec2(linePos.x + textOffsetX - gap, midY), col);
+                    //AddLineH: 1.93 removed AddLine's implicit +0.5 offset and a
+                    //1px strikethrough needs to stay inside its row
+                    drawList->AddLineH(linePos.x, linePos.x + textOffsetX - gap, midY, col);
                 }
                 float rightStart = textOffsetX + textW + gap;
                 if (rightStart < wrapW) {
-                    drawList->AddLine(ImVec2(linePos.x + rightStart, midY),
-                                      ImVec2(linePos.x + wrapW, midY), col);
+                    drawList->AddLineH(linePos.x + rightStart, linePos.x + wrapW, midY, col);
                 }
             }
 
@@ -464,29 +483,43 @@ void SelectableTextView::draw(const char* id, const ImVec2& size,
                 ImGui::SetCursorScreenPos(ImVec2(linePos.x + textOffsetX, linePos.y));
             }
             bool hasInlineColor = false;
+            bool hasBgColor = false;
             for (int i = ls; i < le; ++i) {
                 if (byteColors[static_cast<size_t>(i)] != col) {
                     hasInlineColor = true;
-                    break;
                 }
+                if (byteBgColors[static_cast<size_t>(i)] != 0) {
+                    hasBgColor = true;
+                }
+                if (hasInlineColor && hasBgColor) break;
             }
 
-            if (hasInlineColor && ls < le) {
+            if ((hasInlineColor || hasBgColor) && ls < le) {
                 ImDrawList* drawList = ImGui::GetWindowDrawList();
                 float x = linePos.x + textOffsetX;
                 int runStart = ls;
                 while (runStart < le) {
                     const ImU32 runColor = byteColors[static_cast<size_t>(runStart)];
+                    const ImU32 runBg = byteBgColors[static_cast<size_t>(runStart)];
                     int runEnd = runStart + 1;
                     while (runEnd < le &&
-                           byteColors[static_cast<size_t>(runEnd)] == runColor) {
+                           byteColors[static_cast<size_t>(runEnd)] == runColor &&
+                           byteBgColors[static_cast<size_t>(runEnd)] == runBg) {
                         ++runEnd;
+                    }
+                    float runW = lineFont->CalcTextSizeA(fontSize, FLT_MAX, 0.0f,
+                                                         buf.begin() + runStart,
+                                                         buf.begin() + runEnd).x;
+                    // Draw background color if set.
+                    if (runBg != 0) {
+                        drawList->AddRectFilled(
+                            ImVec2(x, linePos.y),
+                            ImVec2(x + runW, linePos.y + lineBoxHeight),
+                            runBg, 3.0f);
                     }
                     drawList->AddText(lineFont, fontSize, ImVec2(x, linePos.y), runColor,
                                       buf.begin() + runStart, buf.begin() + runEnd);
-                    x += lineFont->CalcTextSizeA(fontSize, FLT_MAX, 0.0f,
-                                                 buf.begin() + runStart,
-                                                 buf.begin() + runEnd).x;
+                    x += runW;
                     runStart = runEnd;
                 }
                 ImGui::Dummy(ImVec2(x - linePos.x, lineBoxHeight));

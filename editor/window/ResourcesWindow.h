@@ -171,6 +171,9 @@ namespace doriax::editor {
         bool focusRequested;
         bool windowFocused;
 
+        // True when the UILab host owns the window and calls drawContent().
+        bool hostedWindow = false;
+
         bool showDeleteConfirmation;
 
         MaterialRender materialRender;
@@ -276,6 +279,17 @@ namespace doriax::editor {
         void show();
         void setOpen(bool open);
         bool isOpen() const;
+
+        // Draws the panel's contents inside a window somebody else opened, and runs
+        // the work that has to happen once the window is closed. The UILab host
+        // calls both around its asset browser panel.
+        void drawContent();
+        void afterDraw();
+
+        // True when the UILab host owns the window: show() then keeps the per-frame
+        // bookkeeping and leaves Begin/End to the library.
+        void setHostedWindow(bool hosted);
+        bool* openFlag();
     };
 
 }

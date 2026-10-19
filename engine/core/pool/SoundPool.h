@@ -30,16 +30,28 @@ namespace doriax{
 
     };
 
+    // See TextureBuildResult: a build thread reports a bad file through this value,
+    // because _HAS_EXCEPTIONS=0 leaves std::packaged_task without an exception slot
+    // and a throw on a pool thread aborts the process.
+    struct SoundBuildResult {
+        std::shared_ptr<SoLoud::Wav> wav;
+        std::string error;
+
+        bool ok() const {
+            return error.empty();
+        }
+    };
+
     class DORIAX_API SoundPool{
     private:
         static sounds_t& getMap();
 
-        static std::unordered_map<std::string, std::future<std::shared_ptr<SoLoud::Wav>>> pendingBuilds;
+        static std::unordered_map<std::string, std::future<SoundBuildResult>> pendingBuilds;
         static std::unordered_set<std::string> failedBuilds;
         static std::mutex cacheMutex;
         static std::atomic<bool> shutdownRequested;
 
-        static std::shared_ptr<SoLoud::Wav> loadSoundInternal(const std::string& id, const std::string& filename, bool trackProgress);
+        static SoundBuildResult loadSoundInternal(const std::string& id, const std::string& filename, bool trackProgress);
         static std::string getSoundDisplayName(const std::string& path);
 
     public:

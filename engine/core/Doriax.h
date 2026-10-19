@@ -89,6 +89,7 @@
 #include "component/UIComponent.h"
 #include "component/UIContainerComponent.h"
 #include "component/UILayoutComponent.h"
+#include "ecs/components/TagComponent.h"
 
 #include "ecs/ComponentArray.h"
 #include "ecs/ComponentManager.h"
@@ -167,6 +168,7 @@
 #include "pool/TextureDataPool.h"
 #include "pool/TexturePool.h"
 #include "pool/ModelPool.h"
+#include "pool/ObjectPool.h"
 
 #include "registry/EntityRegistry.h"
 

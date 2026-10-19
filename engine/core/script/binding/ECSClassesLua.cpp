@@ -134,6 +134,8 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addFunction("actionStart", &ActionSystem::actionStart)
         .addFunction("actionStop", &ActionSystem::actionStop)
         .addFunction("actionPause", &ActionSystem::actionPause)
+        .addFunction("getDuration", (float(ActionSystem::*)(Entity))&ActionSystem::getDuration)
+        .addFunction("isAnimationReachable", (bool(ActionSystem::*)(Entity, Entity))&ActionSystem::isAnimationReachable)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -142,6 +144,7 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addStaticFunction("pauseAll", &AudioSystem::pauseAll)
         .addStaticFunction("resumeAll", &AudioSystem::resumeAll)
         .addStaticFunction("checkActive", &AudioSystem::checkActive)
+        .addFunction("stopSceneSounds", &AudioSystem::stopSceneSounds)
         .addStaticProperty("globalVolume", &AudioSystem::getGlobalVolume,  &AudioSystem::setGlobalVolume)
         .endClass();
 
@@ -153,10 +156,22 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addFunction("createCylinder", &MeshSystem::createCylinder)
         .addFunction("createCapsule", &MeshSystem::createCapsule)
         .addFunction("createTorus", &MeshSystem::createTorus)
+        .addFunction("createWall", &MeshSystem::createWall)
         .addFunction("loadGLTF", &MeshSystem::loadGLTF)
         .addFunction("loadOBJ", &MeshSystem::loadOBJ)
         .addFunction("createInstancedMesh", &MeshSystem::createInstancedMesh)
         .addFunction("removeInstancedMesh", &MeshSystem::removeInstancedMesh)
+        .addFunction("hasInstancedMesh", &MeshSystem::hasInstancedMesh)
+        .addFunction("calculateMeshAABB", &MeshSystem::calculateMeshAABB)
+        .addFunction("resetModelToBindPose", &MeshSystem::resetModelToBindPose)
+        .addFunction("clearBoneMapping", &MeshSystem::clearBoneMapping)
+        .addFunction("clearAnimationMapping", &MeshSystem::clearAnimationMapping)
+        .addFunction("clearMeshNodeMapping", &MeshSystem::clearMeshNodeMapping)
+        .addFunction("destroyModel", &MeshSystem::destroyModel)
+        .addFunction("hasPendingAsyncModelLoads", &MeshSystem::hasPendingAsyncModelLoads)
+        .addFunction("cancelAsyncModelLoads", &MeshSystem::cancelAsyncModelLoads)
+        .addStaticFunction("cancelAllAsyncModelLoads", &MeshSystem::cancelAllAsyncModelLoads)
+        .addStaticFunction("setImageDecodeMaxDimension", &MeshSystem::setImageDecodeMaxDimension)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -243,6 +258,10 @@ void LuaBinding::registerECSClasses(lua_State *L){
     luabridge::getGlobalNamespace(L)
         .deriveClass<RenderSystem, SubSystem>("RenderSystem")
         .addFunction("updateCameraSize", &RenderSystem::updateCameraSize)
+        .addFunction("setDisableFaceCulling", &RenderSystem::setDisableFaceCulling)
+        .addFunction("setDisableFixedResolution", &RenderSystem::setDisableFixedResolution)
+        .addFunction("needReloadMeshes", &RenderSystem::needReloadMeshes)
+        .addFunction("needReloadPostProcess", &RenderSystem::needReloadPostProcess)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -258,6 +277,8 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addFunction("eventOnPointerDown", &UISystem::eventOnPointerDown)
         .addFunction("eventOnPointerUp", &UISystem::eventOnPointerUp)
         .addFunction("eventOnPointerMove", &UISystem::eventOnPointerMove)
+        .addFunction("getTextMinSize", &UISystem::getTextMinSize)
+        .addFunction("resetButtonStates", &UISystem::resetButtonStates)
         .endClass();
 
     luabridge::getGlobalNamespace(L)

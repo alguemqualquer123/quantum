@@ -11,6 +11,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include <cctype>
 #include <cstring>
 #include <chrono>
 
@@ -606,34 +607,54 @@ bool OutputWindow::passTextFilter(const char* text) const {
     if (!searchMatchCase)
         return filter.PassFilter(text);
 
-    // Case-sensitive path:
-    // Use built tokens (filter.Build() must be called when InputBuf changes)
+    // Case-sensitive path: Dear ImGui 1.93 made the filter's parsed token list
+    // internal, so the tokens are read back from the public input buffer with the
+    // same rules PassFilter() uses (split on ',' and blanks, '-' excludes, a
+    // quoted token is one phrase).
     const char* text_begin = text;
     const char* text_end   = text + std::strlen(text);
+
+    const char* buf        = filter.InputBuf;
+    const char* buf_end    = buf + std::strlen(buf);
 
     int include_count = 0;
     bool include_matched = false;
 
-    for (int i = 0; i < filter.Filters.Size; ++i) {
-        const ImGuiTextFilter::ImGuiTextRange& r = filter.Filters[i];
-        if (r.empty()) continue;
+    while (buf < buf_end) {
+        while (buf < buf_end && std::isspace((unsigned char)*buf))
+            buf++;
 
-        const char* f_begin = r.b;
-        const char* f_end   = r.e;
-
-        bool is_exclude = (*f_begin == '-');
-        if (is_exclude) {
-            f_begin++;
-            if (f_begin >= f_end) continue; // empty exclude
-        } else {
-            include_count++;
+        bool is_exclude = false;
+        if (buf < buf_end && *buf == '-') {
+            is_exclude = true;
+            buf++;
         }
 
+        bool is_quoted = false;
+        if (buf < buf_end && *buf == '\"') {
+            is_quoted = true;
+            buf++;
+        }
+
+        const char* token_begin = buf;
+        const char* token_end   = token_begin;
+        while (token_end < buf_end) {
+            if (is_quoted ? (*token_end == '\"')
+                          : (*token_end == ',' || std::isspace((unsigned char)*token_end)))
+                break;
+            token_end++;
+        }
+        buf = (token_end < buf_end) ? token_end + 1 : buf_end; // past the delimiter
+
+        if (token_end == token_begin)
+            continue; // empty token
+
         // Case-sensitive substring search
-        const char* found = std::search(text_begin, text_end, f_begin, f_end);
+        const char* found = std::search(text_begin, text_end, token_begin, token_end);
         if (is_exclude) {
             if (found != text_end) return false; // excluded token present
         } else {
+            include_count++;
             if (found != text_end) include_matched = true;
         }
     }
