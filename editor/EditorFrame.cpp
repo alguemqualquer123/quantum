@@ -5,10 +5,12 @@
 
 #include "AppSettings.h"
 #include "Backend.h"
+#include "util/GraphicUtils.h"
 
 #include "imgui.h"
 
 #include <chrono>
+#include <cstdlib>
 #include <thread>
 
 using namespace doriax;
@@ -22,6 +24,33 @@ constexpr double IDLE_ENTER_DELAY = 0.5;
 double monotonicSeconds(){
     using Clock = std::chrono::steady_clock;
     return std::chrono::duration<double>(Clock::now().time_since_epoch()).count();
+}
+
+// Verification scaffolding for agents: the editor must not be launched to look at
+// it, and grabbing the desktop is banned, so DORIAX_EDITOR_CAPTURE=<path without
+// extension> writes two composed backbuffers (early, then after the panels have
+// settled) and the caller stops the process. Nothing happens without the variable.
+void captureRequestedFrames(const EditorFrameState& state, bool frameSubmitted){
+    static const char* basePath = std::getenv("DORIAX_EDITOR_CAPTURE");
+    if (basePath == nullptr || basePath[0] == '\0') {
+        return;
+    }
+    static unsigned int submitted = 0;
+    if (!frameSubmitted) {
+        return;
+    }
+    ++submitted;
+
+    static const unsigned int checkpoints[2] = { 30, 120 };
+    static bool taken[2] = { false, false };
+    for (int i = 0; i < 2; ++i) {
+        if (taken[i] || submitted != checkpoints[i]) {
+            continue;
+        }
+        taken[i] = true;
+        const std::string path = std::string(basePath) + "-f" + std::to_string(checkpoints[i]) + ".png";
+        GraphicUtils::captureEditorFrame(path, state.width, state.height);
+    }
 }
 
 }
@@ -127,6 +156,8 @@ bool EditorFrame::run(EditorFrameState& state){
     if (!frameReady || frameSubmitted){
         renderer->renderViewports(renderRequested || activity);
     }
+
+    captureRequestedFrames(state, frameSubmitted);
 
     if (frameSubmitted){
         renderer->present();
