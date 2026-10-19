@@ -85,7 +85,7 @@ in editor builds but not in game builds.
 
 ```bash
 cmake --build "$DORIAX_BUILD_DIR" --target doriax-editor --config Debug   # one tree, MSVC
-"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --project <dir> --backend opengl
+"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --out <dir> --backend opengl
 "$DORIAX_BUILD_DIR/Debug/doriax-engine.exe" --project <dir> --window 1280x720
 doriax-build-generator.exe status --project <dir>                          # stale generated files?
 ```

@@ -53,7 +53,7 @@ fog, light shafts, VSM, SSGI). Before answering "does doriax have X", check for 
 
 No render test harness exists. Minimum bar: `generate_shaders` re-run, the `doriax`
 target compiles with MSVC, and the affected variants compile headless via
-`doriax-resource-compiler.exe shaders --project <dir> --backend opengl --shader "<type>:<bits>"`.
+`doriax-resource-compiler.exe shaders --out <dir> --backend opengl --shader "<type>:<bits>"`.
 GLSL errors otherwise surface at runtime, and the visual check belongs to the user
 (`doriax-safety-rules`).
 

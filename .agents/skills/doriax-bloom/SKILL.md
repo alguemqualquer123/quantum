@@ -51,6 +51,6 @@ colour*, which looks muddy. Decide explicitly which of these you are doing:
 - `generate_shaders` must run before any shader-side change is visible
   (`doriax-shaders`).
 - Verify headless:
-  `doriax-resource-compiler.exe shaders --project <dir> --backend opengl --shader "<type>:<bits>"`
+  `doriax-resource-compiler.exe shaders --out <dir> --backend opengl --shader "<type>:<bits>"`
   for each new type. Visual confirmation must come from the user running the editor -
   agents are forbidden from launching `doriax-editor.exe`.

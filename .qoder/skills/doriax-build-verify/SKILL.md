@@ -55,15 +55,20 @@ exe - the editor and `doriax-engine` resolve the engine dir from there),
 "$DORIAX_BUILD_DIR/Debug/doriax-reflector.exe" check --bindings engine/core/script/binding \
     --against engine_api_suggestions.h          # CI staleness gate, exit 1 = stale
 "$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" pak --project <dir> [--out x.pak]
-"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --project <dir> [--force]
+"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --out <dir> --shader <spec> [--backend opengl]
 "$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" inspect --pack x.pak
 "$DORIAX_BUILD_DIR/Debug/doriax-engine.exe" --project <dir> [--scene main.lua] [--window 1280x720]
-"$DORIAX_BUILD_DIR/Debug/doriax-resource-server.exe" --project <dir> [--port 0] [--once] [--parent <pid>]
+"$DORIAX_BUILD_DIR/Debug/doriax-resource-server.exe" --project <dir> [--port 0] [--once] [--parent <pid>] [--token <hex>] [--window|--no-window]
 ```
 
-`doriax-resource-server` answers newline-delimited JSON over 127.0.0.1 (`ping|status|index|entry|changes`),
+`doriax-resource-server` answers newline-delimited JSON over 127.0.0.1 (`ping|status|index|entry|changes|connections`),
 keeps running after the editor closes and lives in the Windows notification area; `--port 0`
 prints `doriax-resource-server: listening on 127.0.0.1:<port>`, `--once` scans and exits.
+`connections` reports who asked for what, with the peer's real process name and PID read from
+the OS TCP table (a client's own `"client"` tag is only a label). Started by hand it also opens a
+plain-Win32 window with the two lists and Clear/Hide/Quit buttons; the editor-spawned one
+(`--parent`) stays in the tray and the tray menu's "Show connections window" opens it later.
+Closing that window only hides it - the service keeps serving.
 
 `scripts/reflect_api.sh [build-dir]` (in this skill's `scripts/`) regenerates the header
 and diffs it against `$DORIAX_BUILD_DIR/generated/engine_api_suggestions.h`

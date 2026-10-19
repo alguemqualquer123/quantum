@@ -71,8 +71,8 @@ Do not describe doriax as a deferred renderer.
 ## Verify headless (no editor launch)
 
 ```bash
-"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --project <dir> \
-    --out /tmp/shout --backend opengl --shader "mesh:Puc,Nor,Aop"
+"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --out /tmp/shout \
+    --backend opengl --shader "mesh:Puc,Nor,Aop"
 ```
 
 Compile every variant you may have affected by changing the variant letters. This is

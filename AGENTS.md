@@ -62,7 +62,7 @@ A 21-skill set is mirrored, byte-identical, into `.qoder/skills/`, `.opencode/sk
 cmake -S . -B "$DORIAX_BUILD_DIR"
 cmake --build "$DORIAX_BUILD_DIR" --target doriax-editor --config Debug
 cmake --build "$DORIAX_BUILD_DIR" --target generate_shaders          # after ANY shaderlib edit
-"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --project <dir> --backend opengl
+"$DORIAX_BUILD_DIR/Debug/doriax-resource-compiler.exe" shaders --out <dir> --backend opengl --shader <spec>
 "$DORIAX_BUILD_DIR/Debug/doriax-engine.exe" --project <dir> --window 1280x720
 "$DORIAX_BUILD_DIR/Debug/doriax-build-generator.exe" generate --project <dir>
 "$DORIAX_BUILD_DIR/Debug/doriax-reflector.exe" reflect --bindings engine/core/script/binding --out <hpp>

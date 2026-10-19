@@ -64,4 +64,4 @@ An effect becomes a real pass only when all six are done:
    re-run `generate_shaders` (`doriax-shaders`).
 
 Then verify the variants compile headless:
-`doriax-resource-compiler.exe shaders --project <dir> --backend opengl --shader "..."`.
+`doriax-resource-compiler.exe shaders --out <dir> --backend opengl --shader "..."`.
