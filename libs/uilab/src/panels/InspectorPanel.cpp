@@ -562,7 +562,8 @@ void DrawNoSelection(AppContext& ctx) {
 } // namespace
 
 void DrawInspector(AppContext& ctx) {
-    if (!ImGui::Begin(kInspectorTitle)) {
+    const HostPanel& panel = ctx.host.inspectorPanel;
+    if (!ImGui::Begin(panel.titleOr(kInspectorTitle), panel.pOpen)) {
         ImGui::End();
         return;
     }

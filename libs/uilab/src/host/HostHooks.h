@@ -15,6 +15,22 @@ namespace uilab {
 
 class AppContext;
 
+// Where a host takes over a panel's content it usually also owns the panel's
+// window: the name its saved dock layout addresses it by, and the flag its own
+// menus and close button drive. Both are optional - unset keeps the library's
+// defaults (its own title, no close button).
+struct HostPanel {
+    // The window name to open instead of the library's own title.
+    const char* title = nullptr;
+    // The host's visibility flag, passed as p_open so the title bar keeps a
+    // close button that the host can read back.
+    bool* pOpen = nullptr;
+
+    const char* titleOr(const char* libraryTitle) const {
+        return title != nullptr ? title : libraryTitle;
+    }
+};
+
 struct HostHooks {
     // Main menu bar contents (called between BeginMainMenuBar and EndMainMenuBar).
     std::function<void(AppContext&)> menuBar;
@@ -26,6 +42,12 @@ struct HostHooks {
     std::function<void(AppContext&)> hierarchy;
     std::function<void(AppContext&)> inspector;
     std::function<void(AppContext&)> assetBrowser;
+
+    // Window identity of those same panels.
+    HostPanel componentTreePanel;
+    HostPanel hierarchyPanel;
+    HostPanel inspectorPanel;
+    HostPanel assetBrowserPanel;
 };
 
 } // namespace uilab

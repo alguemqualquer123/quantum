@@ -243,7 +243,8 @@ void DrawGrid(AppContext& ctx, const std::vector<AssetLibrary::FlatEntry>& entri
 } // namespace
 
 void DrawAssetBrowser(AppContext& ctx) {
-    if (!ImGui::Begin(kAssetBrowserTitle)) {
+    const HostPanel& panel = ctx.host.assetBrowserPanel;
+    if (!ImGui::Begin(panel.titleOr(kAssetBrowserTitle), panel.pOpen)) {
         ImGui::End();
         return;
     }

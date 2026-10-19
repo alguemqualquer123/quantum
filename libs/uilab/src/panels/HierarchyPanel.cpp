@@ -100,7 +100,8 @@ void NodeContextMenu(AppContext& ctx, CanvasNode& node) {
 } // namespace
 
 void DrawHierarchy(AppContext& ctx) {
-    if (!ImGui::Begin(kHierarchyTitle)) {
+    const HostPanel& panel = ctx.host.hierarchyPanel;
+    if (!ImGui::Begin(panel.titleOr(kHierarchyTitle), panel.pOpen)) {
         ImGui::End();
         return;
     }

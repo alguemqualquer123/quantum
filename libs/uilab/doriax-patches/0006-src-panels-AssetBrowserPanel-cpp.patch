@@ -1,15 +1,18 @@
 --- a/src/panels/AssetBrowserPanel.cpp
 +++ b/src/panels/AssetBrowserPanel.cpp
-@@ -248,6 +248,12 @@
-         return;
-     }
+@@ -243,7 +243,14 @@
+ } // namespace
  
-+    if (ctx.host.assetBrowser) {
-+        ctx.host.assetBrowser(ctx);
+ void DrawAssetBrowser(AppContext& ctx) {
+-    if (!ImGui::Begin(kAssetBrowserTitle)) {
++    const HostPanel& panel = ctx.host.assetBrowserPanel;
++    if (!ImGui::Begin(panel.titleOr(kAssetBrowserTitle), panel.pOpen)) {
 +        ImGui::End();
 +        return;
 +    }
 +
-     if (ctx.assets.dirty)
-         ctx.assets.RebuildPaths();
- 
++    if (ctx.host.assetBrowser) {
++        ctx.host.assetBrowser(ctx);
+         ImGui::End();
+         return;
+     }

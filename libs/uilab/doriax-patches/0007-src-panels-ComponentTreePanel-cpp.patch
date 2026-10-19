@@ -1,15 +1,18 @@
 --- a/src/panels/ComponentTreePanel.cpp
 +++ b/src/panels/ComponentTreePanel.cpp
-@@ -135,6 +135,12 @@
-         return;
-     }
+@@ -130,7 +130,14 @@
+ } // namespace
  
-+    if (ctx.host.componentTree) {
-+        ctx.host.componentTree(ctx);
+ void DrawComponentTree(AppContext& ctx) {
+-    if (!ImGui::Begin(kComponentTreeTitle)) {
++    const HostPanel& panel = ctx.host.componentTreePanel;
++    if (!ImGui::Begin(panel.titleOr(kComponentTreeTitle), panel.pOpen)) {
 +        ImGui::End();
 +        return;
 +    }
 +
-     // ---- header ----------------------------------------------------------
-     widgets::SearchField("##tree_search", ctx.demo.searchQuery, "Filter components...", -1.0f);
-     ImGui::Spacing();
++    if (ctx.host.componentTree) {
++        ctx.host.componentTree(ctx);
+         ImGui::End();
+         return;
+     }

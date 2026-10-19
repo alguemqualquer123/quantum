@@ -130,7 +130,8 @@ bool ComponentRow(AppContext& ctx, WidgetInstance& w, float indent) {
 } // namespace
 
 void DrawComponentTree(AppContext& ctx) {
-    if (!ImGui::Begin(kComponentTreeTitle)) {
+    const HostPanel& panel = ctx.host.componentTreePanel;
+    if (!ImGui::Begin(panel.titleOr(kComponentTreeTitle), panel.pOpen)) {
         ImGui::End();
         return;
     }
