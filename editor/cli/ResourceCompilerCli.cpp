@@ -31,6 +31,7 @@
     #define NOMINMAX
     #include <windows.h>
     #include <cstdio>
+    #include <cstdlib>
 #endif
 
 namespace doriax::editor::cli {
@@ -123,6 +124,23 @@ namespace {
 
     // A GUI-subsystem binary has no console attached; reclaim the parent's so the
     // CLI output reaches the terminal (same as the export/shaders subcommands).
+    // Double-clicked from Explorer, the tool gets a console of its own that is
+    // destroyed when it exits, so the usage text flashed past and read as "the
+    // program does not open". Only that case waits: a shell shares its console
+    // with the child (two or more attached processes), and a spawned tool has
+    // none at all, so scripted runs keep their non-blocking behaviour.
+#ifdef _WIN32
+    void waitForReaderIfWeOwnTheConsole() {
+        DWORD attached[2] = {0, 0};
+        if (GetConsoleProcessList(&attached[0], 2) != 1) return;
+        std::atexit([] {
+            std::fputs("\nPress Enter to close this window.\n", stdout);
+            std::fflush(stdout);
+            std::getchar();
+        });
+    }
+#endif
+
     void attachHostConsoleIfNeeded() {
 #if defined(_WIN32)
         if (AttachConsole(ATTACH_PARENT_PROCESS)) {
@@ -132,7 +150,9 @@ namespace {
             (void)freopen_s(&stdoutFile, "CONOUT$", "w", stdout);
             (void)freopen_s(&stderrFile, "CONOUT$", "w", stderr);
             (void)freopen_s(&stdinFile,  "CONIN$",  "r", stdin);
+            return;
         }
+        waitForReaderIfWeOwnTheConsole();
 #endif
     }
 
