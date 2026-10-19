@@ -34,18 +34,31 @@ namespace doriax{
         }
     };
 
+    // What a build thread hands back. A worker must never throw: Jolt propagates
+    // _HAS_EXCEPTIONS=0 into the engine, std::packaged_task then keeps no exception
+    // slot, and the escaped throw ends the whole process in abort() - so a failed
+    // asset is reported as a value and the caller decides what to show.
+    struct TextureBuildResult {
+        std::array<TextureData, 6> data;
+        std::string error;
+
+        bool ok() const {
+            return error.empty();
+        }
+    };
+
     class DORIAX_API TextureDataPool{
     private:
         static texturesdata_t& getMap();
 
-        static std::unordered_map<std::string, std::future<std::array<TextureData,6>>> pendingBuilds;
+        static std::unordered_map<std::string, std::future<TextureBuildResult>> pendingBuilds;
         static std::mutex cacheMutex;
         static std::atomic<bool> shutdownRequested;
 
         static bool hasTexturePixels(const std::shared_ptr<std::array<TextureData,6>>& data, size_t numFaces);
         static size_t getTextureFaces(std::array<TextureData,6>& data);
 
-        static std::array<TextureData,6> loadTextureInternal(const std::string& id, const std::array<std::string, 6>& paths, size_t numFaces, bool trackProgress);
+        static TextureBuildResult loadTextureInternal(const std::string& id, const std::array<std::string, 6>& paths, size_t numFaces, bool trackProgress);
         static std::string getTextureDisplayName(const std::string& path);
         static std::string validateTextureFaces(std::array<TextureData,6>& data, size_t numFaces);
 

@@ -422,7 +422,7 @@ bool TextureData::loadCubeMapFromSingleFile(const char* filename, std::array<Tex
     //
     // Instead, extract each face into its own buffer.
 
-    auto extractFace = [&](int faceIndex, int xTile, int yTile){
+    auto extractFace = [&](int faceIndex, int xTile, int yTile) -> bool{
         const int xOffset = xTile * tileW;
         const int yOffset = yTile * tileH;
 
@@ -434,8 +434,12 @@ bool TextureData::loadCubeMapFromSingleFile(const char* filename, std::array<Tex
         const int rowBytes = tileW * srcChannels;
         const int bufsize = tileW * tileH * srcChannels;
         unsigned char* faceData = (unsigned char*)malloc(bufsize * sizeof(unsigned char));
-        if (!faceData)
-            throw std::runtime_error("Out of memory while extracting cubemap face");
+        if (!faceData){
+            // cubemap faces are extracted on a pool thread, where a throw aborts the
+            // process instead of unwinding - report the failure as a value.
+            Log::error("Out of memory while extracting cubemap face");
+            return false;
+        }
 
         for (int y = 0; y < tileH; y++){
             const size_t srcOffset = ((size_t)(yOffset + y) * (size_t)srcW + (size_t)xOffset) * (size_t)srcChannels;
@@ -444,29 +448,27 @@ bool TextureData::loadCubeMapFromSingleFile(const char* filename, std::array<Tex
         }
 
         data[faceIndex] = TextureData(tileW, tileH, (unsigned int)bufsize, srcFormat, srcChannels, faceData);
+        return true;
     };
 
-    try {
-        // Using DORIAX convention:
-        // Right (+X)
-        extractFace(0, right[0], right[1]);
+    // Using DORIAX convention:
+    // Right (+X)
+    const bool facesOk = extractFace(0, right[0], right[1])
         // Left (-X)
-        extractFace(1, left[0], left[1]);
+        && extractFace(1, left[0], left[1])
         // Top (+Y)
-        extractFace(2, top[0], top[1]);
+        && extractFace(2, top[0], top[1])
         // Bottom (-Y)
-        extractFace(3, bottom[0], bottom[1]);
+        && extractFace(3, bottom[0], bottom[1])
         // Front (+Z)
-        extractFace(4, front[0], front[1]);
+        && extractFace(4, front[0], front[1])
         // Back (-Z)
-        extractFace(5, back[0], back[1]);
-    } catch (...) {
-        texture.releaseImageData();
-        throw;
-    }
+        && extractFace(5, back[0], back[1]);
 
-    // Release temporary source image data (it is not stored in the returned faces)
     texture.releaseImageData();
+
+    if (!facesOk)
+        return false;
 
     return true;
 }

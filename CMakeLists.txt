@@ -467,7 +467,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/doriax_engine_exe.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/doriax_reflector.cmake)
 
 # Development executable for the retained-mode UI module (engine/core/ui).
-include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/doriax_ui_demo.cmake)
+# include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/doriax_ui_demo.cmake)
 
 # GPU-free unit tests of the UI module (EXCLUDE_FROM_ALL; never built by default).
 option(DORIAX_BUILD_TESTS "Build the doriax unit tests" ON)
@@ -988,6 +988,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         )
     endforeach()
 endif()
-add_subdirectory(engine/voxel)
-add_subdirectory(engine/voxel_demo)
+# add_subdirectory(engine/voxel)
+# add_subdirectory(engine/voxel_demo)
 

@@ -48,7 +48,13 @@ same `Engine::systemDraw()` (`editor/App.cpp:2214`). Do not raise `maxDeltatime`
    `Engine.cpp:904-907`, shut down `:1170-1172`, retunable via
    `Engine::setMaxResourceLoadingThreads` `:653-658`.
 5. **Nothing may throw across a task/future boundary** - `_HAS_EXCEPTIONS=0`
-   (`doriax-api`). Record failure in state instead (`ShaderBuilder.cpp:611-618`).
+   (`doriax-api`) leaves `std::packaged_task` with no exception slot, so a throw that
+   escapes a worker lambda ends the whole process in `abort()` (the "Debug Error!"
+   dialog). Record the failure in a value instead: the asset pools return
+   `TextureBuildResult` / `SoundBuildResult` whose `error` string `loadFromFile` maps
+   onto `ResourceLoadState::Failed` + `errorMessage`, which the callers already handle
+   (`Texture::load`, `AudioSystem::loadSoundSample`). `ShaderBuilder` and `MeshSystem`
+   catch inside their task body instead.
 6. **Wait on a pending future before erasing it** (`engine/core/pool/SoundPool.cpp:197-206`,
    `TextureDataPool.cpp:384-392`); a move-assign onto a joinable `std::thread` is
    `std::terminate` (`editor/ai/AiService.cpp:869-876`).

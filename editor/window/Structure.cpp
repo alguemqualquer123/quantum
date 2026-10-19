@@ -689,6 +689,11 @@ void editor::Structure::showNewEntityMenu(bool isScene, Entity parent, bool addT
         openParent = parent;
     }
 
+    if (ImGui::MenuItem(ICON_FA_BONE"  Water")){
+        CommandHandle::get(project->getSelectedSceneId())->addCommandNoMerge(new CreateEntityCmd(project, project->getSelectedSceneId(), "Water", EntityCreationType::WATER, parent, addToBundle));
+        openParent = parent;
+    }
+
     ImGui::EndMenu();
 }
 

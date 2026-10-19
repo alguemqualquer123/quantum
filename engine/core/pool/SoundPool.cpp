@@ -17,7 +17,7 @@
 
 using namespace doriax;
 
-std::unordered_map<std::string, std::future<std::shared_ptr<SoLoud::Wav>>> SoundPool::pendingBuilds;
+std::unordered_map<std::string, std::future<SoundBuildResult>> SoundPool::pendingBuilds;
 std::mutex SoundPool::cacheMutex;
 std::atomic<bool> SoundPool::shutdownRequested{false};
 
@@ -44,27 +44,27 @@ SoundLoadResult SoundPool::loadFromFile(const std::string& id, const std::string
         std::lock_guard<std::mutex> lock(cacheMutex);
 
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            result.state = ResourceLoadState::Failed;
+            result.errorMessage = "Shutdown requested";
+            return result;
         }
 
         auto it = pendingBuilds.find(id);
         if (it != pendingBuilds.end()) {
             auto& future = it->second;
             if (future.valid() && future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                try {
-                    shared = future.get();
-                    pendingBuilds.erase(it);
-
-                    result.state = ResourceLoadState::Finished;
-                    result.data = shared;
-                    return result;
-                } catch (const std::exception& e) {
-                    pendingBuilds.erase(it);
-
+                SoundBuildResult built = future.get();
+                pendingBuilds.erase(it);
+                if (!built.ok()) {
                     result.state = ResourceLoadState::Failed;
-                    result.errorMessage = e.what();
+                    result.errorMessage = built.error;
                     return result;
                 }
+
+                shared = built.wav;
+                result.state = ResourceLoadState::Finished;
+                result.data = shared;
+                return result;
             } else if (future.valid()) {
                 result.state = ResourceLoadState::Loading;
                 return result;
@@ -77,7 +77,9 @@ SoundLoadResult SoundPool::loadFromFile(const std::string& id, const std::string
         }
 
         if (shutdownRequested.load()) {
-            throw std::runtime_error("Shutdown requested");
+            result.state = ResourceLoadState::Failed;
+            result.errorMessage = "Shutdown requested";
+            return result;
         }
 
         std::string soundName = getSoundDisplayName(filename);
@@ -91,30 +93,32 @@ SoundLoadResult SoundPool::loadFromFile(const std::string& id, const std::string
             }
         );
     } else {
-        try {
-            shared = loadSoundInternal(id, filename, false);
-
-            result.state = ResourceLoadState::Finished;
-            result.data = shared;
-            return result;
-        } catch (const std::exception& e) {
+        SoundBuildResult built = loadSoundInternal(id, filename, false);
+        if (!built.ok()) {
             result.state = ResourceLoadState::Failed;
-            result.errorMessage = e.what();
+            result.errorMessage = built.error;
             return result;
         }
+
+        shared = built.wav;
+        result.state = ResourceLoadState::Finished;
+        result.data = shared;
+        return result;
     }
 
     result.state = ResourceLoadState::Loading;
     return result;
 }
 
-std::shared_ptr<SoLoud::Wav> SoundPool::loadSoundInternal(const std::string& id, const std::string& filename, bool trackProgress){
+SoundBuildResult SoundPool::loadSoundInternal(const std::string& id, const std::string& filename, bool trackProgress){
     uint64_t buildId = std::hash<std::string>{}(id);
+    SoundBuildResult build;
 
     if (trackProgress) {
         if (shutdownRequested.load()) {
             ResourceProgress::failBuild(buildId);
-            throw std::runtime_error("Shutdown requested");
+            build.error = "Shutdown requested";
+            return build;
         }
         ResourceProgress::updateProgress(buildId, 0.35f);
     }
@@ -126,13 +130,15 @@ std::shared_ptr<SoLoud::Wav> SoundPool::loadSoundInternal(const std::string& id,
             ResourceProgress::failBuild(buildId);
         }
         Log::error("Sound file not found: %s", filename.c_str());
-        throw std::runtime_error("Sound file not found: " + filename);
+        build.error = "Sound file not found: " + filename;
+        return build;
     }
 
     if (trackProgress) {
         if (shutdownRequested.load()) {
             ResourceProgress::failBuild(buildId);
-            throw std::runtime_error("Shutdown requested");
+            build.error = "Shutdown requested";
+            return build;
         }
         ResourceProgress::updateProgress(buildId, 0.7f);
     }
@@ -145,19 +151,22 @@ std::shared_ptr<SoLoud::Wav> SoundPool::loadSoundInternal(const std::string& id,
             ResourceProgress::failBuild(buildId);
         }
         Log::error("Sound file type of '%s' could not be loaded", filename.c_str());
-        throw std::runtime_error("Sound file type of '" + filename + "' could not be loaded");
+        build.error = "Sound file type of '" + filename + "' could not be loaded";
+        return build;
     }else if (res == SoLoud::SOLOUD_ERRORS::OUT_OF_MEMORY){
         if (trackProgress) {
             ResourceProgress::failBuild(buildId);
         }
         Log::error("Out of memory when loading '%s'", filename.c_str());
-        throw std::runtime_error("Out of memory when loading '" + filename + "'");
+        build.error = "Out of memory when loading '" + filename + "'";
+        return build;
     }else if (res == SoLoud::SOLOUD_ERRORS::UNKNOWN_ERROR){
         if (trackProgress) {
             ResourceProgress::failBuild(buildId);
         }
         Log::error("Unknown error when loading '%s'", filename.c_str());
-        throw std::runtime_error("Unknown error when loading '" + filename + "'");
+        build.error = "Unknown error when loading '" + filename + "'";
+        return build;
     }
 
     sound->setSingleInstance(true);
@@ -166,13 +175,15 @@ std::shared_ptr<SoLoud::Wav> SoundPool::loadSoundInternal(const std::string& id,
     if (trackProgress) {
         if (shutdownRequested.load()) {
             ResourceProgress::failBuild(buildId);
-            throw std::runtime_error("Shutdown requested");
+            build.error = "Shutdown requested";
+            return build;
         }
         ResourceProgress::updateProgress(buildId, 1.0f);
         ResourceProgress::completeBuild(buildId);
     }
 
-    return sound;
+    build.wav = sound;
+    return build;
 }
 
 std::string SoundPool::getSoundDisplayName(const std::string& path){
