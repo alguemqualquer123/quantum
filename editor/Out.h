@@ -5,6 +5,7 @@
 
 #include "window/OutputWindow.h"
 #include <filesystem>
+#include <functional>
 #include <iosfwd>
 #include <string>
 #include <memory>
@@ -14,6 +15,11 @@ namespace doriax::editor {
     private:
         static OutputWindow* outputWindow;
         static void logMessage(LogType type, const std::string& message, const char* fallbackPrefix, std::ostream& fallbackStream);
+
+        // Mirror of every main-thread log line for the UILab console panel, which
+        // keeps its own ring buffer. Installed by the chrome host.
+        static std::function<void(LogType, const std::string&)> uilabLogMirror;
+        static void mirrorToUILab(LogType type, const std::string& message);
 
         // Helper method for formatting with no arguments
         static std::string formatMessage(const char* fmt) {
@@ -44,6 +50,8 @@ namespace doriax::editor {
     public:
         static void setOutputWindow(OutputWindow* outputWindow);
         static OutputWindow* getOutputWindow();
+
+        static void setUILabLogMirror(std::function<void(LogType, const std::string&)> mirror);
 
         // Mirrors every message to a file, from any thread. The Output window dies with
         // the process, this is what is left after a crash.

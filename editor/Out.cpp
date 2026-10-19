@@ -14,6 +14,7 @@
 using namespace doriax::editor;
 
 OutputWindow* Out::outputWindow = nullptr;
+std::function<void(LogType, const std::string&)> Out::uilabLogMirror = nullptr;
 
 namespace {
 
@@ -98,6 +99,7 @@ void Out::logMessage(LogType type, const std::string& message, const char* fallb
         EditorHost& host = getEditorHost();
         if (host.isMainThread()) {
             window->addLog(type, message);
+            mirrorToUILab(type, message);
             return;
         }
 
@@ -105,10 +107,20 @@ void Out::logMessage(LogType type, const std::string& message, const char* fallb
             if (OutputWindow* window = Out::getOutputWindow()) {
                 window->addLog(type, message);
             }
+            mirrorToUILab(type, message);
         });
     } else {
         fallbackStream << fallbackPrefix << message << std::endl;
     }
+}
+
+void Out::setUILabLogMirror(std::function<void(LogType, const std::string&)> mirror) {
+    uilabLogMirror = std::move(mirror);
+}
+
+void Out::mirrorToUILab(LogType type, const std::string& message) {
+    if (uilabLogMirror)
+        uilabLogMirror(type, message);
 }
 
 void Out::setOutputWindow(OutputWindow* outputWindow) {
