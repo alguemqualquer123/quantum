@@ -5,10 +5,11 @@
 //
 // The server is meant to outlive the editor: it keeps indexing the project and
 // sits in the tray (the area where Discord and the anti-cheat agents live) so
-// the user can reach a service that has no window. Its menu is the only way to
-// stop it: "Close server" ends this process, "Close server and editor" asks the
-// editor that spawned it to quit first. POSIX builds compile a no-op object and
-// the server behaves exactly as before.
+// the user can reach a service whose window they closed. A left click brings
+// the connections window back; the menu is the way to stop the process:
+// "Close server" ends this process, "Close server and editor" asks the editor
+// that spawned it to quit first. POSIX builds compile a no-op object and the
+// server behaves exactly as before.
 
 #pragma once
 
@@ -25,7 +26,7 @@ struct TraySnapshot {
     bool editorRunning = false;
 };
 
-enum class TrayChoice { None, QuitServer, QuitServerAndEditor };
+enum class TrayChoice { None, ShowWindow, QuitServer, QuitServerAndEditor };
 
 class TrayIcon {
 public:

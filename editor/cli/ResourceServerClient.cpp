@@ -391,7 +391,10 @@ bool requestServerLine(const std::string& host, int port, const std::string& req
 
 bool probeServer(const std::string& host, int port, std::string& statusJsonOut,
                  std::string& errorOut) {
-    return requestServerLine(host, port, "{\"cmd\":\"status\"}", statusJsonOut, errorOut);
+    // The "client" tag is optional for the server but makes this editor show up
+    // by name in its connections window even if the process lookup fails.
+    return requestServerLine(host, port, "{\"cmd\":\"status\",\"client\":\"doriax-editor\"}",
+                             statusJsonOut, errorOut);
 }
 
 bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut) {
@@ -423,7 +426,10 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
     if (chosenPort <= 0) return false;
 
     std::string cmd = "\"" + absoluteOr(exe) + "\" --project \"" + absoluteOr(projectDir) +
-                      "\" --port " + std::to_string(chosenPort);
+                      "\" --port " + std::to_string(chosenPort) +
+                      // A server the editor owns stays in the tray; the
+                      // connections window is for one a human started.
+                      " --no-window";
     if (parentPid != 0) cmd += " --parent " + std::to_string(parentPid);
 
     SECURITY_ATTRIBUTES sa{ sizeof(sa), nullptr, TRUE };

@@ -4,6 +4,7 @@
 #include "ResourceServer.h"
 #include "JsonMini.h"
 #include "ResourceIndex.h"
+#include "ServerWindow.h"
 #include "TrayIcon.h"
 
 #include <atomic>
@@ -45,6 +46,9 @@ constexpr int kParentCheckSeconds = 2;
 constexpr int kRequestTimeoutMs = 3000;
 constexpr size_t kMaxRequestBytes = 65536;
 constexpr size_t kMaxIndexEntriesInResponse = 5000;
+// The connections command is a human-facing diagnostic, so it answers with the
+// tail of the log rather than the whole ring.
+constexpr size_t kMaxConnectionsInResponse = 128;
 
 #ifdef _WIN32
 using SocketHandle = SOCKET;
@@ -91,12 +95,55 @@ void jsonPutArray(std::string& body, const std::string& key, const std::vector<s
     body += ']';
 }
 
+// Same, for members that are already JSON (the connection and client objects).
+void jsonPutRawArray(std::string& body, const std::string& key,
+                     const std::vector<std::string>& items) {
+    if (!body.empty()) body += ',';
+    body += '"' + jsonEscape(key) + "\":[";
+    for (size_t i = 0; i < items.size(); ++i) {
+        if (i) body += ',';
+        body += items[i];
+    }
+    body += ']';
+}
+
 std::string entryObject(const std::string& path, const IndexEntry& e) {
     std::string body;
     jsonPutString(body, "path", path);
     jsonPutNumber(body, "size", static_cast<double>(e.size));
     jsonPutNumber(body, "mtime", static_cast<double>(e.mtimeRaw));
     jsonPutString(body, "sha1", e.sha1);
+    return "{" + body + "}";
+}
+
+std::string connectionObject(const ConnectionRecord& r) {
+    std::string body;
+    jsonPutNumber(body, "id", static_cast<double>(r.id));
+    jsonPutString(body, "peer", r.peer);
+    jsonPutString(body, "command", r.command);
+    jsonPutString(body, "client", r.client);
+    jsonPutString(body, "process", r.processName);
+    jsonPutNumber(body, "pid", static_cast<double>(r.ownerPid));
+    jsonPutNumber(body, "unixTime", static_cast<double>(r.unixTime));
+    jsonPutNumber(body, "durationMs", r.durationMs);
+    jsonPutNumber(body, "requestBytes", static_cast<double>(r.requestBytes));
+    jsonPutNumber(body, "responseBytes", static_cast<double>(r.responseBytes));
+    jsonPutNumber(body, "ok", r.ok ? 1 : 0);
+    jsonPutString(body, "detail", r.detail);
+    return "{" + body + "}";
+}
+
+std::string clientObject(const ClientGroup& g) {
+    std::string body;
+    jsonPutString(body, "process", g.processName);
+    jsonPutString(body, "pid", g.pidText);
+    jsonPutString(body, "peerHost", g.peerHost);
+    jsonPutString(body, "client", g.client);
+    jsonPutNumber(body, "requests", static_cast<double>(g.requests));
+    jsonPutNumber(body, "failures", static_cast<double>(g.failures));
+    jsonPutNumber(body, "firstSeenUnix", static_cast<double>(g.firstSeenUnix));
+    jsonPutNumber(body, "lastSeenUnix", static_cast<double>(g.lastSeenUnix));
+    jsonPutString(body, "lastCommand", g.lastCommand);
     return "{" + body + "}";
 }
 
@@ -109,7 +156,8 @@ std::string fieldStr(const std::map<std::string, JsonField>& f, const std::strin
 }
 
 std::string handleRequestLine(const std::string& requestLine, ResourceIndex& index,
-                              const std::string& token, long long startUnix) {
+                              const std::string& token, long long startUnix,
+                              const ConnectionLog* log) {
     std::map<std::string, JsonField> fields;
     std::string parseErr;
     if (!parseFlatJsonObject(requestLine, fields, parseErr))
@@ -202,6 +250,32 @@ std::string handleRequestLine(const std::string& requestLine, ResourceIndex& ind
         return okResponse(body);
     }
 
+    if (cmd == "connections") {
+        if (!log) return errorResponse("connections unavailable");
+        const std::vector<ConnectionRecord>& records = log->records();
+        const size_t first = records.size() > kMaxConnectionsInResponse
+                                 ? records.size() - kMaxConnectionsInResponse
+                                 : 0;
+        std::vector<std::string> recent;
+        recent.reserve(records.size() - first);
+        // Newest first, matching what the window shows.
+        for (size_t i = records.size(); i-- > first;) recent.push_back(connectionObject(records[i]));
+        std::vector<std::string> clients;
+        std::vector<ClientGroup> groups = log->clients();
+        clients.reserve(groups.size());
+        for (const ClientGroup& g : groups) clients.push_back(clientObject(g));
+
+        std::string body;
+        jsonPutNumber(body, "accepted", static_cast<double>(log->accepted()));
+        jsonPutNumber(body, "failed", static_cast<double>(log->failures()));
+        jsonPutNumber(body, "lastRequestUnix", static_cast<double>(log->lastRequestUnix()));
+        jsonPutNumber(body, "retained", static_cast<double>(records.size()));
+        jsonPutNumber(body, "capacity", static_cast<double>(ConnectionLog::kCapacity));
+        jsonPutRawArray(body, "clients", clients);
+        jsonPutRawArray(body, "recent", recent);
+        return okResponse(body);
+    }
+
     return errorResponse("unknown cmd: " + cmd);
 }
 
@@ -261,19 +335,82 @@ bool writeAll(SocketHandle s, const std::string& data) {
     return true;
 }
 
+double elapsedMs(std::chrono::steady_clock::time_point started) {
+    const auto us = std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - started)
+                        .count();
+    return static_cast<double>(us) / 1000.0;
+}
+
+// "127.0.0.1:53112" for an accepted socket, empty when the peer is gone.
+std::string peerName(SocketHandle client) {
+    sockaddr_in peer{};
+#ifdef _WIN32
+    int length = sizeof(peer);
+#else
+    socklen_t length = sizeof(peer);
+#endif
+    if (getpeername(client, reinterpret_cast<sockaddr*>(&peer), &length) != 0) return std::string();
+    char host[INET_ADDRSTRLEN] = {0};
+    inet_ntop(AF_INET, &peer.sin_addr, host, INET_ADDRSTRLEN);
+    return std::string(host) + ":" + std::to_string(ntohs(peer.sin_port));
+}
+
+// The "error" member of an {"ok":false,...} response, for the log's detail column.
+std::string responseError(const std::string& response) {
+    std::map<std::string, JsonField> fields;
+    std::string parseError;
+    if (!parseFlatJsonObject(response, fields, parseError)) return std::string();
+    auto it = fields.find("error");
+    return it == fields.end() ? std::string() : it->second.text;
+}
+
 void serveConnection(SocketHandle client, ResourceIndex& index, const std::string& token,
-                     long long startUnix, bool verbose) {
+                     long long startUnix, bool verbose, int localPort, ConnectionLog& log) {
+    ConnectionRecord record;
+    record.peer = peerName(client);
+
     std::string line;
+    const auto started = std::chrono::steady_clock::now();
     if (!readLine(client, line)) {
+        record.detail = "no request within the timeout";
+        record.durationMs = elapsedMs(started);
+        log.add(std::move(record));
         closeSocket(client);
         return;
     }
-    if (verbose) {
-        std::fprintf(stderr, "request: %s\n", line.c_str());
+    record.requestBytes = line.size() + 1;
+
+    // Parsed here as well as inside handleRequestLine(): the log needs the
+    // command and the caller's own "client" tag, and a request line is small.
+    std::map<std::string, JsonField> fields;
+    std::string parseError;
+    if (parseFlatJsonObject(line, fields, parseError)) {
+        record.command = fieldStr(fields, "cmd");
+        record.client = fieldStr(fields, "client");
+        record.detail = fieldStr(fields, "path");
     }
-    std::string response = handleRequestLine(line, index, token, startUnix);
+
+    std::string response = handleRequestLine(line, index, token, startUnix, &log);
+    record.ok = response.rfind("{\"ok\":true", 0) == 0;
     response.push_back('\n');
+    record.responseBytes = response.size();
+    if (!record.ok) {
+        record.detail = responseError(response);
+        if (record.detail.empty()) record.detail = parseError;
+    }
+    if (verbose) {
+        std::fprintf(stderr, "request from %s: %s (%s)\n", record.peer.c_str(), line.c_str(),
+                     record.ok ? "ok" : "failed");
+    }
+
+    // The peer port is only in the TCP table while the socket is open, so the
+    // owner lookup has to run before the close - and it must not be on the
+    // response path: the client already has its answer.
     writeAll(client, response);
+    queryConnectionOwner(record.peer, localPort, record.ownerPid, record.processName);
+    record.durationMs = elapsedMs(started);
+    log.add(std::move(record));
     closeSocket(client);
 }
 
@@ -298,6 +435,73 @@ TraySnapshot makeTraySnapshot(const ServerOptions& options, const ResourceIndex&
     snap.watchedLine = std::to_string(index.fileCount()) + " files (scan " +
                        std::to_string(static_cast<unsigned long long>(index.scanId())) + ")";
     snap.editorRunning = editorRunning;
+    return snap;
+}
+
+std::string secondsText(long long seconds) {
+    if (seconds < 0) seconds = 0;
+    if (seconds < 60) return std::to_string(seconds) + "s";
+    if (seconds < 3600) return std::to_string(seconds / 60) + "m" + std::to_string(seconds % 60) + "s";
+    return std::to_string(seconds / 3600) + "h" + std::to_string((seconds % 3600) / 60) + "m";
+}
+
+std::string agoText(long long unixTime) {
+    if (unixTime <= 0) return "never";
+    return secondsText(std::max<long long>(0, static_cast<long long>(std::time(nullptr)) - unixTime)) +
+           " ago";
+}
+
+// Everything the connections window shows. Built once per poll slice, and only
+// while the window is on screen - copying the log is the expensive part.
+WindowSnapshot makeWindowSnapshot(const ServerOptions& options, const ResourceIndex& index,
+                                  const ConnectionLog& log, int port, bool editorRunning,
+                                  long long startUnix) {
+    WindowSnapshot snap;
+    const long long now = static_cast<long long>(std::time(nullptr));
+
+    std::vector<std::wstring>& lines = snap.headerLines;
+    lines.push_back(wideFromUtf8("Project    " + options.projectDir.generic_u8string()));
+
+    std::string listening = "Listening  127.0.0.1:" + std::to_string(port);
+    listening += options.token.empty() ? "   (any local process can connect)"
+                                       : "   (token protected)";
+    lines.push_back(wideFromUtf8(listening));
+
+    std::string roots;
+    for (const std::string& root : index.foundRoots()) {
+        if (!roots.empty()) roots += ", ";
+        roots += root;
+    }
+    lines.push_back(wideFromUtf8(
+        "Watching   " + std::to_string(index.fileCount()) + " files (scan " +
+        std::to_string(static_cast<unsigned long long>(index.scanId())) + ")" +
+        (roots.empty() ? "   no resource roots found" : "   roots: " + roots)));
+
+    lines.push_back(wideFromUtf8(
+        "Index      manifest " + index.manifestSha1().substr(0, 12) +
+        "   last scan " + agoText(index.lastScanUnix())));
+
+    std::string editorLine = "Editor     ";
+    if (options.parentPid == 0) {
+        editorLine += "started by hand, no editor pid given";
+    } else {
+        std::string name;
+        queryProcessName(options.parentPid, name);
+        editorLine += (name.empty() ? "pid " + std::to_string(options.parentPid)
+                                    : name + " (pid " + std::to_string(options.parentPid) + ")") +
+                      (editorRunning ? "  running" : "  gone");
+    }
+    lines.push_back(wideFromUtf8(editorLine));
+
+    lines.push_back(wideFromUtf8(
+        "Traffic    " + std::to_string(log.accepted()) + " requests, " +
+        std::to_string(log.failures()) + " failed   uptime " + secondsText(now - startUnix) +
+        "   last request " + agoText(log.lastRequestUnix())));
+
+    snap.clients = log.clients();
+    snap.records = log.records();
+    // Any new request, or a clear, moves this and makes the window rebuild its rows.
+    snap.generation = log.lastId() * (ConnectionLog::kCapacity + 1) + log.records().size();
     return snap;
 }
 
@@ -395,6 +599,21 @@ int runResourceServer(const ServerOptions& options) {
         std::fprintf(stderr, "doriax-resource-server: no tray icon (system tray unavailable)\n");
     }
 
+    // Connections: the log is what both the window and the "connections"
+    // command read, so it exists whether or not a window is open.
+    ConnectionLog log;
+
+    // A server the editor spawns stays in the tray (it is not the user's
+    // window); one started by hand shows what it is doing. --window / --no-window
+    // override either way.
+    ServerWindow window;
+    const bool wantWindow = !options.noWindow && (options.wantWindow || options.parentPid == 0);
+    if (wantWindow) {
+        if (!window.create("doriax-resource-server - connections") && options.verbose) {
+            std::fprintf(stderr, "doriax-resource-server: no window (headless)\n");
+        }
+    }
+
     auto nextScan = std::chrono::steady_clock::now() + std::chrono::milliseconds(kWatchTickMs);
     auto nextParentCheck = nextScan;
     while (!g_stopRequested.load()) {
@@ -424,6 +643,12 @@ int runResourceServer(const ServerOptions& options) {
         }
         traySnapshot = makeTraySnapshot(options, index, actualPort, editorRunning);
         tray.setSnapshot(traySnapshot);
+        // Only while it is on screen: copying the ring is the costly part, and a
+        // hidden window is repainted from the same snapshot when it comes back.
+        if (window.visible()) {
+            window.setSnapshot(makeWindowSnapshot(options, index, log, actualPort, editorRunning,
+                                                  startUnix));
+        }
 
 #ifdef _WIN32
         fd_set rfds;
@@ -444,13 +669,20 @@ int runResourceServer(const ServerOptions& options) {
             SocketHandle client = ::accept(listenSock, nullptr, nullptr);
 #endif
             if (client != kInvalidSocket)
-                serveConnection(client, index, options.token, startUnix, options.verbose);
+                serveConnection(client, index, options.token, startUnix, options.verbose,
+                                actualPort, log);
         }
 
         // Shell messages are pumped right after the socket wait so a tray click
         // is seen within one slice (200 ms) without its own blocking wait.
-        const TrayChoice choice = tray.pump();
-        if (choice == TrayChoice::QuitServer) break;
+        TrayChoice choice = tray.pump();
+        window.pump();
+        if (window.clearRequested()) {
+            log.clear();
+            window.acknowledgeClear();
+        }
+        if (choice == TrayChoice::ShowWindow) window.show();
+        if (choice == TrayChoice::QuitServer || window.quitRequested()) break;
         if (choice == TrayChoice::QuitServerAndEditor) {
             // WM_CLOSE, never TerminateProcess: the editor flushes the scene it
             // has open and gets to ask about unsaved work first.

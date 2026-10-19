@@ -43,6 +43,7 @@ constexpr UINT kTrayId = 0x44525331;           // 'DRS1'
 constexpr UINT kTrayCallback = WM_APP + 11;    // shell notifications
 constexpr UINT kMenuQuitServer = 1;
 constexpr UINT kMenuQuitServerAndEditor = 2;
+constexpr UINT kMenuShowWindow = 3;
 constexpr const wchar_t kWindowClass[] = L"doriaxResourceServerTray";
 
 std::wstring toWide(const std::string& utf8) {
@@ -105,21 +106,6 @@ void applyTooltip(HWND hwnd, const TraySnapshot& snap) {
     Shell_NotifyIconW(NIM_MODIFY, &data);
 }
 
-void showBalloon(HWND hwnd, const TraySnapshot& snap) {
-    NOTIFYICONDATAW data = trayData(hwnd);
-    data.uFlags = NIF_INFO;
-    data.dwInfoFlags = NIIF_INFO;
-    copyField(data.szInfoTitle, sizeof(data.szInfoTitle), L"doriax resource server");
-
-    std::wstring text;
-    if (!snap.projectPath.empty()) text += toWide(snap.projectPath) + L"\n";
-    if (!snap.address.empty()) text += toWide(snap.address) + L"\n";
-    if (!snap.watchedLine.empty()) text += toWide(snap.watchedLine);
-    if (text.empty()) text = L"idle";
-    copyField(data.szInfo, sizeof(data.szInfo), text);
-    Shell_NotifyIconW(NIM_MODIFY, &data);
-}
-
 // Modal: while the menu is on screen the server is not accepting requests. A
 // tray menu is dismissed long before the editor's request timeout, so serving
 // simply resumes on the next poll slice.
@@ -140,6 +126,8 @@ void showMenu(HWND hwnd, const TraySnapshot& snap) {
     if (!snap.address.empty()) addInfoLine(L"Address: " + toWide(snap.address));
     if (!snap.watchedLine.empty()) addInfoLine(L"Watching: " + toWide(snap.watchedLine));
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, kMenuShowWindow, L"Show connections window");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, kMenuQuitServer, L"Close server");
     AppendMenuW(menu, snap.editorRunning ? MF_STRING : MF_STRING | MF_GRAYED,
                 kMenuQuitServerAndEditor, L"Close server and editor");
@@ -152,7 +140,8 @@ void showMenu(HWND hwnd, const TraySnapshot& snap) {
     DestroyMenu(menu);
 
     if (g_tray) {
-        if (choice == kMenuQuitServer) g_tray->choose(TrayChoice::QuitServer);
+        if (choice == kMenuShowWindow) g_tray->choose(TrayChoice::ShowWindow);
+        else if (choice == kMenuQuitServer) g_tray->choose(TrayChoice::QuitServer);
         else if (choice == kMenuQuitServerAndEditor)
             g_tray->choose(TrayChoice::QuitServerAndEditor);
     }
@@ -168,10 +157,13 @@ LRESULT CALLBACK trayWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             case WM_CONTEXTMENU:
                 showMenu(hwnd, snap);
                 return 0;
+            // The icon is the window's other half: clicking it brings the
+            // connections window forward instead of repeating it in a balloon.
+            case WM_LBUTTONUP:
             case WM_LBUTTONDBLCLK:
             case NIN_SELECT:
             case NIN_BALLOONUSERCLICK:
-                showBalloon(hwnd, snap);
+                if (g_tray) g_tray->choose(TrayChoice::ShowWindow);
                 return 0;
             default:
                 break;

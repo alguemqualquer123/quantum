@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <string>
 
+#include "Connections.h"
+
 namespace doriax::rs {
 
 namespace fs = std::filesystem;
@@ -19,9 +21,14 @@ struct ServerOptions {
     bool verbose = false;
     bool once = false;       // single scan, print summary, exit
     std::string token;       // when set, every request must carry "token"
-    // The editor process that spawned this server (0 when unknown). Only the
-    // tray menu uses it, for "Close server and editor".
+    // The editor process that spawned this server (0 when unknown). The tray
+    // menu uses it for "Close server and editor", and it is what tells an
+    // editor-spawned server (silent, tray only) from one a human started.
     unsigned long long parentPid = 0;
+    // --window / --no-window. Unset means automatic: a server started by hand
+    // opens its connections window, one the editor spawns stays in the tray.
+    bool wantWindow = false;
+    bool noWindow = false;
 };
 
 // Runs until the process is asked to terminate (Ctrl+C, or the tray menu's
@@ -34,8 +41,10 @@ int runResourceServer(const ServerOptions& options);
 int runOnceSummary(const ServerOptions& options);
 
 // Builds the JSON response line (without the '\n') for one request line.
-// Exposed for tests. `startUnix` backs the uptime field.
+// Exposed for tests. `startUnix` backs the uptime field, and `log` (optional)
+// is what the "connections" command reads - every other command ignores it.
 std::string handleRequestLine(const std::string& requestLine, class ResourceIndex& index,
-                              const std::string& token, long long startUnix);
+                              const std::string& token, long long startUnix,
+                              const ConnectionLog* log = nullptr);
 
 }

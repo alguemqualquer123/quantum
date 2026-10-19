@@ -14,9 +14,9 @@
 # standard settings.
 #
 # Deliberately links NOTHING but the C++17 standard library and, on Windows, the
-# socket and shell-notification libraries: no engine code, no editor code, no
-# third-party dependencies, so it builds fast and independently of the rest of
-# the suite.
+# system libraries for its sockets, tray icon and plain Win32 connections window:
+# no engine code, no editor code, no third-party dependencies (no imgui, no
+# sokol), so it builds fast and independently of the rest of the suite.
 
 if(TARGET doriax-resource-server)
     return()
@@ -25,9 +25,9 @@ endif()
 set(DORIAX_RESOURCE_SERVER_DIR "${CMAKE_CURRENT_LIST_DIR}")
 
 if(WIN32)
-    # The tray icon is the service's only visible presence, so the executable
-    # carries the editor brand icon and reads it back with LoadImageW(). Its own
-    # resource because every suite executable installs to the same folder.
+    # The tray icon outlives the window, so the executable carries the editor
+    # brand icon and reads it back with LoadImageW() for both. Its own resource
+    # because every suite executable installs to the same folder.
     doriax_add_windows_resource(
         DORIAX_RESOURCE_SERVER_ICON_OBJECTS
         doriax-resource-server
@@ -39,9 +39,11 @@ endif()
 
 add_executable(doriax-resource-server
     "${DORIAX_RESOURCE_SERVER_DIR}/main.cpp"
+    "${DORIAX_RESOURCE_SERVER_DIR}/Connections.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/JsonMini.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/ResourceIndex.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/ResourceServer.cpp"
+    "${DORIAX_RESOURCE_SERVER_DIR}/ServerWindow.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/Sha1.cpp"
     "${DORIAX_RESOURCE_SERVER_DIR}/TrayIcon.cpp"
     ${DORIAX_RESOURCE_SERVER_ICON_OBJECTS}
@@ -64,8 +66,16 @@ if(WIN32)
         NOMINMAX
     )
     # ws2_32 serves the socket; shell32 is Shell_NotifyIconW and user32 the
-    # message-only window behind the tray menu (tools/resource-server/TrayIcon.cpp).
-    target_link_libraries(doriax-resource-server PRIVATE ws2_32 shell32 user32)
+    # window and tray window procedures; gdi32 + comctl32 draw the connections
+    # window's lists; iphlpapi reads the TCP table that names the client process.
+    target_link_libraries(doriax-resource-server PRIVATE
+        ws2_32 shell32 user32 gdi32 comctl32 iphlpapi
+    )
+    # The window is DPI aware, so its 96-px layout is scaled by the real
+    # logical DPI instead of being bitmap-stretched and unreadable.
+    if(COMMAND doriax_add_windows_manifest)
+        doriax_add_windows_manifest(doriax-resource-server)
+    endif()
 endif()
 
 # Install beside the editor executables: editor/cli/ResourceServerClient.cpp
