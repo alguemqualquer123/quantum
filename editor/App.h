@@ -33,11 +33,14 @@
 #include "render/SceneRender.h"
 
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <thread>
 
 namespace doriax::editor{
+
+    class UILabHost;
 
     enum class AlertType {
         Info,
@@ -68,6 +71,9 @@ namespace doriax::editor{
     };
 
     class App : public EditorHost{
+        // The chrome host draws the menu model and the dock node tree out of here.
+        friend class UILabHost;
+
     private:
         Project project;
 
@@ -100,6 +106,8 @@ namespace doriax::editor{
 
         ImGuiID dockspace_id;
         ImGuiID dock_id_middle_top;
+
+        std::unique_ptr<UILabHost> uilabHost;
 
         static ImFont* codeFont;
 
@@ -194,6 +202,9 @@ namespace doriax::editor{
         void executeMenuCommand(const PlatformMenuCommand& command);
         void showImGuiMenuItems(const std::vector<PlatformMenuItem>& items);
         void showImGuiMenu(const PlatformMenuModel& menu);
+        // The menu items only, no main menu bar: the chrome host draws them inside
+        // the library's own bar.
+        void showMenuModelContent(const PlatformMenuModel& menu);
         void showMenu();
         void showAlert();
         void showFooter();

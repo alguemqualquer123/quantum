@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "App.h"
+#include "UILabHost.h"
 
 #include "imgui_internal.h"
 #include "Platform.h"
@@ -825,14 +826,18 @@ void editor::App::showImGuiMenuItems(const std::vector<PlatformMenuItem>& items)
     }
 }
 
+void editor::App::showMenuModelContent(const PlatformMenuModel& menu){
+    for (const PlatformMenuItem& topLevel : menu.menus) {
+        if (ImGui::BeginMenu(topLevel.label.c_str(), topLevel.enabled)) {
+            showImGuiMenuItems(topLevel.children);
+            ImGui::EndMenu();
+        }
+    }
+}
+
 void editor::App::showImGuiMenu(const PlatformMenuModel& menu){
     if (ImGui::BeginMainMenuBar()) {
-        for (const PlatformMenuItem& topLevel : menu.menus) {
-            if (ImGui::BeginMenu(topLevel.label.c_str(), topLevel.enabled)) {
-                showImGuiMenuItems(topLevel.children);
-                ImGui::EndMenu();
-            }
-        }
+        showMenuModelContent(menu);
         ImGui::EndMainMenuBar();
     }
 }
@@ -854,7 +859,11 @@ void editor::App::showMenu(){
         ImGui::End();
         return;
     }
-    showImGuiMenu(menu);
+    // The library owns the bar; doriax owns its items.
+    if (uilabHost)
+        uilabHost->drawMenuBar(menu);
+    else
+        showImGuiMenu(menu);
 }
 
 namespace {
@@ -1892,7 +1901,13 @@ void editor::App::show(){
         }
     }
 
-    dockspace_id = ImGui::GetID("MyDockspace");
+    // Created on the first frame, once the ImGui context exists: the library's
+    // AppContext is a real object with its own model, not a POD.
+    if (!uilabHost) {
+        uilabHost.reset(new UILabHost(*this));
+        dockspaceNeedsRebuild = true;
+    }
+    dockspace_id = uilabHost->dockSpaceId();
 
     showMenu();
     showFooter();
@@ -1904,7 +1919,7 @@ void editor::App::show(){
 
     isInitialized = true;
 
-    // Before DockSpaceOverViewport() below lays the restored sizes out.
+    // Before the library's host window lays the restored sizes out.
     rescaleRestoredLayout();
 
     if (dockspaceNeedsRebuild || ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
@@ -1912,7 +1927,9 @@ void editor::App::show(){
         dockspaceNeedsRebuild = false;
     }
 
-    ImGui::DockSpaceOverViewport(dockspace_id, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
+    // The library's host window carries the dockspace: same root node id, same
+    // PassthruCentralNode behaviour as DockSpaceOverViewport had.
+    uilabHost->beginFrame();
 
     #ifdef SHOW_STYLE_WINDOW
     showStyleEditor();
