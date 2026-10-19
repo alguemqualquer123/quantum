@@ -64,6 +64,10 @@ namespace doriax::editor{
         bool windowOpen;
         bool focusRequested;
 
+        // Window state the library's Begin writes while doriax only draws contents.
+        bool hostedWindow = false;
+        bool hostedWasOpen = true;
+
         // Cached entity tree — rebuilding costs several ms/frame for large scenes, so it
         // is only rebuilt when the structure changes (see cache keys) or on a timer.
         TreeNode cachedRoot;
@@ -122,6 +126,15 @@ namespace doriax::editor{
         void show();
         void setOpen(bool open);
         bool isOpen() const;
+
+        // Draws the panel's contents inside a window somebody else opened. The
+        // UILab host calls this from its hierarchy panel.
+        void drawContent();
+
+        // True when the UILab host owns the window: show() then keeps the per-frame
+        // bookkeeping and leaves Begin/End to the library.
+        void setHostedWindow(bool hosted);
+        bool* openFlag();
     };
 
 }

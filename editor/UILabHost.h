@@ -16,13 +16,16 @@ class AppContext;
 namespace doriax::editor {
 
 class App;
+class Structure;
+class Properties;
+class ResourcesWindow;
 
 // The editor's UILab host. The library owns the chrome - the dockspace, the main menu
 // bar, the panel windows - and this class owns the AppContext they read and the hooks
 // that feed them doriax's data.
 class UILabHost {
 public:
-    explicit UILabHost(App& owner);
+    UILabHost(App& owner, Structure* structure, Properties* properties, ResourcesWindow* resources);
     ~UILabHost();
 
     UILabHost(const UILabHost&) = delete;
@@ -45,10 +48,18 @@ public:
     const char* consoleTitle() const;
     void drawConsole();
 
+    // The library's data panels, showing doriax's outliner, property editor and
+    // content browser. Their windows keep doriax's names, so the saved dock layout,
+    // the menus and the close button address the same windows as before.
+    void drawDataPanels();
+
 private:
     void installHooks();
 
     App& owner;
+    Structure* structureWindow;
+    Properties* propertiesWindow;
+    ResourcesWindow* resourcesWindow;
     std::unique_ptr<uilab::AppContext> ctx;
     const PlatformMenuModel* menuModel = nullptr;
 };

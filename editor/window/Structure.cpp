@@ -2243,28 +2243,9 @@ void editor::Structure::rebuildEntityTree(SceneProject* sceneProject, TreeNode& 
     } while (splicedNew);
 }
 
-void editor::Structure::show(){
-    if (!windowOpen) {
-        return;
-    }
-
+void editor::Structure::drawContent(){
     SceneProject* sceneProject = project->getSelectedScene();
     if (!sceneProject || !sceneProject->scene) {
-        return;
-    }
-
-    if (focusRequested) {
-        ImGui::SetNextWindowFocus();
-        focusRequested = false;
-    }
-
-    bool wasOpen = windowOpen;
-
-    if (!ImGui::Begin(Structure::WINDOW_NAME, &windowOpen)) {
-        ImGui::End();
-        if (wasOpen && !windowOpen) {
-            setOpen(false);
-        }
         return;
     }
 
@@ -2409,10 +2390,56 @@ void editor::Structure::show(){
         }
         ImGui::EndDragDropTarget();
     }
+}
+
+void editor::Structure::show(){
+    if (hostedWindow) {
+        // The library opens the window and calls drawContent() inside it, so its
+        // title bar close button writes straight into windowOpen.
+        if (focusRequested) {
+            ImGui::SetWindowFocus(Structure::WINDOW_NAME);
+            focusRequested = false;
+        }
+        if (hostedWasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        hostedWasOpen = windowOpen;
+        return;
+    }
+
+    if (!windowOpen) {
+        return;
+    }
+
+    if (focusRequested) {
+        ImGui::SetNextWindowFocus();
+        focusRequested = false;
+    }
+
+    bool wasOpen = windowOpen;
+
+    if (!ImGui::Begin(Structure::WINDOW_NAME, &windowOpen)) {
+        ImGui::End();
+        if (wasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        return;
+    }
+
+    drawContent();
 
     ImGui::End();
 
     if (wasOpen && !windowOpen) {
         setOpen(false);
     }
+}
+
+void editor::Structure::setHostedWindow(bool hosted){
+    hostedWindow = hosted;
+    hostedWasOpen = windowOpen;
+}
+
+bool* editor::Structure::openFlag(){
+    return &windowOpen;
 }

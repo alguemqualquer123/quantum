@@ -1908,7 +1908,7 @@ void editor::App::show(){
     // Created on the first frame, once the ImGui context exists: the library's
     // AppContext is a real object with its own model, not a POD.
     if (!uilabHost) {
-        uilabHost.reset(new UILabHost(*this));
+        uilabHost.reset(new UILabHost(*this, structureWindow, propertiesWindow, resourcesWindow));
         dockspaceNeedsRebuild = true;
     }
     dockspace_id = uilabHost->dockSpaceId();
@@ -1961,6 +1961,9 @@ void editor::App::show(){
     animationWindow->show();
     terrainEditWindow->show();
     propertiesWindow->show();
+    // The three panels above draw their contents inside windows the library opened.
+    if (uilabHost)
+        uilabHost->drawDataPanels();
     aiChatWindow->show();
     codeEditor->show();
     sceneWindow->show();

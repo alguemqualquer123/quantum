@@ -2544,8 +2544,15 @@ void editor::ResourcesWindow::show() {
     ctrlPressed = ImGui::GetIO().KeyCtrl;
     shiftPressed = ImGui::GetIO().KeyShift;
 
-    windowPos = ImGui::GetWindowPos();
-    scrollOffset = ImVec2(ImGui::GetScrollX(), ImGui::GetScrollY());
+    if (hostedWindow) {
+        // The library opens this window and calls drawContent() inside it, so a
+        // focus request from the menu has to address the window by name.
+        if (focusRequested) {
+            ImGui::SetWindowFocus(ResourcesWindow::WINDOW_NAME);
+            focusRequested = false;
+        }
+        return;
+    }
 
     if (focusRequested) {
         ImGui::SetNextWindowFocus();
@@ -2563,6 +2570,35 @@ void editor::ResourcesWindow::show() {
         return;
     }
 
+    drawContent();
+
+    ImGui::End();
+
+    afterDraw();
+
+    if (wasOpen && !windowOpen) {
+        setOpen(false);
+    }
+}
+
+void editor::ResourcesWindow::setHostedWindow(bool hosted){
+    hostedWindow = hosted;
+}
+
+bool* editor::ResourcesWindow::openFlag(){
+    return &windowOpen;
+}
+
+void editor::ResourcesWindow::afterDraw() {
+    // Evict least-recently-used thumbnail textures (entries used this frame
+    // are never evicted)
+    enforceThumbnailCacheLimit();
+
+    handleNewDirectory();
+    handleRename();
+}
+
+void editor::ResourcesWindow::drawContent() {
     windowPos = ImGui::GetWindowPos();
     scrollOffset = ImVec2(ImGui::GetScrollX(), ImGui::GetScrollY());
 
@@ -2725,17 +2761,4 @@ void editor::ResourcesWindow::show() {
             }
         }
     }
-
-    ImGui::End();
-
-    // Evict least-recently-used thumbnail textures (entries used this frame
-    // are never evicted)
-    enforceThumbnailCacheLimit();
-
-    if (wasOpen && !windowOpen) {
-        setOpen(false);
-    }
-
-    handleNewDirectory();
-    handleRename();
 }

@@ -12859,29 +12859,7 @@ void editor::Properties::drawMorphTracksComponent(ComponentType cpType, ScenePro
     endTable();
 }
 
-void editor::Properties::show(){
-    // Flush any debounced material file writes
-    flushDirtyMaterials(ImGui::GetIO().DeltaTime);
-
-    if (!windowOpen) {
-        return;
-    }
-
-    if (focusRequested) {
-        ImGui::SetNextWindowFocus();
-        focusRequested = false;
-    }
-
-    bool wasOpen = windowOpen;
-
-    if (!ImGui::Begin(Properties::WINDOW_NAME, &windowOpen)) {
-        ImGui::End();
-        if (wasOpen && !windowOpen) {
-            setOpen(false);
-        }
-        return;
-    }
-
+void editor::Properties::drawContent(){
     uint32_t propertiesSceneId = project->getSelectedSceneForProperties();
     SceneProject* sceneProject = project->getScene(propertiesSceneId);
     if (!sceneProject) {
@@ -12889,7 +12867,6 @@ void editor::Properties::show(){
     }
     if (!sceneProject) {
         stopTransientPreviews();
-        ImGui::End();
         return;
     }
 
@@ -13529,10 +13506,62 @@ void editor::Properties::show(){
     scriptCreateDialog.show();
     shaderForkDialog.show();
     textureSlicerToolDialog.show();
+}
+
+void editor::Properties::show(){
+    // Flush any debounced material file writes
+    flushDirtyMaterials(ImGui::GetIO().DeltaTime);
+
+    if (hostedWindow) {
+        // The library opens the window and calls drawContent() inside it, so its
+        // title bar close button writes straight into windowOpen.
+        if (focusRequested) {
+            ImGui::SetWindowFocus(Properties::WINDOW_NAME);
+            focusRequested = false;
+        }
+        if (hostedWasOpen && !windowOpen) {
+            // setOpen() would skip the previews: the close button already cleared
+            // the flag it checks.
+            stopTransientPreviews();
+            focusRequested = false;
+        }
+        hostedWasOpen = windowOpen;
+        return;
+    }
+
+    if (!windowOpen) {
+        return;
+    }
+
+    if (focusRequested) {
+        ImGui::SetNextWindowFocus();
+        focusRequested = false;
+    }
+
+    bool wasOpen = windowOpen;
+
+    if (!ImGui::Begin(Properties::WINDOW_NAME, &windowOpen)) {
+        ImGui::End();
+        if (wasOpen && !windowOpen) {
+            setOpen(false);
+        }
+        return;
+    }
+
+    drawContent();
 
     ImGui::End();
 
     if (wasOpen && !windowOpen) {
         setOpen(false);
     }
+}
+
+void editor::Properties::setHostedWindow(bool hosted){
+    hostedWindow = hosted;
+    hostedWasOpen = windowOpen;
+}
+
+bool* editor::Properties::openFlag(){
+    return &windowOpen;
 }
