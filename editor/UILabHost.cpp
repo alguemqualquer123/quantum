@@ -4,6 +4,7 @@
 #include "UILabHost.h"
 
 #include "App.h"
+#include "AppSettings.h"
 #include "Out.h"
 
 #include <core/AppContext.h>
@@ -20,6 +21,10 @@ UILabHost::UILabHost(App& owner)
     // ... and its own dock node tree, so the arrangement saved in editor_layout.ini
     // is not replaced by the laboratory's default one.
     ctx->installDefaultDockTree = false;
+    // Exporting the console is a user action, and the library's default path is
+    // relative to the cwd - that would drop a logs/ folder in the repo.
+    ctx->settings.logExportPath =
+        (AppSettings::getConfigDirectory() / "editor_console.log").string();
     installHooks();
 }
 
@@ -64,4 +69,12 @@ void UILabHost::drawMenuBar(const PlatformMenuModel& menu) {
     menuModel = &menu;
     uilab::panels::DrawMenuBar(*ctx);
     menuModel = nullptr;
+}
+
+const char* UILabHost::consoleTitle() const {
+    return uilab::panels::kConsoleTitle;
+}
+
+void UILabHost::drawConsole() {
+    uilab::panels::DrawConsole(*ctx);
 }

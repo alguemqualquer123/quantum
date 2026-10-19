@@ -40,6 +40,11 @@ public:
     // The main menu bar, drawing doriax's own menu model inside the library's bar.
     void drawMenuBar(const PlatformMenuModel& menu);
 
+    // The library's console panel, reading the ring buffer Out mirrors into.
+    // consoleTitle() is the window name the dock layout keys it by.
+    const char* consoleTitle() const;
+    void drawConsole();
+
 private:
     void installHooks();
 

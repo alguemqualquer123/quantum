@@ -1309,6 +1309,10 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderDockWindow(OutputWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(AnimationWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(ResourceMonitorWindow::WINDOW_NAME, dock_id_middle_bottom);
+    // The library's console reads the same lines Out mirrors, so it joins the strip
+    // as a sibling tab while Output still draws its own list.
+    if (uilabHost)
+        ImGui::DockBuilderDockWindow(uilabHost->consoleTitle(), dock_id_middle_bottom);
 
     // Mark the scene area as the central node. CentralNode is a saved flag, so it
     // persists in the ini and lets getCentralDockId() recover this node on the
@@ -1952,6 +1956,8 @@ void editor::App::show(){
     resourcesWindow->show();
     imageViewerWindow->show();
     outputWindow->show();
+    if (uilabHost)
+        uilabHost->drawConsole();
     animationWindow->show();
     terrainEditWindow->show();
     propertiesWindow->show();
