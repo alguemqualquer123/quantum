@@ -40,16 +40,19 @@ jobs:
             generator: Visual Studio 17 2022
             compiler: cl
             executable: quantum-engine.exe
+            hub_platform: windows-amd64
           - name: Linux GCC
             os: ubuntu-22.04
             generator: Ninja
             compiler: gcc
             executable: quantum-engine
+            hub_platform: linux-x86_64
           - name: macOS Clang
             os: macos-14
             generator: Ninja
             compiler: clang
             executable: quantum-engine
+            hub_platform: macos-arm64
     defaults:
       run:
         shell: bash
@@ -85,6 +88,9 @@ jobs:
       - name: Install and package
         run: |
           cmake --install "$QUANTUM_BUILD_DIR" --config "$BUILD_TYPE" --prefix "$PWD/stage" --strip
+          python3 scripts/package-hub.py --root "$PWD/stage/bin" \
+            --version "$QUANTUM_VERSION" --platform "${{ matrix.hub_platform }}" \
+            --output "$PWD/dist/quantum-hub-${QUANTUM_VERSION}-${{ matrix.hub_platform }}.zip"
           cpack --config "$QUANTUM_BUILD_DIR/CPackConfig.cmake" --output-directory dist
       - name: Headless release smoke
         run: |

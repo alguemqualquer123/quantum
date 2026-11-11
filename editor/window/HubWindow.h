@@ -79,6 +79,7 @@ namespace quantum::editor {
 
         char releaseManifestUrl[512] = "";
         std::vector<RemoteRelease> remoteReleases;
+        bool remoteReleasesRequested = false;
 
         std::vector<std::string> templates;
         bool templatesScanned = false;

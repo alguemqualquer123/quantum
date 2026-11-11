@@ -45,6 +45,8 @@ constexpr const char* kInstallSkipDirs[] = {"build", ".git", ".vs"};
 
 constexpr const char* kCreatePopupId = "New Project";
 constexpr const char* kRemovePopupId = "Remove Install";
+constexpr const char* kDefaultHubManifestUrl =
+    "https://raw.githubusercontent.com/alguemqualquer123/quantum/main/release-manifest.json";
 
 using Json = nlohmann::json;
 
@@ -272,6 +274,7 @@ std::filesystem::path legacyHubDataDir() {
 
 quantum::editor::HubWindow::HubWindow() {
     FileUtils::adoptLegacyDirectory(legacyHubDataDir(), hubDataDir());
+    std::snprintf(releaseManifestUrl, sizeof(releaseManifestUrl), "%s", kDefaultHubManifestUrl);
 #ifdef QUANTUM_HUB_DEFAULT_MANIFEST_URL
     std::snprintf(releaseManifestUrl, sizeof(releaseManifestUrl), "%s",
                   QUANTUM_HUB_DEFAULT_MANIFEST_URL);
@@ -892,6 +895,11 @@ void quantum::editor::HubWindow::drawInstallsTab() {
 
     const bool installing = installJob && installJob->running;
 
+    if (!remoteReleasesRequested && !releaseJob && remoteReleases.empty()) {
+        remoteReleasesRequested = true;
+        fetchRemoteReleases();
+    }
+
     ImGui::BeginDisabled(installing);
     if (ImGui::Button("Install This Build", ImVec2(160, 0))) {
         const std::filesystem::path runningDir = FileUtils::getExecutableDir();
@@ -917,7 +925,7 @@ void quantum::editor::HubWindow::drawInstallsTab() {
 
     ImGui::Separator();
     ImGui::TextUnformatted("Remote releases");
-    ImGui::TextDisabled("Download a verified release package published by your website.");
+    ImGui::TextDisabled("Download a verified editor package published on GitHub.");
     ImGui::SetNextItemWidth(-130);
     if (ImGui::InputText("Manifest URL", releaseManifestUrl, IM_ARRAYSIZE(releaseManifestUrl))) {
         saveConfig();
