@@ -1,0 +1,11 @@
+name: PluginLuaProbe
+canvasWidth: 640
+canvasHeight: 360
+scalingMode: fitwidth
+textureStrategy: none
+vsync: true
+windowMode: windowed
+windowWidth: 640
+windowHeight: 360
+windowResizable: true
+luaDir: .

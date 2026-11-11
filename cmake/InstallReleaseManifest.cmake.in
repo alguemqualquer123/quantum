@@ -1,0 +1,25 @@
+# (c) SR VINIX
+# SPDX-License-Identifier: MIT
+
+if(DEFINED CMAKE_INSTALL_CONFIG_NAME AND NOT "${CMAKE_INSTALL_CONFIG_NAME}" STREQUAL "")
+    set(_quantum_manifest_build_type "${CMAKE_INSTALL_CONFIG_NAME}")
+elseif(DEFINED CMAKE_BUILD_TYPE AND NOT "${CMAKE_BUILD_TYPE}" STREQUAL "")
+    set(_quantum_manifest_build_type "${CMAKE_BUILD_TYPE}")
+else()
+    set(_quantum_manifest_build_type "unknown")
+endif()
+
+string(CONCAT _quantum_manifest_content
+    "{\n"
+    "  \"schema\": 1,\n"
+    "  \"product\": \"Quantum\",\n"
+    "  \"version\": \"@QUANTUMEDITOR_VERSION@\",\n"
+    "  \"packageVersion\": \"@QUANTUM_PACKAGE_VERSION@\",\n"
+    "  \"channel\": \"@QUANTUM_RELEASE_CHANNEL@\",\n"
+    "  \"platform\": \"@QUANTUM_PACKAGE_PLATFORM@\",\n"
+    "  \"architecture\": \"@QUANTUM_PACKAGE_ARCH@\",\n"
+    "  \"graphicBackend\": \"@GRAPHIC_BACKEND@\",\n"
+    "  \"buildType\": \"${_quantum_manifest_build_type}\"\n"
+    "}\n"
+)
+file(WRITE "${CMAKE_INSTALL_PREFIX}/release-manifest.json" "${_quantum_manifest_content}")

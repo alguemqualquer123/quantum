@@ -1,0 +1,216 @@
+// (c) SR VINIX and contributors
+// SPDX-License-Identifier: MIT
+
+#ifndef LuaBridgeAddon_h
+#define LuaBridgeAddon_h
+
+#include "Scene.h"
+#include "Input.h"
+#include "service/AdMob.h"
+#include "service/InAppPurchase.h"
+#include "service/WebPortal.h"
+#include "FileData.h"
+#include "component/AnimatorControllerComponent.h"
+#include "thread/ResourceProgress.h"
+#include "texture/Material.h"
+
+using namespace quantum;
+
+namespace luabridge
+{
+
+    // need to specialized luabridge::Stack and use enum in arguments
+    template <class T>
+    struct EnumWrapper
+    {
+        static auto push(lua_State* L, T value) -> std::enable_if_t<std::is_enum_v<T>, luabridge::Result>
+        {
+            lua_pushinteger(L, static_cast<std::size_t>(value));
+            return {};
+        }
+
+        static auto get(lua_State* L, int index) -> std::enable_if_t<std::is_enum_v<T>, luabridge::TypeResult<T>>
+        {
+            return static_cast<T>(lua_tointeger(L, index));
+        }
+
+        static auto isInstance(lua_State* L, int index) -> std::enable_if_t<std::is_enum_v<T>, bool>
+        {
+            if (lua_type(L, index) == LUA_TNUMBER)
+                return luabridge::is_integral_representable_by<std::size_t>(L, index);
+
+            return false;
+        }
+    };
+
+    // EnumWrapper casts through size_t, which breaks negative values on 32-bit
+    template <class T>
+    struct SignedEnumWrapper : EnumWrapper<T>
+    {
+        static auto push(lua_State* L, T value) -> std::enable_if_t<std::is_enum_v<T>, luabridge::Result>
+        {
+            lua_pushinteger(L, static_cast<lua_Integer>(value));
+            return {};
+        }
+
+        static auto isInstance(lua_State* L, int index) -> std::enable_if_t<std::is_enum_v<T>, bool>
+        {
+            if (lua_type(L, index) == LUA_TNUMBER)
+                return luabridge::is_integral_representable_by<int>(L, index);
+
+            return false;
+        }
+    };
+
+    template<> struct Stack<Scaling> : EnumWrapper<Scaling>{};
+    template<> struct Stack<Platform> : EnumWrapper<Platform>{};
+    template<> struct Stack<GraphicBackend> : EnumWrapper<GraphicBackend>{};
+    template<> struct Stack<TextureStrategy> : EnumWrapper<TextureStrategy>{};
+    template<> struct Stack<TextureType> : EnumWrapper<TextureType>{};
+    template<> struct Stack<ColorFormat> : EnumWrapper<ColorFormat>{};
+    template<> struct Stack<PrimitiveType> : EnumWrapper<PrimitiveType>{};
+    template<> struct Stack<CullingMode> : EnumWrapper<CullingMode>{};
+    template<> struct Stack<WindingOrder> : EnumWrapper<WindingOrder>{};
+    template<> struct Stack<MaterialAlphaMode> : EnumWrapper<MaterialAlphaMode>{};
+    template<> struct Stack<TextureFilter> : EnumWrapper<TextureFilter>{};
+    template<> struct Stack<TextureWrap> : EnumWrapper<TextureWrap>{};
+    template<> struct Stack<AdMobFormat> : EnumWrapper<AdMobFormat>{};
+    template<> struct Stack<AdMobBannerSize> : EnumWrapper<AdMobBannerSize>{};
+    template<> struct Stack<AdMobBannerPosition> : EnumWrapper<AdMobBannerPosition>{};
+    template<> struct Stack<AdMobRating> : EnumWrapper<AdMobRating>{};
+    template<> struct Stack<AdMobAgeRestriction> : EnumWrapper<AdMobAgeRestriction>{};
+    template<> struct Stack<AdMobPersonalization> : EnumWrapper<AdMobPersonalization>{};
+    template<> struct Stack<AdMobConsentStatus> : EnumWrapper<AdMobConsentStatus>{};
+    template<> struct Stack<AdMobDebugGeography> : EnumWrapper<AdMobDebugGeography>{};
+    template<> struct Stack<AdMobPrecision> : EnumWrapper<AdMobPrecision>{};
+    template<> struct Stack<ProductType> : EnumWrapper<ProductType>{};
+    template<> struct Stack<WebPortalType> : EnumWrapper<WebPortalType>{};
+    template<> struct Stack<WebPortalAdType> : EnumWrapper<WebPortalAdType>{};
+    template<> struct Stack<WebPortalEnvironment> : EnumWrapper<WebPortalEnvironment>{};
+    template<> struct Stack<PurchaseState> : EnumWrapper<PurchaseState>{};
+    template<> struct Stack<BillingResponse> : SignedEnumWrapper<BillingResponse>{};
+    template<> struct Stack<RecurrenceMode> : EnumWrapper<RecurrenceMode>{};
+    template<> struct Stack<SubscriptionReplacementMode> : EnumWrapper<SubscriptionReplacementMode>{};
+    template<> struct Stack<CursorType> : EnumWrapper<CursorType>{};
+    template<> struct Stack<MouseMode> : EnumWrapper<MouseMode>{};
+    template<> struct Stack<ResourceLoadState> : EnumWrapper<ResourceLoadState>{};
+    template<> struct Stack<LightState> : EnumWrapper<LightState>{};
+    template<> struct Stack<UIEventState> : EnumWrapper<UIEventState>{};
+    template<> struct Stack<ShaderType> : EnumWrapper<ShaderType>{};
+
+    template<> struct Stack<EntityPool> : EnumWrapper<EntityPool>{};
+
+    template<> struct Stack<ResourceType> : EnumWrapper<ResourceType>{};
+
+    template<> struct Stack<RotationOrder> : EnumWrapper<RotationOrder>{};
+
+    template<> struct Stack<FogType> : EnumWrapper<FogType>{};
+    template<> struct Stack<WaterExclusionShape> : EnumWrapper<WaterExclusionShape>{};
+    template<> struct Stack<CameraType> : EnumWrapper<CameraType>{};
+    template<> struct Stack<FrustumPlane> : EnumWrapper<FrustumPlane>{};
+    template<> struct Stack<LightType> : EnumWrapper<LightType>{};
+    template<> struct Stack<Occluder2DShape> : EnumWrapper<Occluder2DShape>{};
+    template<> struct Stack<ShadowQuality> : EnumWrapper<ShadowQuality>{};
+    template<> struct Stack<SoundState> : EnumWrapper<SoundState>{};
+    template<> struct Stack<SoundAttenuation> : EnumWrapper<SoundAttenuation>{};
+
+    template<> struct Stack<EaseType> : EnumWrapper<EaseType>{};
+    template<> struct Stack<ActionState> : EnumWrapper<ActionState>{};
+
+    template<> struct Stack<AnimatorParameter::Type> : EnumWrapper<AnimatorParameter::Type>{};
+    template<> struct Stack<AnimatorTransition::InterruptionSource> : EnumWrapper<AnimatorTransition::InterruptionSource>{};
+    template<> struct Stack<AnimatorTransition::Condition::Mode> : EnumWrapper<AnimatorTransition::Condition::Mode>{};
+
+    template<> struct Stack<FileErrors> : EnumWrapper<FileErrors>{};
+
+    template<> struct Stack<AnchorPreset> : EnumWrapper<AnchorPreset>{};
+    template<> struct Stack<ContainerType> : EnumWrapper<ContainerType>{};
+    template<> struct Stack<PivotPreset> : EnumWrapper<PivotPreset>{};
+
+    template<> struct Stack<ScrollbarType> : EnumWrapper<ScrollbarType>{};
+    template<> struct Stack<ProgressbarType> : EnumWrapper<ProgressbarType>{};
+
+    template<> struct Stack<Shape2DType> : EnumWrapper<Shape2DType>{};
+    template<> struct Stack<Shape3DType> : EnumWrapper<Shape3DType>{};
+    template<> struct Stack<BodyType> : EnumWrapper<BodyType>{};
+    template<> struct Stack<Joint2DType> : EnumWrapper<Joint2DType>{};
+
+    template <>
+    struct Stack <Touch>
+    {
+        static Result push(lua_State* L, Touch touch)
+        {
+            lua_newtable(L);
+
+            lua_pushinteger(L, touch.pointer);
+            lua_setfield(L, -2, "pointer");
+
+            if (!luabridge::push(L, touch.position))
+                return makeErrorCode(ErrorCode::LuaStackOverflow);
+            lua_setfield(L, -2, "position");
+
+            return {};
+        }
+
+        static TypeResult<Touch> get(lua_State* L, int index)
+        {
+            lua_getfield(L, index, "pointer");
+            if (lua_type(L, -1) != LUA_TNUMBER)
+                return makeErrorCode(ErrorCode::InvalidTypeCast);
+            if (! is_integral_representable_by<int>(L, -1))
+                return makeErrorCode(ErrorCode::IntegerDoesntFitIntoLuaInteger);
+            int pointer = lua_tointeger(L, -1);
+
+            lua_getfield(L, index, "position");
+            auto result = luabridge::get<Vector2>(L, -1);
+            if (! result)
+                return result.error();
+            Vector2 position = *result;
+
+            Touch touch = {pointer, position};
+            return touch;
+        }
+
+        static bool isInstance (lua_State* L, int index)
+        {
+            if (lua_type (L, index) != LUA_TTABLE)
+                return false;
+            if (lua_getfield(L, index, "pointer") != LUA_TNUMBER)
+                return false;
+            if (!is_integral_representable_by<int>(L, -1))
+                return false;
+            if (lua_getfield(L, index, "position") != LUA_TUSERDATA)
+                return false;
+            if (!Stack<Vector2>::isInstance(L, -1))
+                return false;
+
+            return true;
+        }
+    };
+
+    // Entity type is not necessary here because it already exists Stack<unsigned int>
+
+    template <>
+    struct Stack <Signature>
+    {
+        static Result push(lua_State* L, Signature sig)
+        {
+            lua_pushstring(L, sig.to_string().c_str());
+            return {};
+        }
+
+        static TypeResult<Signature> get(lua_State* L, int index)
+        {
+            if (lua_type(L, index) != LUA_TSTRING)
+                return makeErrorCode(ErrorCode::InvalidTypeCast);
+            return Signature(lua_tostring(L, index));
+        }
+
+        static bool isInstance (lua_State* L, int index)
+        {
+            return lua_type(L, index) == LUA_TSTRING;
+        }
+    };
+}
+
+#endif /* LuaBridgeAddon_h */

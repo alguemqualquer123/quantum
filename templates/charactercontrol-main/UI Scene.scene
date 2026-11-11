@@ -1,0 +1,332 @@
+id: 2
+name: UI Scene
+scene:
+  backgroundColor: [0.525, 0.525, 0.525, 1]
+  shadowQuality: low
+  meshLodEnabled: false
+  meshLodThreshold: 1
+  depthPrepassEnabled: false
+  renderDistance: 0
+  lightState: off
+  globalIlluminationIntensity: 0.1
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1
+  ssaoBias: 0.025
+  contactShadowsEnabled: false
+  contactShadowLength: 0.35
+  contactShadowSteps: 12
+  contactShadowThickness: 0.025
+  contactShadowIntensity: 0.65
+  ssgiEnabled: false
+  ssgiRadius: 2.5
+  ssgiIntensity: 0.35
+  ssgiSteps: 12
+  ssgiThickness: 0.25
+  dofEnabled: false
+  dofFocusDistance: 8
+  dofAperture: 2
+  dofFocusRange: 4
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 8
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1
+  ssrBlur: 0
+  taaEnabled: false
+  taaBlend: 0.9
+  taaVelocityScale: 1
+  taaVelocityClamp: 0.25
+  motionBlurEnabled: false
+  motionBlurIntensity: 1
+  motionBlurSamples: 8
+  motionBlurVelocityClamp: 0.08
+  motionBlurDepthThreshold: 0.5
+  gravity2D: [0, -9.81]
+  gravity3D: [0, -9.81, 0]
+  windEnabled: false
+  windSpeed: 6
+  windDirection: 0
+  windGustiness: 0.35
+  windChange: 0.2
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: nearest
+  bloomEnabled: false
+  bloomThreshold: 0.75
+  bloomSoftKnee: 0.5
+  bloomIntensity: 1
+  bloomDirtIntensity: 0
+  bloomMipLevels: 5
+  tonemapEnabled: false
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: false
+  autoExposureSpeed: 1
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 8
+  exposureCompensation: 0
+  colorGradingEnabled: false
+  colorGradingSaturation: 1
+  colorGradingContrast: 1
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0
+  colorGradingTint: 0
+  fxaaEnabled: false
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_ui
+mainCamera: 0
+maxValues:
+  maxSubmeshes: 0
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 0
+  maxShapes2D: 0
+  maxShapePoints2D: 0
+  maxShapes3D: 0
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: ui
+    properties: 2
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: velocity
+  - type: taa
+  - type: fxaa
+  - type: motionblur
+  - type: contact_shadows
+  - type: ssgi
+  - type: decal
+entities:
+  - type: Entity
+    entity: 1001
+    name: Text
+    components:
+      transform:
+        position: [31.000069, 15.000002, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [31.000069, 15.000002, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [31.000069, 15.000002, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [31.000069, 15.000002, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      ui:
+        primitiveType: triangles
+        vertexCount: 288
+        aabb:
+          min: [0, 0, 0]
+          max: [384, 19.833334, 0]
+        worldAABB:
+          min: [31.000069, 15.000002, 0]
+          max: [415.00006, 34.833336, 0]
+        texture:
+          textureType: 2D
+          source: id
+          id: font|20#32
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [1, 1, 1, 1]
+        automaticFlipY: true
+        flipY: false
+        pointerMoved: false
+        focused: false
+      uilayout:
+        width: 384
+        height: 20
+        anchorPointLeft: 0
+        anchorPointTop: 0
+        anchorPointRight: 0
+        anchorPointBottom: 0
+        anchorOffsetLeft: 31
+        anchorOffsetTop: 15
+        anchorOffsetRight: 415
+        anchorOffsetBottom: 35
+        positionOffset: [0, 0]
+        pivot: [0, 0]
+        anchorPreset: NONE
+        usingAnchors: false
+        panel: 0
+        containerBoxIndex: -1
+        scissor: [0, 0, 0, 0]
+        ignoreScissor: false
+        ignoreEvents: false
+      text:
+        font: []
+        text: WASD, arrow keys or gamepad to control character
+        fontSize: 20
+        multiline: true
+        maxTextSize: 100
+        fixedWidth: false
+        fixedHeight: false
+        pivotBaseline: false
+        pivotCentered: false
+  - type: Entity
+    entity: 1002
+    name: Text 2
+    components:
+      transform:
+        position: [31.000061, 39, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [31.000061, 39, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [31.000061, 39, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [31.000061, 39, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      ui:
+        primitiveType: triangles
+        vertexCount: 168
+        aabb:
+          min: [0, 0, 0]
+          max: [219, 16.833334, 0]
+        worldAABB:
+          min: [31.000061, 39, 0]
+          max: [250.00006, 55.833336, 0]
+        texture:
+          textureType: 2D
+          source: id
+          id: font|20#32
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [1, 1, 1, 1]
+        automaticFlipY: true
+        flipY: false
+        pointerMoved: false
+        focused: false
+      uilayout:
+        width: 219
+        height: 20
+        anchorPointLeft: 0
+        anchorPointTop: 0
+        anchorPointRight: 0
+        anchorPointBottom: 0
+        anchorOffsetLeft: 31
+        anchorOffsetTop: 39
+        anchorOffsetRight: 250
+        anchorOffsetBottom: 59
+        positionOffset: [0, 0]
+        pivot: [0, 0]
+        anchorPreset: NONE
+        usingAnchors: false
+        panel: 0
+        containerBoxIndex: -1
+        scissor: [0, 0, 0, 0]
+        ignoreScissor: false
+        ignoreEvents: false
+      text:
+        font: []
+        text: Mouse left to control camera
+        fontSize: 20
+        multiline: true
+        maxTextSize: 100
+        fixedWidth: false
+        fixedHeight: false
+        pivotBaseline: false
+        pivotCentered: false
+  - type: Entity
+    entity: 1003
+    name: Text 3
+    components:
+      transform:
+        position: [30.999992, 64.00002, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [30.999992, 64.00002, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [30.999992, 64.00002, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [30.999992, 64.00002, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      ui:
+        primitiveType: triangles
+        vertexCount: 78
+        aabb:
+          min: [0, 0, 0]
+          max: [108, 19.833334, 0]
+        worldAABB:
+          min: [30.999992, 64.00002, 0]
+          max: [139, 83.83336, 0]
+        texture:
+          textureType: 2D
+          source: id
+          id: font|20#32
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [1, 1, 1, 1]
+        automaticFlipY: true
+        flipY: false
+        pointerMoved: false
+        focused: false
+      uilayout:
+        width: 108
+        height: 20
+        anchorPointLeft: 0
+        anchorPointTop: 0
+        anchorPointRight: 0
+        anchorPointBottom: 0
+        anchorOffsetLeft: 30
+        anchorOffsetTop: 64
+        anchorOffsetRight: 139
+        anchorOffsetBottom: 84
+        positionOffset: [0, 0]
+        pivot: [0, 0]
+        anchorPreset: NONE
+        usingAnchors: false
+        panel: 0
+        containerBoxIndex: -1
+        scissor: [0, 0, 0, 0]
+        ignoreScissor: false
+        ignoreEvents: false
+      text:
+        font: []
+        text: Space to jump
+        fontSize: 20
+        multiline: true
+        maxTextSize: 100
+        fixedWidth: false
+        fixedHeight: false
+        pivotBaseline: false
+        pivotCentered: false

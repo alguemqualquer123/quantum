@@ -1,0 +1,42 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# The uilab libraries intentionally do NOT carry a link dependency on Dear ImGui,
+# GLFW or OpenGL: those are provided by the application that owns the window and
+# the render loop. Link them yourself before using UILab::*.
+find_dependency(OpenGL)
+
+include("${CMAKE_CURRENT_LIST_DIR}/UILabTargets.cmake")
+
+set(_uilab_supported_components Core Editor Demos)
+set(_uilab_component_option_Core UILAB_BUILD_APP)
+set(_uilab_component_option_Editor UILAB_BUILD_EDITOR)
+set(_uilab_component_option_Demos UILAB_BUILD_DEMOS)
+
+foreach(_component IN LISTS UILab_FIND_COMPONENTS)
+    if(NOT _component IN_LIST _uilab_supported_components)
+        set(UILab_FOUND FALSE)
+        set(UILab_NOT_FOUND_MESSAGE "Unknown UILab component ${_component}")
+        return()
+    endif()
+    if(NOT TARGET UILab::${_component})
+        set(UILab_FOUND FALSE)
+        set(UILab_NOT_FOUND_MESSAGE "Component ${_component} was not built (reconfigure the lab with "
+                                    "${_uilab_component_option_${_component}}=ON)")
+        return()
+    endif()
+    list(APPEND UILab_LIBRARIES UILab::${_component})
+    set(UILab_${_component}_FOUND TRUE)
+endforeach()
+
+if(NOT UILab_FIND_COMPONENTS)
+    set(UILab_LIBRARIES UILab::Core)
+    foreach(_component Editor Demos)
+        if(TARGET UILab::${_component})
+            list(APPEND UILab_LIBRARIES UILab::${_component})
+        endif()
+    endforeach()
+endif()
+
+check_required_components(UILab)

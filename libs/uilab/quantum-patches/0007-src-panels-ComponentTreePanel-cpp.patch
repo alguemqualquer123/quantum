@@ -1,0 +1,18 @@
+--- a/src/panels/ComponentTreePanel.cpp
++++ b/src/panels/ComponentTreePanel.cpp
+@@ -130,7 +130,14 @@
+ } // namespace
+ 
+ void DrawComponentTree(AppContext& ctx) {
+-    if (!ImGui::Begin(kComponentTreeTitle)) {
++    const HostPanel& panel = ctx.host.componentTreePanel;
++    if (!ImGui::Begin(panel.titleOr(kComponentTreeTitle), panel.pOpen)) {
++        ImGui::End();
++        return;
++    }
++
++    if (ctx.host.componentTree) {
++        ctx.host.componentTree(ctx);
+         ImGui::End();
+         return;
+     }

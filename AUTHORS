@@ -1,0 +1,23 @@
+Quantum Engine — authors
+========================
+
+Maintainer of this fork
+-----------------------
+SR VINIX  https://github.com/alguemqualquer123
+  Author of the changes made to the engine after the upstream base commit
+  297f87f4838ada5809905e7e34897f0ec0638ce2, including the Quantum branding,
+  the editor and tooling work carried in this branch, and the documentation
+  site at https://github.com/alguemqualquer123/quantum-docs.
+
+Upstream author
+---------------
+SR VINIX and contributors  https://github.com/alguemqualquer123
+  Author of the Quantum engine this fork is built from. The per-file
+  "// (c) SR VINIX" and SPDX headers across engine/, editor/ and tools/
+  record that authorship and are kept intentionally, as the MIT License
+  requires. See NOTICE.md.
+
+Third parties
+-------------
+The libraries under engine/libs/ and libs/ are authored by their respective
+maintainers and carry their own licenses.

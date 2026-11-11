@@ -1,0 +1,15 @@
+{
+  "id": "quantum.broken",
+  "name": "Broken ABI Plugin",
+  "description": "Test fixture. Its manifest claims the engine's own abi so the check that fires is the one made against the binary, which is the only one that can actually catch a stale plugin.",
+  "author": "SR VINIX (upstream), SR VINIX (Quantum fork)",
+  "version": "1.0.0",
+  "abiVersion": 2,
+  "platforms": ["windows", "linux", "macos"],
+  "type": "engine",
+  "dependencies": [],
+  "libraries": ["quantum-broken"],
+  "entryPoint": "QuantumPluginCreate",
+  "permissions": [],
+  "settings": {}
+}

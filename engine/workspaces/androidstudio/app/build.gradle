@@ -1,0 +1,76 @@
+apply plugin: 'com.android.application'
+
+def projectSourceRoot = "../../../project"
+def quantumRoot = "../../.."
+
+def projectSourceRootAbs = file(projectSourceRoot).toString()
+def quantumRootAbs = file(quantumRoot).toString()
+
+// def platformVersion = 24    //openGLES 3.2 min api level
+// def platformVersion = 18    //openGLES 3 min api level
+// def platformVersion = 12    //openGLES 2 min api level
+
+android {
+    compileSdk 36
+    defaultConfig {
+        applicationId "com.yourcompany.project"
+        minSdkVersion 24
+        targetSdkVersion 36
+        versionCode (project.findProperty("QUANTUM_VERSION_CODE") ?: "1") as int
+        versionName (project.findProperty("QUANTUM_VERSION") ?: "0.0.0")
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        multiDexEnabled = true // avoid error 'Cannot fit requested classes in a single dex file'
+        externalNativeBuild {
+            cmake {
+                abiFilters "arm64-v8a"
+                abiFilters "x86"
+                abiFilters "armeabi-v7a"
+                abiFilters "x86_64"
+
+                arguments "-DANDROID_STL=c++_shared", "-DPROJECT_ROOT="+projectSourceRootAbs
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+        }
+        release {
+            debuggable false
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            //version '3.18.1'
+            path quantumRootAbs+"/CMakeLists.txt"
+        }
+    }
+
+    buildFeatures {
+        prefab = true
+        buildConfig = true
+    }
+
+    sourceSets {
+        main {
+            java.srcDirs = [quantumRootAbs+'/platform/android/java']
+            java.srcDir quantumRootAbs+'/platform/android/java-admob'
+            java.srcDir quantumRootAbs+'/platform/android/java-billing'
+            assets.srcDirs = [projectSourceRootAbs+'/assets',projectSourceRootAbs+'/lua']
+        }
+    }
+
+    namespace = 'org.srvinix.quantum'
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:1.6.1"
+    implementation "androidx.games:games-activity:2.0.2"
+    implementation "androidx.games:games-frame-pacing:2.0.0"
+    implementation "com.google.android.gms:play-services-ads:25.5.0"
+    implementation "com.google.android.ump:user-messaging-platform:4.0.0"
+    implementation "com.android.billingclient:billing:9.1.0"
+}

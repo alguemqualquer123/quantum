@@ -1,0 +1,98 @@
+name: Engine iOS/macOS
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    name: Build for ${{ matrix.config.name }}
+    runs-on: macOS-latest
+    # -jobs 1 below makes this slow, so the ceiling is generous but finite.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        config: 
+        - {
+            name: "iOS",
+            target: "Quantum iOS",
+            sdk: iphonesimulator
+          }
+        - {
+            name: "MacOS",
+            target: "Quantum macOS",
+            sdk: macosx
+          }
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Xcode version
+        run: /usr/bin/xcodebuild -version
+
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+             
+      - name: Create assets dir if not exist
+        run: mkdir -p engine/project/assets
+             
+      - name: Build with Xcode
+        run: |
+          cd engine/workspaces/xcode/
+          # TODO: remove -jobs 1 once macos-latest / Xcode 26.x stops flaking
+          # with "CFLocale.h: Invalid argument" under parallel compiles.
+          xcodebuild build \
+            -sdk ${{ matrix.config.sdk }} \
+            -project Quantum.xcodeproj \
+            -configuration Release \
+            -target "${{ matrix.config.target }}" \
+            -jobs 1 \
+            -derivedDataPath "build/derived-${{ matrix.config.sdk }}" \
+            MARKETING_VERSION="${QUANTUM_VERSION#v}" \
+            CURRENT_PROJECT_VERSION="${GITHUB_RUN_NUMBER}"
+
+      - name: Write Apple release manifest
+        run: |
+          python3 - "$QUANTUM_VERSION" "$GITHUB_RUN_NUMBER" "${{ matrix.config.sdk }}" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          sdk = sys.argv[3]
+          platform = "ios" if sdk == "iphonesimulator" else "macos"
+          output = pathlib.Path("engine/workspaces/xcode/build/release-manifest.json")
+          output.write_text(json.dumps({
+              "schema": 1,
+              "product": "Quantum",
+              "version": sys.argv[1].lstrip("v"),
+              "channel": "ci",
+              "platform": platform,
+              "architecture": "simulator" if platform == "ios" else "native",
+              "graphicBackend": "metal",
+              "buildType": "Release",
+              "buildNumber": int(sys.argv[2]),
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+          mapfile -t apps < <(find "engine/workspaces/xcode/build/derived-${{ matrix.config.sdk }}/Build/Products" -type d -name '*.app' | sort)
+          test "${#apps[@]}" -gt 0
+      - name: Verify Apple app bundle
+        run: |
+          mapfile -t apps < <(find "engine/workspaces/xcode/build/derived-${{ matrix.config.sdk }}/Build/Products" -type d -name '*.app' | sort)
+          args=(
+            --root engine/workspaces/xcode/build \
+            --manifest engine/workspaces/xcode/build/release-manifest.json \
+            --report engine/workspaces/xcode/build/release-smoke-report.json
+          )
+          for app in "${apps[@]}"; do args+=(--artifact "$app"); done
+          python3 scripts/release-smoke.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-${{ matrix.config.name }}-${{ github.sha }}
+          path: |
+            engine/workspaces/xcode/build/derived-${{ matrix.config.sdk }}/Build/Products/**
+            engine/workspaces/xcode/build/release-manifest.json
+            engine/workspaces/xcode/build/release-smoke-report.json
+          if-no-files-found: error

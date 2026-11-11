@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>@QUANTUM_BUNDLE_NAME@</string>
+	<key>CFBundleIconFile</key>
+	<string>@QUANTUM_BUNDLE_ICON_NAME@</string>
+	<key>CFBundleIdentifier</key>
+	<string>@QUANTUM_BUNDLE_IDENTIFIER@</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>@QUANTUM_BUNDLE_NAME@</string>
+	<key>CFBundleDisplayName</key>
+	<string>@QUANTUM_BUNDLE_NAME@</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>@QUANTUM_BUNDLE_VERSION@</string>
+	<key>CFBundleVersion</key>
+	<string>@QUANTUM_BUNDLE_VERSION@</string>
+	<key>CFBundleGetInfoString</key>
+	<string>@QUANTUMEDITOR_VERSION@</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright (C) 2026 SR VINIX. Based on Quantum Engine, copyright (c) SR VINIX and contributors, MIT License.</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>@QUANTUM_BUNDLE_MIN_OS@</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

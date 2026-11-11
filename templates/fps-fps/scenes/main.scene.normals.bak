@@ -1,0 +1,2810 @@
+id: 1
+name: Main Scene
+scene:
+  backgroundColor: [0.25, 0.45, 0.65, 1]
+  shadowQuality: high
+  meshLodEnabled: false
+  meshLodThreshold: 1
+  depthPrepassEnabled: true
+  renderDistance: 0
+  lightState: on
+  globalIlluminationIntensity: 0.3
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: true
+  ssaoRadius: 0.6
+  ssaoIntensity: 0.9
+  ssaoBias: 0.02
+  dofEnabled: false
+  dofFocusDistance: 8
+  dofAperture: 2
+  dofFocusRange: 4
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 12
+  ssrThickness: 0.5
+  ssrMaxSteps: 64
+  ssrIntensity: 0.7
+  ssrBlur: 1
+  gravity2D: [0, -9.81]
+  gravity3D: [0, -9.81, 0]
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: nearest
+  bloomEnabled: true
+  bloomThreshold: 0.8
+  bloomSoftKnee: 0.6
+  bloomIntensity: 0.7
+  bloomDirtIntensity: 0.04
+  bloomMipLevels: 5
+  tonemapEnabled: true
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: true
+  autoExposureSpeed: 1.5
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 2
+  exposureCompensation: 0.15
+  colorGradingEnabled: true
+  colorGradingSaturation: 1.06
+  colorGradingContrast: 1.05
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0.06
+  colorGradingTint: 0
+  fxaaEnabled: true
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_3d
+mainCamera: 1002
+maxValues:
+  maxSubmeshes: 1
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 128
+  maxShapes2D: 0
+  maxShapePoints2D: 0
+  maxShapes3D: 1
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: mesh
+    properties: 841483482
+  - type: sky
+  - type: depth
+  - type: ui
+    properties: 8
+  - type: ssao
+  - type: ssaoblur
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: fxaa
+entities:
+  - type: Entity
+    entity: 1001
+    name: Sun
+    components:
+      transform:
+        position: [0, 10, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 10, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 10, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 10, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -10], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+        type: directional
+        direction: [-0.324, -0.811, 0.487]
+        worldDirection: [-0.324, -0.811, 0.487]
+        color: [1, 1, 1]
+        range: 100
+        intensity: 4
+        innerConeCos: 0.76604444
+        outerConeCos: 0.64278764
+        spotMask: ~
+        shadows: true
+        automaticShadowCamera: true
+        shadowBias: 0.002
+        mapResolution: 2048
+        shadowCameraNearFar: [0.3, 100]
+        numShadowCascades: 3
+  - type: Entity
+    entity: 1002
+    name: Camera
+    components:
+      transform:
+        position: [0, 1.7, -4]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 1.7, -4]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1.7, -4, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1.7, -4, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -1.7], [0, -0, 1, 4], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: camera_perspective
+        target: [0, 1.7, 0]
+        up: [0, 1, 0]
+        leftClip: 0
+        rightClip: 0
+        bottomClip: 0
+        topClip: 0
+        yfov: 1.22
+        aspect: 1.778
+        nearClip: 0.1
+        farClip: 1000
+        renderToTexture: false
+        transparentSort: false
+        depthTest: true
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: linear
+  - type: Entity
+    entity: 1003
+    name: Player
+    components:
+      transform:
+        position: [0, 1, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 1, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      body3d:
+        type: kinematic
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: capsule
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1
+            height: 1
+            depth: 1
+            radius: 0.3
+            halfHeight: 0.6
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 1004
+    name: Ground
+    components:
+      transform:
+        position: [0, -0.5, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [40, 1, 40]
+        worldPosition: [0, -0.5, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [40, 1, 40]
+        localMatrix: [[40, 0, 0, 0], [0, 1, 0, 0], [0, 0, 40, 0], [0, -0.5, 0, 1]]
+        modelMatrix: [[40, 0, 0, 0], [0, 1, 0, 0], [0, 0, 40, 0], [0, -0.5, 0, 1]]
+        normalMatrix: [[0.024999999, 0, 0, 0], [0, 1, 0, 0.5], [0, 0, 0.024999999, -0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAAL8AAAA/AAAAAAAAoEEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AACgQQAAoEEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AACgQQAAoEEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAoEEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AACgQQAAAAAAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAoEEAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AACgQQAAoEEAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAAAAAAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAAD8AAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AACgQQAAAD8AAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AACgQQAAAAAAAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AACgQQAAAAAAAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AACgQQAAAD8AAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AAAAAAAAAD8AAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AAAAAAAAAAAAAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AACgQQAAAAAAAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AACgQQAAAD8AAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAD8AAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAD8AAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AACgQQAAAD8AAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AACgQQAAAAAAAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [1.0, 1.0, 1.0, 1.0]
+              metallicFactor: 0
+              roughnessFactor: 1.0
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-asphalt-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-asphalt-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-asphalt-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-asphalt-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        verticesAABB:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        worldAABB:
+          min: [-20, -1, -20]
+          max: [20, 0, 20]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1
+            height: 1
+            depth: 1
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 5
+    name: ApiTester
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+  - type: Entity
+    entity: 6
+    name: Crosshair
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      ui:
+        primitiveType: triangles
+        vertexCount: 54
+        aabb:
+          min: [0, 0, 0]
+          max: [24, 24, 0]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [24, 24, 0]
+        texture: ~
+        color: [1, 1, 1, 1]
+        automaticFlipY: true
+        flipY: true
+        pointerMoved: false
+        focused: false
+      uilayout:
+        width: 24
+        height: 24
+        anchorPointLeft: 0.5
+        anchorPointTop: 0.5
+        anchorPointRight: 0.5
+        anchorPointBottom: 0.5
+        anchorOffsetLeft: -640
+        anchorOffsetTop: -360
+        anchorOffsetRight: -616
+        anchorOffsetBottom: -336
+        positionOffset: [0, 0]
+        pivot: [0, 0]
+        anchorPreset: CENTER
+        usingAnchors: false
+        panel: 0
+        containerBoxIndex: -1
+        scissor: [1002, 0, 1002, 907]
+        ignoreScissor: false
+        ignoreEvents: false
+      image:
+        patchMarginLeft: 0
+        patchMarginRight: 0
+        patchMarginTop: 0
+        patchMarginBottom: 0
+        textureScaleFactor: 1
+  - type: Entity
+    entity: 1005
+    name: Sky
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      sky:
+        useDefaultTexture: true
+        texture:
+          textureType: CUBE
+          cubeMode: faces
+          source: paths
+          paths: ["", "", "", "", "", ""]
+          hasEmptyFaces: true
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [1, 1, 1, 1]
+        rotation: 0
+        visible: true
+  - type: Entity
+    entity: 1006
+    name: Atmosphere
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      fog:
+        type: exponential
+        color: [0.5, 0.65, 0.85]
+        density: 0.004
+        linearStart: 12
+        linearEnd: 120
+        heightFog: true
+        fogHeightFalloff: 7
+        fogGroundHeight: 0
+        fogSunAmount: 0.75
+        fogFarRange: 350
+        fogScatteringG: 0.6
+        fogSunColor: [1, 0.7, 0.4]
+        godRays: true
+        rayIntensity: 0.65
+        rayThreshold: 1
+        raySoftness: 2.5
+        rayDecay: 0.95
+        rayDensity: 0.6
+  - type: Entity
+    entity: 2001
+    name: Wall North
+    components:
+      transform:
+        position: [0, 1, 15]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 1, 15]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 15, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 15, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -1], [0, 0, 1, -15], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AABwwQAAgD8zM7O+AAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+AAAAADMzsz4AAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+AABwQTMzsz4AAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AABwQQAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+AAAAADMzsz4AAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AABwQQAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+AABwQTMzsz4AAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+MzOzPgAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+MzOzPgAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+MzOzPgAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+MzOzPgAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7O+AAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+AABwQQAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+AABwQQAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+AAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+AAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7O+AAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AABwQQAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AABwQQAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-15, -1, -0.35]
+          max: [15, 1, 0.35]
+        verticesAABB:
+          min: [-15, -1, -0.35]
+          max: [15, 1, 0.35]
+        worldAABB:
+          min: [-15, 0, 14.65]
+          max: [15, 2, 15.35]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 30
+            height: 2
+            depth: 0.7
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2002
+    name: Wall South
+    components:
+      transform:
+        position: [0, 1, -15]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 1, -15]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, -15, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, -15, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -1], [0, -0, 1, 15], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AABwwQAAgD8zM7O+AAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+AAAAADMzsz4AAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+AABwQTMzsz4AAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AABwQQAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+AAAAADMzsz4AAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AABwQQAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+AABwQTMzsz4AAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+MzOzPgAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+MzOzPgAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+MzOzPgAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+MzOzPgAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7O+AAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7M+AABwQQAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7M+AABwQQAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7M+AAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7M+AAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgL8zM7O+AAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwwQAAgD8zM7O+AAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgD8zM7O+AABwQQAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AABwQQAAgL8zM7O+AABwQQAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-15, -1, -0.35]
+          max: [15, 1, 0.35]
+        verticesAABB:
+          min: [-15, -1, -0.35]
+          max: [15, 1, 0.35]
+        worldAABB:
+          min: [-15, 0, -15.35]
+          max: [15, 2, -14.65]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 30
+            height: 2
+            depth: 0.7
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2003
+    name: Wall East
+    components:
+      transform:
+        position: [15, 1, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [15, 1, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [15, 1, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [15, 1, 0, 1]]
+        normalMatrix: [[1, 0, 0, -15], [0, 1, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: MzOzvgAAgD8AAHDBAAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAAAAAAAAcEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBMzOzPgAAcEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBMzOzPgAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAAAAAAAAcEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBMzOzPgAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBMzOzPgAAcEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBAAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBAAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBAABwQQAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBAABwQQAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAABwQQAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAABwQQAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHDBAAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBMzOzPgAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBMzOzPgAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHDBAAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBMzOzPgAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBMzOzPgAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.35, -1, -15]
+          max: [0.35, 1, 15]
+        verticesAABB:
+          min: [-0.35, -1, -15]
+          max: [0.35, 1, 15]
+        worldAABB:
+          min: [14.65, 0, -15]
+          max: [15.35, 2, 15]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 0.7
+            height: 2
+            depth: 30
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2004
+    name: Wall West
+    components:
+      transform:
+        position: [-15, 1, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [-15, 1, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [-15, 1, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [-15, 1, 0, 1]]
+        normalMatrix: [[1, 0, 0, 15], [0, 1, 0, -1], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: MzOzvgAAgD8AAHDBAAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAAAAAAAAcEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBMzOzPgAAcEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBMzOzPgAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAAAAAAAAcEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBMzOzPgAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBMzOzPgAAcEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBAAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBAAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBAABwQQAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBAABwQQAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAABwQQAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAABwQQAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHDBAAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHBBMzOzPgAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHBBMzOzPgAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHBBAAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHBBAAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgL8AAHDBAAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzvgAAgD8AAHDBAAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgD8AAHDBMzOzPgAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/MzOzPgAAgL8AAHDBMzOzPgAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.35, -1, -15]
+          max: [0.35, 1, 15]
+        verticesAABB:
+          min: [-0.35, -1, -15]
+          max: [0.35, 1, 15]
+        worldAABB:
+          min: [-15.35, 0, -15]
+          max: [-14.65, 2, 15]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 0.7
+            height: 2
+            depth: 30
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2005
+    name: Cover A
+    components:
+      transform:
+        position: [-5, 0.6, 3]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [-5, 0.6, 3]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [-5, 0.6, 3, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [-5, 0.6, 3, 1]]
+        normalMatrix: [[1, 0, 0, 5], [0, 1, 0, -0.6], [0, 0, 1, -3], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: ZmZmv5qZGT9mZma/AAAAAAAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/AAAAAGZmZj8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP2ZmZj8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/ZmZmPwAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/AAAAAGZmZj8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/ZmZmPwAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmP2ZmZj8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/AAAAAAAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/AAAAAJqZGT8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP5qZGT8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmPwAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/ZmZmPwAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/ZmZmP5qZGT8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZma/AAAAAJqZGT8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmPwAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP5qZGT8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/AAAAAJqZGT8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/AAAAAAAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZma/AAAAAJqZGT8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/ZmZmP5qZGT8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/ZmZmPwAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.66, 0.52, 0.34, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.72
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.9, -0.6, -0.9]
+          max: [0.9, 0.6, 0.9]
+        verticesAABB:
+          min: [-0.9, -0.6, -0.9]
+          max: [0.9, 0.6, 0.9]
+        worldAABB:
+          min: [-5.9, 0, 2.1]
+          max: [-4.1, 1.2, 3.9]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.8
+            height: 1.2
+            depth: 1.8
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2006
+    name: Cover B
+    components:
+      transform:
+        position: [4.5, 0.6, 6]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [4.5, 0.6, 6]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [4.5, 0.6, 6, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [4.5, 0.6, 6, 1]]
+        normalMatrix: [[1, 0, 0, -4.5], [0, 1, 0, -0.6], [0, 0, 1, -6], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: ZmZmv5qZGT9mZma/AAAAAAAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/AAAAAGZmZj8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP2ZmZj8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/ZmZmPwAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/AAAAAGZmZj8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/ZmZmPwAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmP2ZmZj8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/AAAAAAAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/AAAAAJqZGT8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP5qZGT8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmPwAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/ZmZmPwAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/ZmZmP5qZGT8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZma/AAAAAJqZGT8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZmY/ZmZmPwAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZmY/ZmZmP5qZGT8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZmY/AAAAAJqZGT8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZmY/AAAAAAAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGb9mZma/AAAAAAAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmv5qZGT9mZma/AAAAAJqZGT8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGT9mZma/ZmZmP5qZGT8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/ZmZmP5qZGb9mZma/ZmZmPwAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.66, 0.52, 0.34, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.72
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.9, -0.6, -0.9]
+          max: [0.9, 0.6, 0.9]
+        verticesAABB:
+          min: [-0.9, -0.6, -0.9]
+          max: [0.9, 0.6, 0.9]
+        worldAABB:
+          min: [3.6, 0, 5.1]
+          max: [5.4, 1.2, 6.9]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.8
+            height: 1.2
+            depth: 1.8
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2007
+    name: Cover C
+    components:
+      transform:
+        position: [0, 1.1, 10]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 1.1, 10]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1.1, 10, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1.1, 10, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, -1.1], [0, 0, 1, -10], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: MzOzv83MjD8zM7O/AAAAAAAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjD8zM7M/AAAAADMzsz8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7M/MzOzPzMzsz8AAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7O/MzOzPwAAAAAAAAAAAACAPwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7M/AAAAADMzsz8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7O/AAAAAAAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7O/MzOzPwAAAAAAAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7M/MzOzPzMzsz8AAAAAAACAvwAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7O/AAAAAAAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7O/AAAAAM3MjD8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7M/MzOzP83MjD8AAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7M/MzOzPwAAAAAAAIA/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7M/MzOzPwAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjD8zM7M/MzOzP83MjD8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjD8zM7O/AAAAAM3MjD8AAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7O/AAAAAAAAAAAAAIC/AAAAAAAAAADD9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7M/MzOzPwAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7M/MzOzP83MjD8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/MzOzv83MjD8zM7M/AAAAAM3MjD8AAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7M/AAAAAAAAAAAAAAAAAAAAAAAAgD/D9Sg/uB4FP3sUrj4AAIA/MzOzv83MjL8zM7O/AAAAAAAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/MzOzv83MjD8zM7O/AAAAAM3MjD8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/MzOzP83MjD8zM7O/MzOzP83MjD8AAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/MzOzP83MjL8zM7O/MzOzPwAAAAAAAAAAAAAAAAAAgL/D9Sg/uB4FP3sUrj4AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.66, 0.52, 0.34, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.72
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-1.4, -1.1, -1.4]
+          max: [1.4, 1.1, 1.4]
+        verticesAABB:
+          min: [-1.4, -1.1, -1.4]
+          max: [1.4, 1.1, 1.4]
+        worldAABB:
+          min: [-1.4, 0, 8.6]
+          max: [1.4, 2.2, 11.4]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 2.8
+            height: 2.2
+            depth: 2.8
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~

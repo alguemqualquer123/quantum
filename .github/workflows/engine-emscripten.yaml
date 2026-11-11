@@ -1,0 +1,90 @@
+name: Engine Emscripten
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  BUILD_TYPE: Debug
+  # The one build tree name; scripts/quantum-build-dir.bat carries the same
+  # default, so CI and a developer's shell configure the same folder.
+  QUANTUM_BUILD_DIR: build
+  TARGET: quantum-project
+
+jobs:
+  build:
+    name: Build for Emscripten
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          # -y: apt-get prompts as soon as a dependency comes along, and there
+          # is no stdin here to answer it.
+          sudo apt-get install -y ninja-build cmake
+          ninja --version
+          cmake --version
+
+      - name: Setup Emscripten
+        uses: emscripten-core/setup-emsdk@v16
+
+      - name: Verify Emscripten
+        run: emcc --version
+
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+
+      - name: Configure
+        run: |
+          mkdir "$QUANTUM_BUILD_DIR"
+          mkdir instdir
+          emcmake cmake \
+            -S engine \
+            -B "$QUANTUM_BUILD_DIR" \
+            -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+            -G "Ninja" \
+            -DCMAKE_INSTALL_PREFIX:PATH=instdir
+
+      - name: Build
+        run: cmake --build "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target ${{env.TARGET}}
+
+      - name: Write web release manifest
+        run: |
+          python3 - "$QUANTUM_VERSION" <<'PY'
+          import json, pathlib, sys
+          pathlib.Path("build/release-manifest.json").write_text(json.dumps({
+              "schema": 1, "product": "Quantum", "version": sys.argv[1],
+              "channel": "nightly", "platform": "web", "architecture": "wasm32",
+              "graphicBackend": "gles3", "buildType": "Debug"
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Verify Web artifact
+        run: |
+          mapfile -t artifacts < <(find "$QUANTUM_BUILD_DIR" -maxdepth 1 -type f \( -name 'quantum-project.wasm' -o -name 'quantum-project.js' -o -name 'quantum-project.html' \) | sort)
+          test "${#artifacts[@]}" -gt 0
+          args=(
+            --root "$QUANTUM_BUILD_DIR"
+            --manifest "$QUANTUM_BUILD_DIR/release-manifest.json"
+            --report "$QUANTUM_BUILD_DIR/release-smoke-report.json"
+          )
+          for artifact in "${artifacts[@]}"; do args+=(--artifact "$artifact"); done
+          python3 scripts/release-smoke.py "${args[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-web-debug-${{ github.sha }}
+          path: |
+            ${{ env.QUANTUM_BUILD_DIR }}/quantum-project.*
+            ${{ env.QUANTUM_BUILD_DIR }}/release-manifest.json
+            ${{ env.QUANTUM_BUILD_DIR }}/release-smoke-report.json
+          if-no-files-found: error

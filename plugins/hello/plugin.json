@@ -1,0 +1,30 @@
+{
+  "id": "quantum.hello",
+  "name": "Hello Plugin",
+  "description": "Reference plugin: proves the loader, the manifest, the schema-driven panel and the command registry.",
+  "author": "SR VINIX (upstream), SR VINIX (Quantum fork)",
+  "version": "1.0.0",
+  "minEngineVersion": "0.0.0",
+  "abiVersion": 2,
+  "platforms": ["windows", "linux", "macos"],
+  "type": "engine",
+  "dependencies": [],
+  "libraries": ["quantum-hello"],
+  "entryPoint": "QuantumPluginCreate",
+  "permissions": ["log", "settings", "tick", "ui", "files"],
+  "commands": [
+    "hello.ping",
+    "hello.echo",
+    "hello.calls",
+    "hello.ticks",
+    "hello.open.stats",
+    "hello.note",
+    "hello.stats"
+  ],
+  "panel": { "title": "Hello" },
+  "settings": {
+    "greeting": "Hello from a plugin",
+    "loud": false,
+    "repeat": 1
+  }
+}

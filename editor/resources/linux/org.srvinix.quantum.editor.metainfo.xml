@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>org.srvinix.quantum.editor</id>
+  <launchable type="desktop-id">quantum-editor.desktop</launchable>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>Quantum</name>
+  <summary>Build cross-platform 2D and 3D games</summary>
+
+  <developer id="org.srvinix">
+    <name>SR VINIX</name>
+  </developer>
+
+  <description>
+    <p>
+      Quantum is a free, open-source 2D/3D game engine with an integrated editor
+      for building cross-platform games and interactive projects with Lua or C++.
+    </p>
+    <p>
+      Projects target Windows, Linux, macOS, Android, iOS and HTML5 from a single
+      source, rendering through OpenGL, Vulkan, Metal or DirectX.
+    </p>
+    <p>
+      Quantum is a fork of the Quantum engine, copyright (c) SR VINIX and
+      contributors, released under the MIT license.
+    </p>
+  </description>
+
+  <categories>
+    <category>Development</category>
+    <category>IDE</category>
+  </categories>
+
+  <keywords>
+    <keyword>game</keyword>
+    <keyword>engine</keyword>
+    <keyword>3d</keyword>
+    <keyword>2d</keyword>
+    <keyword>editor</keyword>
+  </keywords>
+
+  <url type="homepage">https://alguemqualquer123.github.io/quantum-docs</url>
+  <url type="help">https://alguemqualquer123.github.io/quantum-docs</url>
+  <url type="bugtracker">https://github.com/alguemqualquer123/quantum/issues</url>
+  <url type="vcs-browser">https://github.com/alguemqualquer123/quantum</url>
+
+  <content_rating type="oars-1.1"/>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+</component>

@@ -1,0 +1,12 @@
+name: FPS Probe
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: "fitwidth"
+textureStrategy: "resize"
+vsync: false
+windowMode: "windowed"
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+luaDir: lua
+assetsDir: assets

@@ -1,0 +1,816 @@
+id: 1
+name: Main Scene
+scene:
+  backgroundColor: [0.02, 0.03, 0.05, 1]
+  shadowQuality: low
+  meshLodEnabled: true
+  meshLodThreshold: 1
+  depthPrepassEnabled: false
+  renderDistance: 0
+  lightState: auto
+  globalIlluminationIntensity: 0.6
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1
+  ssaoBias: 0.025
+  contactShadowsEnabled: false
+  contactShadowLength: 0.35
+  contactShadowSteps: 12
+  contactShadowThickness: 0.025
+  contactShadowIntensity: 0.65
+  ssgiEnabled: false
+  ssgiRadius: 2.5
+  ssgiIntensity: 0.35
+  ssgiSteps: 12
+  ssgiThickness: 0.25
+  dofEnabled: false
+  dofFocusDistance: 8
+  dofAperture: 2
+  dofFocusRange: 4
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 8
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1
+  ssrBlur: 0
+  taaEnabled: false
+  taaBlend: 0.9
+  taaVelocityScale: 1
+  taaVelocityClamp: 0.25
+  motionBlurEnabled: false
+  motionBlurIntensity: 1
+  motionBlurSamples: 8
+  motionBlurVelocityClamp: 0.08
+  motionBlurDepthThreshold: 0.5
+  gravity2D: [0, -9.81]
+  gravity3D: [0, -9.81, 0]
+  windEnabled: false
+  windSpeed: 6
+  windDirection: 0
+  windGustiness: 0.35
+  windChange: 0.2
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: nearest
+  bloomEnabled: false
+  bloomThreshold: 0.75
+  bloomSoftKnee: 0.5
+  bloomIntensity: 1
+  bloomDirtIntensity: 0
+  bloomMipLevels: 5
+  tonemapEnabled: true
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: false
+  autoExposureSpeed: 1
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 8
+  exposureCompensation: 0
+  colorGradingEnabled: false
+  colorGradingSaturation: 1
+  colorGradingContrast: 1
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0
+  colorGradingTint: 0
+  fxaaEnabled: true
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_3d
+mainCamera: 9
+maxValues:
+  maxSubmeshes: 0
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 96
+  maxShapes2D: 0
+  maxShapePoints2D: 0
+  maxShapes3D: 0
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: velocity
+  - type: taa
+  - type: fxaa
+  - type: motionblur
+  - type: contact_shadows
+  - type: water
+    properties: 27
+  - type: underwater
+  - type: ssgi
+  - type: decal
+  - type: sky
+    customShader: assets/shaders/sky_daynight
+entities:
+  - type: Entity
+    entity: 1001
+    name: Sky
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      sky:
+        useDefaultTexture: false
+        texture: ~
+        color: [1, 1, 1, 1]
+        rotation: 0
+        visible: true
+        customShader: assets/shaders/sky_daynight
+        shaderUniforms:
+          sunDir: [0, 0.91, 0.42, 1]
+          moonDir: [0, -0.91, -0.42, 0]
+          skyColour: [1, 1, 1, 1]
+          sunDisc: [14, 13.6, 12.6, 0.011]
+          moonDisc: [1.9, 1.95, 2.1, 0.011]
+          atmosphere: [90, 0.5, 1, 0.22]
+          stars: [0, 1.4, 0.55, 0.35]
+          cloudLayer: [0.35, 1600, 2200, 0.55]
+          cloudShape: [0.85, 0.22, 600, 0.25]
+          cloudWind: [-5.196, -3, 1.15, 0.34]
+          cloudTint: [1, 0.99, 0.98, 0.16]
+          camPos: [0, 16, -70, 0]
+  - type: Entity
+    entity: 1002
+    name: Sun
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+        type: directional
+        direction: [0, -0.91, -0.42]
+        worldDirection: [0, -0.91, -0.42]
+        color: [1, 0.97, 0.9]
+        range: 0
+        intensity: 1.35
+        innerConeCos: 0.76604444
+        outerConeCos: 0.64278764
+        spotMask: ~
+        shadows: true
+        automaticShadowCamera: true
+        shadowBias: 0.002
+        mapResolution: 2048
+        shadowCameraNearFar: [0.3, 400]
+        numShadowCascades: 3
+  - type: Entity
+    entity: 1003
+    name: Moon
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+        type: directional
+        direction: [0, -0.91, -0.42]
+        worldDirection: [0, -0.91, -0.42]
+        color: [0.72, 0.8, 1]
+        range: 0
+        intensity: 0
+        innerConeCos: 0.76604444
+        outerConeCos: 0.64278764
+        spotMask: ~
+        shadows: true
+        automaticShadowCamera: true
+        shadowBias: 0.004
+        mapResolution: 1024
+        shadowCameraNearFar: [0.3, 400]
+        numShadowCascades: 3
+  - type: Entity
+    entity: 1004
+    name: Fog
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      fog:
+        type: linear
+        color: [0.5, 0.6, 0.75]
+        density: 0.01
+        linearStart: 220
+        linearEnd: 2400
+        heightFog: false
+        fogHeightFalloff: 8
+        fogGroundHeight: 0
+        fogSunAmount: 0.65
+        fogFarRange: 1200
+        fogScatteringG: 0.6
+        fogSunColor: [1, 0.7176234, 0.40086365]
+        fogNoiseEnabled: false
+        fogNoiseScale: 0.008
+        fogNoiseStrength: 0.25
+        fogNoiseSpeed: 0.2
+        fogNoiseWind: [1, 0.2]
+        volumetricFog: false
+        volumetricFogSteps: 32
+        volumetricFogIntensity: 1
+        godRays: false
+        rayIntensity: 0.85
+        rayThreshold: 1
+        raySoftness: 1.5
+        rayDecay: 0.955
+        rayDensity: 0.65
+        cloudsEnabled: false
+        cloudBaseHeight: 120
+        cloudThickness: 90
+        cloudCoverage: 0.45
+        cloudDensity: 1
+        cloudScale: 0.004
+        cloudSpeed: 4
+        cloudSunAmount: 1
+        cloudWind: [1, 0.25]
+        cloudColor: [0.7176234, 0.79311013, 1]
+  - type: Entity
+    entity: 5
+    name: Terrain
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        submeshes: ~
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        verticesAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: false
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      terrain:
+        heightMap:
+          textureType: 2D
+          source: path
+          path: textures/heightmap_hills.png
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: true
+        blendMaps:
+          - textureType: 2D
+            source: path
+            path: terrain_maps/blendmap_hills.png
+            minFilter: linear
+            magFilter: linear
+            wrapU: repeat
+            wrapV: repeat
+            releaseDataAfterLoad: true
+        surfaceLayers:
+          - pbr: false
+            colorTexture:
+              textureType: 2D
+              source: path
+              path: textures/ground/ground-mossy-rock-color.jpg
+              minFilter: linear
+              magFilter: linear
+              wrapU: repeat
+              wrapV: repeat
+              releaseDataAfterLoad: true
+            colorFactor: [1, 1, 1, 1]
+            normalStrength: 1
+            roughnessFactor: 1
+            metallicFactor: 0
+            occlusionStrength: 1
+            uvScale: [1, 1]
+            uvOffset: [0, 0]
+          - pbr: false
+            colorTexture:
+              textureType: 2D
+              source: path
+              path: textures/ground/ground-grass-color.jpg
+              minFilter: linear
+              magFilter: linear
+              wrapU: repeat
+              wrapV: repeat
+              releaseDataAfterLoad: true
+            colorFactor: [1, 1, 1, 1]
+            normalStrength: 1
+            roughnessFactor: 1
+            metallicFactor: 0
+            occlusionStrength: 1
+            uvScale: [1, 1]
+            uvOffset: [0, 0]
+          - pbr: false
+            colorTexture:
+              textureType: 2D
+              source: path
+              path: textures/ground/ground-mud-color.jpg
+              minFilter: linear
+              magFilter: linear
+              wrapU: repeat
+              wrapV: repeat
+              releaseDataAfterLoad: true
+            colorFactor: [1, 1, 1, 1]
+            normalStrength: 1
+            roughnessFactor: 1
+            metallicFactor: 0
+            occlusionStrength: 1
+            uvScale: [1, 1]
+            uvOffset: [0, 0]
+        autoSetRanges: true
+        offset: [0, 0]
+        terrainSize: 900
+        maxHeight: 7
+        resolution: 64
+        textureBaseTiles: 14
+        textureDetailTiles: 90
+        rootGridSize: 2
+        levels: 8
+  - type: Entity
+    entity: 6
+    name: Lake
+    components:
+      transform:
+        position: [0, 3.4, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      water:
+        size: [820, 820]
+        subdivisions: 96
+        shallowColor: [0.3, 0.52, 0.55]
+        deepColor: [0.03, 0.14, 0.22]
+        depthFade: 2.2
+        waveHeight: 0.2
+        waveLength: 6
+        waveSpeed: 1
+        waveDirection: 0
+        waveSteepness: 0.6
+        normalTexture: ~
+        normalScale: 4
+        normalStrength: 0.4
+        rippleSpeed: 0.3
+        reflectivity: 1
+        specularIntensity: 1
+        roughness: 0.06
+        foamColor: [1, 1, 1]
+        shoreFoam: 0.05
+        crestFoam: 0.15
+        windInfluence: 1
+        fetch: 0
+        receiveShadows: true
+        depthEffects: true
+        planarReflection: false
+        reflectionDistortion: 0.04
+        refraction: true
+        refractionDistortion: 0.03
+        caustics: 0.5
+        causticsScale: 2
+        underwater: true
+        buoyancy: true
+        buoyancyDepth: 0
+        simulate: false
+        simResolution: 128
+        simDepth: 0.3
+        simFlow: 0.45
+        simRain: 0
+        simEvaporation: 0
+        simDryDepth: 0.002
+        simEdgeDrain: false
+        simRipples: true
+        simRippleSpeed: 7
+        simRippleDamping: 1.8
+        simRippleStrength: 0.06
+  - type: Entity
+    entity: 7
+    name: Cycle
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      script:
+        scripts:
+          - type: lua
+            path: Components/DayNightCycle.lua
+            enabled: true
+            properties:
+              - name: dayLength
+                displayName: Full day length (seconds)
+                type: Float
+                value: 240
+                defaultValue: 240
+              - name: startHour
+                displayName: Start hour (0..24)
+                type: Float
+                value: 9
+                defaultValue: 9
+              - name: maxIntensity
+                displayName: Noon intensity
+                type: Float
+                value: 1.35
+                defaultValue: 1.2
+              - name: moonIntensity
+                displayName: Moonlight intensity
+                type: Float
+                value: 0.3
+                defaultValue: 0.12
+              - name: dawnColor
+                displayName: Dawn colour (r, g, b)
+                type: Color3
+                value: [0.95, 0.55, 0.35]
+                defaultValue: [0.95, 0.55, 0.35]
+              - name: noonColor
+                displayName: Noon colour (r, g, b)
+                type: Color3
+                value: [1, 0.97, 0.9]
+                defaultValue: [1, 0.97, 0.9]
+              - name: duskColor
+                displayName: Dusk colour (r, g, b)
+                type: Color3
+                value: [0.9, 0.45, 0.28]
+                defaultValue: [0.9, 0.45, 0.28]
+              - name: nightColor
+                displayName: Night colour (r, g, b)
+                type: Color3
+                value: [0.12, 0.15, 0.28]
+                defaultValue: [0.12, 0.15, 0.28]
+              - name: sunTilt
+                displayName: Axis tilt (degrees)
+                type: Float
+                value: 23.5
+                defaultValue: 23.5
+              - name: rotateAxis
+                displayName: Sun path axis
+                type: Vector3
+                value: [1, 0, 0]
+                defaultValue: [1, 0, 0]
+              - name: moonPhase
+                displayName: Moon phase (0 new, 0.5 full)
+                type: Float
+                value: 0.5
+                defaultValue: 0.5
+              - name: showStars
+                displayName: Show stars
+                type: Bool
+                value: true
+                defaultValue: true
+              - name: skyBrightness
+                displayName: Sky brightness
+                type: Float
+                value: 1
+                defaultValue: 1
+              - name: skyTint
+                displayName: Zenith tint (r, g, b)
+                type: Color3
+                value: [1, 1, 1]
+                defaultValue: [1, 1, 1]
+              - name: light
+                displayName: Directional light entity
+                type: EntityReference
+                value: 2
+                defaultValue: 0
+              - name: moonLight
+                displayName: Moon light entity
+                type: EntityReference
+                value: 3
+                defaultValue: 0
+              - name: sky
+                displayName: Sky entity
+                type: EntityReference
+                value: 1
+                defaultValue: 0
+              - name: fog
+                displayName: Fog entity
+                type: EntityReference
+                value: 4
+                defaultValue: 0
+              - name: fallbackLightName
+                displayName: Light name if slot is empty
+                type: String
+                value: Sun
+                defaultValue: Sun
+              - name: fallbackMoonName
+                displayName: Moon light name
+                type: String
+                value: Moon
+                defaultValue: Moon
+              - name: fallbackSkyName
+                displayName: Sky name if slot is empty
+                type: String
+                value: Sky
+                defaultValue: Sky
+              - name: fallbackFogName
+                displayName: Fog name if slot is empty
+                type: String
+                value: Fog
+                defaultValue: Fog
+              - name: setAmbient
+                displayName: Drive ambient light
+                type: Bool
+                value: true
+                defaultValue: true
+              - name: fogNear
+                displayName: Fog start at noon
+                type: Float
+                value: 220
+                defaultValue: 220
+              - name: fogFar
+                displayName: Fog end at noon
+                type: Float
+                value: 2400
+                defaultValue: 2400
+              - name: toggleKey
+                displayName: Pause key (0 = none)
+                type: Int
+                value: 0
+                defaultValue: 0
+              - name: onSunrise
+                displayName: "On sunrise: entity"
+                type: EntityReference
+                value: 0
+                defaultValue: 0
+              - name: onSunriseMethod
+                displayName: "On sunrise: method"
+                type: String
+                value: onSunrise
+                defaultValue: onSunrise
+              - name: onSunset
+                displayName: "On sunset: entity"
+                type: EntityReference
+                value: 0
+                defaultValue: 0
+              - name: onSunsetMethod
+                displayName: "On sunset: method"
+                type: String
+                value: onSunset
+                defaultValue: onSunset
+              - name: onPhase
+                displayName: "On phase change: entity"
+                type: EntityReference
+                value: 0
+                defaultValue: 0
+              - name: onPhaseMethod
+                displayName: "On phase change: method"
+                type: String
+                value: onPhase
+                defaultValue: onPhase
+              - name: onHour
+                displayName: "On hour: entity"
+                type: EntityReference
+                value: 0
+                defaultValue: 0
+              - name: onHourMethod
+                displayName: "On hour: method"
+                type: String
+                value: onHour
+                defaultValue: onHour
+  - type: Entity
+    entity: 8
+    name: Weather
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      script:
+        scripts:
+          - type: lua
+            path: Components/Clouds.lua
+            enabled: true
+            properties:
+              - name: preset
+                displayName: Preset (clear|few|overcast|storm|custom)
+                type: String
+                value: few
+                defaultValue: few
+              - name: coverage
+                displayName: Coverage (0..1)
+                type: Float
+                value: 0.35
+                defaultValue: 0.35
+              - name: density
+                displayName: Density (0..1)
+                type: Float
+                value: 0.85
+                defaultValue: 0.85
+              - name: altitude
+                displayName: Altitude (m)
+                type: Float
+                value: 1600
+                defaultValue: 1600
+              - name: cloudScale
+                displayName: Horizontal scale (m)
+                type: Float
+                value: 2200
+                defaultValue: 2200
+              - name: thickness
+                displayName: Layer thickness (m)
+                type: Float
+                value: 600
+                defaultValue: 600
+              - name: detail
+                displayName: Detail (0..1)
+                type: Float
+                value: 0.55
+                defaultValue: 0.55
+              - name: softness
+                displayName: Edge softness
+                type: Float
+                value: 0.22
+                defaultValue: 0.22
+              - name: cirrus
+                displayName: Cirrus layer (0..1)
+                type: Float
+                value: 0.25
+                defaultValue: 0.25
+              - name: windSpeed
+                displayName: Wind speed (m/s)
+                type: Float
+                value: 6
+                defaultValue: 6
+              - name: windDirection
+                displayName: Wind direction (degrees)
+                type: Float
+                value: 210
+                defaultValue: 210
+              - name: cloudColor
+                displayName: Cloud colour (r, g, b)
+                type: Color3
+                value: [1, 0.99, 0.98]
+                defaultValue: [1, 0.99, 0.98]
+              - name: litLuminance
+                displayName: Lit luminance
+                type: Float
+                value: 1.15
+                defaultValue: 1.15
+              - name: shadowLuminance
+                displayName: Shadowed luminance
+                type: Float
+                value: 0.34
+                defaultValue: 0.34
+              - name: nightDarkness
+                displayName: Night darkness (0..1)
+                type: Float
+                value: 0.16
+                defaultValue: 0.16
+              - name: sky
+                displayName: Sky entity
+                type: EntityReference
+                value: 1
+                defaultValue: 0
+              - name: fallbackSkyName
+                displayName: Sky name if slot is empty
+                type: String
+                value: Sky
+                defaultValue: Sky
+  - type: Entity
+    entity: 9
+    name: Camera
+    components:
+      transform:
+        position: [0, 16, -70]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: camera_perspective
+        target: [100, 22, -70]
+        up: [0, 1, 0]
+        leftClip: 0
+        rightClip: 10
+        bottomClip: 0
+        topClip: 10
+        yfov: 1.0123
+        aspect: 1.778
+        nearClip: 0.1
+        farClip: 6000
+        renderToTexture: false
+        transparentSort: false
+        depthTest: true
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 1280
+        framebufferHeight: 720
+        framebufferFilter: linear

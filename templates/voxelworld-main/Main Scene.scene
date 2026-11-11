@@ -1,0 +1,418 @@
+id: 1
+name: Main Scene
+scene:
+  backgroundColor: [0.25, 0.45, 0.65, 1]
+  shadowQuality: high
+  meshLodEnabled: false
+  meshLodThreshold: 1
+  depthPrepassEnabled: true
+  renderDistance: 0
+  lightState: on
+  globalIlluminationIntensity: 0.3
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: true
+  ssaoRadius: 0.6
+  ssaoIntensity: 0.9
+  ssaoBias: 0.02
+  contactShadowsEnabled: false
+  contactShadowLength: 0.35
+  contactShadowSteps: 12
+  contactShadowThickness: 0.025
+  contactShadowIntensity: 0.65
+  ssgiEnabled: false
+  ssgiRadius: 2.5
+  ssgiIntensity: 0.35
+  ssgiSteps: 12
+  ssgiThickness: 0.25
+  dofEnabled: false
+  dofFocusDistance: 42
+  dofAperture: 2
+  dofFocusRange: 20
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 12
+  ssrThickness: 0.5
+  ssrMaxSteps: 64
+  ssrIntensity: 0.7
+  ssrBlur: 1
+  taaEnabled: false
+  taaBlend: 0.9
+  taaVelocityScale: 1
+  taaVelocityClamp: 0.25
+  motionBlurEnabled: false
+  motionBlurIntensity: 1
+  motionBlurSamples: 8
+  motionBlurVelocityClamp: 0.08
+  motionBlurDepthThreshold: 0.5
+  gravity2D: [0, -9.81]
+  gravity3D: [0, -9.81, 0]
+  windEnabled: false
+  windSpeed: 6
+  windDirection: 0
+  windGustiness: 0.35
+  windChange: 0.2
+  fixedResolutionEnabled: true
+  fixedResolutionWidth: 1280
+  fixedResolutionHeight: 720
+  fixedResolutionFilter: nearest
+  bloomEnabled: true
+  bloomThreshold: 0.8
+  bloomSoftKnee: 0.6
+  bloomIntensity: 0.7
+  bloomDirtIntensity: 0.04
+  bloomMipLevels: 5
+  tonemapEnabled: true
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: true
+  autoExposureSpeed: 1.5
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 2
+  exposureCompensation: 0.15
+  colorGradingEnabled: true
+  colorGradingSaturation: 1.06
+  colorGradingContrast: 1.05
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0.06
+  colorGradingTint: 0
+  fxaaEnabled: false
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_3d
+mainCamera: 1002
+maxValues:
+  maxSubmeshes: 0
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 96
+  maxShapes2D: 0
+  maxShapePoints2D: 0
+  maxShapes3D: 0
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: mesh
+    properties: 304088152
+  - type: mesh
+    properties: 841483482
+  - type: sky
+  - type: depth
+  - type: ui
+    properties: 8
+  - type: ssao
+  - type: ssaoblur
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: velocity
+  - type: taa
+  - type: fxaa
+  - type: motionblur
+  - type: contact_shadows
+  - type: water
+    properties: 27
+  - type: underwater
+  - type: ssgi
+  - type: decal
+cppScripts:
+  - path: scripts/VoxelGame.cpp
+    headerPath: scripts/VoxelGame.h
+    className: VoxelGame
+    properties:
+      - name: seedValue
+        isPtr: false
+      - name: viewRadius
+        isPtr: false
+      - name: keepRadius
+        isPtr: false
+      - name: saveToDisk
+        isPtr: false
+      - name: saveFolder
+        isPtr: false
+      - name: dayLength
+        isPtr: false
+      - name: startDaylight
+        isPtr: false
+      - name: mobCount
+        isPtr: false
+      - name: netMode
+        isPtr: false
+      - name: netPort
+        isPtr: false
+      - name: netAddress
+        isPtr: false
+      - name: showDebug
+        isPtr: false
+      - name: snapToSurface
+        isPtr: false
+  - path: scripts/VoxelPlayer.cpp
+    headerPath: scripts/VoxelPlayer.h
+    className: VoxelPlayerScript
+    properties:
+      - name: moveSpeed
+        isPtr: false
+      - name: sprintMultiplier
+        isPtr: false
+      - name: jumpPower
+        isPtr: false
+      - name: gravity
+        isPtr: false
+      - name: reach
+        isPtr: false
+      - name: flying
+        isPtr: false
+      - name: gameModeName
+        isPtr: false
+      - name: seed
+        isPtr: false
+      - name: spawnByWater
+        isPtr: false
+entities:
+  - type: Entity
+    entity: 1002
+    name: MainCamera
+    components:
+      transform:
+        position: [34, 26, 34]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [34, 26, 34]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [34, 26, 34, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [34, 26, 34, 1]]
+        normalMatrix: [[1, 0, 0, -34], [0, 1, 0, -26], [0, 0, 1, -34], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: camera_perspective
+        target: [8, 5, 8]
+        up: [0, 1, 0]
+        leftClip: 0
+        rightClip: 1280
+        bottomClip: 0
+        topClip: 781
+        yfov: 0.96
+        aspect: 1.6389245
+        nearClip: 0.1
+        farClip: 1000
+        renderToTexture: false
+        transparentSort: true
+        depthTest: true
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: linear
+  - type: Entity
+    entity: 1003
+    name: Sky
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      sky:
+        useDefaultTexture: true
+        texture:
+          textureType: CUBE
+          cubeMode: faces
+          source: paths
+          paths: ["", "", "", "", "", ""]
+          hasEmptyFaces: true
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [1, 1, 1, 1]
+        rotation: 0
+        visible: true
+  - type: Entity
+    entity: 1005
+    name: VoxelWorld
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      script:
+        scripts:
+          - type: cpp
+            path: scripts/VoxelGame.cpp
+            headerPath: scripts/VoxelGame.h
+            className: VoxelGame
+            enabled: true
+            properties:
+              - name: seedValue
+                displayName: Seed
+                type: Int
+                value: 1337
+                defaultValue: 1337
+              - name: viewRadius
+                displayName: View Radius
+                type: Int
+                value: 4
+                defaultValue: 4
+              - name: keepRadius
+                displayName: Keep Radius
+                type: Int
+                value: 6
+                defaultValue: 6
+              - name: saveToDisk
+                displayName: Save To Disk
+                type: Bool
+                value: true
+                defaultValue: true
+              - name: saveFolder
+                displayName: Save Folder
+                type: String
+                value: world
+                defaultValue: world
+              - name: dayLength
+                displayName: Day Length (seconds)
+                type: Float
+                value: 600
+                defaultValue: 600
+              - name: startDaylight
+                displayName: Time Of Day
+                type: Float
+                value: 0.35
+                defaultValue: 0.35
+              - name: mobCount
+                displayName: Mobs
+                type: Int
+                value: 12
+                defaultValue: 12
+              - name: netMode
+                displayName: Multiplayer
+                type: String
+                value: offline
+                defaultValue: offline
+              - name: netPort
+                displayName: Port
+                type: Int
+                value: 25600
+                defaultValue: 25600
+              - name: netAddress
+                displayName: Server Address
+                type: String
+                value: 127.0.0.1
+                defaultValue: 127.0.0.1
+              - name: showDebug
+                displayName: Show Debug Overlay
+                type: Bool
+                value: true
+                defaultValue: true
+              - name: snapToSurface
+                displayName: Place Player On Surface
+                type: Bool
+                value: true
+                defaultValue: true
+  - type: Entity
+    entity: 1006
+    name: Player
+    components:
+      transform:
+        position: [8, 80, 8]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [8, 80, 8]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [8, 80, 8, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [8, 80, 8, 1]]
+        normalMatrix: [[1, 0, 0, -8], [0, 1, 0, -80], [0, 0, 1, -8], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      script:
+        scripts:
+          - type: cpp
+            path: scripts/VoxelPlayer.cpp
+            headerPath: scripts/VoxelPlayer.h
+            className: VoxelPlayerScript
+            enabled: true
+            properties:
+              - name: moveSpeed
+                displayName: Move Speed
+                type: Float
+                value: 4.37
+                defaultValue: 4.37
+              - name: sprintMultiplier
+                displayName: Sprint Multiplier
+                type: Float
+                value: 1.3
+                defaultValue: 1.3
+              - name: jumpPower
+                displayName: Jump Power
+                type: Float
+                value: 8
+                defaultValue: 8
+              - name: gravity
+                displayName: Gravity
+                type: Float
+                value: 28
+                defaultValue: 28
+              - name: reach
+                displayName: Reach
+                type: Float
+                value: 5
+                defaultValue: 5
+              - name: flying
+                displayName: Flying
+                type: Bool
+                value: false
+                defaultValue: false
+              - name: gameModeName
+                displayName: Game Mode
+                type: String
+                value: survival
+                defaultValue: survival
+              - name: seed
+                displayName: World Seed
+                type: Int
+                value: 1337
+                defaultValue: 1337
+              - name: spawnByWater
+                displayName: Spawn By Water
+                type: Bool
+                value: true
+                defaultValue: true

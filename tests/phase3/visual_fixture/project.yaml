@@ -1,0 +1,18 @@
+# (c) SR VINIX
+# SPDX-License-Identifier: MIT
+
+name: Quantum Phase 3 Visual Fixture
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: fitwidth
+textureStrategy: resize
+vsync: false
+windowMode: windowed
+windowWidth: 1280
+windowHeight: 720
+windowResizable: false
+luaDir: lua
+assetsDir: assets
+startSceneId: 1
+scenes:
+  - filepath: scenes\main.scene

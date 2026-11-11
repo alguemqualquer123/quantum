@@ -1,0 +1,241 @@
+# (c) SR VINIX and contributors
+# SPDX-License-Identifier: MIT
+
+id: 1
+name: Phase 3 Decal Fixture
+scene:
+  backgroundColor: [0.035, 0.045, 0.07, 1]
+  lightState: on
+  depthPrepassEnabled: true
+  renderDistance: 100
+  ssaoEnabled: false
+  ssrEnabled: false
+mainCamera: 1002
+entities:
+  - type: Entity
+    entity: 1001
+    name: DecalTarget
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 192
+          count: 4
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 4
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 4
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 4
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 4
+              normalized: true
+              perInstance: false
+          data: AAAAwAAAAAAAAADAAAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAwAAAAAAAAABAAAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAQAAAAAAAAABAAACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAQAAAAAAAAADAAACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 12
+          count: 6
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 6
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.22, 0.25, 0.3, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.72
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: DecalReceiver
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 6
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: false
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-2, 0, -2]
+          max: [2, 0, 2]
+        verticesAABB:
+          min: [-2, 0, -2]
+          max: [2, 0, 2]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+  - type: Entity
+    entity: 1002
+    name: CaptureCamera
+    components:
+      transform:
+        position: [0, 4.5, 5]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 4.5, 5]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 4.5, 5, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 4.5, 5, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: camera_perspective
+        target: [0, 0, 0]
+        up: [0, 1, 0]
+        leftClip: 0
+        rightClip: 0
+        bottomClip: 0
+        topClip: 0
+        yfov: 0.75
+        aspect: 1.7777778
+        nearClip: 0.1
+        farClip: 100
+        renderToTexture: false
+        transparentSort: false
+        depthTest: true
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 1280
+        framebufferHeight: 720
+        framebufferFilter: linear
+  - type: Entity
+    entity: 1003
+    name: DecalVolume
+    components:
+      transform:
+        position: [0, 0.12, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0.12, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0.12, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0.12, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      decal:
+        enabled: true
+        color: [0.95, 0.06, 0.025]
+        size: [2.4, 0.3, 2.4]
+        opacity: 0.94
+        depthFade: 0.08
+        texture: ~
+  - type: Entity
+    entity: 1004
+    name: KeyLight
+    components:
+      transform:
+        position: [0, 4, 2]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 4, 2]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 4, 2, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 4, 2, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+        type: directional
+        direction: [-0.35, -0.8, -0.45]
+        worldDirection: [-0.35, -0.8, -0.45]
+        color: [1, 0.92, 0.82]
+        range: 100
+        intensity: 3
+        innerConeCos: 0.76604444
+        outerConeCos: 0.64278764
+        spotMask: ~
+        shadows: false
+        automaticShadowCamera: true
+        shadowBias: 0.002
+        mapResolution: 1024
+        shadowCameraNearFar: [0.3, 100]
+        numShadowCascades: 2

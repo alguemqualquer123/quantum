@@ -1,0 +1,27 @@
+// (c) SR VINIX and contributors
+// SPDX-License-Identifier: MIT
+
+#pragma once
+
+#include "command/Command.h"
+#include "Project.h"
+
+namespace quantum::editor {
+    class AddChildSceneCmd : public Command {
+    private:
+        Project* project;
+        uint32_t sceneId;
+        uint32_t childSceneId;
+
+        bool wasModified;
+
+    public:
+        AddChildSceneCmd(Project* project, uint32_t sceneId, uint32_t childSceneId);
+
+        bool execute() override;
+        void undo() override;
+        bool canRedo() const override;
+
+        bool mergeWith(Command* otherCommand) override;
+    };
+}

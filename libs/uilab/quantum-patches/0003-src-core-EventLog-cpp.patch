@@ -1,0 +1,15 @@
+--- a/src/core/EventLog.cpp
++++ b/src/core/EventLog.cpp
+@@ -44,6 +44,12 @@
+     e.level = level;
+     e.source = source;
+     e.message = message;
++    // Timestamp() reads wallTime/frame, so a line that never had them printed as
++    // 00:00.000. Headless (the self-test) has no context, and then they stay 0.
++    if (ImGui::GetCurrentContext() != nullptr) {
++        e.wallTime = ImGui::GetTime();
++        e.frame = ImGui::GetFrameCount();
++    }
+     PushInternal(std::move(e));
+ }
+ 

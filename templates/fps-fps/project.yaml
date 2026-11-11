@@ -1,0 +1,18 @@
+name: FPS Template
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: fitwidth
+textureStrategy: resize
+vsync: true
+windowMode: windowed
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+luaDir: .
+export:
+  desktop:
+    graphicBackend: vulkan
+startSceneId: 1
+scenes:
+  - filepath: scenes\main.scene
+  - filepath: scenes\teste de terreno.scene

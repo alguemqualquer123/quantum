@@ -1,0 +1,18 @@
+# (c) SR VINIX and contributors
+# SPDX-License-Identifier: MIT
+
+name: Phase 3 Decal Fixture
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: fitwidth
+textureStrategy: resize
+vsync: false
+windowMode: windowed
+windowWidth: 1280
+windowHeight: 720
+windowResizable: false
+assetsDir: assets
+luaDir: lua
+startSceneId: 1
+scenes:
+  - filepath: scenes\main.scene

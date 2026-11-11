@@ -1,0 +1,4 @@
+# (c) SR VINIX and contributors
+# SPDX-License-Identifier: MIT
+
+# Runtime shader artifacts are produced by phase3_visual.py in its temp copy.

@@ -1,0 +1,15 @@
+--- a/src/panels/StatusBarPanel.cpp
++++ b/src/panels/StatusBarPanel.cpp
+@@ -21,6 +21,12 @@
+         return;
+     }
+ 
++    if (ctx.host.statusBar) {
++        ctx.host.statusBar(ctx);
++        ImGui::End();
++        return;
++    }
++
+     const ThemePalette& palette = ctx.theme.Active();
+     ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(10.0f, 4.0f));
+ 

@@ -1,0 +1,12 @@
+name: World Creator Terrain Probe
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: "fitwidth"
+textureStrategy: "resize"
+vsync: true
+windowMode: "windowed"
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+luaDir: lua
+assetsDir: assets

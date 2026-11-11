@@ -1,0 +1,15 @@
+name: CharacterControl
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: fitwidth
+textureStrategy: resize
+vsync: true
+windowMode: windowed
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+luaDir: .
+startSceneId: 1
+scenes:
+  - filepath: Main Scene.scene
+  - filepath: UI Scene.scene

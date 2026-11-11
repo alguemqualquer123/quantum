@@ -1,0 +1,18 @@
+// (c) SR VINIX and contributors
+// SPDX-License-Identifier: MIT
+
+#ifndef SCALEACTION_COMPONENT_H
+#define SCALEACTION_COMPONENT_H
+
+#include "math/Vector3.h"
+
+namespace quantum{
+
+    struct QUANTUM_API ScaleActionComponent{
+        Vector3 endScale = Vector3::UNIT_SCALE;
+        Vector3 startScale = Vector3::UNIT_SCALE;
+    };
+
+}
+
+#endif //SCALEACTION_COMPONENT_H

@@ -1,0 +1,4 @@
+// Configured by CMake into the build directory, edit this file and not the copy
+#pragma once
+
+#define QUANTUM_EDITOR_VERSION "@QUANTUMEDITOR_VERSION@"

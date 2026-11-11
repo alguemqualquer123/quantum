@@ -1,0 +1,21 @@
+// (c) SR VINIX and contributors
+// SPDX-License-Identifier: MIT
+
+#ifndef ROTATIONACTION_H
+#define ROTATIONACTION_H
+
+#include "TimedAction.h"
+
+namespace quantum{
+    class QUANTUM_API RotationAction: public TimedAction{
+
+    public:
+        RotationAction(Scene* scene);
+        RotationAction(Scene* scene, Entity entity);
+
+        void setAction(Quaternion startRotation, Quaternion endRotation, float duration, bool loop=false);
+        void setSpinAction(Quaternion startRotation, Vector3 axis, float angle, float duration, bool loop=false);
+    };
+}
+
+#endif //ROTATIONACTION_H

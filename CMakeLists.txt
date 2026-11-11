@@ -1,0 +1,1264 @@
+cmake_minimum_required(VERSION 3.20)
+project(quantum-editor)
+
+# vcpkg's MSBuild integration defaults to probing PowerShell 7 and then falls
+# back to Windows PowerShell. Prefer its built-in app-local deployment command
+# so Visual Studio builds do not emit a misleading pwsh.exe-not-found error on
+# machines that only ship the inbox PowerShell implementation.
+if(MSVC AND WIN32)
+    list(APPEND CMAKE_VS_GLOBALS "VcpkgXUseBuiltInApplocalDeps=true")
+endif()
+
+# Same as CI (.github/workflows/cmake.yml): git describe --tags --always --dirty.
+# CI passes QUANTUMEDITOR_VERSION explicitly; local builds ask git here.
+if(NOT QUANTUMEDITOR_VERSION)
+    find_package(Git QUIET)
+    if(GIT_FOUND)
+        execute_process(
+            COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            OUTPUT_VARIABLE QUANTUMEDITOR_VERSION
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET
+        )
+    endif()
+endif()
+
+# Git allows characters that would break the generated C++ and .rc string literals
+string(REGEX REPLACE "[^A-Za-z0-9._+-]" "" QUANTUMEDITOR_VERSION "${QUANTUMEDITOR_VERSION}")
+
+if(NOT QUANTUMEDITOR_VERSION)
+    set(QUANTUMEDITOR_VERSION "unknown")
+endif()
+
+# Windows VERSIONINFO wants four integers, which only a vX.Y[.Z] tag can give.
+set(QUANTUM_VERSION_NUMERIC "0,0,0,0")
+if(QUANTUMEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+    set(QUANTUM_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},${CMAKE_MATCH_3},0")
+elseif(QUANTUMEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)$")
+    set(QUANTUM_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},0,0")
+endif()
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ReleaseMetadata.cmake)
+message(STATUS "Quantum version is ${QUANTUMEDITOR_VERSION} (${QUANTUM_PACKAGE_NAME})")
+
+# One build tree per checkout. Its folder name is the QUANTUM_BUILD_DIR environment
+# variable, defaulting to "build"; scripts/quantum-build-dir.bat, the CI workflows
+# and the docs all read the same value. Extra trees (build-debug/, build-release/,
+# build-ninja/) were each carrying their own CMakeCache, their own generated
+# headers and their own copy of every object file.
+if(DEFINED ENV{QUANTUM_BUILD_DIR} AND NOT "$ENV{QUANTUM_BUILD_DIR}" STREQUAL "")
+    set(QUANTUM_BUILD_DIR "$ENV{QUANTUM_BUILD_DIR}")
+else()
+    set(QUANTUM_BUILD_DIR "build")
+endif()
+file(TO_CMAKE_PATH "${QUANTUM_BUILD_DIR}" QUANTUM_BUILD_DIR_PATH)
+if(NOT QUANTUM_BUILD_DIR_PATH MATCHES "^([A-Za-z]:/|/)")
+    # A bare name is relative to the repository root, which is how the scripts
+    # and CI use it.
+    set(QUANTUM_BUILD_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${QUANTUM_BUILD_DIR_PATH}")
+endif()
+file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}" QUANTUM_ACTIVE_TREE)
+get_filename_component(QUANTUM_ACTIVE_TREE_PARENT "${QUANTUM_ACTIVE_TREE}" DIRECTORY)
+string(TOLOWER "${QUANTUM_ACTIVE_TREE}" QUANTUM_ACTIVE_TREE_LOWER)
+string(TOLOWER "${QUANTUM_ACTIVE_TREE_PARENT}" QUANTUM_ACTIVE_TREE_PARENT_LOWER)
+string(TOLOWER "${QUANTUM_BUILD_DIR_PATH}" QUANTUM_BUILD_DIR_PATH_LOWER)
+string(TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" QUANTUM_SOURCE_DIR_LOWER)
+# Only a sibling folder of the checkout is questioned: building into an unrelated
+# directory (a scratch disk, an SSD) is exactly what the variable is for.
+if(QUANTUM_ACTIVE_TREE_PARENT_LOWER STREQUAL QUANTUM_SOURCE_DIR_LOWER AND
+   NOT QUANTUM_ACTIVE_TREE_LOWER STREQUAL QUANTUM_BUILD_DIR_PATH_LOWER)
+    message(WARNING
+        "quantum: this build tree is ${CMAKE_BINARY_DIR}, but QUANTUM_BUILD_DIR names "
+        "${QUANTUM_BUILD_DIR_PATH}. Configure with -B ${QUANTUM_BUILD_DIR_PATH} (or set "
+        "QUANTUM_BUILD_DIR) so the checkout keeps a single tree.")
+endif()
+
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
+set(QUANTUM_SHARED ON)
+
+set(ENABLE_OPT OFF CACHE BOOL "Enables spirv-opt capability if present" FORCE)
+
+# Each desktop OS is served by its own native backend and nothing else, so this
+# is a detection rather than a choice.
+if(NOT API_BACKEND)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(API_BACKEND "linux")
+    elseif(WIN32)
+        set(API_BACKEND "win")
+    elseif(APPLE)
+        set(API_BACKEND "mac")
+    else()
+        message(FATAL_ERROR "No native editor backend for ${CMAKE_SYSTEM_NAME} (expected Linux, Windows, or macOS)")
+    endif()
+endif()
+message(STATUS "API backend is set to ${API_BACKEND}")
+
+# The native Linux and Windows backends render through Vulkan or OpenGL; macOS
+# is tied to Metal.
+if(API_BACKEND STREQUAL "linux" OR API_BACKEND STREQUAL "win")
+    # Cached so a reconfigure keeps the backend the build directory was made with
+    set(GRAPHIC_BACKEND "glcore" CACHE STRING "Editor graphic backend: vulkan or glcore")
+    if(NOT GRAPHIC_BACKEND STREQUAL "vulkan" AND NOT GRAPHIC_BACKEND STREQUAL "glcore")
+        message(FATAL_ERROR "API_BACKEND=${API_BACKEND} supports GRAPHIC_BACKEND vulkan or glcore")
+    endif()
+else()
+    set(GRAPHIC_BACKEND "metal")
+endif()
+message(STATUS "Graphic backend is set to ${GRAPHIC_BACKEND}")
+
+# Only macOS keeps the menu bar outside the window, so it is the one platform
+# where a native menu is worth its own implementation. ImGui draws it elsewhere.
+if(NOT DEFINED NATIVE_MENU)
+    if(API_BACKEND STREQUAL "mac")
+        set(NATIVE_MENU ON)
+    else()
+        set(NATIVE_MENU OFF)
+    endif()
+endif()
+message(STATUS "Native menu is set to ${NATIVE_MENU}")
+
+# GLVND links libOpenGL.so.0, which lives in libopengl0 and is absent from a stock
+# desktop. libGL.so.1 ships with any driver, and is what the engine already links.
+set(OpenGL_GL_PREFERENCE LEGACY)
+
+if(WIN32)
+    enable_language(RC)
+
+    set(PLATFORM_EXEC_FLAGS WIN32)
+ 
+    if(MSVC)
+        set(PLATFORM_PROPERTIES_FLAGS LINK_FLAGS "/ENTRY:mainCRTStartup")
+        if(QUANTUM_SHARED)
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+        else()
+            set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        endif()
+    elseif(MINGW)
+        # Same call as the CRT above: a shared engine means one GCC runtime for
+        # the editor, the DLL and the plugins, shipped beside the binaries.
+        get_filename_component(QUANTUM_MINGW_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        find_file(QUANTUM_MINGW_STDCXX libstdc++-6.dll PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
+        find_file(QUANTUM_MINGW_PTHREAD libwinpthread-1.dll PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
+        # The unwind DLL is named after the toolchain's exception model
+        find_file(QUANTUM_MINGW_GCC NAMES libgcc_s_seh-1.dll libgcc_s_dw2-1.dll libgcc_s_sjlj-1.dll
+                  PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
+
+        if(QUANTUM_MINGW_STDCXX AND QUANTUM_MINGW_PTHREAD AND QUANTUM_MINGW_GCC)
+            set(QUANTUM_MINGW_RUNTIME ${QUANTUM_MINGW_STDCXX} ${QUANTUM_MINGW_PTHREAD} ${QUANTUM_MINGW_GCC})
+        else()
+            message(WARNING "Incomplete GCC runtime next to ${CMAKE_CXX_COMPILER}: the editor will only start from a shell that has it on PATH.")
+        endif()
+    endif()
+endif()
+
+# Shared desktop builds need the MSVC runtime outside the developer machine.
+# InstallRequiredSystemLibraries resolves the toolchain-matched redistributable
+# beside the binaries so the ZIP and an extracted stage are self-contained.
+if(WIN32 AND MSVC)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION bin)
+    include(InstallRequiredSystemLibraries)
+endif()
+
+if(APPLE)
+    set(PLATFORM_EXEC_FLAGS MACOSX_BUNDLE)
+endif()
+
+set(IMGUI_DIR libs/imgui)
+set(HTTPLIB_DIR libs/cpp-httplib)
+set(EDITOR_DIR editor)
+set(QUANTUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/engine)
+
+# Warnings from vendored code are not ours to fix and only hide our own
+if(MSVC)
+    set(EXTERNAL_WARNING_FLAG /w)
+else()
+    set(EXTERNAL_WARNING_FLAG -w)
+endif()
+
+# Icon and version resource for one binary. Each target needs its own so
+# OriginalFilename matches the file on disk. SignPath wants metadata on every
+# signed binary, so the DLL gets one too: pass an empty icon_name for it.
+function(quantum_add_windows_resource out_var target_name icon_name original_filename description)
+    set(QUANTUM_ORIGINAL_FILENAME ${original_filename})
+    set(QUANTUM_FILE_DESCRIPTION ${description})
+    set(QUANTUM_INTERNAL_NAME ${target_name})
+
+    if(icon_name)
+        set(QUANTUM_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/${icon_name}")
+        set(QUANTUM_ICON_RESOURCE "GLFW_ICON ICON \"${QUANTUM_ICON_FILE}\"")
+    else()
+        set(QUANTUM_ICON_RESOURCE "")
+    endif()
+
+    if(original_filename MATCHES "\\.dll$")
+        set(QUANTUM_FILE_TYPE "0x2L     // VFT_DLL")
+    else()
+        set(QUANTUM_FILE_TYPE "0x1L     // VFT_APP")
+    endif()
+
+    set(generated_rc "${CMAKE_CURRENT_BINARY_DIR}/resources/${target_name}.rc")
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/quantum-editor.rc.in"
+        ${generated_rc}
+        @ONLY
+    )
+    if(icon_name)
+        set_property(SOURCE ${generated_rc} APPEND PROPERTY OBJECT_DEPENDS ${QUANTUM_ICON_FILE})
+    endif()
+
+    add_library(${target_name}-resource OBJECT ${generated_rc})
+    # rc.exe chokes on the editor's include list, and the .rc needs no search path
+    set_property(TARGET ${target_name}-resource PROPERTY INCLUDE_DIRECTORIES "")
+
+    set(${out_var} $<TARGET_OBJECTS:${target_name}-resource> PARENT_SCOPE)
+endfunction()
+
+if(WIN32)
+    include(${QUANTUM_ROOT}/platform/win/WindowsManifest.cmake)
+endif()
+
+set(QUANTUM_EDITOR_ICON_OBJECTS)
+if(WIN32)
+    quantum_add_windows_resource(
+        QUANTUM_EDITOR_ICON_OBJECTS
+        quantum-editor
+        "quantum-editor.ico"
+        "quantum-editor.exe"
+        "Quantum Engine Editor"
+    )
+endif()
+
+# Linux has no .rc or .icns equivalent, so the icon reaches the desktop as theme
+# files (installed at the end of this file) plus the _NET_WM_ICON pixels below.
+set(QUANTUM_LINUX_ICON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/linux")
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(wm_icon_header "// Generated from editor/resources/icons/linux. Do not edit.\n")
+    string(APPEND wm_icon_header "#pragma once\n\n")
+    set(wm_icon_entries "")
+
+    # Sizes a window manager or dock actually draws, up to a HiDPI dock's 256.
+    # 512 is left out: on the wire it alone would outweigh the whole set.
+    foreach(icon_size IN ITEMS 16 32 48 64 128 256)
+        set(icon_png "${QUANTUM_LINUX_ICON_DIR}/quantum-editor-${icon_size}.png")
+        file(READ "${icon_png}" icon_hex HEX)
+        string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," icon_bytes "${icon_hex}")
+        string(APPEND wm_icon_header "static const unsigned char quantum_wm_icon_${icon_size}[] = {${icon_bytes}};\n\n")
+        string(APPEND wm_icon_entries "    { quantum_wm_icon_${icon_size}, sizeof(quantum_wm_icon_${icon_size}) },\n")
+        set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${icon_png}")
+    endforeach()
+
+    string(APPEND wm_icon_header "struct QuantumWmIconPng { const unsigned char* data; unsigned int size; };\n\n")
+    string(APPEND wm_icon_header "static const QuantumWmIconPng quantum_wm_icon_pngs[] = {\n${wm_icon_entries}};\n")
+
+    # Staged through a .in because configure_file only rewrites on a real change.
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h.in" "${wm_icon_header}")
+    configure_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h"
+        COPYONLY
+    )
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/resources")
+endif()
+
+install(SCRIPT "${CMAKE_BINARY_DIR}/InstallReleaseManifest.cmake"
+        CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+)
+
+set(CPACK_PACKAGE_NAME "${QUANTUM_PACKAGE_NAME}")
+set(CPACK_PACKAGE_VENDOR "SR VINIX")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Quantum game engine and editor")
+set(CPACK_PACKAGE_VERSION "${QUANTUM_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "${QUANTUM_PACKAGE_NAME}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+include(CPack)
+
+find_package(Threads REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# The AI HTTP client uses the native WinHTTP backend on Windows (no external
+# dependency) and libcurl everywhere else (see editor/ai/HttpClient.cpp).
+if(NOT WIN32)
+    find_package(CURL REQUIRED)
+endif()
+
+if(UNIX AND NOT APPLE)
+    find_package(X11 QUIET)
+endif()
+
+set(BACKEND_SOURCES)
+set(BACKEND_LIBS)
+
+if(API_BACKEND STREQUAL "linux")
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        message(FATAL_ERROR "API_BACKEND=linux is only available on Linux")
+    endif()
+    find_package(X11 REQUIRED COMPONENTS Xrandr)
+
+    list(APPEND BACKEND_SOURCES
+        ${EDITOR_DIR}/backend/BackendLinux.cpp
+        ${QUANTUM_ROOT}/platform/linux/WindowLinux.cpp
+        ${QUANTUM_ROOT}/platform/linux/GamepadDB.cpp
+    )
+    list(APPEND BACKEND_LIBS X11::X11 X11::Xrandr)
+
+    if(GRAPHIC_BACKEND STREQUAL "vulkan")
+        find_package(Vulkan REQUIRED)
+        list(APPEND BACKEND_LIBS Vulkan::Vulkan)
+        add_definitions("-DVK_USE_PLATFORM_XLIB_KHR")
+    else()
+        find_package(OpenGL REQUIRED)
+    endif()
+elseif(API_BACKEND STREQUAL "win")
+    if(NOT WIN32)
+        message(FATAL_ERROR "API_BACKEND=win is only available on Windows")
+    endif()
+    list(APPEND BACKEND_SOURCES
+        ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+        ${EDITOR_DIR}/backend/BackendWin.cpp
+        ${QUANTUM_ROOT}/platform/win/WindowWin.cpp
+        ${QUANTUM_ROOT}/platform/win/GamepadWin.cpp
+    )
+
+    list(APPEND BACKEND_LIBS
+        user32
+        gdi32
+        dwmapi
+        shell32
+    )
+
+    if(GRAPHIC_BACKEND STREQUAL "vulkan")
+        find_package(Vulkan REQUIRED)
+        list(APPEND BACKEND_LIBS Vulkan::Vulkan)
+        add_definitions("-DVK_USE_PLATFORM_WIN32_KHR")
+    else()
+        list(APPEND BACKEND_LIBS opengl32)
+    endif()
+elseif(API_BACKEND STREQUAL "mac")
+    if(NOT APPLE)
+        message(FATAL_ERROR "API_BACKEND=mac is only available on macOS")
+    endif()
+
+    list(APPEND BACKEND_SOURCES
+        ${IMGUI_DIR}/backends/imgui_impl_osx.mm
+        ${EDITOR_DIR}/backend/BackendMac.mm
+        ${QUANTUM_ROOT}/platform/mac/WindowMac.mm
+        ${QUANTUM_ROOT}/platform/apple/QuantumGameController.mm
+    )
+
+    list(APPEND BACKEND_LIBS
+        "-framework AppKit"
+        "-framework CoreGraphics"
+        "-framework GameController"
+        "-framework Metal"
+        "-framework MetalKit"
+        "-framework QuartzCore"
+    )
+
+    set_source_files_properties(
+        ${IMGUI_DIR}/backends/imgui_impl_osx.mm
+        ${IMGUI_DIR}/backends/imgui_impl_metal.mm
+        ${EDITOR_DIR}/backend/BackendMac.mm
+        ${QUANTUM_ROOT}/platform/mac/WindowMac.mm
+        ${EDITOR_DIR}/util/GraphicUtils.cpp
+        ${QUANTUM_ROOT}/platform/apple/QuantumGameController.mm
+        PROPERTIES
+        COMPILE_FLAGS "-fobjc-arc"
+    )
+    set_source_files_properties(
+        ${EDITOR_DIR}/util/GraphicUtils.cpp
+        PROPERTIES LANGUAGE OBJCXX
+    )
+else()
+    message(FATAL_ERROR "Unknown API_BACKEND '${API_BACKEND}' (expected linux, win, or mac)")
+endif()
+
+# The native backends share the frame loop and pick a renderer by GRAPHIC_BACKEND
+if(API_BACKEND STREQUAL "linux" OR API_BACKEND STREQUAL "win")
+    list(APPEND BACKEND_SOURCES ${EDITOR_DIR}/EditorFrame.cpp)
+    if(GRAPHIC_BACKEND STREQUAL "vulkan")
+        list(APPEND BACKEND_SOURCES ${EDITOR_DIR}/backend/renderer/RendererVulkan.cpp)
+    else()
+        list(APPEND BACKEND_SOURCES ${EDITOR_DIR}/backend/renderer/RendererGL.cpp)
+    endif()
+endif()
+
+set(SHADERCOMPILER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/shadercompiler)
+
+add_definitions("-DQUANTUM_EDITOR")
+add_definitions("-DQUANTUM_CRASH_GUARD")
+
+add_definitions("-DNO_LUA_INIT")
+#add_definitions("-DNO_CPP_INIT")
+if(GRAPHIC_BACKEND STREQUAL "vulkan")
+    add_definitions("-DSOKOL_VULKAN")
+elseif(GRAPHIC_BACKEND STREQUAL "metal")
+    add_definitions("-DSOKOL_METAL")
+else()
+    add_definitions("-DSOKOL_GLCORE")
+endif()
+if(NATIVE_MENU)
+    add_definitions("-DQUANTUM_NATIVE_MENU")
+endif()
+add_definitions("-DWITH_MINIAUDIO") # For SoLoud
+set(NFD_PORTAL ON CACHE BOOL "Use xdg-desktop-portal instead of GTK") # For NFD
+set(YAML_CPP_BUILD_TOOLS OFF CACHE BOOL "Enable parse tools" FORCE) # For yaml-cpp
+
+set(SHADERS_DIR "${CMAKE_SOURCE_DIR}/engine/shaderlib")
+set(GENERATED_DIR "${CMAKE_BINARY_DIR}/generated")
+set(SHADERS_HEADER "${GENERATED_DIR}/shaders.h")
+set(GENERATE_SHADERS_SCRIPT "${CMAKE_SOURCE_DIR}/generate_shaders.cmake")
+
+configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/EditorVersion.h.in"
+    "${GENERATED_DIR}/EditorVersion.h"
+    @ONLY
+)
+
+file(GLOB_RECURSE SHADER_FILES CONFIGURE_DEPENDS "${SHADERS_DIR}/*.glsl" "${SHADERS_DIR}/*.frag" "${SHADERS_DIR}/*.vert")
+
+add_custom_command(
+    OUTPUT ${SHADERS_HEADER}
+    COMMAND ${CMAKE_COMMAND}
+            -DSHADERS_DIR=${SHADERS_DIR}
+            -DSHADER_FILES="${SHADER_FILES}"
+            -DSHADERS_HEADER=${SHADERS_HEADER}
+            -P ${GENERATE_SHADERS_SCRIPT}
+    DEPENDS ${GENERATE_SHADERS_SCRIPT} ${SHADER_FILES}
+    COMMENT "Generating shaders.h"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+# Generate engine API suggestions header from Lua bindings and C++ headers
+set(BINDING_DIR "${CMAKE_SOURCE_DIR}/engine/core/script/binding")
+set(ENGINE_CORE_DIR "${CMAKE_SOURCE_DIR}/engine/core")
+set(API_SUGGESTIONS_HEADER "${GENERATED_DIR}/engine_api_suggestions.h")
+set(GENERATE_API_SCRIPT "${CMAKE_SOURCE_DIR}/generate_api_suggestions.py")
+
+file(GLOB BINDING_FILES CONFIGURE_DEPENDS "${BINDING_DIR}/*.cpp")
+file(GLOB_RECURSE ENGINE_HEADERS CONFIGURE_DEPENDS "${ENGINE_CORE_DIR}/*.h")
+
+add_custom_command(
+    OUTPUT ${API_SUGGESTIONS_HEADER}
+    COMMAND ${Python3_EXECUTABLE} ${GENERATE_API_SCRIPT}
+            ${BINDING_DIR} ${API_SUGGESTIONS_HEADER} ${ENGINE_CORE_DIR}
+    DEPENDS ${GENERATE_API_SCRIPT} ${BINDING_FILES} ${ENGINE_HEADERS}
+    COMMENT "Generating engine_api_suggestions.h from Lua bindings and C++ headers"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+include_directories (${CMAKE_CURRENT_SOURCE_DIR})
+
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/sokol)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/json)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/lua)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/luabridge3)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/box2d/include)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/joltphysics)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/stb)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/tinygltf)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/harfbuzz)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/sheenbidi/Headers)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/soloud/include)
+
+include_directories (${QUANTUM_ROOT}/core)
+include_directories (${QUANTUM_ROOT}/core/action)
+include_directories (${QUANTUM_ROOT}/core/action/keyframe)
+include_directories (${QUANTUM_ROOT}/core/buffer)
+include_directories (${QUANTUM_ROOT}/core/component)
+include_directories (${QUANTUM_ROOT}/core/ecs)
+include_directories (${QUANTUM_ROOT}/core/io)
+include_directories (${QUANTUM_ROOT}/core/manager)
+include_directories (${QUANTUM_ROOT}/core/math)
+include_directories (${QUANTUM_ROOT}/core/object)
+include_directories (${QUANTUM_ROOT}/core/object/sound)
+include_directories (${QUANTUM_ROOT}/core/object/ui)
+include_directories (${QUANTUM_ROOT}/core/object/environment)
+include_directories (${QUANTUM_ROOT}/core/object/physics)
+include_directories (${QUANTUM_ROOT}/core/pool)
+include_directories (${QUANTUM_ROOT}/core/registry)
+include_directories (${QUANTUM_ROOT}/core/render)
+include_directories (${QUANTUM_ROOT}/core/script)
+include_directories (${QUANTUM_ROOT}/core/service)
+include_directories (${QUANTUM_ROOT}/core/shader)
+include_directories (${QUANTUM_ROOT}/core/subsystem)
+include_directories (${QUANTUM_ROOT}/core/texture)
+include_directories (${QUANTUM_ROOT}/core/util)
+# engine/plugin is its own include path in the engine (engine/CMakeLists.txt:757), and the editor
+# CLI needs the same bare includes for `plugins list|run|check`.
+include_directories (${QUANTUM_ROOT}/plugin)
+# GamepadMappings.h, shared by GamepadDB (editor) and GamepadLinux (games)
+include_directories (${QUANTUM_ROOT}/platform/common)
+# renderer/Renderer.h, which EditorFrame.h includes from one directory up
+include_directories (${EDITOR_DIR}/backend)
+if(API_BACKEND STREQUAL "linux")
+    include_directories (${QUANTUM_ROOT}/platform/linux) # WindowLinux.h, GamepadDB.h
+elseif(API_BACKEND STREQUAL "win")
+    include_directories (${QUANTUM_ROOT}/platform/win) # GamepadWin.h for BackendWin
+elseif(API_BACKEND STREQUAL "mac")
+    # WindowMac.h for BackendMac, QuantumGameController.h from the shared Apple path
+    include_directories (${QUANTUM_ROOT}/platform/mac)
+    include_directories (${QUANTUM_ROOT}/platform/apple)
+endif()
+include_directories (${QUANTUM_ROOT}/renders)
+
+include_directories (${SHADERCOMPILER_ROOT}/src)
+
+add_subdirectory(${QUANTUM_ROOT})
+
+# Standalone game runtime exe; needs the quantum link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/quantum_engine_exe.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/quantum_reflector.cmake)
+
+# Development executable for the retained-mode UI module (engine/core/ui).
+# include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/quantum_ui_demo.cmake)
+
+# GPU-free unit tests of the UI module (EXCLUDE_FROM_ALL; never built by default).
+option(QUANTUM_BUILD_TESTS "Build the quantum unit tests" ON)
+if(QUANTUM_BUILD_TESTS)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_tests.cmake)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_model_tests.cmake)
+endif()
+
+# Plugins: modules the engine maps at run time (engine/plugin), plus the probe that proves one
+# actually loads. Both need the `quantum` link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/plugins/quantum_plugins.cmake)
+if(QUANTUM_BUILD_TESTS AND QUANTUM_BUILD_PLUGINS)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_plugin_tests.cmake)
+endif()
+
+# Slate module: the Slate/UMG/CommonUI-style retained UI (engine/slate), its
+# widget-gallery executable and its GPU-free tests. Own static lib, so nothing in
+# engine/CMakeLists.txt changes.
+include(${CMAKE_CURRENT_SOURCE_DIR}/engine/slate/quantum_slate.cmake)
+
+# Signed alongside the exes, so it needs the same metadata. MinGW prefixes the name.
+if(WIN32 AND QUANTUM_SHARED)
+    quantum_add_windows_resource(
+        QUANTUM_LIB_ICON_OBJECTS
+        quantum
+        ""
+        "${CMAKE_SHARED_LIBRARY_PREFIX}quantum${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "Quantum Engine Runtime"
+    )
+    target_sources(quantum PRIVATE ${QUANTUM_LIB_ICON_OBJECTS})
+endif()
+
+# The engine compiles sokol's Vulkan backend, so it needs the headers and the
+# loader itself. Only the standalone engine build sets this up on its own.
+if(GRAPHIC_BACKEND STREQUAL "vulkan")
+    target_link_libraries(quantum PUBLIC Vulkan::Vulkan)
+endif()
+
+add_subdirectory(${SHADERCOMPILER_ROOT} EXCLUDE_FROM_ALL)
+
+add_subdirectory(libs/nfd)
+add_subdirectory(libs/yaml-cpp)
+add_subdirectory(libs/ufbx)
+
+foreach(lib IN ITEMS nfd yaml-cpp ufbx)
+    target_compile_options(${lib} PRIVATE ${EXTERNAL_WARNING_FLAG})
+    # Reaches the headers they export to the editor, which ImGui gets below
+    get_target_property(lib_includes ${lib} INTERFACE_INCLUDE_DIRECTORIES)
+    set_target_properties(${lib} PROPERTIES
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${lib_includes}")
+endforeach()
+
+# Add ImGui source files
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
+)
+
+# ImGui platform backends go with API_BACKEND above, renderers with GRAPHIC_BACKEND
+if(GRAPHIC_BACKEND STREQUAL "vulkan")
+    list(APPEND IMGUI_SOURCES ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp)
+elseif(GRAPHIC_BACKEND STREQUAL "metal")
+    list(APPEND IMGUI_SOURCES ${IMGUI_DIR}/backends/imgui_impl_metal.mm)
+else()
+    list(APPEND IMGUI_SOURCES ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp)
+endif()
+
+# ImGui has no target of its own; only one of these backends builds per platform
+set_property(
+    SOURCE
+        ${IMGUI_SOURCES}
+        ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_osx.mm
+    APPEND PROPERTY COMPILE_OPTIONS ${EXTERNAL_WARNING_FLAG}
+)
+
+include_directories (${EDITOR_DIR})
+
+# ---- UILab: the editor's UI component library (libs/uilab) ------------------
+# ImGui stays compiled into each editor executable, so UILab gets the headers through
+# this INTERFACE target and links against the same objects the editor already holds.
+add_library(quantum_imgui INTERFACE)
+target_include_directories(quantum_imgui SYSTEM INTERFACE
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+    ${IMGUI_DIR}/misc/cpp
+)
+
+# The standalone laboratory app (window, GLFW, its own demo pages) is not part of the
+# editor: only the Core + Editor libraries are.
+set(UILAB_BUILD_APP OFF)
+set(UILAB_BUILD_DEMOS OFF)
+set(UILAB_FETCH_DEPS OFF)
+set(UILAB_PROVIDE_THIRD_PARTY OFF)
+set(UILAB_EXPORT_TARGETS OFF)
+set(UILAB_IMGUI_TARGET quantum_imgui)
+add_subdirectory(libs/uilab)
+
+if(MSVC)
+    # Jolt propagates _HAS_EXCEPTIONS=0 PUBLIC into the engine and the editor. These
+    # static libraries link into the same executable, so they must use that switch too.
+    foreach(uilab_lib IN ITEMS uilab_core uilab_editor)
+        target_compile_definitions(${uilab_lib} PRIVATE _HAS_EXCEPTIONS=0)
+    endforeach()
+endif()
+
+add_custom_target(generate_shaders DEPENDS ${SHADERS_HEADER})
+add_custom_target(generate_api_suggestions DEPENDS ${API_SUGGESTIONS_HEADER})
+
+# Generate the Lua API reference from the Lua bindings and C++ headers
+set(LUA_API_MD "${GENERATED_DIR}/lua_api.md")
+
+add_custom_command(
+    OUTPUT ${LUA_API_MD}
+    COMMAND $<TARGET_FILE:quantum-reflector> docs
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --out ${LUA_API_MD}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS}
+    COMMENT "Generating lua_api.md from Lua bindings and C++ headers"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_lua_docs DEPENDS ${LUA_API_MD})
+
+# Keep the visual-scripting node catalog as a generated, machine-readable artifact.  The
+# graph runtime and external tooling consume the same reflection manifest; making it a build
+# target prevents a binding change from silently leaving the catalog stale.
+set(VISUAL_SCRIPT_NODE_CATALOG_JSON "${GENERATED_DIR}/engine_node_catalog.json")
+
+add_custom_command(
+    OUTPUT ${VISUAL_SCRIPT_NODE_CATALOG_JSON}
+    COMMAND $<TARGET_FILE:quantum-reflector> catalog
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --out ${VISUAL_SCRIPT_NODE_CATALOG_JSON}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS}
+    COMMENT "Generating visual scripting node catalog from Lua bindings and C++ headers"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_visual_script_catalog DEPENDS ${VISUAL_SCRIPT_NODE_CATALOG_JSON})
+
+# The same manifest rendered as an EmmyLua definition file, plus the hand-written
+# usage chapter, and embedded as a header: the editor drops it into a project as
+# Types.lua so a script gets completions and a person gets examples.
+set(LUA_USAGE_FILE "${CMAKE_SOURCE_DIR}/tools/reflector/lua_usage.lua")
+set(LUA_TYPES_HEADER "${GENERATED_DIR}/lua_types.h")
+
+add_custom_command(
+    OUTPUT ${LUA_TYPES_HEADER}
+    COMMAND $<TARGET_FILE:quantum-reflector> types
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --usage ${LUA_USAGE_FILE}
+            --out ${LUA_TYPES_HEADER}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS} ${LUA_USAGE_FILE}
+    COMMENT "Generating lua_types.h (the Lua API as Types.lua) from the bindings"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_lua_types DEPENDS ${LUA_TYPES_HEADER})
+
+set(QUANTUM_EDITOR_SOURCES
+    ${EDITOR_DIR}/main.cpp
+    ${EDITOR_DIR}/cli/CommandLine.cpp
+    ${EDITOR_DIR}/cli/ComponentLibrary.cpp
+    ${EDITOR_DIR}/cli/EngineAssetsCli.cpp
+    ${EDITOR_DIR}/cli/MaterialCommands.cpp
+    ${EDITOR_DIR}/cli/ProjectDoctor.cpp
+    ${EDITOR_DIR}/cli/ProjectFileType.cpp
+    ${EDITOR_DIR}/cli/ResourceCompilerCli.cpp
+    ${EDITOR_DIR}/cli/BuildGeneratorCli.cpp
+    ${EDITOR_DIR}/cli/ResourceServerClient.cpp
+    ${EDITOR_DIR}/cli/ScriptCommands.cpp
+    ${EDITOR_DIR}/cli/ScriptDebugCommands.cpp
+    ${EDITOR_DIR}/cli/ShortcutCommands.cpp
+    ${EDITOR_DIR}/cli/ApiCommands.cpp
+    ${EDITOR_DIR}/cli/PluginCommands.cpp
+    ${EDITOR_DIR}/cli/PackageCommands.cpp
+    ${EDITOR_DIR}/cli/TerrainCommands.cpp
+    ${EDITOR_DIR}/cli/WorldCreatorCommands.cpp
+    ${EDITOR_DIR}/App.cpp
+    ${EDITOR_DIR}/AppSettings.cpp
+    ${EDITOR_DIR}/KeyBindings.cpp
+    ${EDITOR_DIR}/EngineApiIndex.cpp
+    ${EDITOR_DIR}/UILabHost.cpp
+    ${EDITOR_DIR}/Theme.cpp
+    ${EDITOR_DIR}/Factory.cpp
+    ${EDITOR_DIR}/Out.cpp
+    ${EDITOR_DIR}/Platform.cpp
+    ${EDITOR_DIR}/Project.cpp
+    ${EDITOR_DIR}/Catalog.cpp
+    ${EDITOR_DIR}/Conector.cpp
+    ${EDITOR_DIR}/EditorHost.cpp
+    ${EDITOR_DIR}/Generator.cpp
+    ${EDITOR_DIR}/Stream.cpp
+    ${EDITOR_DIR}/Workspace.cpp
+    ${EDITOR_DIR}/Exporter.cpp
+
+    ${EDITOR_DIR}/ai/AiPathUtils.cpp
+    ${EDITOR_DIR}/ai/AiProvider.cpp
+    ${EDITOR_DIR}/ai/AiService.cpp
+    ${EDITOR_DIR}/ai/AiEngineApiContext.cpp
+    ${EDITOR_DIR}/ai/AiTerrainCapability.cpp
+    ${EDITOR_DIR}/ai/AiTypes.cpp
+    ${EDITOR_DIR}/ai/ConversationStore.cpp
+    ${EDITOR_DIR}/ai/EditorActionExecutor.cpp
+    ${EDITOR_DIR}/ai/EditorActionRegistry.cpp
+    ${EDITOR_DIR}/ai/HttpClient.cpp
+    ${EDITOR_DIR}/ai/McpServer.cpp
+    ${EDITOR_DIR}/ai/ModelCatalog.cpp
+    ${EDITOR_DIR}/ai/RateLimitRetry.cpp
+    ${EDITOR_DIR}/ai/SecretStore.cpp
+
+    ${EDITOR_DIR}/util/ShaderHeaderBuilder.cpp
+    ${EDITOR_DIR}/util/BidiText.cpp
+    ${EDITOR_DIR}/util/CrashHandler.cpp
+    ${EDITOR_DIR}/util/GraphicUtils.cpp
+    ${EDITOR_DIR}/util/CameraTextureLink.cpp
+    ${EDITOR_DIR}/util/Clipboard.cpp
+    ${EDITOR_DIR}/util/EntityBundle.cpp
+    ${EDITOR_DIR}/util/ProjectUtils.cpp
+    ${EDITOR_DIR}/util/ReadyMadeComponents.cpp
+    ${EDITOR_DIR}/util/ProjectFile.cpp
+    ${EDITOR_DIR}/util/ShellAssociation.cpp
+    ${EDITOR_DIR}/util/ScriptParser.cpp
+    ${EDITOR_DIR}/util/ScriptEvents.cpp
+    ${EDITOR_DIR}/util/FbxImporter.cpp
+    ${EDITOR_DIR}/util/GlbBuilder.cpp
+    ${EDITOR_DIR}/util/TerrainMapFileWriter.cpp
+    ${EDITOR_DIR}/util/TerrainMapUtils.cpp
+    ${EDITOR_DIR}/util/UIUtils.cpp
+    ${EDITOR_DIR}/util/CommandRunner.cpp
+    ${EDITOR_DIR}/util/ProcessStats.cpp
+    ${EDITOR_DIR}/util/SystemStats.cpp
+    ${EDITOR_DIR}/util/ShellEnv.cpp
+    ${EDITOR_DIR}/util/GitMonitor.cpp
+    ${EDITOR_DIR}/util/LineDiff.cpp
+    ${EDITOR_DIR}/util/MaterialSets.cpp
+    ${EDITOR_DIR}/util/DefaultMaterial.cpp
+    ${EDITOR_DIR}/util/EngineAssets.cpp
+    ${EDITOR_DIR}/util/AssetDatabase.cpp
+    ${EDITOR_DIR}/util/ProcessLaunch.cpp
+    ${EDITOR_DIR}/util/ShellSession.cpp
+    ${EDITOR_DIR}/util/TerminalText.cpp
+    ${EDITOR_DIR}/util/PackageZip.cpp
+    ${EDITOR_DIR}/util/PackageManager.cpp
+
+    ${EDITOR_DIR}/window/NetworkPlayWindow.cpp
+    ${EDITOR_DIR}/window/ScriptDebuggerWindow.cpp
+
+    ${EDITOR_DIR}/graph/GraphSerializerYaml.cpp
+    ${EDITOR_DIR}/graph/GraphAsset.cpp
+    ${EDITOR_DIR}/graph/GraphEditorWindow.cpp
+    ${EDITOR_DIR}/graph/GraphScriptProperties.cpp
+
+    ${EDITOR_DIR}/shader/ShaderBuilder.cpp
+
+    # The text services behind the Script Editor page: no window, no project, so the
+    # CLI and the panels call the same functions.
+    ${EDITOR_DIR}/script/ScriptRegex.cpp
+    ${EDITOR_DIR}/script/ScriptDiagnostics.cpp
+    ${EDITOR_DIR}/script/ScriptOutline.cpp
+    ${EDITOR_DIR}/script/ScriptSearch.cpp
+
+    ${EDITOR_DIR}/window/Properties.cpp
+    ${EDITOR_DIR}/window/OutputWindow.cpp
+    ${EDITOR_DIR}/window/SceneWindow.cpp
+    ${EDITOR_DIR}/window/Structure.cpp
+    ${EDITOR_DIR}/window/ResourcesWindow.cpp
+    ${EDITOR_DIR}/window/ImageViewerWindow.cpp
+    ${EDITOR_DIR}/window/ModelViewerWindow.cpp
+    ${EDITOR_DIR}/window/ModelExportWindow.cpp
+    ${EDITOR_DIR}/window/MaterialBrowserWindow.cpp
+    ${EDITOR_DIR}/window/CodeEditor.cpp
+    ${EDITOR_DIR}/window/AnimationWindow.cpp
+    ${EDITOR_DIR}/window/AnimatorWindow.cpp
+    ${EDITOR_DIR}/window/TerrainEditWindow.cpp
+    ${EDITOR_DIR}/window/AiChatWindow.cpp
+    ${EDITOR_DIR}/window/LoadingWindow.cpp
+    ${EDITOR_DIR}/window/MarkdownRenderer.cpp
+    ${EDITOR_DIR}/window/NotificationsWindow.cpp
+    ${EDITOR_DIR}/window/CommandPaletteWindow.cpp
+    ${EDITOR_DIR}/window/WelcomeScreenWindow.cpp
+    ${EDITOR_DIR}/window/HubWindow.cpp
+    ${EDITOR_DIR}/window/ResourceMonitorWindow.cpp
+    ${EDITOR_DIR}/window/TerminalWindow.cpp
+    ${EDITOR_DIR}/window/PluginSchemaPanel.cpp
+    ${EDITOR_DIR}/window/PluginBrowserWindow.cpp
+    ${EDITOR_DIR}/window/PluginWindowHost.cpp
+    ${EDITOR_DIR}/window/WorldCreatorWindow.cpp
+    ${EDITOR_DIR}/window/dialog/SceneSaveDialog.cpp
+    ${EDITOR_DIR}/window/dialog/ComponentAddDialog.cpp
+    ${EDITOR_DIR}/window/dialog/ProjectSaveDialog.cpp
+    ${EDITOR_DIR}/window/dialog/ScriptCreateDialog.cpp
+    ${EDITOR_DIR}/window/dialog/ShaderForkDialog.cpp
+    ${EDITOR_DIR}/window/dialog/TextureSlicerToolDialog.cpp
+    ${EDITOR_DIR}/window/dialog/ExportWindow.cpp
+    ${EDITOR_DIR}/window/dialog/EditorSettingsWindow.cpp
+    ${EDITOR_DIR}/window/dialog/ProjectSettingsWindow.cpp
+    ${EDITOR_DIR}/window/dialog/BundlesWindow.cpp
+    ${EDITOR_DIR}/window/dialog/AboutWindow.cpp
+    ${EDITOR_DIR}/window/dialog/ScenesWindow.cpp
+    ${EDITOR_DIR}/window/widget/CustomTextEditor.cpp
+    ${EDITOR_DIR}/window/widget/InputTextContextMenu.cpp
+    ${EDITOR_DIR}/window/widget/SemanticSuggestions.cpp
+    ${EDITOR_DIR}/window/widget/SelectableTextView.cpp
+
+    ${EDITOR_DIR}/render/ToolsLayer.cpp
+    ${EDITOR_DIR}/render/UILayer.cpp
+    ${EDITOR_DIR}/render/SceneRender.cpp
+    ${EDITOR_DIR}/render/SceneRender2D.cpp
+    ${EDITOR_DIR}/render/SceneRender3D.cpp
+    ${EDITOR_DIR}/render/gizmo/TranslateGizmo.cpp
+    ${EDITOR_DIR}/render/gizmo/RotateGizmo.cpp
+    ${EDITOR_DIR}/render/gizmo/ScaleGizmo.cpp
+    ${EDITOR_DIR}/render/gizmo/Object2DGizmo.cpp
+    ${EDITOR_DIR}/render/gizmo/AnchorGizmo.cpp
+    ${EDITOR_DIR}/render/gizmo/ViewportGizmo.cpp
+    ${EDITOR_DIR}/render/preview/MaterialRender.cpp
+    ${EDITOR_DIR}/render/preview/MeshPreviewRender.cpp
+    ${EDITOR_DIR}/render/preview/DirectionRender.cpp
+    ${EDITOR_DIR}/render/preview/ModelRender.cpp
+
+    ${EDITOR_DIR}/command/CommandHandle.cpp
+    ${EDITOR_DIR}/command/CommandHistory.cpp
+    ${EDITOR_DIR}/command/type/AddChildSceneCmd.cpp
+    ${EDITOR_DIR}/command/type/AddComponentCmd.cpp
+    ${EDITOR_DIR}/command/type/RemoveComponentCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateEntityCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateTrackKeyCmd.cpp
+    ${EDITOR_DIR}/command/type/DeleteEntityCmd.cpp
+    ${EDITOR_DIR}/command/type/DuplicateEntityCmd.cpp
+    ${EDITOR_DIR}/command/type/MoveEntityOrderCmd.cpp
+    ${EDITOR_DIR}/command/type/ObjectTransformCmd.cpp
+    ${EDITOR_DIR}/command/type/RemoveChildSceneCmd.cpp
+    ${EDITOR_DIR}/command/type/SetChildSceneStartActiveCmd.cpp
+    ${EDITOR_DIR}/command/type/EntityNameCmd.cpp
+    ${EDITOR_DIR}/command/type/ImportEntityBundleCmd.cpp
+    ${EDITOR_DIR}/command/type/RemoveEntityFromBundleCmd.cpp
+    ${EDITOR_DIR}/command/type/AddEntityToBundleCmd.cpp
+    ${EDITOR_DIR}/command/type/MeshChangeCmd.cpp
+    ${EDITOR_DIR}/command/type/ModelLoadCmd.cpp
+    ${EDITOR_DIR}/command/type/SceneNameCmd.cpp
+    ${EDITOR_DIR}/command/type/CopyFileCmd.cpp
+    ${EDITOR_DIR}/command/type/RenameFileCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateDirCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateFileCmd.cpp
+    ${EDITOR_DIR}/command/type/DeleteFileCmd.cpp
+    ${EDITOR_DIR}/command/type/SetMainCameraCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateMaterialFileCmd.cpp
+    ${EDITOR_DIR}/command/type/UnlinkMaterialCmd.cpp
+    ${EDITOR_DIR}/command/type/LinkMaterialCmd.cpp
+    ${EDITOR_DIR}/command/type/CreateEntityBundleCmd.cpp
+    ${EDITOR_DIR}/command/type/ComponentToBundleLocalCmd.cpp
+    ${EDITOR_DIR}/command/type/ComponentToBundleSharedCmd.cpp
+    ${EDITOR_DIR}/command/type/ForkShaderCmd.cpp
+    ${EDITOR_DIR}/command/type/TerrainMapPatchCmd.cpp
+    ${EDITOR_DIR}/command/type/WorldGenApplyCmd.cpp
+
+    ${IMGUI_SOURCES}
+    ${BACKEND_SOURCES}
+)
+
+if(APPLE)
+    # NSPasteboard image/file-URL reading for the AI chat attachment paste.
+    list(APPEND QUANTUM_EDITOR_SOURCES ${EDITOR_DIR}/util/ClipboardMac.mm)
+endif()
+
+if(WIN32)
+    list(APPEND QUANTUM_EDITOR_SOURCES ${EDITOR_DIR}/util/MsBuildProgress.cpp)
+endif()
+
+function(configure_quantum_editor_target target_name)
+    # lua_types.h is #included by Project.cpp, so it must be current at link time,
+    # not generated on demand like the docs.
+    add_dependencies(${target_name} generate_shaders generate_api_suggestions generate_lua_types)
+
+    target_include_directories(${target_name} SYSTEM PRIVATE
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+        ${HTTPLIB_DIR}
+        ${OPENGL_INCLUDE_DIR}
+    )
+
+    target_include_directories(${target_name} PRIVATE
+        ${GENERATED_DIR}
+    )
+
+    target_link_libraries(
+        ${target_name}
+
+        PRIVATE
+
+        ${BACKEND_LIBS}
+        ${OPENGL_LIBRARIES}
+        Threads::Threads
+        quantum
+        shadercompiler
+        nfd
+        yaml-cpp
+        ufbx
+        uilab_core
+        uilab_editor
+    )
+
+    if(WIN32)
+        # dbghelp resolves the crash-report backtrace; ws2_32 serves MCP and the
+        # resource-server client in editor/cli. pdh/iphlpapi/dxgi feed the
+        # system monitor: PDH counters, interface stats and the DXGI adapter.
+        # advapi32 owns the registry keys the project file type is written to.
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32 pdh iphlpapi dxgi advapi32)
+        # /bigobj: avoid "number of sections exceeded object file format limit" on
+        # large translation units such as editor/Properties.cpp / Catalog.cpp.
+        target_compile_options(${target_name} PRIVATE /bigobj)
+    else()
+        # ${CMAKE_DL_LIBS} lets the monitor dlopen NVML for NVIDIA GPU data where present.
+        target_link_libraries(${target_name} PRIVATE CURL::libcurl ${CMAKE_DL_LIBS})
+        # -rdynamic names the editor's own frames in the crash backtrace, at about 10 MB of
+        # symbol table. A Release build stays lean and is resolved with addr2line instead.
+        if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+            set_target_properties(${target_name} PROPERTIES ENABLE_EXPORTS ON)
+        endif()
+    endif()
+
+    if(X11_FOUND)
+        target_compile_definitions(${target_name} PRIVATE QUANTUM_HAS_X11_CLIPBOARD)
+        target_link_libraries(${target_name} PRIVATE X11::X11)
+    endif()
+
+    if(APPLE)
+        target_link_libraries(${target_name} PRIVATE "-framework AppKit")
+    endif()
+
+    set_target_properties(
+        ${target_name}
+
+        PROPERTIES
+
+        CXX_STANDARD ${QUANTUM_CXX_STANDARD}
+        CXX_STANDARD_REQUIRED ON
+        OBJCXX_STANDARD ${QUANTUM_CXX_STANDARD}
+        OBJCXX_STANDARD_REQUIRED ON
+    )
+
+    if(APPLE)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "@loader_path"
+        )
+    elseif(UNIX)
+        set_target_properties(${target_name} PROPERTIES
+            BUILD_WITH_INSTALL_RPATH TRUE
+            INSTALL_RPATH "$ORIGIN"
+        )
+    endif()
+endfunction()
+
+add_executable(
+    quantum-editor
+
+    ${PLATFORM_EXEC_FLAGS}
+
+    ${QUANTUM_EDITOR_SOURCES}
+    ${QUANTUM_EDITOR_ICON_OBJECTS}
+)
+
+configure_quantum_editor_target(quantum-editor)
+
+if(WIN32)
+    quantum_add_windows_manifest(quantum-editor)
+endif()
+
+if(PLATFORM_PROPERTIES_FLAGS)
+    set_target_properties(quantum-editor PROPERTIES ${PLATFORM_PROPERTIES_FLAGS})
+endif()
+
+# The dylib goes in Contents/MacOS, where @loader_path already finds it.
+if(APPLE)
+    set(QUANTUM_BUNDLE_NAME "Quantum")
+    set(QUANTUM_BUNDLE_IDENTIFIER "org.srvinix.quantum.editor")
+    set(QUANTUM_BUNDLE_ICON_NAME "quantum.icns")
+
+    # CFBundleShortVersionString takes digits and dots only.
+    string(REPLACE "," "." QUANTUM_BUNDLE_VERSION "${QUANTUM_VERSION_NUMERIC}")
+    string(REGEX REPLACE "^([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" QUANTUM_BUNDLE_VERSION "${QUANTUM_BUNDLE_VERSION}")
+
+    # engine/CMakeLists.txt sets this in its own scope, which does not reach here.
+    set(QUANTUM_BUNDLE_MIN_OS "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    if(NOT QUANTUM_BUNDLE_MIN_OS)
+        set(QUANTUM_BUNDLE_MIN_OS "12.0")
+    endif()
+
+    set(QUANTUM_ICON_PNG "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/quantum-editor.png")
+    set(QUANTUM_ICONSET "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum.iconset")
+    set(QUANTUM_ICNS "${CMAKE_CURRENT_BINARY_DIR}/resources/${QUANTUM_BUNDLE_ICON_NAME}")
+
+    add_custom_command(
+        OUTPUT ${QUANTUM_ICNS}
+        COMMAND ${CMAKE_COMMAND} -E rm -rf ${QUANTUM_ICONSET}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${QUANTUM_ICONSET}
+        COMMAND sips -z 16 16     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_16x16.png
+        COMMAND sips -z 32 32     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_16x16@2x.png
+        COMMAND sips -z 32 32     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_32x32.png
+        COMMAND sips -z 64 64     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_32x32@2x.png
+        COMMAND sips -z 128 128   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_128x128.png
+        COMMAND sips -z 256 256   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_128x128@2x.png
+        COMMAND sips -z 256 256   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_256x256.png
+        COMMAND sips -z 512 512   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_256x256@2x.png
+        COMMAND sips -z 512 512   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_512x512.png
+        COMMAND sips -z 1024 1024 ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_512x512@2x.png
+        COMMAND iconutil -c icns ${QUANTUM_ICONSET} -o ${QUANTUM_ICNS}
+        DEPENDS ${QUANTUM_ICON_PNG}
+        COMMENT "Generating ${QUANTUM_BUNDLE_ICON_NAME}"
+        VERBATIM
+    )
+
+    target_sources(quantum-editor PRIVATE ${QUANTUM_ICNS})
+    set_source_files_properties(${QUANTUM_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+
+    configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/macos/Info.plist.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/Info.plist"
+        @ONLY
+    )
+
+    set_target_properties(quantum-editor PROPERTIES
+        OUTPUT_NAME "${QUANTUM_BUNDLE_NAME}"
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/resources/Info.plist"
+    )
+
+    if(QUANTUM_SHARED)
+        add_custom_command(TARGET quantum-editor POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:quantum> $<TARGET_FILE_DIR:quantum-editor>
+            COMMENT "Copying the engine runtime into the bundle"
+        )
+    endif()
+endif()
+
+# In the bundle this has to be Resources, not MacOS: codesign treats everything in
+# Contents/MacOS as code. FileUtils::getEngineDir() looks in both places.
+if(APPLE)
+    set(QUANTUM_EDITOR_ENGINE_DIR $<TARGET_BUNDLE_CONTENT_DIR:quantum-editor>/Resources/engine)
+    # Build trees from before the move still hold a copy in MacOS, which codesign rejects.
+    set(QUANTUM_CLEAN_STALE_ENGINE COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:quantum-editor>/engine)
+else()
+    set(QUANTUM_EDITOR_ENGINE_DIR $<TARGET_FILE_DIR:quantum-editor>/engine)
+    # copy_directory does not remove renamed files left by an older snapshot.
+    # Clear the generated runtime copy first so API/template sync cannot retain
+    # stale legacy filenames after a Quantum rebrand.
+    set(QUANTUM_CLEAN_STALE_ENGINE COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:quantum-editor>/engine)
+endif()
+
+add_custom_target(copy_quantum_editor_engine
+    ${QUANTUM_CLEAN_STALE_ENGINE}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/engine
+        ${QUANTUM_EDITOR_ENGINE_DIR}
+    COMMENT "Copying engine next to the editor"
+)
+
+add_dependencies(quantum-editor copy_quantum_editor_engine)
+
+set(QUANTUM_EDITOR_INSTALL_TARGETS quantum-editor)
+set(QUANTUM_HUB_RELEASE_MANIFEST_URL "" CACHE STRING
+    "HTTPS URL of the release manifest embedded in the standalone Quantum Hub")
+
+# The Hub is a standalone launcher executable. It shares the editor implementation
+# so project management, templates and install discovery stay in one code path, but
+# its entry point defaults to Hub mode and it can be distributed independently.
+set(QUANTUM_HUB_ICON_OBJECTS)
+if(WIN32)
+    quantum_add_windows_resource(
+        QUANTUM_HUB_ICON_OBJECTS
+        quantum-hub
+        "quantum-editor.ico"
+        "quantum-hub.exe"
+        "Quantum Hub"
+    )
+endif()
+
+add_executable(
+    quantum-hub
+
+    EXCLUDE_FROM_ALL
+
+    ${PLATFORM_EXEC_FLAGS}
+    ${QUANTUM_EDITOR_SOURCES}
+    ${QUANTUM_HUB_ICON_OBJECTS}
+)
+
+configure_quantum_editor_target(quantum-hub)
+target_compile_definitions(quantum-hub PRIVATE QUANTUM_HUB_EXECUTABLE=1)
+if(QUANTUM_HUB_RELEASE_MANIFEST_URL)
+    target_compile_definitions(quantum-hub PRIVATE
+        QUANTUM_HUB_DEFAULT_MANIFEST_URL="${QUANTUM_HUB_RELEASE_MANIFEST_URL}")
+endif()
+add_dependencies(quantum-hub copy_quantum_editor_engine)
+if(WIN32)
+    quantum_add_windows_manifest(quantum-hub)
+endif()
+if(PLATFORM_PROPERTIES_FLAGS)
+    set_target_properties(quantum-hub PROPERTIES ${PLATFORM_PROPERTIES_FLAGS})
+endif()
+list(APPEND QUANTUM_EDITOR_INSTALL_TARGETS quantum-hub)
+
+# Windows GUI-subsystem executables do not behave like normal CLI programs
+# when launched from cmd.exe/PowerShell. Provide a console-subsystem twin for
+# automation while keeping Unix-like platforms on a single editor binary.
+#
+# EXCLUDE_FROM_ALL keeps it out of the default ("all") build, so local and IDE
+# builds only produce quantum-editor. Release builds compile it explicitly by
+# name (`cmake --build --target quantum-editor-cmd`, see
+# .github/workflows/cmake.yml); the install rule below still installs it because
+# CI builds it before installing.
+if(WIN32)
+    # Its own icon because both executables install to the same folder
+    quantum_add_windows_resource(
+        QUANTUM_EDITOR_CMD_ICON_OBJECTS
+        quantum-editor-cmd
+        "quantum-editor-cmd.ico"
+        "quantum-editor-cmd.exe"
+        "Quantum Engine Editor (command line)"
+    )
+
+    add_executable(
+        quantum-editor-cmd
+
+        EXCLUDE_FROM_ALL
+
+        ${QUANTUM_EDITOR_SOURCES}
+        ${QUANTUM_EDITOR_CMD_ICON_OBJECTS}
+    )
+
+    configure_quantum_editor_target(quantum-editor-cmd)
+    quantum_add_windows_manifest(quantum-editor-cmd)
+    add_dependencies(quantum-editor-cmd copy_quantum_editor_engine)
+    list(APPEND QUANTUM_EDITOR_INSTALL_TARGETS quantum-editor-cmd)
+endif()
+
+# Headless asset compiler (pak/shaders/inspect); target defined in the .cmake.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/quantum_resource_compiler.cmake)
+
+add_executable(quantum-network-smoke
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/network-smoke/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-network-smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-network-smoke PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-network-smoke PRIVATE quantum voxel)
+if(WIN32)
+    target_link_libraries(quantum-network-smoke PRIVATE ws2_32)
+endif()
+
+add_executable(quantum-serialization-smoke
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/serialization-smoke/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-serialization-smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-serialization-smoke PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-serialization-smoke PRIVATE quantum)
+if(WIN32)
+    target_link_libraries(quantum-serialization-smoke PRIVATE ws2_32)
+endif()
+
+add_executable(quantum-network-relay
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/network-relay/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-network-relay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-network-relay PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-network-relay PRIVATE quantum)
+if(WIN32)
+    target_link_libraries(quantum-network-relay PRIVATE ws2_32)
+endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/build-generator/quantum_build_generator.cmake)
+# Local asset index service the editor talks to over 127.0.0.1 JSON-lines.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-server/quantum_resource_server.cmake)
+
+# The bundle already holds the dylib and engine/.
+if(APPLE)
+    install(TARGETS quantum-editor quantum-hub quantum-engine quantum-network-relay
+            CONFIGURATIONS Release MinSizeRel
+            BUNDLE DESTINATION bin
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION bin
+            ARCHIVE DESTINATION bin
+    )
+else()
+    install(TARGETS ${QUANTUM_EDITOR_INSTALL_TARGETS} quantum quantum-engine quantum-network-relay
+            CONFIGURATIONS Release MinSizeRel
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION bin
+            ARCHIVE DESTINATION bin
+    )
+
+    if(QUANTUM_MINGW_RUNTIME)
+        install(FILES ${QUANTUM_MINGW_RUNTIME}
+                CONFIGURATIONS Release MinSizeRel
+                DESTINATION bin
+        )
+    endif()
+
+    install(DIRECTORY ${CMAKE_SOURCE_DIR}/engine
+            DESTINATION bin
+            CONFIGURATIONS Release MinSizeRel
+    )
+endif()
+
+# Desktop integration: a launcher entry plus the themed icons the launcher,
+# taskbar and alt-tab switcher look up by the "quantum-editor" icon name.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/quantum-editor.desktop
+            DESTINATION share/applications
+            CONFIGURATIONS Release MinSizeRel
+    )
+
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/org.srvinix.quantum.editor.metainfo.xml
+            DESTINATION share/metainfo
+            CONFIGURATIONS Release MinSizeRel
+    )
+
+    foreach(icon_size IN ITEMS 16 32 48 64 128 256 512)
+        install(FILES ${QUANTUM_LINUX_ICON_DIR}/quantum-editor-${icon_size}.png
+                DESTINATION share/icons/hicolor/${icon_size}x${icon_size}/apps
+                RENAME quantum-editor.png
+                CONFIGURATIONS Release MinSizeRel
+        )
+    endforeach()
+endif()
+add_subdirectory(engine/voxel)
+add_subdirectory(engine/voxel_demo)
+target_link_libraries(quantum PRIVATE voxel)
+
