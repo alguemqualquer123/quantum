@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef FontAtlas_h
@@ -17,17 +17,17 @@
 #include "ui/render/PaintList.h"
 #include "util/CharExtent.h"
 
-namespace doriax {
+namespace quantum {
     class STBText;
 }
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // One glyph atlas per (font path, pixel size), shared by every Label that
     // uses it. Wraps STBText (HarfBuzz shaping + stb_truetype rasterization,
-    // with the built-in faces as fallback) and publishes it as a Doriax
+    // with the built-in faces as fallback) and publishes it as a Quantum
     // Texture under a versioned id, like the legacy scene UI does.
-    class DORIAX_API FontAtlas {
+    class QUANTUM_API FontAtlas {
     public:
         //Cached; returns nullptr when the font cannot be loaded (logged once).
         //No cache invalidation yet: hot reload arrives with the resource phase.

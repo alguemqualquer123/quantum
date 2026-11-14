@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ImportEntityBundleCmd.h"
@@ -7,7 +7,7 @@
 #include "Stream.h"
 #include "util/ProjectUtils.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ImportEntityBundleCmd::ImportEntityBundleCmd(Project* project, uint32_t sceneId, const fs::path& filepath, Entity parent, bool needSaveScene){
     this->project = project;

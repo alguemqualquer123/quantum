@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef POSITIONACTION_H
@@ -6,8 +6,8 @@
 
 #include "TimedAction.h"
 
-namespace doriax{
-    class DORIAX_API PositionAction: public TimedAction{
+namespace quantum{
+    class QUANTUM_API PositionAction: public TimedAction{
 
     public:
         PositionAction(Scene* scene);

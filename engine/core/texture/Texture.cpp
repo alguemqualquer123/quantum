@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Texture.h"
 
 #include "render/SystemRender.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     // owns the face data, a project switch frees the Texture before the render queue runs

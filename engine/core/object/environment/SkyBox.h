@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SKYBOX_H
@@ -6,8 +6,8 @@
 
 #include "object/EntityHandle.h"
 
-namespace doriax{
-    class DORIAX_API SkyBox: public EntityHandle{
+namespace quantum{
+    class QUANTUM_API SkyBox: public EntityHandle{
 
     public:
         SkyBox(Scene* scene);

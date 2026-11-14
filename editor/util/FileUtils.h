@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -23,11 +23,13 @@
     #include <sys/sysctl.h>
 #endif
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 class FileUtils {
 public:
-    static std::filesystem::path getExecutableDir() {
+    // The running executable. A shell association writes this exact path into the
+    // registry, so it needs the file rather than the folder it sits in.
+    static std::filesystem::path getExecutablePath() {
         namespace fs = std::filesystem;
 
         fs::path executablePath;
@@ -88,10 +90,14 @@ public:
             normalizedPath = executablePath;
         }
 
-        return normalizedPath.parent_path();
+        return normalizedPath;
     }
 
-    // Inside Doriax.app the SDK sits in Contents/Resources: codesign treats
+    static std::filesystem::path getExecutableDir() {
+        return getExecutablePath().parent_path();
+    }
+
+    // Inside Quantum.app the SDK sits in Contents/Resources: codesign treats
     // everything in Contents/MacOS as code and rejects plain files there.
     static std::filesystem::path getEngineDir() {
         namespace fs = std::filesystem;
@@ -144,6 +150,29 @@ public:
         const std::string engineDir = getEngineDir().generic_string();
         return engineDir.find("/.mount_") != std::string::npos ||
                engineDir.find("/appimage_extracted_") != std::string::npos;
+    }
+
+    // The rebrand renamed the per-user folders. The first launch under the new
+    // name takes over the old folder wholesale - a rename, so a large Hub install
+    // tree costs nothing - and never touches either when the new one already exists.
+    static bool adoptLegacyDirectory(const std::filesystem::path& legacy,
+                                     const std::filesystem::path& current) {
+        namespace fs = std::filesystem;
+        if (legacy.empty() || current.empty() || legacy == current) {
+            return false;
+        }
+
+        std::error_code ec;
+        if (fs::exists(current, ec) || !fs::exists(legacy, ec)) {
+            return false;
+        }
+
+        fs::create_directories(current.parent_path(), ec);
+        if (ec) {
+            return false;
+        }
+        fs::rename(legacy, current, ec);
+        return !ec;
     }
 
     enum class WriteResult { Unchanged, Written, Failed };
@@ -233,4 +262,4 @@ public:
     }
 };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

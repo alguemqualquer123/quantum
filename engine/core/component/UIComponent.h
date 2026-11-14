@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UI_COMPONENT_H
@@ -12,9 +12,9 @@
 #include "math/AABB.h"
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API UIComponent{
+    struct QUANTUM_API UIComponent{
         // Render part
         bool loaded = false;
         bool loadCalled = false;

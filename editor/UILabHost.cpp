@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "UILabHost.h"
@@ -14,7 +14,7 @@
 #include <layout/DockingLayout.h>
 #include <panels/Panels.h>
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 UILabHost::UILabHost(App& owner, Structure* structure, Properties* properties, ResourcesWindow* resources)
     : owner(owner),
@@ -22,7 +22,7 @@ UILabHost::UILabHost(App& owner, Structure* structure, Properties* properties, R
       propertiesWindow(properties),
       resourcesWindow(resources),
       ctx(new uilab::AppContext()) {
-    // Doriax keeps its own bottom strip: the library would otherwise reserve the
+    // Quantum keeps its own bottom strip: the library would otherwise reserve the
     // height of a status bar it is not drawing.
     ctx->settings.showStatusBar = false;
     // ... and its own dock node tree, so the arrangement saved in editor_layout.ini
@@ -67,7 +67,7 @@ void UILabHost::installHooks() {
         ctx->log.Push(uilab::LogChannel::Console, level, "Editor", message);
     });
 
-    // The library opens these three windows with doriax's names and doriax's
+    // The library opens these three windows with quantum's names and quantum's
     // visibility flags, so the saved dock layout, the menu toggles and the close
     // button keep addressing the same windows while the panel draws the chrome.
     ctx->host.hierarchyPanel = { Structure::WINDOW_NAME, structureWindow->openFlag() };
@@ -111,6 +111,6 @@ void UILabHost::drawDataPanels() {
     uilab::panels::DrawInspector(*ctx);
     uilab::panels::DrawAssetBrowser(*ctx);
     // Work the content browser used to run between its End() and the next frame:
-    // thumbnail eviction plus the rename / new folder confirmations.
+    // thumbnail eviction plus the rename / new item confirmations.
     resourcesWindow->afterDraw();
 }

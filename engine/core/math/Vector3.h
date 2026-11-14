@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef vector3_h
@@ -8,16 +8,16 @@
 #include <math.h>
 #include <string>
 
-namespace doriax { class Vector3; }
-doriax::Vector3 operator * ( float f, const doriax::Vector3& v );
+namespace quantum { class Vector3; }
+quantum::Vector3 operator * ( float f, const quantum::Vector3& v );
 
 
-namespace doriax {
+namespace quantum {
 
     class Vector2;
     class Vector4;
 
-    class DORIAX_API Vector3
+    class QUANTUM_API Vector3
     {
     public:
         float x, y, z;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -16,6 +16,7 @@
 #include "WaterExclusion.h"
 #include "Object.h"
 #include "Camera.h"
+#include "Decal.h"
 #include "Polygon.h"
 #include "Terrain.h"
 #include "Light.h"
@@ -40,20 +41,21 @@
 #include "TextEdit.h"
 #include "Container.h"
 #include "Sound.h"
-#ifdef DORIAX_PHYSICS_2D
+#include "AnimatorController.h"
+#ifdef QUANTUM_PHYSICS_2D
 #include "Body2D.h"
 #include "Joint2D.h"
 #include "Contact2D.h"
 #include "Manifold2D.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "Body3D.h"
 #include "Joint3D.h"
 #include "Contact3D.h"
 #include "CollideShapeResult3D.h"
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 
 void LuaBinding::registerObjectClasses(lua_State *L){
@@ -83,7 +85,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addVariable("SPOT", LightType::SPOT)
         .endNamespace();
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     luabridge::getGlobalNamespace(L)
         .beginNamespace("Shape2DType")
         .addVariable("POLYGON", Shape2DType::POLYGON)
@@ -94,7 +96,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endNamespace();
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     luabridge::getGlobalNamespace(L)
         .beginNamespace("Shape3DType")
         .addVariable("SPHERE", Shape3DType::SPHERE)
@@ -115,7 +117,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addVariable("DYNAMIC", BodyType::DYNAMIC)
         .endNamespace();
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     luabridge::getGlobalNamespace(L)
         .beginNamespace("Body3DMotionQuality")
         .addVariable("DISCRETE", Body3DMotionQuality::DISCRETE)
@@ -123,7 +125,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endNamespace();
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     luabridge::getGlobalNamespace(L)
         .beginNamespace("Joint2DType")
         .addVariable("DISTANCE", Joint2DType::DISTANCE)
@@ -138,7 +140,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endNamespace();
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     luabridge::getGlobalNamespace(L)
         .beginNamespace("Joint3DType")
         .addVariable("FIXED", Joint3DType::FIXED)
@@ -243,11 +245,11 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("modelMatrix", &Object::getModelMatrix)
         .addProperty("normalMatrix", &Object::getNormalMatrix)
         .addFunction("updateTransform", &Object::updateTransform)
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
         .addFunction("getBody2D", &Object::getBody2D)
         .addFunction("removeBody2D", &Object::removeBody2D)
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
         .addFunction("getBody3D", &Object::getBody3D)
         .addFunction("removeBody3D", &Object::removeBody3D)
 #endif
@@ -424,6 +426,18 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
+        .deriveClass<Decal, Object>("Decal")
+        .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
+        .addProperty("enabled", &Decal::isEnabled, &Decal::setEnabled)
+        .addProperty("color", &Decal::getColor, (void(Decal::*)(Vector3))&Decal::setColor)
+        .addProperty("size", &Decal::getSize, (void(Decal::*)(Vector3))&Decal::setSize)
+        .addProperty("opacity", &Decal::getOpacity, &Decal::setOpacity)
+        .addProperty("depthFade", &Decal::getDepthFade, &Decal::setDepthFade)
+        .addFunction("setTexture", &Decal::setTexture)
+        .addProperty("texture", &Decal::getTexture, &Decal::setTexture)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
         .deriveClass<Water, Object>("Water")
         .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
         .addFunction("load", &Water::load)
@@ -451,6 +465,11 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addFunction("setFoamColor", (void(Water::*)(const float, const float, const float))&Water::setFoamColor)
         .addProperty("shoreFoam", &Water::getShoreFoam, &Water::setShoreFoam)
         .addProperty("crestFoam", &Water::getCrestFoam, &Water::setCrestFoam)
+        .addProperty("windInfluence", &Water::getWindInfluence, &Water::setWindInfluence)
+        .addProperty("fetch", &Water::getFetch, &Water::setFetch)
+        .addFunction("getSeaHeight", &Water::getSeaHeight)
+        .addFunction("getSeaLength", &Water::getSeaLength)
+        .addFunction("getSeaWind", &Water::getSeaWind)
         .addProperty("receiveShadows", &Water::isReceiveShadows, &Water::setReceiveShadows)
         .addProperty("depthEffects", &Water::isDepthEffects, &Water::setDepthEffects)
         .addProperty("planarReflection", &Water::isPlanarReflection, &Water::setPlanarReflection)
@@ -462,6 +481,18 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("underwater", &Water::isUnderwater, &Water::setUnderwater)
         .addProperty("buoyancy", &Water::isBuoyancy, &Water::setBuoyancy)
         .addProperty("buoyancyDepth", &Water::getBuoyancyDepth, &Water::setBuoyancyDepth)
+        .addProperty("simulate", &Water::isSimulated, &Water::setSimulate)
+        .addProperty("simResolution", &Water::getSimResolution, &Water::setSimResolution)
+        .addProperty("simDepth", &Water::getSimDepth, &Water::setSimDepth)
+        .addProperty("simFlow", &Water::getSimFlow, &Water::setSimFlow)
+        .addProperty("simRain", &Water::getSimRain, &Water::setSimRain)
+        .addProperty("simEvaporation", &Water::getSimEvaporation, &Water::setSimEvaporation)
+        .addProperty("simDryDepth", &Water::getSimDryDepth, &Water::setSimDryDepth)
+        .addProperty("simEdgeDrain", &Water::isSimEdgeDrain, &Water::setSimEdgeDrain)
+        .addProperty("simRipples", &Water::isSimRipples, &Water::setSimRipples)
+        .addProperty("simRippleSpeed", &Water::getSimRippleSpeed, &Water::setSimRippleSpeed)
+        .addProperty("simRippleDamping", &Water::getSimRippleDamping, &Water::setSimRippleDamping)
+        .addProperty("simRippleStrength", &Water::getSimRippleStrength, &Water::setSimRippleStrength)
         .addProperty("customShader", &Water::getCustomShader, &Water::setCustomShader)
         .addProperty("customUnderwaterShader", &Water::getCustomUnderwaterShader, &Water::setCustomUnderwaterShader)
         .addFunction("setShaderUniform",
@@ -473,6 +504,12 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addFunction("removeShaderUniform", &Water::removeShaderUniform)
         .addFunction("getHeight", &Water::getHeight)
         .addFunction("getNormal", &Water::getNormal)
+        .addFunction("getSimWaterDepth", &Water::getSimWaterDepth)
+        .addFunction("getSimVelocity", &Water::getSimVelocity)
+        .addFunction("addDisturbance", &Water::addDisturbance)
+        .addFunction("addWater", &Water::addWater)
+        .addFunction("drainWater", &Water::drainWater)
+        .addFunction("getSimVolume", &Water::getSimVolume)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -500,6 +537,8 @@ void LuaBinding::registerObjectClasses(lua_State *L){
             luabridge::overload<const std::string&>(&Mesh::setTexture),
             luabridge::overload<const std::string&,TextureData>(&Mesh::setTexture),
             luabridge::overload<Framebuffer*>(&Mesh::setTexture))
+        .addFunction("setHeightTexture", &Mesh::setHeightTexture)
+        .addFunction("setHeightScale", &Mesh::setHeightScale)
         .addProperty("color", &Mesh::getColor, (void(Mesh::*)(Vector4))&Mesh::setColor)
         .addFunction("setColor", 
             luabridge::overload<const float, const float, const float>(&Mesh::setColor),
@@ -679,6 +718,14 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("textureDetailTiles", &Terrain::getTextureDetailTiles, &Terrain::setTextureDetailTiles)
         .addProperty("rootGridSize", &Terrain::getRootGridSize, &Terrain::setRootGridSize)
         .addProperty("levels", &Terrain::getLevels, &Terrain::setLevels)
+        .addFunction("addFoliageLayer", &Terrain::addFoliageLayer)
+        .addFunction("removeFoliageLayer", &Terrain::removeFoliageLayer)
+        .addFunction("getNumFoliageLayers", &Terrain::getNumFoliageLayers)
+        .addFunction("setFoliageDensity", &Terrain::setFoliageDensity)
+        .addFunction("setFoliageDrawDistance", &Terrain::setFoliageDrawDistance)
+        .addFunction("setFoliageCastsShadows", &Terrain::setFoliageCastsShadows)
+        .addFunction("markHeightmapDirty", &Terrain::markHeightmapDirty)
+        .addFunction("markFoliageDensityDirty", &Terrain::markFoliageDensityDirty)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -1212,10 +1259,38 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("attenuationModel", &Sound::getAttenuationModel, &Sound::setAttenuationModel)
         .addProperty("attenuationRolloffFactor", &Sound::getAttenuationRolloffFactor, &Sound::setAttenuationRolloffFactor)
         .addProperty("dopplerFactor", &Sound::getDopplerFactor, &Sound::setDopplerFactor)
+        .addProperty("occlusionEnabled", &Sound::isOcclusionEnabled, &Sound::setOcclusionEnabled)
+        .addProperty("occlusionVolume", &Sound::getOcclusionVolume, &Sound::setOcclusionVolume)
+        .addProperty("occlusionUpdateInterval", &Sound::getOcclusionUpdateInterval, &Sound::setOcclusionUpdateInterval)
+        .addProperty("occlusionGain", &Sound::getOcclusionGain)
         .addFunction("getSoundComponent", &Sound::getComponent<SoundComponent>)
         .endClass();
 
-#ifdef DORIAX_PHYSICS_2D
+    luabridge::getGlobalNamespace(L)
+        .deriveClass<AnimatorController, EntityHandle>("AnimatorController")
+        .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
+        .addFunction("getObject", &AnimatorController::getObject)
+        .addFunction("play", &AnimatorController::play)
+        .addFunction("stop", &AnimatorController::stop)
+        .addFunction("playState",
+            luabridge::overload<const std::string&>(&AnimatorController::playState),
+            luabridge::overload<const std::string&, float>(&AnimatorController::playState))
+        .addProperty("enabled", &AnimatorController::isEnabled, &AnimatorController::setEnabled)
+        .addFunction("isPlaying", &AnimatorController::isPlaying)
+        .addFunction("getCurrentStateName", &AnimatorController::getCurrentStateName)
+        .addFunction("getCurrentStateTime", &AnimatorController::getCurrentStateTime)
+        .addFunction("setFloat", &AnimatorController::setFloat)
+        .addFunction("getFloat", &AnimatorController::getFloat)
+        .addFunction("setInteger", &AnimatorController::setInteger)
+        .addFunction("getInteger", &AnimatorController::getInteger)
+        .addFunction("setBool", &AnimatorController::setBool)
+        .addFunction("getBool", &AnimatorController::getBool)
+        .addFunction("setTrigger", &AnimatorController::setTrigger)
+        .addFunction("resetTrigger", &AnimatorController::resetTrigger)
+        .addFunction("getAnimatorControllerComponent", &AnimatorController::getComponent<AnimatorControllerComponent>)
+        .endClass();
+
+#ifdef QUANTUM_PHYSICS_2D
     luabridge::getGlobalNamespace(L)
         .deriveClass<Body2D, EntityHandle>("Body2D")
         .addConstructor <void (Scene*, Entity)> ()
@@ -1245,17 +1320,17 @@ void LuaBinding::registerObjectClasses(lua_State *L){
             luabridge::overload<>(&Body2D::getShapeDensity),
             luabridge::overload<size_t>(&Body2D::getShapeDensity))
         .addProperty("shapeFriction", (float(Body2D::*)()const)&Body2D::getShapeFriction, (void(Body2D::*)(float))&Body2D::setShapeFriction)
-        .addFunction("setShapeFriction", 
+        .addFunction("setShapeFriction",
             luabridge::overload<float>(&Body2D::setShapeFriction),
             luabridge::overload<size_t, float>(&Body2D::setShapeFriction))
-        .addFunction("getShapeFriction", 
+        .addFunction("getShapeFriction",
             luabridge::overload<>(&Body2D::getShapeFriction),
             luabridge::overload<size_t>(&Body2D::getShapeFriction))
         .addProperty("shapeRestitution", (float(Body2D::*)()const)&Body2D::getShapeRestitution, (void(Body2D::*)(float))&Body2D::setShapeRestitution)
-        .addFunction("setShapeRestitution", 
+        .addFunction("setShapeRestitution",
             luabridge::overload<float>(&Body2D::setShapeRestitution),
             luabridge::overload<size_t, float>(&Body2D::setShapeRestitution))
-        .addFunction("getShapeRestitution", 
+        .addFunction("getShapeRestitution",
             luabridge::overload<>(&Body2D::getShapeRestitution),
             luabridge::overload<size_t>(&Body2D::getShapeRestitution))
         .addProperty("shapeSensor", (bool(Body2D::*)()const)&Body2D::isShapeSensor, (void(Body2D::*)(bool))&Body2D::setShapeSensor)
@@ -1342,7 +1417,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
-        .beginClass<Joint2D>("Joint2D")
+        .deriveClass<Joint2D, EntityHandle>("Joint2D")
         .addConstructor <void (Scene*), void (Scene*, Entity)> ()
         .addFunction("setDistanceJoint",
             luabridge::overload<Entity, Entity>(&Joint2D::setDistanceJoint),
@@ -1384,7 +1459,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endClass();
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     luabridge::getGlobalNamespace(L)
         .deriveClass<Body3D, EntityHandle>("Body3D")
         .addConstructor <void (Scene*, Entity)> ()
@@ -1425,6 +1500,20 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addFunction("getShapeDensity", 
             luabridge::overload<>(&Body3D::getShapeDensity),
             luabridge::overload<size_t>(&Body3D::getShapeDensity))
+        .addProperty("shapeFriction", (float(Body3D::*)()const)&Body3D::getShapeFriction, (void(Body3D::*)(float))&Body3D::setShapeFriction)
+        .addFunction("setShapeFriction", 
+            luabridge::overload<float>(&Body3D::setShapeFriction),
+            luabridge::overload<size_t, float>(&Body3D::setShapeFriction))
+        .addFunction("getShapeFriction", 
+            luabridge::overload<>(&Body3D::getShapeFriction),
+            luabridge::overload<size_t>(&Body3D::getShapeFriction))
+        .addProperty("shapeRestitution", (float(Body3D::*)()const)&Body3D::getShapeRestitution, (void(Body3D::*)(float))&Body3D::setShapeRestitution)
+        .addFunction("setShapeRestitution", 
+            luabridge::overload<float>(&Body3D::setShapeRestitution),
+            luabridge::overload<size_t, float>(&Body3D::setShapeRestitution))
+        .addFunction("getShapeRestitution", 
+            luabridge::overload<>(&Body3D::getShapeRestitution),
+            luabridge::overload<size_t>(&Body3D::getShapeRestitution))
         .addProperty("type", &Body3D::getType, &Body3D::setType)
         .addProperty("motionQuality", &Body3D::getMotionQuality, &Body3D::setMotionQuality)
         .addFunction("canBeKinematicOrDynamic", &Body3D::canBeKinematicOrDynamic)
@@ -1438,6 +1527,8 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .addProperty("mass", &Body3D::getMass, &Body3D::setMass)
         .addFunction("setOverrideMassAndInertia", &Body3D::setOverrideMassAndInertia)
         .addProperty("gravityFactor", &Body3D::getGravityFactor, &Body3D::setGravityFactor)
+        .addProperty("linearDamping", &Body3D::getLinearDamping, &Body3D::setLinearDamping)
+        .addProperty("angularDamping", &Body3D::getAngularDamping, &Body3D::setAngularDamping)
         .addProperty("buoyancy", &Body3D::getBuoyancy, &Body3D::setBuoyancy)
         .addProperty("waterDrag", &Body3D::getWaterDrag, &Body3D::setWaterDrag)
         .addProperty("waterAngularDrag", &Body3D::getWaterAngularDrag, &Body3D::setWaterAngularDrag)
@@ -1472,7 +1563,7 @@ void LuaBinding::registerObjectClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
-        .beginClass<Joint3D>("Joint3D")
+        .deriveClass<Joint3D, EntityHandle>("Joint3D")
         .addConstructor <void (Scene*), void (Scene*, Entity)> ()
         .addFunction("setFixedJoint", &Joint3D::setFixedJoint)
         .addFunction("setDistanceJoint",

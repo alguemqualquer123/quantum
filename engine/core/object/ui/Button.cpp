@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Button.h"
@@ -7,7 +7,7 @@
 #include "component/UIComponent.h"
 #include "subsystem/UISystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Button::Button(Scene* scene): Image(scene){
     addComponent<ButtonComponent>();

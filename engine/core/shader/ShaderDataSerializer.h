@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SHADERDATASERIALIZER_H
@@ -10,9 +10,9 @@
 
 #include "ShaderData.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API ShaderDataSerializer {
+    class QUANTUM_API ShaderDataSerializer {
     public:
         // Simple on-disk cache format for ShaderData.
         // - Stores stage GLSL/HLSL/MSL source and reflection data.

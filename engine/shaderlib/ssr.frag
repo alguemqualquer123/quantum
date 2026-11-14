@@ -84,6 +84,7 @@ void main(){
     // depth gradient, so reflections follow curvature and detail correctly.
     vec4 g = texture(sampler2D(u_gbufferTexture, u_gbuffer_smp), d);
     vec3 n = octDecode(g.rg);
+    float roughness = clamp(g.b, 0.0, 1.0);
     if (dot(n, P) > 0.0) n = -n; // orient toward the camera
 
     // view-space reflection ray (camera at origin looking down -Z)
@@ -91,7 +92,10 @@ void main(){
     vec3 R = normalize(reflect(V, n));
 
     float maxDistance = ssr.params.x;
-    float thickness = ssr.params.y;
+    // A rough surface represents a wider microfacet lobe. Give its screen-space
+    // intersection a little more tolerance so the reflection does not flicker
+    // when the ray crosses a thin silhouette or a low-resolution depth texel.
+    float thickness = ssr.params.y * mix(1.0, 2.5, roughness * roughness);
     int steps = int(ssr.params.w);
     float stepLen = maxDistance / float(max(steps, 1));
 
@@ -99,7 +103,7 @@ void main(){
     // of the linear march. Scaled by misc.w (the glossy-blur amount) so sharp mirror
     // reflections (blur = 0) are left byte-identical and the dither is only added in
     // glossy mode, where the blur pass smooths it out.
-    float jitterAmt = ssr.misc.w;
+    float jitterAmt = ssr.misc.w * mix(0.25, 1.0, roughness);
     float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
     float startOffset = stepLen * ign * jitterAmt;
 
@@ -169,9 +173,14 @@ void main(){
     float edgeFade = fadeMin.x * fadeMin.y * fadeMax.x * fadeMax.y;
 
     // ray-length fade: confidence drops as the ray travels further
-    float distFade = 1.0 - smoothstep(0.0, maxDistance, hitTravel);
+    float distFade = 1.0 - smoothstep(0.0, maxDistance * mix(1.0, 0.55, roughness), hitTravel);
 
-    float mask = edgeFade * distFade;
+    // SSR is a view-dependent replacement for the sharp part of the environment
+    // reflection. Let the filtered IBL dominate once the material becomes very
+    // rough; otherwise a single screen pixel becomes an unnaturally crisp mirror.
+    float glossFade = 1.0 - smoothstep(0.72, 0.98, roughness);
+
+    float mask = edgeFade * distFade * glossFade;
 
     frag_color = vec4(reflColor, mask);
 }

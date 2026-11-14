@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ResourceMonitorWindow.h"
@@ -15,7 +15,7 @@
 
 #include "imgui.h"
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 namespace {
     // Sampling cadences offered by the toolbar combo, in seconds; the shared

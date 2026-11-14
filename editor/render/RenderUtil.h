@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     enum class CursorSelected{
         POINTER,

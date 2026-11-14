@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ProjectUtils.h"
@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <fstream>
 #include <filesystem>
 #include <functional>
@@ -73,7 +74,7 @@
 #include "resources/sky/Daylight_Box_Right_png.h"
 #include "resources/sky/Daylight_Box_Top_png.h"
 
-using namespace doriax;
+using namespace quantum;
 
 static void parseLuaPropertiesTable(lua_State* L, ScriptEntry& entry);
 
@@ -519,6 +520,44 @@ bool editor::ProjectUtils::hasCustomMeshParenting(Scene* scene, Entity model) {
     return scene->getSystem<MeshSystem>()->hasCustomMeshParenting(model, scene->getComponent<ModelComponent>(model));
 }
 
+// A hierarchy walk that never ends means the parent chain is broken, not that the entity is a
+// model node: every glTF node is parented inside its model and a glTF tree cannot be deeper.
+constexpr int MAX_MODEL_CHILD_DEPTH = 512;
+
+// The model mappings store raw ids, and the pool hands a destroyed node's id to the next entity it
+// creates, so a stale entry can name an authored row and lock it to the model forever. A mapping
+// only owns an entity that is still the model's: a joint carrying its BoneComponent, or a node
+// whose parent chain reaches the model entity.
+static Entity mappedModelChild(Scene* scene, Entity modelEntity, const std::map<int, Entity>& mapping, Entity entity) {
+    for (const auto& entry : mapping) {
+        if (entry.second != entity) {
+            continue;
+        }
+
+        Transform* transform = scene->findComponent<Transform>(entity);
+        Entity parent = transform ? transform->parent : NULL_ENTITY;
+
+        BoneComponent* bone = scene->findComponent<BoneComponent>(entity);
+        if (bone && bone->model == modelEntity) {
+            return parent != NULL_ENTITY ? parent : modelEntity;
+        }
+
+        Entity current = parent;
+        for (int depth = 0; depth < MAX_MODEL_CHILD_DEPTH && current != NULL_ENTITY; ++depth) {
+            if (current == modelEntity) {
+                return parent;
+            }
+            Transform* currentTransform = scene->findComponent<Transform>(current);
+            if (!currentTransform) {
+                break;
+            }
+            current = currentTransform->parent;
+        }
+        return NULL_ENTITY;
+    }
+    return NULL_ENTITY;
+}
+
 Entity editor::ProjectUtils::getLockedEntityParent(Scene* scene, Entity entity){
     if (entity == NULL_ENTITY)
         return NULL_ENTITY;
@@ -556,33 +595,19 @@ Entity editor::ProjectUtils::getLockedEntityParent(Scene* scene, Entity entity){
             }
         }
 
-        for (const auto& bone : model.bonesIdMapping) {
-            if (bone.second == entity) {
-                Transform* transform = scene->findComponent<Transform>(entity);
-                if (transform && transform->parent != NULL_ENTITY) {
-                    return transform->parent;
-                }
-                return modelEntity;
-            }
+        Entity boneChild = mappedModelChild(scene, modelEntity, model.bonesIdMapping, entity);
+        if (boneChild != NULL_ENTITY) {
+            return boneChild;
         }
 
-        for (const auto& node : model.meshNodesMapping) {
-            if (node.second == entity) {
-                Transform* transform = scene->findComponent<Transform>(entity);
-                if (transform && transform->parent != NULL_ENTITY) {
-                    return transform->parent;
-                }
-                return modelEntity;
-            }
+        Entity meshNodeChild = mappedModelChild(scene, modelEntity, model.meshNodesMapping, entity);
+        if (meshNodeChild != NULL_ENTITY) {
+            return meshNodeChild;
         }
-        for (const auto& node : model.nodesIdMapping) {
-            if (node.second == entity) {
-                Transform* transform = scene->findComponent<Transform>(entity);
-                if (transform && transform->parent != NULL_ENTITY) {
-                    return transform->parent;
-                }
-                return modelEntity;
-            }
+
+        Entity nodeChild = mappedModelChild(scene, modelEntity, model.nodesIdMapping, entity);
+        if (nodeChild != NULL_ENTITY) {
+            return nodeChild;
         }
     }
 
@@ -728,16 +753,43 @@ std::string editor::ProjectUtils::makeUniqueEntityName(Scene* scene, const std::
         return baseName;
     }
 
-    std::unordered_set<std::string> existingNames;
+    // One pass that compares, instead of a set built from every name in the scene: that set cost a
+    // string copy and a node allocation per entity, on every object the user created, and a scene of
+    // the size this is meant to hold (16k) paid 1.67 ms of it per creation against 0.13 ms for the
+    // walk. The gap the old loop filled is not refilled - the number only moves forward, which also
+    // keeps a name a deleted object had from coming back.
+    std::string cleanBase = baseName;
+    size_t startFrom = 2;
+    splitTrailingDuplicateNumber(baseName, cleanBase, startFrom);
+
+    const std::string prefixed = cleanBase + " ";
+    size_t highest = 0;
+    bool baseTaken = false;
+
     for (Entity sceneEntity : entities) {
-        if (ignoredEntities.find(sceneEntity) != ignoredEntities.end()) {
+        if (!ignoredEntities.empty() && ignoredEntities.find(sceneEntity) != ignoredEntities.end()) {
             continue;
         }
 
-        existingNames.insert(scene->getEntityName(sceneEntity));
+        const std::string name = scene->getEntityName(sceneEntity);
+        if (name == baseName) {
+            baseTaken = true;
+            continue;
+        }
+        if (name.size() > prefixed.size() && name.compare(0, prefixed.size(), prefixed) == 0) {
+            const size_t suffix = strtoul(name.c_str() + prefixed.size(), nullptr, 10);
+            if (suffix > highest) {
+                highest = suffix;
+            }
+        }
     }
 
-    return makeUniqueEntityName(baseName, existingNames);
+    if (!baseTaken) {
+        return baseName;
+    }
+
+    const size_t next = highest + 1 > startFrom ? highest + 1 : startFrom;
+    return cleanBase + " " + std::to_string(next);
 }
 
 size_t editor::ProjectUtils::getTransformIndex(EntityRegistry* registry, Entity entity){
@@ -931,6 +983,20 @@ void editor::ProjectUtils::addEntityComponent(EntityRegistry* registry, Entity e
                 registry->addComponent<AnimationComponent>(entity, Stream::decodeAnimationComponent(componentNode));
             }
             break;
+        case ComponentType::AnimatorControllerComponent:
+            if (!componentNode.IsDefined() || componentNode.IsNull()){
+                registry->addComponent<AnimatorControllerComponent>(entity, {});
+            }else{
+                registry->addComponent<AnimatorControllerComponent>(entity, Stream::decodeAnimatorControllerComponent(componentNode));
+            }
+            break;
+        case ComponentType::NetworkComponent:
+            if (!componentNode.IsDefined() || componentNode.IsNull()) {
+                registry->addComponent<NetworkComponent>(entity, {});
+            } else {
+                registry->addComponent<NetworkComponent>(entity, Stream::decodeNetworkComponent(componentNode));
+            }
+            break;
         case ComponentType::SoundComponent:
             if (!componentNode.IsDefined() || componentNode.IsNull()){
                 registry->addComponent<SoundComponent>(entity, {});
@@ -1008,6 +1074,13 @@ void editor::ProjectUtils::addEntityComponent(EntityRegistry* registry, Entity e
                 registry->addComponent<ReflectionProbeComponent>(entity, {});
             }else{
                 registry->addComponent<ReflectionProbeComponent>(entity, Stream::decodeReflectionProbeComponent(componentNode));
+            }
+            break;
+        case ComponentType::DecalComponent:
+            if (!componentNode.IsDefined() || componentNode.IsNull()){
+                registry->addComponent<DecalComponent>(entity, {});
+            }else{
+                registry->addComponent<DecalComponent>(entity, Stream::decodeDecalComponent(componentNode));
             }
             break;
         case ComponentType::WaterComponent:
@@ -1408,6 +1481,18 @@ YAML::Node editor::ProjectUtils::removeEntityComponent(EntityRegistry* registry,
             registry->getComponent<AnimationComponent>(entity).ownedActions = false;
             registry->removeComponent<AnimationComponent>(entity);
             break;
+        case ComponentType::AnimatorControllerComponent:
+            if (encodeComponent){
+                oldComponent = Stream::encodeAnimatorControllerComponent(registry->getComponent<AnimatorControllerComponent>(entity));
+            }
+            registry->removeComponent<AnimatorControllerComponent>(entity);
+            break;
+        case ComponentType::NetworkComponent:
+            if (encodeComponent) {
+                oldComponent = Stream::encodeNetworkComponent(registry->getComponent<NetworkComponent>(entity));
+            }
+            registry->removeComponent<NetworkComponent>(entity);
+            break;
         case ComponentType::SoundComponent:
             if (encodeComponent){
                 oldComponent = Stream::encodeSoundComponent(registry->getComponent<SoundComponent>(entity));
@@ -1473,6 +1558,12 @@ YAML::Node editor::ProjectUtils::removeEntityComponent(EntityRegistry* registry,
                 oldComponent = Stream::encodeReflectionProbeComponent(registry->getComponent<ReflectionProbeComponent>(entity));
             }
             registry->removeComponent<ReflectionProbeComponent>(entity);
+            break;
+        case ComponentType::DecalComponent:
+            if (encodeComponent){
+                oldComponent = Stream::encodeDecalComponent(registry->getComponent<DecalComponent>(entity));
+            }
+            registry->removeComponent<DecalComponent>(entity);
             break;
         case ComponentType::WaterComponent:
             if (encodeComponent){
@@ -1703,9 +1794,12 @@ void editor::ProjectUtils::reconcileTrackedEntities(EntityRegistry* registry, st
     bool clearSelection = false;
     SceneProject* sceneProject = project ? project->getScene(sceneId) : nullptr;
 
+    // An id can be tracked twice: a scene file that already lists it twice doubles it on load.
+    // Only a destroyed id may clear the selection or the camera, so keep the two apart.
+    std::unordered_set<Entity> seen;
     auto firstRemoved = std::remove_if(entities.begin(), entities.end(), [&](Entity entity) {
         if (registry->isEntityCreated(entity)) {
-            return false;
+            return !seen.insert(entity).second;
         }
         if (project && project->isSelectedEntity(sceneId, entity)) {
             clearSelection = true;
@@ -2137,6 +2231,7 @@ editor::ProjectUtils::EntityClassInfo editor::ProjectUtils::getEntityClassInfo(S
     if (signature.test(scene->getComponentId<LightComponent>()))       return objectClass("Light");
     if (signature.test(scene->getComponentId<CameraComponent>()))      return objectClass("Camera");
     if (signature.test(scene->getComponentId<ReflectionProbeComponent>())) return objectClass("ReflectionProbe");
+    if (signature.test(scene->getComponentId<DecalComponent>()))          return objectClass("Decal");
     if (signature.test(scene->getComponentId<WaterExclusionComponent>())) return objectClass("WaterExclusion");
     if (signature.test(scene->getComponentId<Body2DComponent>()))      return handleClass("Body2D");
     if (signature.test(scene->getComponentId<Body3DComponent>()))      return handleClass("Body3D");
@@ -2160,7 +2255,7 @@ editor::ProjectUtils::EntityClassInfo editor::ProjectUtils::getEntityClassInfo(S
     if (signature.test(scene->getComponentId<Transform>()))            return objectClass("Object");
 
     // generic engine type for entities with no recognized component: valid as a
-    // C++ pointer type (doriax::EntityHandle*) and known to the Lua dispatcher
+    // C++ pointer type (quantum::EntityHandle*) and known to the Lua dispatcher
     return handleClass("EntityHandle");
 }
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef RESOURCEPROGRESS_H
@@ -11,7 +11,7 @@
 #include <chrono>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
     enum class ResourceType {
         Shader,
@@ -37,7 +37,7 @@ namespace doriax {
         bool hasActiveBuilds = false;
     };
 
-    class DORIAX_API ResourceProgress {
+    class QUANTUM_API ResourceProgress {
     private:
         typedef std::unordered_map<uint64_t, ResourceBuildInfo> resource_builds_t;
 

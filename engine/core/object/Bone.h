@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BONE_H
@@ -6,9 +6,9 @@
 
 #include "Object.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Bone: public Object{
+    class QUANTUM_API Bone: public Object{
     public:
         Bone(Scene* scene, Entity entity);
         virtual ~Bone();

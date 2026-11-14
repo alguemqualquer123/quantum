@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LINES_COMPONENT_H
@@ -9,7 +9,7 @@
 #include "Engine.h"
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
     struct LineData{
         Vector3 pointA = Vector3(0,0,0);
@@ -30,7 +30,7 @@ namespace doriax{
         }
     };
 
-    struct DORIAX_API LinesComponent{
+    struct QUANTUM_API LinesComponent{
         bool loaded = false;
         bool loadCalled = false;
 

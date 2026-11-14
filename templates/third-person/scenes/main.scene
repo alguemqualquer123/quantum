@@ -1,185 +1,3096 @@
 id: 1
-name: "Main Scene"
-sceneType: "scene_3d"
+name: Main Scene
+scene:
+  backgroundColor: [0.25, 0.45, 0.65, 1]
+  shadowQuality: high
+  meshLodEnabled: true
+  meshLodThreshold: 1
+  depthPrepassEnabled: true
+  renderDistance: 0
+  lightState: on
+  globalIlluminationIntensity: 0.52
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: true
+  ssaoRadius: 0.6
+  ssaoIntensity: 0.9
+  ssaoBias: 0.02
+  contactShadowsEnabled: false
+  contactShadowLength: 0.35
+  contactShadowSteps: 12
+  contactShadowThickness: 0.025
+  contactShadowIntensity: 0.65
+  ssgiEnabled: false
+  ssgiRadius: 2.5
+  ssgiIntensity: 0.35
+  ssgiSteps: 12
+  ssgiThickness: 0.25
+  dofEnabled: false
+  dofFocusDistance: 8
+  dofAperture: 2
+  dofFocusRange: 4
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 12
+  ssrThickness: 0.5
+  ssrMaxSteps: 64
+  ssrIntensity: 0.7
+  ssrBlur: 1
+  taaEnabled: false
+  taaBlend: 0.9
+  taaVelocityScale: 1
+  taaVelocityClamp: 0.25
+  motionBlurEnabled: false
+  motionBlurIntensity: 1
+  motionBlurSamples: 8
+  motionBlurVelocityClamp: 0.08
+  motionBlurDepthThreshold: 0.5
+  gravity2D: [0, -9.81]
+  gravity3D: [0, -9.81, 0]
+  windEnabled: false
+  windSpeed: 6
+  windDirection: 0
+  windGustiness: 0.35
+  windChange: 0.2
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: nearest
+  bloomEnabled: true
+  bloomThreshold: 1.1
+  bloomSoftKnee: 0.6
+  bloomIntensity: 0.45
+  bloomDirtIntensity: 0.04
+  bloomMipLevels: 5
+  tonemapEnabled: true
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: true
+  autoExposureSpeed: 1.5
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 2
+  exposureCompensation: 0.15
+  colorGradingEnabled: true
+  colorGradingSaturation: 1.06
+  colorGradingContrast: 1.05
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0.14
+  colorGradingTint: 0
+  fxaaEnabled: true
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_3d
 mainCamera: 2
 maxValues:
-  maxSubmeshes: 64
+  maxSubmeshes: 1
   maxTilemapTilesRect: 0
   maxTilemapTiles: 0
   maxExternalBuffers: 0
   maxSpriteFrames: 0
-  maxBones: 0
-scene:
-  backgroundColor: [0.25, 0.45, 0.65, 1.0]
-  shadowQuality: "low"
-  lightState: "on"
-  globalIlluminationIntensity: 0.2
-  globalIlluminationColor: [1.0, 1.0, 1.0]
-  ambientLight2DIntensity: 1.0
-  ambientLight2DColor: [1.0, 1.0, 1.0]
-  shadow2DQuality: "low"
-  ssaoEnabled: false
-  ssaoRadius: 0.5
-  ssaoIntensity: 1.0
-  ssaoBias: 0.025
-  ssrEnabled: false
-  ssrMaxDistance: 8.0
-  ssrThickness: 0.5
-  ssrMaxSteps: 48
-  ssrIntensity: 1.0
-  ssrBlur: 0.0
-  gravity2D: [0.0, -9.81]
-  gravity3D: [0.0, -9.81, 0.0]
-  fixedResolutionEnabled: false
-  fixedResolutionWidth: 640
-  fixedResolutionHeight: 360
-  fixedResolutionFilter: "nearest"
-  enableUIEvents: "enabled"
+  maxBones: 96
+  maxShapes2D: 0
+  maxShapePoints2D: 0
+  maxShapes3D: 1
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: ssao
+  - type: ssaoblur
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: velocity
+  - type: taa
+  - type: fxaa
+  - type: motionblur
+  - type: contact_shadows
+  - type: ssgi
+  - type: decal
 entities:
-  - type: "Entity"
-    entity: 1
-    name: "Sun"
+  - type: Entity
+    entity: 2008
+    name: Sun
     components:
-      Transform:
-        position: [0.0, 10.0, 0.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [1.0, 1.0, 1.0]
+      transform:
+        position: [0, 10, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       light:
-        type: "directional"
-        color: [1.0, 1.0, 1.0]
-        intensity: 4.0
-        range: 100.0
-        innerAngle: 30.0
-        outerAngle: 45.0
+        type: directional
+        direction: [-0.454, -0.616, 0.643]
+        worldDirection: [-0.454, -0.616, 0.643]
+        color: [1, 0.93, 0.82]
+        range: 100
+        intensity: 4
+        innerConeCos: 0.76604444
+        outerConeCos: 0.64278764
+        spotMask: ~
         shadows: true
-  - type: "Entity"
-    entity: 2
-    name: "PlayerCamera"
+        automaticShadowCamera: true
+        shadowBias: 0.002
+        mapResolution: 2048
+        shadowCameraNearFar: [0.3, 100]
+        numShadowCascades: 3
+  - type: Entity
+    entity: 2009
+    name: PlayerCamera
     components:
-      Transform:
-        position: [0.0, 3.0, -5.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [1.0, 1.0, 1.0]
+      transform:
+        position: [0, 3, -5]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       camera:
-        type: "camera_perspective"
-        target: [0.0, 1.0, 0.0]
-        up: [0.0, 1.0, 0.0]
-        leftClip: 0.0
-        rightClip: 0.0
-        bottomClip: 0.0
-        topClip: 0.0
-        yfov: 60.0
+        type: camera_perspective
+        target: [0, 1, 0]
+        up: [0, 1, 0]
+        leftClip: 0
+        rightClip: 0
+        bottomClip: 0
+        topClip: 0
+        yfov: 1.05
         aspect: 1.778
         nearClip: 0.1
-        farClip: 1000.0
+        farClip: 1000
         renderToTexture: false
         transparentSort: false
+        depthTest: true
         useTarget: true
         autoResize: true
         framebufferWidth: 800
         framebufferHeight: 450
-        framebufferFilter: "linear"
+        framebufferFilter: linear
       script:
         scripts:
-          - type: "lua"
-            path: "scripts/third_person_camera.lua"
+          - type: lua
+            path: scripts/third_person_camera.lua
             enabled: true
             properties:
-              - name: "distance"
-                displayName: "Camera Distance"
-                type: "Float"
-                value: 6.0
-                defaultValue: 6.0
-              - name: "height"
-                displayName: "Camera Height"
-                type: "Float"
-                value: 3.0
-                defaultValue: 3.0
-              - name: "followSpeed"
-                displayName: "Follow Speed"
-                type: "Float"
-                value: 8.0
-                defaultValue: 8.0
-  - type: "Entity"
-    entity: 3
-    name: "Player"
+              - name: distance
+                displayName: Camera Distance
+                type: Float
+                value: 6
+                defaultValue: 6
+              - name: height
+                displayName: Camera Height
+                type: Float
+                value: 3
+                defaultValue: 3
+              - name: followSpeed
+                displayName: Follow Speed
+                type: Float
+                value: 8
+                defaultValue: 8
+  - type: Entity
+    entity: 2010
+    name: Player
     components:
-      Transform:
-        position: [0.0, 0.0, 0.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [0.6, 1.2, 0.6]
+      transform:
+        position: [0, 0.9, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       mesh:
-        meshType: "capsule"
-        path: ""
-        submeshIndex: 0
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 14976
+          count: 312
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 312
+              normalized: true
+              perInstance: false
+          data: JDnZMWZmZr8AAAAAAAAAAAAAAADzBLUyAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/TtLRMWZmZr/S4uAwq6oqPQAAAADs2a4yAACAv69nuzEAAIA/AACAPwAAgD8AAIA/7h68MWZmZr8kOVkxq6qqPQAAAABxxJwyAACAv/MENTIAAIA/AACAPwAAgD8AAIA/mpmZMWZmZr+amZkxAAAAPgAAAAAAAIAyAACAvwAAgDIAAIA/AACAPwAAgD8AAIA/JDlZMWZmZr/uHrwxq6oqPgAAAADzBDUyAACAv3HEnDIAAIA/AACAPwAAgD8AAIA/0uLgMGZmZr9O0tExVVVVPgAAAACvZ7sxAACAv+zZrjIAAIA/AACAPwAAgD8AAIA/bpzvFmZmZr8kOdkxAACAPgAAAAAGrccXAACAv/MEtTIAAIA/AACAPwAAgD8AAIA/0uLgsGZmZr9O0tExVVWVPgAAAACvZ7uxAACAv+zZrjIAAIA/AACAPwAAgD8AAIA/JDlZsWZmZr/uHrwxq6qqPgAAAADzBDWyAACAv3HEnDIAAIA/AACAPwAAgD8AAIA/mpmZsWZmZr+amZkxAADAPgAAAAAAAICyAACAvwAAgDIAAIA/AACAPwAAgD8AAIA/7h68sWZmZr8kOVkxVVXVPgAAAABxxJyyAACAv/MENTIAAIA/AACAPwAAgD8AAIA/TtLRsWZmZr/S4uAwq6rqPgAAAADs2a6yAACAv69nuzEAAIA/AACAPwAAgD8AAIA/JDnZsWZmZr9unG8XAAAAPwAAAADzBLWyAACAvwatRxgAAIA/AACAPwAAgD8AAIA/TtLRsWZmZr/S4uCwq6oKPwAAAADs2a6yAACAv69nu7EAAIA/AACAPwAAgD8AAIA/7h68sWZmZr8kOVmxVVUVPwAAAABxxJyyAACAv/MENbIAAIA/AACAPwAAgD8AAIA/mpmZsWZmZr+amZmxAAAgPwAAAAAAAICyAACAvwAAgLIAAIA/AACAPwAAgD8AAIA/JDlZsWZmZr/uHryxq6oqPwAAAADzBDWyAACAv3HEnLIAAIA/AACAPwAAgD8AAIA/0uLgsGZmZr9O0tGxVVU1PwAAAACvZ7uxAACAv+zZrrIAAIA/AACAPwAAgD8AAIA/UrWzl2ZmZr8kOdmxAABAPwAAAADFwZWYAACAv/MEtbIAAIA/AACAPwAAgD8AAIA/0uLgMGZmZr9O0tGxq6pKPwAAAACvZ7sxAACAv+zZrrIAAIA/AACAPwAAgD8AAIA/JDlZMWZmZr/uHryxVVVVPwAAAADzBDUyAACAv3HEnLIAAIA/AACAPwAAgD8AAIA/mpmZMWZmZr+amZmxAABgPwAAAAAAAIAyAACAvwAAgLIAAIA/AACAPwAAgD8AAIA/7h68MWZmZr8kOVmxq6pqPwAAAABxxJwyAACAv/MENbIAAIA/AACAPwAAgD8AAIA/TtLRMWZmZr/S4uCwVVV1PwAAAADs2a4yAACAv69nu7EAAIA/AACAPwAAgD8AAIA/gQWFPgAAQL8AAAAAAAAAAKuqqj3Xs10/AAAAvwAAAAAAAIA/AACAPwAAgD8AAIA/KX2APgAAQL/Itok9q6oqPauqqj3vJVY/AAAAv/iFZT4AAIA/AACAPwAAgD8AAIA/ZmZmPgAAQL+BBQU+q6qqPauqqj0AAEA/AAAAv9ez3T4AAIA/AACAPwAAgD8AAIA/7h48PgAAQL/uHjw+AAAAPquqqj1xxBw/AAAAv3HEHD8AAIA/AACAPwAAgD8AAIA/gQUFPgAAQL9mZmY+q6oqPquqqj3Xs90+AAAAvwAAQD8AAIA/AACAPwAAgD8AAIA/yLaJPQAAQL8pfYA+VVVVPquqqj34hWU+AAAAv+8lVj8AAIA/AACAPwAAgD8AAIA/MLuSIwAAQL+BBYU+AACAPquqqj1QjXQkAAAAv9ezXT8AAIA/AACAPwAAgD8AAIA/yLaJvQAAQL8pfYA+VVWVPquqqj34hWW+AAAAv+8lVj8AAIA/AACAPwAAgD8AAIA/gQUFvgAAQL9mZmY+q6qqPquqqj3Xs92+AAAAvwAAQD8AAIA/AACAPwAAgD8AAIA/7h48vgAAQL/uHjw+AADAPquqqj1xxBy/AAAAv3HEHD8AAIA/AACAPwAAgD8AAIA/ZmZmvgAAQL+BBQU+VVXVPquqqj0AAEC/AAAAv9ez3T4AAIA/AACAPwAAgD8AAIA/KX2AvgAAQL/Itok9q6rqPquqqj3vJVa/AAAAv/iFZT4AAIA/AACAPwAAgD8AAIA/gQWFvgAAQL8wuxIkAAAAP6uqqj3Xs12/AAAAv1CN9CQAAIA/AACAPwAAgD8AAIA/KX2AvgAAQL/Itom9q6oKP6uqqj3vJVa/AAAAv/iFZb4AAIA/AACAPwAAgD8AAIA/ZmZmvgAAQL+BBQW+VVUVP6uqqj0AAEC/AAAAv9ez3b4AAIA/AACAPwAAgD8AAIA/7h48vgAAQL/uHjy+AAAgP6uqqj1xxBy/AAAAv3HEHL8AAIA/AACAPwAAgD8AAIA/gQUFvgAAQL9mZma+q6oqP6uqqj3Xs92+AAAAvwAAQL8AAIA/AACAPwAAgD8AAIA/yLaJvQAAQL8pfYC+VVU1P6uqqj34hWW+AAAAv+8lVr8AAIA/AACAPwAAgD8AAIA/yBhcpAAAQL+BBYW+AABAP6uqqj38aTelAAAAv9ezXb8AAIA/AACAPwAAgD8AAIA/yLaJPQAAQL8pfYC+q6pKP6uqqj34hWU+AAAAv+8lVr8AAIA/AACAPwAAgD8AAIA/gQUFPgAAQL9mZma+VVVVP6uqqj3Xs90+AAAAvwAAQL8AAIA/AACAPwAAgD8AAIA/7h48PgAAQL/uHjy+AABgP6uqqj1xxBw/AAAAv3HEHL8AAIA/AACAPwAAgD8AAIA/ZmZmPgAAQL+BBQW+q6pqP6uqqj0AAEA/AAAAv9ez3b4AAIA/AACAPwAAgD8AAIA/KX2APgAAQL/Itom9VVV1P6uqqj3vJVY/AAAAv/iFZb4AAIA/AACAPwAAgD8AAIA/mpmZPpqZGb8AAAAAAAAAAKuqKj4AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZGb+3BJ89q6oqPauqKj7qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZGb+amRk+q6qqPauqKj7Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGb8kOVk+AAAAPquqKj7zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZGb+BBYU+q6oqPquqKj4AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZGb/AXZQ+VVVVPquqKj7ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZGb+amZk+AACAPquqKj4yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZGb/AXZQ+VVWVPquqKj7ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGb+BBYU+q6qqPquqKj4AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGb8kOVk+AADAPquqKj7zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZGb+amRk+VVXVPquqKj7Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZGb+3BJ89q6rqPquqKj7qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZGb88bikkAAAAP6uqKj4AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZGb+3BJ+9q6oKP6uqKj7qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZGb+amRm+VVUVP6uqKj7Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGb8kOVm+AAAgP6uqKj7zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGb+BBYW+q6oqP6uqKj4AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZGb/AXZS+VVU1P6uqKj7ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZGb+amZm+AABAP6uqKj7KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZGb/AXZS+q6pKP6uqKj7ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZGb+BBYW+VVVVP6uqKj4AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGb8kOVm+AABgP6uqKj7zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZGb+amRm+q6pqP6uqKj7Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZGb+3BJ+9VVV1P6uqKj7qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPmZm5r4AAAAAAAAAAAAAgD4AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPmZm5r63BJ89q6oqPQAAgD7qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPmZm5r6amRk+q6qqPQAAgD7Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPmZm5r4kOVk+AAAAPgAAgD7zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPmZm5r6BBYU+q6oqPgAAgD4AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPWZm5r7AXZQ+VVVVPgAAgD7ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI2Zm5r6amZk+AACAPgAAgD4yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvWZm5r7AXZQ+VVWVPgAAgD7ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvmZm5r6BBYU+q6qqPgAAgD4AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvmZm5r4kOVk+AADAPgAAgD7zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvmZm5r6amRk+VVXVPgAAgD7Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvmZm5r63BJ89q6rqPgAAgD7qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvmZm5r48bikkAAAAPwAAgD4AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvmZm5r63BJ+9q6oKPwAAgD7qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvmZm5r6amRm+VVUVPwAAgD7Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvmZm5r4kOVm+AAAgPwAAgD7zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvmZm5r6BBYW+q6oqPwAAgD4AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvWZm5r7AXZS+VVU1PwAAgD7ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pGZm5r6amZm+AABAPwAAgD7KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPWZm5r7AXZS+q6pKPwAAgD7ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPmZm5r6BBYW+VVVVPwAAgD4AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPmZm5r4kOVm+AABgPwAAgD7zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPmZm5r6amRm+q6pqPwAAgD7Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPmZm5r63BJ+9VVV1PwAAgD7qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPpqZmb4AAAAAAAAAAKuqqj4AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZmb63BJ89q6oqPauqqj7qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZmb6amRk+q6qqPauqqj7Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZmb4kOVk+AAAAPquqqj7zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZmb6BBYU+q6oqPquqqj4AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZmb7AXZQ+VVVVPquqqj7ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZmb6amZk+AACAPquqqj4yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZmb7AXZQ+VVWVPquqqj7ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZmb6BBYU+q6qqPquqqj4AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZmb4kOVk+AADAPquqqj7zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZmb6amRk+VVXVPquqqj7Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZmb63BJ89q6rqPquqqj7qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZmb48bikkAAAAP6uqqj4AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZmb63BJ+9q6oKP6uqqj7qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZmb6amRm+VVUVP6uqqj7Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZmb4kOVm+AAAgP6uqqj7zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZmb6BBYW+q6oqP6uqqj4AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZmb7AXZS+VVU1P6uqqj7ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZmb6amZm+AABAP6uqqj7KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZmb7AXZS+q6pKP6uqqj7ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZmb6BBYW+VVVVP6uqqj4AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZmb4kOVm+AABgP6uqqj7zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZmb6amRm+q6pqP6uqqj7Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZmb63BJ+9VVV1P6uqqj7qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPpqZGb4AAAAAAAAAAFVV1T4AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZGb63BJ89q6oqPVVV1T7qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZGb6amRk+q6qqPVVV1T7Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGb4kOVk+AAAAPlVV1T7zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZGb6BBYU+q6oqPlVV1T4AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZGb7AXZQ+VVVVPlVV1T7ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZGb6amZk+AACAPlVV1T4yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZGb7AXZQ+VVWVPlVV1T7ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGb6BBYU+q6qqPlVV1T4AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGb4kOVk+AADAPlVV1T7zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZGb6amRk+VVXVPlVV1T7Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZGb63BJ89q6rqPlVV1T7qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZGb48bikkAAAAP1VV1T4AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZGb63BJ+9q6oKP1VV1T7qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZGb6amRm+VVUVP1VV1T7Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGb4kOVm+AAAgP1VV1T7zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGb6BBYW+q6oqP1VV1T4AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZGb7AXZS+VVU1P1VV1T7ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZGb6amZm+AABAP1VV1T7KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZGb7AXZS+q6pKP1VV1T7ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZGb6BBYW+VVVVP1VV1T4AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGb4kOVm+AABgP1VV1T7zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZGb6amRm+q6pqP1VV1T7Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZGb63BJ+9VVV1P1VV1T7qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPgAAAAAAAAAAAAAAAAAAAD8AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPgAAAAC3BJ89q6oqPQAAAD/qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPgAAAACamRk+q6qqPQAAAD/Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPgAAAAAkOVk+AAAAPgAAAD/zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPgAAAACBBYU+q6oqPgAAAD8AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPQAAAADAXZQ+VVVVPgAAAD/ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pIwAAAACamZk+AACAPgAAAD8yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvQAAAADAXZQ+VVWVPgAAAD/ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvgAAAACBBYU+q6qqPgAAAD8AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvgAAAAAkOVk+AADAPgAAAD/zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvgAAAACamRk+VVXVPgAAAD/Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvgAAAAC3BJ89q6rqPgAAAD/qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvgAAAAA8bikkAAAAPwAAAD8AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvgAAAAC3BJ+9q6oKPwAAAD/qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvgAAAACamRm+VVUVPwAAAD/Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvgAAAAAkOVm+AAAgPwAAAD/zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvgAAAACBBYW+q6oqPwAAAD8AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvQAAAADAXZS+VVU1PwAAAD/ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pAAAAACamZm+AABAPwAAAD/KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPQAAAADAXZS+q6pKPwAAAD/ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPgAAAACBBYW+VVVVPwAAAD8AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPgAAAAAkOVm+AABgPwAAAD/zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPgAAAACamRm+q6pqPwAAAD/Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPgAAAAC3BJ+9VVV1PwAAAD/qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPpqZGT4AAAAAAAAAAFVVFT8AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZGT63BJ89q6oqPVVVFT/qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZGT6amRk+q6qqPVVVFT/Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGT4kOVk+AAAAPlVVFT/zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZGT6BBYU+q6oqPlVVFT8AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZGT7AXZQ+VVVVPlVVFT/ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZGT6amZk+AACAPlVVFT8yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZGT7AXZQ+VVWVPlVVFT/ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGT6BBYU+q6qqPlVVFT8AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGT4kOVk+AADAPlVVFT/zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZGT6amRk+VVXVPlVVFT/Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZGT63BJ89q6rqPlVVFT/qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZGT48bikkAAAAP1VVFT8AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZGT63BJ+9q6oKP1VVFT/qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZGT6amRm+VVUVP1VVFT/Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGT4kOVm+AAAgP1VVFT/zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGT6BBYW+q6oqP1VVFT8AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZGT7AXZS+VVU1P1VVFT/ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZGT6amZm+AABAP1VVFT/KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZGT7AXZS+q6pKP1VVFT/ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZGT6BBYW+VVVVP1VVFT8AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGT4kOVm+AABgP1VVFT/zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZGT6amRm+q6pqP1VVFT/Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZGT63BJ+9VVV1P1VVFT/qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPpqZmT4AAAAAAAAAAKuqKj8AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZmT63BJ89q6oqPauqKj/qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZmT6amRk+q6qqPauqKj/Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZmT4kOVk+AAAAPquqKj/zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZmT6BBYU+q6oqPquqKj8AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZmT7AXZQ+VVVVPquqKj/ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZmT6amZk+AACAPquqKj8yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZmT7AXZQ+VVWVPquqKj/ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZmT6BBYU+q6qqPquqKj8AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZmT4kOVk+AADAPquqKj/zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZmT6amRk+VVXVPquqKj/Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZmT63BJ89q6rqPquqKj/qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZmT48bikkAAAAP6uqKj8AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZmT63BJ+9q6oKP6uqKj/qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZmT6amRm+VVUVP6uqKj/Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZmT4kOVm+AAAgP6uqKj/zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZmT6BBYW+q6oqP6uqKj8AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZmT7AXZS+VVU1P6uqKj/ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZmT6amZm+AABAP6uqKj/KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZmT7AXZS+q6pKP6uqKj/ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZmT6BBYW+VVVVP6uqKj8AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZmT4kOVm+AABgP6uqKj/zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZmT6amRm+q6pqP6uqKj/Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZmT63BJ+9VVV1P6uqKj/qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPmZm5j4AAAAAAAAAAAAAQD8AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPmZm5j63BJ89q6oqPQAAQD/qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPmZm5j6amRk+q6qqPQAAQD/Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPmZm5j4kOVk+AAAAPgAAQD/zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPmZm5j6BBYU+q6oqPgAAQD8AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPWZm5j7AXZQ+VVVVPgAAQD/ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI2Zm5j6amZk+AACAPgAAQD8yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvWZm5j7AXZQ+VVWVPgAAQD/ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvmZm5j6BBYU+q6qqPgAAQD8AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvmZm5j4kOVk+AADAPgAAQD/zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvmZm5j6amRk+VVXVPgAAQD/Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvmZm5j63BJ89q6rqPgAAQD/qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvmZm5j48bikkAAAAPwAAQD8AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvmZm5j63BJ+9q6oKPwAAQD/qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvmZm5j6amRm+VVUVPwAAQD/Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvmZm5j4kOVm+AAAgPwAAQD/zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvmZm5j6BBYW+q6oqPwAAQD8AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvWZm5j7AXZS+VVU1PwAAQD/ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pGZm5j6amZm+AABAPwAAQD/KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPWZm5j7AXZS+q6pKPwAAQD/ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPmZm5j6BBYW+VVVVPwAAQD8AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPmZm5j4kOVm+AABgPwAAQD/zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPmZm5j6amRm+q6pqPwAAQD/Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPmZm5j63BJ+9VVV1PwAAQD/qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/mpmZPpqZGT8AAAAAAAAAAFVVVT8AAIA/MjGNJAAAAAAAAIA/AACAPwAAgD8AAIA/wF2UPpqZGT+3BJ89q6oqPVVVVT/qRnc/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/gQWFPpqZGT+amRk+q6qqPVVVVT/Xs10/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGT8kOVk+AAAAPlVVVT/zBDU/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/mpkZPpqZGT+BBYU+q6oqPlVVVT8AAAA/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/twSfPZqZGT/AXZQ+VVVVPlVVVT/ug4Q+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/PG6pI5qZGT+amZk+AACAPlVVVT8yMY0kMjGNJAAAgD8AAIA/AACAPwAAgD8AAIA/twSfvZqZGT/AXZQ+VVWVPlVVVT/ug4S+MjGNJOpGdz8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGT+BBYU+q6qqPlVVVT8AAAC/MjGNJNezXT8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGT8kOVk+AADAPlVVVT/zBDW/MjGNJPMENT8AAIA/AACAPwAAgD8AAIA/gQWFvpqZGT+amRk+VVXVPlVVVT/Xs12/MjGNJAAAAD8AAIA/AACAPwAAgD8AAIA/wF2UvpqZGT+3BJ89q6rqPlVVVT/qRne/MjGNJO6DhD4AAIA/AACAPwAAgD8AAIA/mpmZvpqZGT88bikkAAAAP1VVVT8AAIC/MjGNJDIxDSUAAIA/AACAPwAAgD8AAIA/wF2UvpqZGT+3BJ+9q6oKP1VVVT/qRne/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFvpqZGT+amRm+VVUVP1VVVT/Xs12/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/JDlZvpqZGT8kOVm+AAAgP1VVVT/zBDW/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/mpkZvpqZGT+BBYW+q6oqP1VVVT8AAAC/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/twSfvZqZGT/AXZS+VVU1P1VVVT/ug4S+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/WSV+pJqZGT+amZm+AABAP1VVVT/KyVOlMjGNJAAAgL8AAIA/AACAPwAAgD8AAIA/twSfPZqZGT/AXZS+q6pKP1VVVT/ug4Q+MjGNJOpGd78AAIA/AACAPwAAgD8AAIA/mpkZPpqZGT+BBYW+VVVVP1VVVT8AAAA/MjGNJNezXb8AAIA/AACAPwAAgD8AAIA/JDlZPpqZGT8kOVm+AABgP1VVVT/zBDU/MjGNJPMENb8AAIA/AACAPwAAgD8AAIA/gQWFPpqZGT+amRm+q6pqP1VVVT/Xs10/MjGNJAAAAL8AAIA/AACAPwAAgD8AAIA/wF2UPpqZGT+3BJ+9VVV1P1VVVT/qRnc/MjGNJO6DhL4AAIA/AACAPwAAgD8AAIA/gQWFPgAAQD8AAAAAAAAAAKuqaj/Xs10/AAAAPwAAAAAAAIA/AACAPwAAgD8AAIA/KX2APgAAQD/Itok9q6oqPauqaj/vJVY/AAAAP/iFZT4AAIA/AACAPwAAgD8AAIA/ZmZmPgAAQD+BBQU+q6qqPauqaj8AAEA/AAAAP9ez3T4AAIA/AACAPwAAgD8AAIA/7h48PgAAQD/uHjw+AAAAPquqaj9xxBw/AAAAP3HEHD8AAIA/AACAPwAAgD8AAIA/gQUFPgAAQD9mZmY+q6oqPquqaj/Xs90+AAAAPwAAQD8AAIA/AACAPwAAgD8AAIA/yLaJPQAAQD8pfYA+VVVVPquqaj/4hWU+AAAAP+8lVj8AAIA/AACAPwAAgD8AAIA/MLuSIwAAQD+BBYU+AACAPquqaj9QjXQkAAAAP9ezXT8AAIA/AACAPwAAgD8AAIA/yLaJvQAAQD8pfYA+VVWVPquqaj/4hWW+AAAAP+8lVj8AAIA/AACAPwAAgD8AAIA/gQUFvgAAQD9mZmY+q6qqPquqaj/Xs92+AAAAPwAAQD8AAIA/AACAPwAAgD8AAIA/7h48vgAAQD/uHjw+AADAPquqaj9xxBy/AAAAP3HEHD8AAIA/AACAPwAAgD8AAIA/ZmZmvgAAQD+BBQU+VVXVPquqaj8AAEC/AAAAP9ez3T4AAIA/AACAPwAAgD8AAIA/KX2AvgAAQD/Itok9q6rqPquqaj/vJVa/AAAAP/iFZT4AAIA/AACAPwAAgD8AAIA/gQWFvgAAQD8wuxIkAAAAP6uqaj/Xs12/AAAAP1CN9CQAAIA/AACAPwAAgD8AAIA/KX2AvgAAQD/Itom9q6oKP6uqaj/vJVa/AAAAP/iFZb4AAIA/AACAPwAAgD8AAIA/ZmZmvgAAQD+BBQW+VVUVP6uqaj8AAEC/AAAAP9ez3b4AAIA/AACAPwAAgD8AAIA/7h48vgAAQD/uHjy+AAAgP6uqaj9xxBy/AAAAP3HEHL8AAIA/AACAPwAAgD8AAIA/gQUFvgAAQD9mZma+q6oqP6uqaj/Xs92+AAAAPwAAQL8AAIA/AACAPwAAgD8AAIA/yLaJvQAAQD8pfYC+VVU1P6uqaj/4hWW+AAAAP+8lVr8AAIA/AACAPwAAgD8AAIA/yBhcpAAAQD+BBYW+AABAP6uqaj/8aTelAAAAP9ezXb8AAIA/AACAPwAAgD8AAIA/yLaJPQAAQD8pfYC+q6pKP6uqaj/4hWU+AAAAP+8lVr8AAIA/AACAPwAAgD8AAIA/gQUFPgAAQD9mZma+VVVVP6uqaj/Xs90+AAAAPwAAQL8AAIA/AACAPwAAgD8AAIA/7h48PgAAQD/uHjy+AABgP6uqaj9xxBw/AAAAP3HEHL8AAIA/AACAPwAAgD8AAIA/ZmZmPgAAQD+BBQW+q6pqP6uqaj8AAEA/AAAAP9ez3b4AAIA/AACAPwAAgD8AAIA/KX2APgAAQD/Itom9VVV1P6uqaj/vJVY/AAAAP/iFZb4AAIA/AACAPwAAgD8AAIA/JDnZMWZmZj8AAAAAAAAAAAAAgD/zBLUyAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/TtLRMWZmZj/R4uAwq6oqPQAAgD/s2a4yAACAP69nuzEAAIA/AACAPwAAgD8AAIA/7h68MWZmZj8kOVkxq6qqPQAAgD9xxJwyAACAP/MENTIAAIA/AACAPwAAgD8AAIA/mpmZMWZmZj+amZkxAAAAPgAAgD8AAIAyAACAPwAAgDIAAIA/AACAPwAAgD8AAIA/JDlZMWZmZj/uHrwxq6oqPgAAgD/zBDUyAACAP3HEnDIAAIA/AACAPwAAgD8AAIA/0eLgMGZmZj9O0tExVVVVPgAAgD+vZ7sxAACAP+zZrjIAAIA/AACAPwAAgD8AAIA/bpzvFmZmZj8kOdkxAACAPgAAgD8GrccXAACAP/MEtTIAAIA/AACAPwAAgD8AAIA/0eLgsGZmZj9O0tExVVWVPgAAgD+vZ7uxAACAP+zZrjIAAIA/AACAPwAAgD8AAIA/JDlZsWZmZj/uHrwxq6qqPgAAgD/zBDWyAACAP3HEnDIAAIA/AACAPwAAgD8AAIA/mpmZsWZmZj+amZkxAADAPgAAgD8AAICyAACAPwAAgDIAAIA/AACAPwAAgD8AAIA/7h68sWZmZj8kOVkxVVXVPgAAgD9xxJyyAACAP/MENTIAAIA/AACAPwAAgD8AAIA/TtLRsWZmZj/R4uAwq6rqPgAAgD/s2a6yAACAP69nuzEAAIA/AACAPwAAgD8AAIA/JDnZsWZmZj9unG8XAAAAPwAAgD/zBLWyAACAPwatRxgAAIA/AACAPwAAgD8AAIA/TtLRsWZmZj/R4uCwq6oKPwAAgD/s2a6yAACAP69nu7EAAIA/AACAPwAAgD8AAIA/7h68sWZmZj8kOVmxVVUVPwAAgD9xxJyyAACAP/MENbIAAIA/AACAPwAAgD8AAIA/mpmZsWZmZj+amZmxAAAgPwAAgD8AAICyAACAPwAAgLIAAIA/AACAPwAAgD8AAIA/JDlZsWZmZj/uHryxq6oqPwAAgD/zBDWyAACAP3HEnLIAAIA/AACAPwAAgD8AAIA/0eLgsGZmZj9O0tGxVVU1PwAAgD+vZ7uxAACAP+zZrrIAAIA/AACAPwAAgD8AAIA/UrWzl2ZmZj8kOdmxAABAPwAAgD/EwZWYAACAP/MEtbIAAIA/AACAPwAAgD8AAIA/0eLgMGZmZj9O0tGxq6pKPwAAgD+vZ7sxAACAP+zZrrIAAIA/AACAPwAAgD8AAIA/JDlZMWZmZj/uHryxVVVVPwAAgD/zBDUyAACAP3HEnLIAAIA/AACAPwAAgD8AAIA/mpmZMWZmZj+amZmxAABgPwAAgD8AAIAyAACAPwAAgLIAAIA/AACAPwAAgD8AAIA/7h68MWZmZj8kOVmxq6pqPwAAgD9xxJwyAACAP/MENbIAAIA/AACAPwAAgD8AAIA/TtLRMWZmZj/R4uCwVVV1PwAAgD/s2a4yAACAP69nu7EAAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 3456
+          count: 1728
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 1728
+              normalized: true
+              perInstance: false
+          data: AAABABkAAAAZABgAAQACABoAAQAaABkAAgADABsAAgAbABoAAwAEABwAAwAcABsABAAFAB0ABAAdABwABQAGAB4ABQAeAB0ABgAHAB8ABgAfAB4ABwAIACAABwAgAB8ACAAJACEACAAhACAACQAKACIACQAiACEACgALACMACgAjACIACwAMACQACwAkACMADAANACUADAAlACQADQAOACYADQAmACUADgAPACcADgAnACYADwAQACgADwAoACcAEAARACkAEAApACgAEQASACoAEQAqACkAEgATACsAEgArACoAEwAUACwAEwAsACsAFAAVAC0AFAAtACwAFQAWAC4AFQAuAC0AFgAXAC8AFgAvAC4AFwAAABgAFwAYAC8AGAAZADEAGAAxADAAGQAaADIAGQAyADEAGgAbADMAGgAzADIAGwAcADQAGwA0ADMAHAAdADUAHAA1ADQAHQAeADYAHQA2ADUAHgAfADcAHgA3ADYAHwAgADgAHwA4ADcAIAAhADkAIAA5ADgAIQAiADoAIQA6ADkAIgAjADsAIgA7ADoAIwAkADwAIwA8ADsAJAAlAD0AJAA9ADwAJQAmAD4AJQA+AD0AJgAnAD8AJgA/AD4AJwAoAEAAJwBAAD8AKAApAEEAKABBAEAAKQAqAEIAKQBCAEEAKgArAEMAKgBDAEIAKwAsAEQAKwBEAEMALAAtAEUALABFAEQALQAuAEYALQBGAEUALgAvAEcALgBHAEYALwAYADAALwAwAEcAMAAxAEkAMABJAEgAMQAyAEoAMQBKAEkAMgAzAEsAMgBLAEoAMwA0AEwAMwBMAEsANAA1AE0ANABNAEwANQA2AE4ANQBOAE0ANgA3AE8ANgBPAE4ANwA4AFAANwBQAE8AOAA5AFEAOABRAFAAOQA6AFIAOQBSAFEAOgA7AFMAOgBTAFIAOwA8AFQAOwBUAFMAPAA9AFUAPABVAFQAPQA+AFYAPQBWAFUAPgA/AFcAPgBXAFYAPwBAAFgAPwBYAFcAQABBAFkAQABZAFgAQQBCAFoAQQBaAFkAQgBDAFsAQgBbAFoAQwBEAFwAQwBcAFsARABFAF0ARABdAFwARQBGAF4ARQBeAF0ARgBHAF8ARgBfAF4ARwAwAEgARwBIAF8ASABJAGEASABhAGAASQBKAGIASQBiAGEASgBLAGMASgBjAGIASwBMAGQASwBkAGMATABNAGUATABlAGQATQBOAGYATQBmAGUATgBPAGcATgBnAGYATwBQAGgATwBoAGcAUABRAGkAUABpAGgAUQBSAGoAUQBqAGkAUgBTAGsAUgBrAGoAUwBUAGwAUwBsAGsAVABVAG0AVABtAGwAVQBWAG4AVQBuAG0AVgBXAG8AVgBvAG4AVwBYAHAAVwBwAG8AWABZAHEAWABxAHAAWQBaAHIAWQByAHEAWgBbAHMAWgBzAHIAWwBcAHQAWwB0AHMAXABdAHUAXAB1AHQAXQBeAHYAXQB2AHUAXgBfAHcAXgB3AHYAXwBIAGAAXwBgAHcAYABhAHkAYAB5AHgAYQBiAHoAYQB6AHkAYgBjAHsAYgB7AHoAYwBkAHwAYwB8AHsAZABlAH0AZAB9AHwAZQBmAH4AZQB+AH0AZgBnAH8AZgB/AH4AZwBoAIAAZwCAAH8AaABpAIEAaACBAIAAaQBqAIIAaQCCAIEAagBrAIMAagCDAIIAawBsAIQAawCEAIMAbABtAIUAbACFAIQAbQBuAIYAbQCGAIUAbgBvAIcAbgCHAIYAbwBwAIgAbwCIAIcAcABxAIkAcACJAIgAcQByAIoAcQCKAIkAcgBzAIsAcgCLAIoAcwB0AIwAcwCMAIsAdAB1AI0AdACNAIwAdQB2AI4AdQCOAI0AdgB3AI8AdgCPAI4AdwBgAHgAdwB4AI8AeAB5AJEAeACRAJAAeQB6AJIAeQCSAJEAegB7AJMAegCTAJIAewB8AJQAewCUAJMAfAB9AJUAfACVAJQAfQB+AJYAfQCWAJUAfgB/AJcAfgCXAJYAfwCAAJgAfwCYAJcAgACBAJkAgACZAJgAgQCCAJoAgQCaAJkAggCDAJsAggCbAJoAgwCEAJwAgwCcAJsAhACFAJ0AhACdAJwAhQCGAJ4AhQCeAJ0AhgCHAJ8AhgCfAJ4AhwCIAKAAhwCgAJ8AiACJAKEAiAChAKAAiQCKAKIAiQCiAKEAigCLAKMAigCjAKIAiwCMAKQAiwCkAKMAjACNAKUAjAClAKQAjQCOAKYAjQCmAKUAjgCPAKcAjgCnAKYAjwB4AJAAjwCQAKcAkACRAKkAkACpAKgAkQCSAKoAkQCqAKkAkgCTAKsAkgCrAKoAkwCUAKwAkwCsAKsAlACVAK0AlACtAKwAlQCWAK4AlQCuAK0AlgCXAK8AlgCvAK4AlwCYALAAlwCwAK8AmACZALEAmACxALAAmQCaALIAmQCyALEAmgCbALMAmgCzALIAmwCcALQAmwC0ALMAnACdALUAnAC1ALQAnQCeALYAnQC2ALUAngCfALcAngC3ALYAnwCgALgAnwC4ALcAoAChALkAoAC5ALgAoQCiALoAoQC6ALkAogCjALsAogC7ALoAowCkALwAowC8ALsApAClAL0ApAC9ALwApQCmAL4ApQC+AL0ApgCnAL8ApgC/AL4ApwCQAKgApwCoAL8AqACpAMEAqADBAMAAqQCqAMIAqQDCAMEAqgCrAMMAqgDDAMIAqwCsAMQAqwDEAMMArACtAMUArADFAMQArQCuAMYArQDGAMUArgCvAMcArgDHAMYArwCwAMgArwDIAMcAsACxAMkAsADJAMgAsQCyAMoAsQDKAMkAsgCzAMsAsgDLAMoAswC0AMwAswDMAMsAtAC1AM0AtADNAMwAtQC2AM4AtQDOAM0AtgC3AM8AtgDPAM4AtwC4ANAAtwDQAM8AuAC5ANEAuADRANAAuQC6ANIAuQDSANEAugC7ANMAugDTANIAuwC8ANQAuwDUANMAvAC9ANUAvADVANQAvQC+ANYAvQDWANUAvgC/ANcAvgDXANYAvwCoAMAAvwDAANcAwADBANkAwADZANgAwQDCANoAwQDaANkAwgDDANsAwgDbANoAwwDEANwAwwDcANsAxADFAN0AxADdANwAxQDGAN4AxQDeAN0AxgDHAN8AxgDfAN4AxwDIAOAAxwDgAN8AyADJAOEAyADhAOAAyQDKAOIAyQDiAOEAygDLAOMAygDjAOIAywDMAOQAywDkAOMAzADNAOUAzADlAOQAzQDOAOYAzQDmAOUAzgDPAOcAzgDnAOYAzwDQAOgAzwDoAOcA0ADRAOkA0ADpAOgA0QDSAOoA0QDqAOkA0gDTAOsA0gDrAOoA0wDUAOwA0wDsAOsA1ADVAO0A1ADtAOwA1QDWAO4A1QDuAO0A1gDXAO8A1gDvAO4A1wDAANgA1wDYAO8A2ADZAPEA2ADxAPAA2QDaAPIA2QDyAPEA2gDbAPMA2gDzAPIA2wDcAPQA2wD0APMA3ADdAPUA3AD1APQA3QDeAPYA3QD2APUA3gDfAPcA3gD3APYA3wDgAPgA3wD4APcA4ADhAPkA4AD5APgA4QDiAPoA4QD6APkA4gDjAPsA4gD7APoA4wDkAPwA4wD8APsA5ADlAP0A5AD9APwA5QDmAP4A5QD+AP0A5gDnAP8A5gD/AP4A5wDoAAAB5wAAAf8A6ADpAAEB6AABAQAB6QDqAAIB6QACAQEB6gDrAAMB6gADAQIB6wDsAAQB6wAEAQMB7ADtAAUB7AAFAQQB7QDuAAYB7QAGAQUB7gDvAAcB7gAHAQYB7wDYAPAA7wDwAAcB8ADxAAkB8AAJAQgB8QDyAAoB8QAKAQkB8gDzAAsB8gALAQoB8wD0AAwB8wAMAQsB9AD1AA0B9AANAQwB9QD2AA4B9QAOAQ0B9gD3AA8B9gAPAQ4B9wD4ABAB9wAQAQ8B+AD5ABEB+AARARAB+QD6ABIB+QASAREB+gD7ABMB+gATARIB+wD8ABQB+wAUARMB/AD9ABUB/AAVARQB/QD+ABYB/QAWARUB/gD/ABcB/gAXARYB/wAAARgB/wAYARcBAAEBARkBAAEZARgBAQECARoBAQEaARkBAgEDARsBAgEbARoBAwEEARwBAwEcARsBBAEFAR0BBAEdARwBBQEGAR4BBQEeAR0BBgEHAR8BBgEfAR4BBwHwAAgBBwEIAR8BCAEJASEBCAEhASABCQEKASIBCQEiASEBCgELASMBCgEjASIBCwEMASQBCwEkASMBDAENASUBDAElASQBDQEOASYBDQEmASUBDgEPAScBDgEnASYBDwEQASgBDwEoAScBEAERASkBEAEpASgBEQESASoBEQEqASkBEgETASsBEgErASoBEwEUASwBEwEsASsBFAEVAS0BFAEtASwBFQEWAS4BFQEuAS0BFgEXAS8BFgEvAS4BFwEYATABFwEwAS8BGAEZATEBGAExATABGQEaATIBGQEyATEBGgEbATMBGgEzATIBGwEcATQBGwE0ATMBHAEdATUBHAE1ATQBHQEeATYBHQE2ATUBHgEfATcBHgE3ATYBHwEIASABHwEgATcB
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.85, 0.45, 0.35, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.7
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: ""
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 1728
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.3, -0.9, -0.3]
+          max: [0.3, 0.9, 0.3]
+        verticesAABB:
+          min: [-0.3, -0.9, -0.3]
+          max: [0.3, 0.9, 0.3]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      script:
+        scripts:
+          - type: lua
+            path: scripts/third_person_player.lua
+            enabled: true
+            properties:
+              - name: moveSpeed
+                displayName: Move Speed
+                type: Float
+                value: 5
+                defaultValue: 5
+              - name: rotationSpeed
+                displayName: Rotation Speed
+                type: Float
+                value: 10
+                defaultValue: 10
       body3d:
-        type: "kinematic"
-        motionQuality: "discrete"
+        type: kinematic
+        motionQuality: discrete
         sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
         numShapes: 1
         shapes:
-          - type: "capsule"
-            position: [0.0, 0.0, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
+          - type: capsule
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1
+            height: 1
+            depth: 1
             radius: 0.3
             halfHeight: 0.6
-            density: 1.0
-            source: "none"
-      script:
-        scripts:
-          - type: "lua"
-            path: "scripts/third_person_player.lua"
-            enabled: true
-            properties:
-              - name: "moveSpeed"
-                displayName: "Move Speed"
-                type: "Float"
-                value: 5.0
-                defaultValue: 5.0
-              - name: "rotationSpeed"
-                displayName: "Rotation Speed"
-                type: "Float"
-                value: 10.0
-                defaultValue: 10.0
-  - type: "Entity"
-    entity: 4
-    name: "Ground"
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2011
+    name: Ground
     components:
-      Transform:
-        position: [0.0, -0.5, 0.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [50.0, 1.0, 50.0]
+      transform:
+        position: [0, -0.5, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [50, 1, 50]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       mesh:
-        meshType: "box"
-        path: ""
-        submeshIndex: 0
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAAD8AAAA/AAAAAAAAAAAAAAAAAACAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AADIQQAAAAAAAAAAAACAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AADIQQAAyEEAAAAAAACAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAyEEAAAAAAACAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAAAAACAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AADIQQAAAAAAAAAAAACAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADIQQAAyEEAAAAAAACAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAyEEAAAAAAACAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAAAAAAAAAAAAAAAAAgD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADIQQAAAAAAAAAAAAAAAAAAgD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AADIQQAAAD8AAAAAAAAAAAAAgD+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAAD8AAAAAAAAAAAAAgD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AAAAAAAAAAAAAAAAAAAAAAAAgL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AADIQQAAAAAAAAAAAAAAAAAAgL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AADIQQAAAD8AAAAAAAAAAAAAgL+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AAAAAAAAAD8AAAAAAAAAAAAAgL+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AAAAAAAAAAAAAIA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AADIQQAAAAAAAIA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AADIQQAAAD8AAIA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AAAAAAAAAD8AAIA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAIC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AADIQQAAAAAAAIC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AADIQQAAAD8AAIC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAD8AAIC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [1, 1, 1, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: ground-cobblestone
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        verticesAABB:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
       body3d:
-        type: "static"
-        motionQuality: "discrete"
+        type: static
+        motionQuality: discrete
         sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
         numShapes: 1
         shapes:
-          - type: "box"
-            position: [0.0, 0.0, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
-            width: 1.0
-            height: 1.0
-            depth: 1.0
-            density: 1.0
-            source: "none"
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1
+            height: 1
+            depth: 1
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 1001
+    name: Sky
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      sky:
+        useDefaultTexture: true
+        texture:
+          textureType: CUBE
+          cubeMode: faces
+          source: paths
+          paths: ["", "", "", "", "", ""]
+          hasEmptyFaces: true
+          minFilter: linear
+          magFilter: linear
+          wrapU: repeat
+          wrapV: repeat
+          releaseDataAfterLoad: false
+        color: [0.6, 0.66, 0.74, 1]
+        rotation: 0
+        visible: true
+  - type: Entity
+    entity: 1002
+    name: Atmosphere
+    components:
+      transform:
+        position: [0, 0, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      fog:
+        type: exponential
+        color: [0.52, 0.68, 0.88]
+        density: 0.0032
+        linearStart: 15
+        linearEnd: 140
+        heightFog: true
+        fogHeightFalloff: 9
+        fogGroundHeight: 0
+        fogSunAmount: 0.8
+        fogFarRange: 400
+        fogScatteringG: 0.62
+        fogSunColor: [1, 0.72, 0.42]
+        fogNoiseEnabled: false
+        fogNoiseScale: 0.008
+        fogNoiseStrength: 0.25
+        fogNoiseSpeed: 0.2
+        fogNoiseWind: [1, 0.2]
+        volumetricFog: false
+        volumetricFogSteps: 32
+        volumetricFogIntensity: 1
+        godRays: false
+        rayIntensity: 0.7
+        rayThreshold: 1
+        raySoftness: 2
+        rayDecay: 0.95
+        rayDensity: 0.65
+        cloudsEnabled: false
+        cloudBaseHeight: 120
+        cloudThickness: 90
+        cloudCoverage: 0.45
+        cloudDensity: 1
+        cloudScale: 0.004
+        cloudSpeed: 4
+        cloudSunAmount: 1
+        cloudWind: [1, 0.25]
+        cloudColor: [0.7176234, 0.79311013, 1]
+  - type: Entity
+    entity: 2001
+    name: Pillar A
+    components:
+      transform:
+        position: [-7, 1.6, 7]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpkZv83MzD+amRm/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAJqZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP5qZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAJqZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZP5qZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/AAAAAM3MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/mpkZPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/mpkZP83MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAM3MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZP83MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.88, 0.86, 0.82, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.035
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        verticesAABB:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.2
+            height: 3.2
+            depth: 1.2
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2002
+    name: Pillar B
+    components:
+      transform:
+        position: [7, 1.6, 7]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpkZv83MzD+amRm/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAJqZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP5qZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAJqZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZP5qZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/AAAAAM3MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/mpkZPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/mpkZP83MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAM3MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZP83MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.88, 0.86, 0.82, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.035
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        verticesAABB:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.2
+            height: 3.2
+            depth: 1.2
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2003
+    name: Pillar C
+    components:
+      transform:
+        position: [-9, 1.6, -4]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpkZv83MzD+amRm/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAJqZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP5qZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAJqZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZP5qZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/AAAAAM3MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/mpkZPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/mpkZP83MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAM3MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZP83MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.88, 0.86, 0.82, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.035
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        verticesAABB:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.2
+            height: 3.2
+            depth: 1.2
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2004
+    name: Pillar D
+    components:
+      transform:
+        position: [9, 1.6, -4]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpkZv83MzD+amRm/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAJqZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP5qZGT8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAJqZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZP5qZGT8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/AAAAAM3MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/mpkZPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/mpkZP83MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRk/mpkZPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRk/mpkZP83MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRk/AAAAAM3MzD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRk/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/mpkZv83MzL+amRm/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZv83MzD+amRm/AAAAAM3MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzD+amRm/mpkZP83MzD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/mpkZP83MzL+amRm/mpkZPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.88, 0.86, 0.82, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.035
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        verticesAABB:
+          min: [-0.6, -1.6, -0.6]
+          max: [0.6, 1.6, 0.6]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.2
+            height: 3.2
+            depth: 1.2
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2005
+    name: Crate A
+    components:
+      transform:
+        position: [-3.5, 0.55, 4.5]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: zcwMv83MDD/NzAy/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/AAAAAM3MDD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/zcwMPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/AAAAAM3MDD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/zcwMPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMP83MDD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/AAAAAM3MDD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/zcwMPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/zcwMP83MDD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAy/AAAAAM3MDD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/AAAAAM3MDD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAy/AAAAAM3MDD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/zcwMP83MDD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/zcwMPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.92, 0.66, 0.4, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              occlusionTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-ao.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.03
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.55, -0.55, -0.55]
+          max: [0.55, 0.55, 0.55]
+        verticesAABB:
+          min: [-0.55, -0.55, -0.55]
+          max: [0.55, 0.55, 0.55]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.1
+            height: 1.1
+            depth: 1.1
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2006
+    name: Crate B
+    components:
+      transform:
+        position: [4, 0.55, 2]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: zcwMv83MDD/NzAy/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/AAAAAM3MDD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/zcwMPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/AAAAAM3MDD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/zcwMPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMP83MDD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/AAAAAM3MDD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/zcwMPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/zcwMP83MDD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAy/AAAAAM3MDD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAw/zcwMPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAw/zcwMP83MDD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAw/AAAAAM3MDD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAw/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/zcwMv83MDL/NzAy/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMv83MDD/NzAy/AAAAAM3MDD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMP83MDD/NzAy/zcwMP83MDD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/zcwMP83MDL/NzAy/zcwMPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.92, 0.66, 0.4, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              occlusionTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-ao.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-pebbles-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.03
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.55, -0.55, -0.55]
+          max: [0.55, 0.55, 0.55]
+        verticesAABB:
+          min: [-0.55, -0.55, -0.55]
+          max: [0.55, 0.55, 0.55]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 1.1
+            height: 1.1
+            depth: 1.1
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~
+  - type: Entity
+    entity: 2007
+    name: Wall
+    components:
+      transform:
+        position: [0, 1.2, 14]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        visible: true
+        billboardRotation: [1, 0, 0, 0]
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAgwZqZmT/NzMy+AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmT/NzMw+AAAAAM3MzD4AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMw+AAAgQc3MzD4AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMy+AAAgQQAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMw+AAAAAM3MzD4AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMy+AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMy+AAAgQQAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMw+AAAgQc3MzD4AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMy+AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMy+AAAAAJqZmT8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMw+zczMPpqZmT8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMw+zczMPgAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMw+zczMPgAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmT/NzMw+zczMPpqZmT8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmT/NzMy+AAAAAJqZmT8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMy+AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMw+AAAgQQAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMw+AAAgQZqZmT8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAgwZqZmT/NzMw+AAAAAJqZmT8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMw+AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAgwZqZmb/NzMy+AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAgwZqZmT/NzMy+AAAAAJqZmT8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAgQZqZmT/NzMy+AAAgQZqZmT8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAgQZqZmb/NzMy+AAAgQQAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.82, 0.8, 0.77, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-cobblestone-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.03
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-10, -1.2, -0.4]
+          max: [10, 1.2, 0.4]
+        verticesAABB:
+          min: [-10, -1.2, -0.4]
+          max: [10, 1.2, 0.4]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: static
+        motionQuality: discrete
+        sensor: false
+        gravityFactor: 1
+        linearDamping: 0.05
+        angularDamping: 0.05
+        categoryBits: 1
+        maskBits: 65535
+        buoyancy: 0
+        waterDrag: 0.5
+        waterAngularDrag: 0.01
+        allowedDOFs:
+          translationX: true
+          translationY: true
+          translationZ: true
+          rotationX: true
+          rotationY: true
+          rotationZ: true
+        numShapes: 1
+        shapes:
+          - type: box
+            position: [0, 0, 0]
+            rotation: [1, 0, 0, 0]
+            width: 20
+            height: 2.4
+            depth: 0.8
+            radius: 1
+            halfHeight: 0.5
+            topRadius: 0.5
+            bottomRadius: 0.5
+            density: 1
+            friction: 0.6
+            restitution: 0
+            source: none
+            sourceEntity: 0
+            samplesSize: 0
+            vertices: ~
+            indices: ~

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TerrainMapUtils.h"
@@ -9,8 +9,8 @@
 #include <cstring>
 #include <system_error>
 
-using namespace doriax;
-using namespace doriax::editor;
+using namespace quantum;
+using namespace quantum::editor;
 
 Texture* editor::TerrainMapUtils::findTexture(TerrainComponent& terrain, const TerrainMapRef& ref){
     if (ref.target == TerrainMapTarget::HeightMap){
@@ -80,7 +80,7 @@ bool editor::TerrainMapUtils::writeFile(Project* project, const std::string& rel
     return true;
 }
 
-void editor::TerrainMapUtils::refresh(SceneProject* sceneProject, Entity entity, const TerrainMapRef& ref){
+void editor::TerrainMapUtils::refresh(SceneProject* sceneProject, Entity entity, const TerrainMapRef& ref, const TerrainMapRegion& dirtyRegion){
     if (!sceneProject){
         return;
     }
@@ -90,15 +90,32 @@ void editor::TerrainMapUtils::refresh(SceneProject* sceneProject, Entity entity,
     }
 
     if (ref.target == TerrainMapTarget::HeightMap){
-        terrain->heightMapLoaded = false;
-        terrain->needUpdateTerrain = true;
+        // The painted layers read the same texture, so the upload is needed either way.
         terrain->needUpdateTexture = true;
         // Instances sit on the surface, so a sculpt moves them.
         terrain->needUpdateFoliage = true;
+
+        if (dirtyRegion.empty() || !terrain->heightMapLoaded){
+            terrain->heightMapLoaded = false;
+            terrain->needUpdateTerrain = true;
+        }else{
+            // A tree is already built: only the leaves under the brush need new height ranges.
+            // Rebuilding reads every texel of a map that can be 4096 wide, which is what made
+            // each sculpt click hang for a second.
+            markTerrainHeightmapDirty(*terrain, dirtyRegion);
+        }
     }else if (ref.target == TerrainMapTarget::BlendMap){
         terrain->needUpdateTexture = true;
     }else{
-        terrain->needUpdateFoliage = true;
+        // Only this foliage layer's density map changed, and only inside the stamp's texels:
+        // hand the engine the rect so it refills just the chunks under it. An empty rect is
+        // the whole-map case (map created, resolution changed, replaced from a snapshot) and
+        // keeps invalidating every chunk, as before.
+        if (dirtyRegion.empty()){
+            terrain->needUpdateFoliage = true;
+        }else{
+            markTerrainFoliageDensityDirty(*terrain, ref.layer, dirtyRegion);
+        }
     }
 
     if (Texture* texture = findTexture(*terrain, ref)){

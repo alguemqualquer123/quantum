@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ComponentToBundleLocalCmd.h"
 
 #include "Stream.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ComponentToBundleLocalCmd::ComponentToBundleLocalCmd(Project* project, uint32_t sceneId, Entity entity, ComponentType componentType){
     this->project = project;

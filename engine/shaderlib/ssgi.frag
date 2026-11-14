@@ -1,142 +1,125 @@
+// (c) SR VINIX
+// SPDX-License-Identifier: MIT
+
 #version 450
 
-// Screen-Space Global Illumination (SSGI): simplified GI via ray marching
-// Based on Lumen Screen Probe Gather (simplified for real-time)
+// Screen-space diffuse bounce lighting. This is intentionally conservative: it
+// gathers only visible radiance from the current frame, so it degrades to the
+// normal scene color when a bounce leaves the screen.
 
 in vec2 v_texcoord;
 out vec4 frag_color;
 
 uniform texture2D u_sceneColorTexture;
 uniform sampler u_sceneColor_smp;
-
 uniform texture2D u_depthTexture;
 uniform sampler u_depth_smp;
 
-uniform texture2D u_normalTexture;
-uniform sampler u_normal_smp;
-
-uniform texture2D u_prevGIHistoryTexture;
-uniform sampler u_prevGIHistory_smp;
-
 uniform u_fs_ssgiParams {
-    mat4 invViewProjection;
-    vec4 params0; // x = rayLength, y = numRays, z = intensity, w = temporalBlend
-    vec4 params1; // x = thickness, y = bias, z = maxDistance, w = noiseScale
-} ssgiParams;
+    mat4 projection;
+    mat4 invProjection;
+    vec4 params0; // x = radius, y = ray count, z = intensity, w = thickness
+    vec4 params1; // xy = 1/depth size, z = frame rotation, w = unused
+} ssgi;
 
-// Reconstruct view-space position
-vec3 reconstructViewPos(vec2 uv, float depth){
-    vec4 clipPos = vec4(uv * 2.0 - 1.0, depth, 1.0);
-    vec4 viewPos = ssgiParams.invViewProjection * clipPos;
-    return viewPos.xyz / viewPos.w;
+#include "includes/depth_util.glsl"
+
+vec3 reconstructViewPos(vec2 uv, float depth01){
+    vec3 ndc = vec3(uv.x * 2.0 - 1.0, depthUVToNDCY(uv.y), depth01 * 2.0 - 1.0);
+    vec4 view = ssgi.invProjection * vec4(ndc, 1.0);
+    return view.xyz / view.w;
 }
 
-// Pseudo-random noise
-float random(vec2 co){
-    return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+float depthAt(vec2 uv){
+    return decodeDepth(texture(sampler2D(u_depthTexture, u_depth_smp), uv));
 }
 
-// Cosine-weighted hemisphere sampling
-vec3 cosineSampleHemisphere(vec3 normal, vec2 randomVec){
-    // Create orthonormal basis
-    vec3 up = abs(normal.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, normal));
-    vec3 bitangent = cross(normal, tangent);
-
-    // Cosine-weighted distribution
-    float r = sqrt(randomVec.x);
-    float theta = 2.0 * M_PI * randomVec.y;
-    float x = r * cos(theta);
-    float y = r * sin(theta);
-    float z = sqrt(max(0.0, 1.0 - x * x - y * y));
-
-    return tangent * x + bitangent * y + normal * z;
+vec3 viewNormal(vec2 uv, vec3 center){
+    vec2 texel = ssgi.params1.xy;
+    float dl = depthAt(uv - vec2(texel.x, 0.0));
+    float dr = depthAt(uv + vec2(texel.x, 0.0));
+    float dd = depthAt(uv - vec2(0.0, texel.y));
+    float du = depthAt(uv + vec2(0.0, texel.y));
+    vec3 left = reconstructViewPos(uv - vec2(texel.x, 0.0), dl);
+    vec3 right = reconstructViewPos(uv + vec2(texel.x, 0.0), dr);
+    vec3 down = reconstructViewPos(uv - vec2(0.0, texel.y), dd);
+    vec3 up = reconstructViewPos(uv + vec2(0.0, texel.y), du);
+    vec3 dx = abs(right.z - center.z) < abs(center.z - left.z) ? right - center : center - left;
+    vec3 dy = abs(up.z - center.z) < abs(center.z - down.z) ? up - center : center - down;
+    vec3 normal = normalize(cross(dx, dy));
+    if (dot(normal, center) > 0.0) normal = -normal;
+    return normal;
 }
 
-// Screen-space ray marching for GI
-vec3 screenSpaceRayMarch(vec3 viewPos, vec3 rayDir, float maxDistance, float thickness){
-    // Project ray to screen space
-    vec4 startClip = ssgiParams.invViewProjection * vec4(viewPos, 1.0);
-    vec4 endClip = ssgiParams.invViewProjection * vec4(viewPos + rayDir * maxDistance, 1.0);
+vec2 projectToUV(vec3 position){
+    vec4 clip = ssgi.projection * vec4(position, 1.0);
+    if (clip.w <= 0.0001) return vec2(-2.0);
+    vec2 ndc = clip.xy / clip.w;
+    return vec2(ndc.x * 0.5 + 0.5, ndcYToDepthUV(ndc.y));
+}
 
-    vec2 startUV = startClip.xy / startClip.w * 0.5 + 0.5;
-    vec2 endUV = endClip.xy / endClip.w * 0.5 + 0.5;
-
-    vec2 rayDir2D = endUV - startUV;
-    float rayLength = length(rayDir2D);
-    rayDir2D /= max(rayLength, 0.001);
-
-    // March along the ray
-    float stepSize = rayLength / 16.0; // 16 steps
-    vec3 hitColor = vec3(0.0);
-    float hitWeight = 0.0;
-
-    for (int i = 0; i < 16; i++){
-        float t = float(i) / 16.0;
-        vec2 sampleUV = startUV + rayDir2D * rayLength * t;
-
-        // Clamp to screen bounds
-        if (sampleUV.x < 0.0 || sampleUV.x > 1.0 || sampleUV.y < 0.0 || sampleUV.y > 1.0){
-            break;
-        }
-
-        // Sample depth
-        float sampleDepth = texture(sampler2D(u_depthTexture, u_depth_smp), sampleUV).r;
-        vec3 samplePos = reconstructViewPos(sampleUV, sampleDepth);
-
-        // Check intersection
-        float depthDiff = length(samplePos - viewPos);
-        if (depthDiff < maxDistance && abs(samplePos.z - (viewPos + rayDir * depthDiff).z) < thickness){
-            // Hit found - sample color
-            vec3 sampleColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), sampleUV).rgb;
-
-            // Weight by distance and angle
-            float distWeight = 1.0 - (depthDiff / maxDistance);
-            float angleWeight = max(dot(normalize(samplePos - viewPos), rayDir), 0.0);
-
-            hitColor += sampleColor * distWeight * angleWeight;
-            hitWeight += distWeight * angleWeight;
-        }
-    }
-
-    return hitWeight > 0.0 ? hitColor / hitWeight : vec3(0.0);
+vec2 rotate2D(vec2 value, float angle){
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec2(c * value.x - s * value.y, s * value.x + c * value.y);
 }
 
 void main(){
-    float rayLength = ssgiParams.params0.x;
-    float numRays = ssgiParams.params0.y;
-    float intensity = ssgiParams.params0.z;
-    float temporalBlend = ssgiParams.params0.w;
-
-    float thickness = ssgiParams.params1.x;
-    float bias = ssgiParams.params1.y;
-    float maxDistance = ssgiParams.params1.z;
-
-    // Sample depth and normal
-    float depth = texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord).r;
-    vec3 normal = texture(sampler2D(u_normalTexture, u_normal_smp), v_texcoord).rgb * 2.0 - 1.0;
-
-    // Reconstruct view position
-    vec3 viewPos = reconstructViewPos(v_texcoord, depth);
-
-    // Accumulate rays
-    vec3 giColor = vec3(0.0);
-    for (float i = 0.0; i < numRays; i++){
-        // Random direction in hemisphere
-        vec2 noise = vec2(random(v_texcoord + vec2(i * 0.1)), random(v_texcoord + vec2(i * 0.2)));
-        vec3 rayDir = cosineSampleHemisphere(normal, noise);
-
-        // Screen-space ray march
-        giColor += screenSpaceRayMarch(viewPos, rayDir, rayLength, thickness);
+    float depth01 = depthAt(v_texcoord);
+    vec3 source = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord).rgb;
+    if (depth01 >= 0.9999){
+        frag_color = vec4(source, 1.0);
+        return;
     }
-    giColor /= numRays;
 
-    // Temporal blend
-    vec3 prevGI = texture(sampler2D(u_prevGIHistoryTexture, u_prevGIHistory_smp), v_texcoord).rgb;
-    vec3 finalGI = mix(prevGI, giColor, 1.0 - temporalBlend);
+    vec3 position = reconstructViewPos(v_texcoord, depth01);
+    vec3 normal = viewNormal(v_texcoord, position);
+    vec3 tangentSeed = normalize(vec3(0.7, 0.35, 0.6));
+    vec3 tangent = normalize(tangentSeed - normal * dot(tangentSeed, normal));
+    vec3 bitangent = normalize(cross(normal, tangent));
+    int rayCount = clamp(int(ssgi.params0.y), 1, 8);
+    int stepCount = clamp(int(ssgi.params0.y * 2.0), 4, 32);
+    float radius = max(ssgi.params0.x, 0.01);
+    float thickness = max(ssgi.params0.w, 0.001);
+    float angle = ssgi.params1.z + dot(v_texcoord, vec2(41.7, 17.3));
 
-    // Apply intensity
-    finalGI *= intensity;
+    vec3 radiance = vec3(0.0);
+    float hitWeight = 0.0;
+    for (int ray = 0; ray < 8; ++ray){
+        if (ray >= rayCount) break;
+        float rayAngle = angle + float(ray) * 2.39996323;
+        vec2 disk = rotate2D(vec2(cos(rayAngle), sin(rayAngle)), angle * 0.37);
+        float z = 0.35 + 0.65 * (float(ray) + 0.5) / float(rayCount);
+        vec3 rayDirection = normalize(tangent * disk.x * sqrt(max(0.0, 1.0 - z * z)) +
+                                      bitangent * disk.y * sqrt(max(0.0, 1.0 - z * z)) + normal * z);
 
-    frag_color = vec4(finalGI, 1.0);
+        for (int step = 1; step <= 32; ++step){
+            if (step > stepCount) break;
+            float distance = radius * float(step) / float(stepCount);
+            vec3 rayPosition = position + rayDirection * distance;
+            vec2 sampleUV = projectToUV(rayPosition);
+            if (sampleUV.x < 0.001 || sampleUV.x > 0.999 || sampleUV.y < 0.001 || sampleUV.y > 0.999)
+                break;
+
+            float sampleDepth = depthAt(sampleUV);
+            if (sampleDepth >= 0.9999) continue;
+            vec3 surfacePosition = reconstructViewPos(sampleUV, sampleDepth);
+            float depthDelta = surfacePosition.z - rayPosition.z;
+            if (depthDelta > -thickness && depthDelta < radius * 0.25){
+                float distanceWeight = 1.0 - distance / radius;
+                float facingWeight = max(dot(normal, normalize(surfacePosition - position)), 0.0);
+                float weight = distanceWeight * facingWeight;
+                radiance += texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), sampleUV).rgb * weight;
+                hitWeight += weight;
+                break;
+            }
+        }
+    }
+
+    if (hitWeight > 0.001){
+        vec3 indirect = radiance / hitWeight;
+        float visibility = clamp(hitWeight / float(rayCount), 0.0, 1.0);
+        source += indirect * (ssgi.params0.z * 0.35 * visibility);
+    }
+    frag_color = vec4(source, 1.0);
 }

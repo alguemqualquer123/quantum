@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UISystem.h"
@@ -15,7 +15,7 @@
 #include "util/StringUtils.h"
 #include "pool/FontPool.h"
 
-using namespace doriax;
+using namespace quantum;
 
 static constexpr float UI_DRAG_START_DISTANCE = 4.0f;
 static constexpr double UI_DOUBLE_CLICK_TIME = 0.3;

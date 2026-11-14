@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MorphTracks.h"
@@ -6,7 +6,7 @@
 #include "component/KeyframeTracksComponent.h"
 #include "component/MorphTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 MorphTracks::MorphTracks(Scene* scene): KeyframeTracks(scene){
     addComponent<MorphTracksComponent>();

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UISYSTEM_H
@@ -23,9 +23,9 @@
 #include "component/Transform.h"
 #include "component/CameraComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API UISystem : public SubSystem {
+    class QUANTUM_API UISystem : public SubSystem {
 
     private:
 

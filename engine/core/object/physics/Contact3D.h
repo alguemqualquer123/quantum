@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef Contact3D_H
@@ -10,9 +10,9 @@
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Collision/ContactListener.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Contact3D{
+    class QUANTUM_API Contact3D{
     private:
         Scene* scene;
         const JPH::Body* body1;
@@ -49,6 +49,10 @@ namespace doriax{
 
         bool isSensor() const;
         void setIsSensor(bool sensor);
+
+        // Applies the authored Shape3D friction/restitution pair before the script callback runs.
+        // The callback may still override the combined values for special gameplay contacts.
+        void applyShapeMaterials();
     };
 }
 

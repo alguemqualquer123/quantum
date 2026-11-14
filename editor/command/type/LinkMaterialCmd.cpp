@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LinkMaterialCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::LinkMaterialCmd::LinkMaterialCmd(Project* project, uint32_t sceneId, Entity entity, ComponentType componentType,
                                           std::string propertyName, unsigned int submeshIndex,

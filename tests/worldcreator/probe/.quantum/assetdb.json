@@ -1,0 +1,1306 @@
+{
+  "engine": "quantum",
+  "files": [
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894268589,
+      "path": "assets/shaders/atmosphere_glsl410.sdat",
+      "sha1": "a2328eac9347d6249dfee985dda13c0645c73e8a",
+      "size": 7122
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894248523,
+      "path": "assets/shaders/blit_glsl410.sdat",
+      "sha1": "6ba1ee7b3143258adf3707591f34a3ad542dff02",
+      "size": 1014
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893597001,
+      "path": "assets/shaders/bloomcomposite_glsl410.sdat",
+      "sha1": "bedc66849ca4e9f8a703f9edffeb1799737b0193",
+      "size": 2934
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893541697,
+      "path": "assets/shaders/bloomdownsample_glsl410.sdat",
+      "sha1": "d817666688d802a3bc92984423ad40e761be0630",
+      "size": 1819
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894148300,
+      "path": "assets/shaders/bloomthreshold_glsl410.sdat",
+      "sha1": "824394c58fd23f1043afc1513f07ec99eb0e8270",
+      "size": 1758
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893586978,
+      "path": "assets/shaders/bloomupsample_glsl410.sdat",
+      "sha1": "75097402d75e2197b95e119923da35921e53f63f",
+      "size": 2103
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893626984,
+      "path": "assets/shaders/depth_Ter_glsl410.sdat",
+      "sha1": "4216602055adf584bec9a7633b7c9f368ca3995d",
+      "size": 4388
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893752271,
+      "path": "assets/shaders/depth_glsl410.sdat",
+      "sha1": "a7f29e1004aa1fc401ea0f8902dd8790fd1ad880",
+      "size": 1845
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893782409,
+      "path": "assets/shaders/exposure_glsl410.sdat",
+      "sha1": "4a6815d1fe4d56605cb802e7a42ac35f3072709a",
+      "size": 4375
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894063146,
+      "path": "assets/shaders/fxaa_glsl410.sdat",
+      "sha1": "e89f4da1387ddb06b2acb29ea91efa2cc9bc1919",
+      "size": 3458
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893822462,
+      "path": "assets/shaders/lines_Vc4_glsl410.sdat",
+      "sha1": "bec47cdbfa5e07979035247f9f741b34466031c9",
+      "size": 1096
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893461651,
+      "path": "assets/shaders/mesh_PucNorFogTerDlo_glsl410.sdat",
+      "sha1": "b60ea677e40d22f677e36904319c2625472c75a4",
+      "size": 24606
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894083221,
+      "path": "assets/shaders/mesh_PucNorFogTer_glsl410.sdat",
+      "sha1": "22baa28ccfe4117eae87862ff71176b245690805",
+      "size": 27411
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893616977,
+      "path": "assets/shaders/mesh_PucNorTerDlo_glsl410.sdat",
+      "sha1": "3002a4622c23cfbb35fe227c7024f9f6ea4a8e28",
+      "size": 23525
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893406453,
+      "path": "assets/shaders/mesh_PucNorTer_glsl410.sdat",
+      "sha1": "20a31ec5857ea44364534a381cf017de5d0ffac7",
+      "size": 26334
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893687174,
+      "path": "assets/shaders/mesh_PucNorVc4AopDlo_glsl410.sdat",
+      "sha1": "b36366aaaadbf603fa1c8e67727686fc41acf44a",
+      "size": 14458
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894373801,
+      "path": "assets/shaders/mesh_PucNorVc4Aop_glsl410.sdat",
+      "sha1": "e457ad51e8387e2d2b71bac87bf04e7f0f6b8c2e",
+      "size": 17264
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893737198,
+      "path": "assets/shaders/mesh_PucNorVc4FogAopDlo_glsl410.sdat",
+      "sha1": "00ebae7d82caabc67de07fc9b8f9ec840baf855c",
+      "size": 15535
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893481721,
+      "path": "assets/shaders/mesh_PucNorVc4FogAop_glsl410.sdat",
+      "sha1": "49ec92f0eaf7cda9651577b1f92e95e307065453",
+      "size": 18341
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894353686,
+      "path": "assets/shaders/mesh_PucNorVc4IstAopDlo_glsl410.sdat",
+      "sha1": "1f3f4c8551c05176c4f3194a2a4025d088d7078a",
+      "size": 15543
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893877678,
+      "path": "assets/shaders/mesh_PucNorVc4IstAop_glsl410.sdat",
+      "sha1": "1840a846d9b7727f3395709111624691b1166b43",
+      "size": 18349
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893436486,
+      "path": "assets/shaders/mesh_UltAop_glsl410.sdat",
+      "sha1": "c60e0162ff58e9fc8987fd7e4e6ff9d4880249c3",
+      "size": 1980
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893366405,
+      "path": "assets/shaders/mesh_UltSkiAop_glsl410.sdat",
+      "sha1": "3e5f1c46e38df864621b3a6c9ae4988940bac0dc",
+      "size": 4021
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893356333,
+      "path": "assets/shaders/mesh_UltTer_glsl410.sdat",
+      "sha1": "e80ded9d7efdbb9289e87e99bd001bff639d7200",
+      "size": 8504
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894178379,
+      "path": "assets/shaders/mesh_UltUv1Aop_glsl410.sdat",
+      "sha1": "8d1e0760f0b8c4091382e7cff839496a5e7cd2bc",
+      "size": 2887
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894298645,
+      "path": "assets/shaders/mesh_UltVc4Aop_glsl410.sdat",
+      "sha1": "715bccf94a8882c488fd4af79dab5fe32ba665bf",
+      "size": 2213
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894213465,
+      "path": "assets/shaders/mesh_UltVc4SkiAop_glsl410.sdat",
+      "sha1": "eaf6b4dd81aa795b42fbd421a4bd31f402fff732",
+      "size": 4256
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894288630,
+      "path": "assets/shaders/mesh_Uv1PucNorFogTerDlo_glsl410.sdat",
+      "sha1": "f9e7dcb677bfbe9b5f894dcf5db70d18a1b08bee",
+      "size": 27881
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893957945,
+      "path": "assets/shaders/mesh_Uv1PucNorFogTer_glsl410.sdat",
+      "sha1": "eb1e54dc2f3e90429419c5aadeb9bb304752f6c2",
+      "size": 30686
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382970158689384,
+      "path": "assets/shaders/mesh_Uv1PucNorTerTpbDlo_glsl410.sdat",
+      "sha1": "87bfa71d8ff54c6c0b018fcd078c6f58bbfe4978",
+      "size": 34259
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382970150104860,
+      "path": "assets/shaders/mesh_Uv1PucNorTerTpb_glsl410.sdat",
+      "sha1": "08841c8a86e86a1b6e62f0f4bf7942c579d53da8",
+      "size": 37064
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893832427,
+      "path": "assets/shaders/mesh_glsl410.sdat",
+      "sha1": "2f2af9cfac3547d771f32432a07d45049909011a",
+      "size": 4956
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894053079,
+      "path": "assets/shaders/points_TexVc4Txr_glsl410.sdat",
+      "sha1": "142b43aef61f15670cd4624c40ddb307954b2ced",
+      "size": 2835
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894423815,
+      "path": "assets/shaders/points_TexVc4_glsl410.sdat",
+      "sha1": "946ae355ebc9ce355d49414bd57773c4470987a7",
+      "size": 2508
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893967972,
+      "path": "assets/shaders/sky_assets_shaders_sky_daynight_glsl410.sdat",
+      "sha1": "fc0a1151bd589000680be780baf9c01746f1d99e",
+      "size": 16942
+    },
+    {
+      "dependencies": [],
+      "kind": "shader",
+      "mtime": 134382861893907673,
+      "path": "assets/shaders/sky_daynight.frag",
+      "sha1": "77668e8c4327832e5699ba0effd9f91eb06b4bb7",
+      "size": 15000
+    },
+    {
+      "dependencies": [],
+      "kind": "shader",
+      "mtime": 134382861893887673,
+      "path": "assets/shaders/sky_daynight.vert",
+      "sha1": "29468870425f4f81c5f6eebcb6236b9178e4ec8c",
+      "size": 693
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893501717,
+      "path": "assets/shaders/sky_glsl410.sdat",
+      "sha1": "0131117a8a8cb6bb66d2ebbb452e1f6248f4df55",
+      "size": 1059
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893386477,
+      "path": "assets/shaders/tonemap_glsl410.sdat",
+      "sha1": "0399020d9b884bf530a5b59101a8b03e26ca3d3d",
+      "size": 6897
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893531723,
+      "path": "assets/shaders/ui_Ftx_glsl410.sdat",
+      "sha1": "d55e997616eea0b72e6e34c3fc5f9ad1a0ce48ef",
+      "size": 1504
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894203463,
+      "path": "assets/shaders/ui_TexVc4_glsl410.sdat",
+      "sha1": "e1d2bc3a8e9a713a3165f5262de95d9d3b087cf9",
+      "size": 1959
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893652027,
+      "path": "assets/shaders/ui_Vc4_glsl410.sdat",
+      "sha1": "595bd330a67e271139e72233a1a08ee9aa9c4415",
+      "size": 1284
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893812415,
+      "path": "assets/shaders/underwater_glsl410.sdat",
+      "sha1": "021855a7d15814d51a75c4e0484e63c71b5d6099",
+      "size": 3608
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893802426,
+      "path": "assets/shaders/water_DepRfrSim_glsl410.sdat",
+      "sha1": "93d5b353ad99b842bfcadb7a088bc5579e0a4bce",
+      "size": 34448
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893677163,
+      "path": "assets/shaders/water_DepRfr_glsl410.sdat",
+      "sha1": "804f4329854539e3ecdfd79cac30883cc8614093",
+      "size": 32252
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894038032,
+      "path": "assets/shaders/water_FogDepRfrSim_glsl410.sdat",
+      "sha1": "5820d175228dbddf659401719e737fe1405f7d5e",
+      "size": 35607
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861893988033,
+      "path": "assets/shaders/water_FogDepRfr_glsl410.sdat",
+      "sha1": "67b836b62f5d640499bc47e87aa51e87a10ab876",
+      "size": 33411
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894188362,
+      "path": "assets/shaders/water_FogSim_glsl410.sdat",
+      "sha1": "bf3988211c9a0cb3136882a73adde65539795054",
+      "size": 32281
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134382861894133214,
+      "path": "assets/shaders/water_Sim_glsl410.sdat",
+      "sha1": "9a1b088654e05c5c1d625e0baf1288c1fc7fb845",
+      "size": 31122
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134382992241632983,
+      "path": "assets/textures/blend/black_all.png",
+      "sha1": "7d51dcfdecad92b87bcfb3131bb06421ec3a60f2",
+      "size": 843
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127489611876,
+      "path": "assets/textures/blend/blend_0.png",
+      "sha1": "8dcfe5713a6b8d5cf59f5434fdbf8b19d44a4f49",
+      "size": 350815
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127489947537,
+      "path": "assets/textures/blend/blend_1.png",
+      "sha1": "58971b2ac966bcb8dc20bde27f523a8e1e4c2a9d",
+      "size": 347882
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127490117825,
+      "path": "assets/textures/blend/blend_2.png",
+      "sha1": "eadcd84b0b57d4c0f4492172010cb040d399d0f1",
+      "size": 7720
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134382992241617901,
+      "path": "assets/textures/blend/white_all.png",
+      "sha1": "8f608c7e03d61626ab5ca0942ade5e47d6ef1269",
+      "size": 1878
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134382856881925067,
+      "path": "assets/textures/heightmap_generated.png",
+      "sha1": "a5f04f0e9aa94d611b06713d3e59a656f65cd588",
+      "size": 524948
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127494806096,
+      "path": "assets/textures/heightmap_probe.png",
+      "sha1": "a5f04f0e9aa94d611b06713d3e59a656f65cd588",
+      "size": 524948
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127496829896,
+      "path": "assets/textures/heightmap_reroll.png",
+      "sha1": "a5f04f0e9aa94d611b06713d3e59a656f65cd588",
+      "size": 524948
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "512",
+        "width": "512"
+      },
+      "mtime": 134384127498767987,
+      "path": "assets/textures/heightmap_seed2.png",
+      "sha1": "1f6a56dce1cecafe60c479aab6e038a84938851e",
+      "size": 524948
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485238392,
+      "path": "assets/textures/materials/cliff_basecolor.png",
+      "sha1": "62c7fbb7d711b91d9742539061def17a2256211a",
+      "size": 74532
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485548989,
+      "path": "assets/textures/materials/cliff_height.png",
+      "sha1": "3cb1ef3bf20a3eea6ff107f5bfd94f607d65eaed",
+      "size": 41376
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485458823,
+      "path": "assets/textures/materials/cliff_metallicroughness.png",
+      "sha1": "b2f5ba3b4b33b0952ccb644c9aaa3e91c3098d5e",
+      "size": 47727
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485383655,
+      "path": "assets/textures/materials/cliff_normal.png",
+      "sha1": "d59bc4502c35040130bcc1604de67901e611b58a",
+      "size": 172325
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485498846,
+      "path": "assets/textures/materials/cliff_occlusion.png",
+      "sha1": "a06140ea8db0ae0859cc2ea8283841fa522df678",
+      "size": 41157
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483343246,
+      "path": "assets/textures/materials/dirt_basecolor.png",
+      "sha1": "36ab8193f8c1fa02db15f76e3d8951c6ac4f182c",
+      "size": 75863
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483685525,
+      "path": "assets/textures/materials/dirt_height.png",
+      "sha1": "b15ca2aed7a11b78ae43ec7e007556dae286cab7",
+      "size": 41224
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483578695,
+      "path": "assets/textures/materials/dirt_metallicroughness.png",
+      "sha1": "6aadfdf43984bd82905cda367f786d8900a10bfa",
+      "size": 50151
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483503489,
+      "path": "assets/textures/materials/dirt_normal.png",
+      "sha1": "fe7ae654d7776246d00fbd6940e0f2ae2da26c3a",
+      "size": 189847
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483635369,
+      "path": "assets/textures/materials/dirt_occlusion.png",
+      "sha1": "18b6d8ab6198ba5547982a1cec609511739217d5",
+      "size": 40725
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482737126,
+      "path": "assets/textures/materials/grass_basecolor.png",
+      "sha1": "db0bac731f21bc417a686812ba8e3046dfead924",
+      "size": 58691
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483042752,
+      "path": "assets/textures/materials/grass_height.png",
+      "sha1": "ed6e54b32b443087951b219960677d020e0a728c",
+      "size": 30861
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482957604,
+      "path": "assets/textures/materials/grass_metallicroughness.png",
+      "sha1": "e6ae88f9ae3b9572040d6f714ffed2ad59fcb92f",
+      "size": 37012
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482892446,
+      "path": "assets/textures/materials/grass_normal.png",
+      "sha1": "6d4d506f576cc13f1d278e5d793863c402e39f60",
+      "size": 196962
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482997579,
+      "path": "assets/textures/materials/grass_occlusion.png",
+      "sha1": "caa5d13b8bdb7221b93a048566f6ec1cda8463e7",
+      "size": 33006
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127483996051,
+      "path": "assets/textures/materials/gravel_basecolor.png",
+      "sha1": "80ffa9b8204762ff0ad6b2cb2edf5d4c2fb6787b",
+      "size": 71839
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484256769,
+      "path": "assets/textures/materials/gravel_height.png",
+      "sha1": "745a296e12e7c1fa31fc46ef904dff2ffecfffc7",
+      "size": 27490
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484161663,
+      "path": "assets/textures/materials/gravel_metallicroughness.png",
+      "sha1": "3d53b2031b0bec430d1d5670210498f9559673fa",
+      "size": 40032
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484096439,
+      "path": "assets/textures/materials/gravel_normal.png",
+      "sha1": "4fd5f9378d11702098d9148c422409995ee14219",
+      "size": 104540
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484211674,
+      "path": "assets/textures/materials/gravel_occlusion.png",
+      "sha1": "ac9eb47142ada505ddd4270233fe2940539d76ba",
+      "size": 34918
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486376056,
+      "path": "assets/textures/materials/ice_basecolor.png",
+      "sha1": "39567ec2f0676efcd1d78a10184ab070f9294e25",
+      "size": 50712
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486681573,
+      "path": "assets/textures/materials/ice_height.png",
+      "sha1": "98f60710b24e42a53e596f11a4bdff3f5ec17458",
+      "size": 34465
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486596408,
+      "path": "assets/textures/materials/ice_metallicroughness.png",
+      "sha1": "09631a4ddb9de4307804ef44cdbc82148155b04a",
+      "size": 40329
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486531236,
+      "path": "assets/textures/materials/ice_normal.png",
+      "sha1": "012575f3f829fc25feab0a387fecf73c0ed558d8",
+      "size": 171730
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486641536,
+      "path": "assets/textures/materials/ice_occlusion.png",
+      "sha1": "5604a649cd81fe48d6334589f1f89de2c172cab5",
+      "size": 35362
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484562317,
+      "path": "assets/textures/materials/rock_basecolor.png",
+      "sha1": "cbab5a9ade637811b70e52d12b970141ef7fc124",
+      "size": 73995
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484887896,
+      "path": "assets/textures/materials/rock_height.png",
+      "sha1": "971f4440d5317c44c9e3f60b2a792859f97d1bab",
+      "size": 42283
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484792676,
+      "path": "assets/textures/materials/rock_metallicroughness.png",
+      "sha1": "0279799e5a2d2d529d853bc1192d18a87de01d8a",
+      "size": 49557
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484717441,
+      "path": "assets/textures/materials/rock_normal.png",
+      "sha1": "9c2d1fd3196bfd2b76b2042d0f6c63c7d45ec595",
+      "size": 196691
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127484837792,
+      "path": "assets/textures/materials/rock_occlusion.png",
+      "sha1": "b925d252362064e549167460c8c53007296166f0",
+      "size": 42502
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482180916,
+      "path": "assets/textures/materials/sand_basecolor.png",
+      "sha1": "5a7c0f1f6355709c111a1c897a00ac5d41028a6c",
+      "size": 90736
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482516457,
+      "path": "assets/textures/materials/sand_height.png",
+      "sha1": "03dfc7d89b30be306f9d863c3b1c9718a7231c12",
+      "size": 36510
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482411259,
+      "path": "assets/textures/materials/sand_metallicroughness.png",
+      "sha1": "6f943fd77de184abd5f8e9e54674a9f08623b180",
+      "size": 54620
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482341218,
+      "path": "assets/textures/materials/sand_normal.png",
+      "sha1": "a59b9ddfa4c4de26e0eaaff4e09c349c922c21e2",
+      "size": 165729
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127482466456,
+      "path": "assets/textures/materials/sand_occlusion.png",
+      "sha1": "3b97a3ed101b9db7cfaa58d417723552c6c3058d",
+      "size": 38328
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485794562,
+      "path": "assets/textures/materials/snow_basecolor.png",
+      "sha1": "4f6c4973b45b1c06c8eac401e416916de55c03c4",
+      "size": 59133
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486095478,
+      "path": "assets/textures/materials/snow_height.png",
+      "sha1": "82c000a87bb14753ddcd07cb185e732852474d9c",
+      "size": 30772
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486010342,
+      "path": "assets/textures/materials/snow_metallicroughness.png",
+      "sha1": "2542ab14c60fad7faf15224a48b43f1f55f832e3",
+      "size": 54890
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127485930186,
+      "path": "assets/textures/materials/snow_normal.png",
+      "sha1": "59a8dfde88490ac64053d077f7590c17b8cf708e",
+      "size": 130565
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127486055463,
+      "path": "assets/textures/materials/snow_occlusion.png",
+      "sha1": "93b0f7a7686079f45cb53cb76d7a115aafd65067",
+      "size": 37991
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127487007579,
+      "path": "assets/textures/materials/volcanic_basecolor.png",
+      "sha1": "e7d7175b0a4352e9cd5de92de092ba0b1722179c",
+      "size": 60643
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127487308134,
+      "path": "assets/textures/materials/volcanic_height.png",
+      "sha1": "83858ee88f58abf7cd3977f4ddefc6f76d414abf",
+      "size": 37592
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127487212997,
+      "path": "assets/textures/materials/volcanic_metallicroughness.png",
+      "sha1": "c8cd5bd5f3fede34bb9859b1896be5a431f800ec",
+      "size": 41871
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127487142925,
+      "path": "assets/textures/materials/volcanic_normal.png",
+      "sha1": "c35c68c09f9e04e87a9256ca88def7dc7dc902c0",
+      "size": 158851
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127487268154,
+      "path": "assets/textures/materials/volcanic_occlusion.png",
+      "sha1": "d934776e90d815fd461af9608066f670936269a4",
+      "size": 40584
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127490448370,
+      "path": "assets/textures/materials_reroll/rock_basecolor.png",
+      "sha1": "cbab5a9ade637811b70e52d12b970141ef7fc124",
+      "size": 73995
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127490804070,
+      "path": "assets/textures/materials_reroll/rock_height.png",
+      "sha1": "971f4440d5317c44c9e3f60b2a792859f97d1bab",
+      "size": 42283
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127490678793,
+      "path": "assets/textures/materials_reroll/rock_metallicroughness.png",
+      "sha1": "0279799e5a2d2d529d853bc1192d18a87de01d8a",
+      "size": 49557
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127490603628,
+      "path": "assets/textures/materials_reroll/rock_normal.png",
+      "sha1": "9c2d1fd3196bfd2b76b2042d0f6c63c7d45ec595",
+      "size": 196691
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127490753907,
+      "path": "assets/textures/materials_reroll/rock_occlusion.png",
+      "sha1": "b925d252362064e549167460c8c53007296166f0",
+      "size": 42502
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127491099617,
+      "path": "assets/textures/materials_reroll/sand_basecolor.png",
+      "sha1": "5a7c0f1f6355709c111a1c897a00ac5d41028a6c",
+      "size": 90736
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127491450212,
+      "path": "assets/textures/materials_reroll/sand_height.png",
+      "sha1": "03dfc7d89b30be306f9d863c3b1c9718a7231c12",
+      "size": 36510
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127491355093,
+      "path": "assets/textures/materials_reroll/sand_metallicroughness.png",
+      "sha1": "6f943fd77de184abd5f8e9e54674a9f08623b180",
+      "size": 54620
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127491269960,
+      "path": "assets/textures/materials_reroll/sand_normal.png",
+      "sha1": "a59b9ddfa4c4de26e0eaaff4e09c349c922c21e2",
+      "size": 165729
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127491405068,
+      "path": "assets/textures/materials_reroll/sand_occlusion.png",
+      "sha1": "3b97a3ed101b9db7cfaa58d417723552c6c3058d",
+      "size": 38328
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127499286181,
+      "path": "assets/textures/materials_seed2/sand_basecolor.png",
+      "sha1": "77db6475d120fbda8f142d287ee189ee109ddd8b",
+      "size": 90465
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127499676880,
+      "path": "assets/textures/materials_seed2/sand_height.png",
+      "sha1": "31b421dd88288995e25f57ba716d432babfe918a",
+      "size": 36384
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127499571704,
+      "path": "assets/textures/materials_seed2/sand_metallicroughness.png",
+      "sha1": "8140a1250aabad8ef5bb8f9b9404804cd76306ca",
+      "size": 54388
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127499446456,
+      "path": "assets/textures/materials_seed2/sand_normal.png",
+      "sha1": "80a5716514fb47626df2a3101624ed37f7c2c180",
+      "size": 164546
+    },
+    {
+      "dependencies": [],
+      "kind": "texture",
+      "metadata": {
+        "format": "png",
+        "height": "256",
+        "width": "256"
+      },
+      "mtime": 134384127499631714,
+      "path": "assets/textures/materials_seed2/sand_occlusion.png",
+      "sha1": "4f79083b4f69b02fbc77e68aece360c3da7590d9",
+      "size": 38199
+    },
+    {
+      "dependencies": [
+        "assets/textures/blend/black_all.png"
+      ],
+      "kind": "script",
+      "mtime": 134387526885321415,
+      "path": "lua/main.lua",
+      "sha1": "a1022a900f53cbb9265b85b3e04740054af71157",
+      "size": 25089
+    }
+  ],
+  "format": 2,
+  "manifestSha1": "83ace297a9c78c9d902eb6edf6bd95dbbfa76d18"
+}

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef CONTACT2D_H
@@ -10,9 +10,9 @@
 
 #include "box2d/box2d.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Contact2D{
+    class QUANTUM_API Contact2D{
     private:
         Scene* scene;
         b2ContactData contact;

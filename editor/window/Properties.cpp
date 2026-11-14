@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Properties.h"
@@ -29,8 +29,11 @@
 #include "command/type/ForkShaderCmd.h"
 #include "command/type/ScenePropertyCmd.h"
 #include "render/SceneRender2D.h"
+#include "util/ReadyMadeComponents.h"
 #include "window/ResourcesWindow.h"
 #include "window/Structure.h"
+#include "graph/GraphEditorWindow.h"
+#include "graph/GraphScriptProperties.h"
 #include "App.h"
 #include "Backend.h"
 #include "Theme.h"
@@ -63,6 +66,7 @@
 #include "Out.h"
 #include "subsystem/ActionSystem.h"
 #include "subsystem/PhysicsSystem.h"
+#include "subsystem/WaterSystem.h"
 #include "subsystem/AudioSystem.h"
 #include "action/Action.h"
 #include "pool/TexturePool.h"
@@ -79,8 +83,9 @@
 #include <algorithm>
 #include <unordered_set>
 #include <memory>
+#include <filesystem>
 
-using namespace doriax;
+using namespace quantum;
 
 // Assets are stored relative to the assets root. A file outside it still previews from
 // its absolute path, but the drop is refused on delivery.
@@ -410,6 +415,7 @@ static std::vector<int> po2Values = { 16, 32, 64, 128, 256, 512, 1024, 2048, 409
 static std::vector<int> probeResolutionValues = { 16, 32, 64, 128, 256, 512, 1024 };
 
 static std::vector<int> waterSubdivisionValues = { 16, 32, 64, 128, 256, 512 };
+static std::vector<int> waterSimResolutionValues = { 8, 16, 32, 64, 128, 256 };
 
 static std::vector<editor::EnumEntry> entriesActionState = {
     { (int)ActionState::Running, "Running" },
@@ -983,16 +989,16 @@ bool editor::Properties::isOpen() const{
 
 editor::RowPropertyType editor::Properties::scriptPropertyTypeToRowPropertyType(ScriptPropertyType scriptType){
     switch (scriptType) {
-        case doriax::ScriptPropertyType::Bool: return RowPropertyType::Bool;
-        case doriax::ScriptPropertyType::Int: return RowPropertyType::Int;
-        case doriax::ScriptPropertyType::Float: return RowPropertyType::Float;
-        case doriax::ScriptPropertyType::String: return RowPropertyType::String;
-        case doriax::ScriptPropertyType::Vector2: return RowPropertyType::Vector2;
-        case doriax::ScriptPropertyType::Vector3: return RowPropertyType::Vector3;
-        case doriax::ScriptPropertyType::Vector4: return RowPropertyType::Vector4;
-        case doriax::ScriptPropertyType::Color3: return RowPropertyType::Color3L;
-        case doriax::ScriptPropertyType::Color4: return RowPropertyType::Color4L;
-        case doriax::ScriptPropertyType::EntityReference: return RowPropertyType::ExternalEntity;
+        case quantum::ScriptPropertyType::Bool: return RowPropertyType::Bool;
+        case quantum::ScriptPropertyType::Int: return RowPropertyType::Int;
+        case quantum::ScriptPropertyType::Float: return RowPropertyType::Float;
+        case quantum::ScriptPropertyType::String: return RowPropertyType::String;
+        case quantum::ScriptPropertyType::Vector2: return RowPropertyType::Vector2;
+        case quantum::ScriptPropertyType::Vector3: return RowPropertyType::Vector3;
+        case quantum::ScriptPropertyType::Vector4: return RowPropertyType::Vector4;
+        case quantum::ScriptPropertyType::Color3: return RowPropertyType::Color3L;
+        case quantum::ScriptPropertyType::Color4: return RowPropertyType::Color4L;
+        case quantum::ScriptPropertyType::EntityReference: return RowPropertyType::ExternalEntity;
         default: return RowPropertyType::Custom;
     }
 }
@@ -1997,7 +2003,7 @@ Texture editor::Properties::getMaterialPreview(const Material& material, const s
 
     bool pending = texPending(material.baseColorTexture) || texPending(material.emissiveTexture) ||
                    texPending(material.metallicRoughnessTexture) || texPending(material.occlusionTexture) ||
-                   texPending(material.normalTexture);
+                   texPending(material.normalTexture) || texPending(material.heightTexture);
 
     if ((materialRender.getMaterial() != material) || materialRender.getReceiveIBL() != receiveIBL ||
         !materialRender.getFramebuffer()->isCreated() || pending){
@@ -2075,7 +2081,7 @@ bool editor::Properties::drawSpriteFramePreview(Texture* texture, const Rect& re
 
 void editor::Properties::updateShapePreview(const ShapeParameters& shapeParams){
     ImVec4 frameBgColor = ImGui::GetStyle().Colors[ImGuiCol_FrameBg];
-    std::shared_ptr<doriax::MeshSystem> meshSys = shapePreviewRender.getScene()->getSystem<MeshSystem>();
+    std::shared_ptr<quantum::MeshSystem> meshSys = shapePreviewRender.getScene()->getSystem<MeshSystem>();
 
     MeshComponent meshComp;
 
@@ -6018,6 +6024,82 @@ void editor::Properties::drawShaderFilesPopup(const std::string& popupName, cons
     ImGui::EndPopup();
 }
 
+// Guesses the material slot of a loose texture file from its name. Suffixes may be
+// separated by any non-alphanumeric character. Returns -1 when the name is ambiguous.
+static int detectTextureSlot(const std::string& filePath) {
+    std::string name = std::filesystem::path(filePath).stem().string();
+    std::transform(name.begin(), name.end(), name.begin(), [](unsigned char c) {
+        return (char)std::tolower(c);
+    });
+
+    std::vector<std::string> tokens;
+    std::string token;
+    for (char c : name) {
+        if (std::isalnum((unsigned char)c)) {
+            token += c;
+        } else if (!token.empty()) {
+            tokens.push_back(token);
+            token.clear();
+        }
+    }
+    if (!token.empty())
+        tokens.push_back(token);
+
+    auto hasToken = [&tokens](std::initializer_list<const char*> candidates) {
+        for (const std::string& t : tokens) {
+            for (const char* candidate : candidates) {
+                if (t == candidate)
+                    return true;
+            }
+        }
+        return false;
+    };
+    auto hasWord = [&name](std::initializer_list<const char*> candidates) {
+        for (const char* candidate : candidates) {
+            if (name.find(candidate) != std::string::npos)
+                return true;
+        }
+        return false;
+    };
+
+    // Normal first: "base_normal" is a normal map, not a base color.
+    if (hasToken({"normal", "normals", "nrm", "nrml", "nor", "n"}) || hasWord({"normal", "nrm"}))
+        return 4;
+    // Height after normal: a file naming both is more likely a normal map, and filing a
+    // normal as height would leave the surface unlit-bumped rather than merely flat.
+    if (hasToken({"height", "hgt", "disp", "displacement", "pdm"}) || hasWord({"height", "displacement"}))
+        return 5;
+    if (hasToken({"orm", "rma", "arm", "mra", "mr", "rough", "metal", "m"}) || hasWord({"metallic", "roughness", "metalrough"}))
+        return 1;
+    if (hasToken({"ao", "occ", "occlusion"}) || hasWord({"occlusion"}))
+        return 3;
+    if (hasToken({"emissive", "emission", "emit", "glow", "e"}) || hasWord({"emissive", "emission"}))
+        return 2;
+    if (hasToken({"albedo", "base", "basecolor", "diffuse", "diff", "color", "colour", "bc", "d", "a"}) || hasWord({"albedo", "basecolor", "diffuse"}))
+        return 0;
+
+    return -1;
+}
+
+static const char* textureLoadSlotSuffixes[] = {
+    ".material.baseColorTexture",
+    ".material.metallicRoughnessTexture",
+    ".material.emissiveTexture",
+    ".material.occlusionTexture",
+    ".material.normalTexture",
+    ".material.heightTexture"
+};
+
+static const char* textureLoadSlotNames[] = {
+    "Ignore",
+    "Base Texture",
+    "Met. Roug. Texture",
+    "Emissive Texture",
+    "Occlusion Texture",
+    "Normal Texture",
+    "Height Texture"
+};
+
 void editor::Properties::drawMeshComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
     beginTable(cpType, getLabelSize("Receive Shadows"));
 
@@ -6218,7 +6300,7 @@ void editor::Properties::drawMeshComponent(ComponentType cpType, SceneProject* s
         // Create geometry button
         if (ImGui::Button("Apply", ImVec2(ImGui::GetContentRegionAvail().x, 0))) {
             for (Entity& entity : entities) {
-                std::shared_ptr<doriax::MeshSystem> meshSys = sceneProject->scene->getSystem<MeshSystem>();
+                std::shared_ptr<quantum::MeshSystem> meshSys = sceneProject->scene->getSystem<MeshSystem>();
                 MeshComponent meshComp = sceneProject->scene->getComponent<MeshComponent>(entity);
 
                 updateMeshShape(meshComp, meshSys.get(), shapeParams);
@@ -6417,7 +6499,139 @@ void editor::Properties::drawMeshComponent(ComponentType cpType, SceneProject* s
             propertyRow(RowPropertyType::Texture, cpType, "submeshes["+std::to_string(s)+"].material.emissiveTexture", "Emissive Texture", sceneProject, entities, settingsMaterial);
             propertyRow(RowPropertyType::Texture, cpType, "submeshes["+std::to_string(s)+"].material.occlusionTexture", "Occlusion Texture", sceneProject, entities, settingsMaterial);
             propertyRow(RowPropertyType::Texture, cpType, "submeshes["+std::to_string(s)+"].material.normalTexture", "Normal Texture", sceneProject, entities, settingsMaterial);
+
+            // Parallax needs a height map to compile into the shader, so the tuning rows
+            // are grouped with the slot they belong to rather than left hidden.
+            RowSettings heightTextureSettings = settingsMaterial;
+            heightTextureSettings.help = "Grayscale relief map (white stands proud, black is recessed). Setting one rebuilds the material's shader with parallax occlusion, so the surface slides against the view angle instead of staying flat.";
+            propertyRow(RowPropertyType::Texture, cpType, "submeshes["+std::to_string(s)+"].material.heightTexture", "Height Texture", sceneProject, entities, heightTextureSettings);
+
+            RowSettings heightScaleSettings = settingsFactor;
+            heightScaleSettings.stepSize = 0.005f;
+            heightScaleSettings.help = "How deep the relief reads, as a fraction of the UV tile. Keep it small; a large value detaches the surface at grazing angles.";
+            propertyRow(RowPropertyType::Float_0_1, cpType, "submeshes["+std::to_string(s)+"].material.heightScale", "Height Scale", sceneProject, entities, heightScaleSettings);
+
+            RowSettings heightLayersSettings = settingsMaterial;
+            heightLayersSettings.stepSize = 1.0f;
+            heightLayersSettings.help = "Ray-march layers, few when the surface faces the camera and many at a grazing angle. More layers sharpen the relief and cost texture taps.";
+            propertyRow(RowPropertyType::FloatPositive, cpType, "submeshes["+std::to_string(s)+"].material.heightMinLayers", "Height Min Layers", sceneProject, entities, heightLayersSettings);
+            propertyRow(RowPropertyType::FloatPositive, cpType, "submeshes["+std::to_string(s)+"].material.heightMaxLayers", "Height Max Layers", sceneProject, entities, heightLayersSettings);
             endTable();
+
+            if (ImGui::Button(ICON_FA_FOLDER_OPEN " Load Textures")) {
+                std::vector<std::string> selectedPaths = editor::FileDialogs::openFileDialogMultiple(project->getAssetsPath().string(), FILE_DIALOG_IMAGE);
+                pendingTextureFiles.clear();
+                pendingTextureSubmesh = -1;
+
+                bool allInsideAssets = true;
+                for (const std::string& selectedPath : selectedPaths) {
+                    std::filesystem::path filePath = std::filesystem::absolute(selectedPath);
+                    std::error_code ec;
+                    std::filesystem::path relativePath = std::filesystem::relative(filePath, project->getAssetsPath(), ec);
+                    if (ec || relativePath.empty() || *relativePath.begin() == "..") {
+                        allInsideAssets = false;
+                        break;
+                    }
+
+                    PendingTextureFile pending;
+                    pending.path = relativePath.generic_string();
+                    pending.slot = detectTextureSlot(filePath.string());
+                    pendingTextureFiles.push_back(pending);
+                }
+
+                if (!allInsideAssets) {
+                    pendingTextureFiles.clear();
+                    ImGui::OpenPopup("Load Textures Import Error");
+                }
+                else if (!pendingTextureFiles.empty()) {
+                    pendingTextureSubmesh = s;
+                    ImGui::OpenPopup("loadtexturespopup");
+                }
+            }
+
+            if (ImGui::BeginPopup("loadtexturespopup")) {
+                if (pendingTextureSubmesh != s) {
+                    pendingTextureFiles.clear();
+                    pendingTextureSubmesh = -1;
+                    ImGui::CloseCurrentPopup();
+                }
+                else {
+                    ImGui::TextUnformatted("Assign the selected textures to this submesh's material.");
+                    ImGui::Separator();
+
+                    int slotCounts[IM_ARRAYSIZE(textureLoadSlotSuffixes)] = {};
+                    bool hasAssignment = false;
+                    for (int i = 0; i < (int)pendingTextureFiles.size(); i++) {
+                        PendingTextureFile& pending = pendingTextureFiles[i];
+                        ImGui::PushID(i);
+                        ImGui::TextUnformatted(std::filesystem::path(pending.path).filename().string().c_str());
+                        ImGui::SetNextItemWidth(-1);
+                        int selection = pending.slot + 1;
+                        if (ImGui::Combo("##slot", &selection, textureLoadSlotNames, IM_ARRAYSIZE(textureLoadSlotNames))) {
+                            pending.slot = selection - 1;
+                        }
+                        ImGui::PopID();
+
+                        if (pending.slot >= 0) {
+                            slotCounts[pending.slot]++;
+                            hasAssignment = true;
+                        }
+                    }
+
+                    bool hasCollision = false;
+                    for (int count : slotCounts) {
+                        if (count > 1)
+                            hasCollision = true;
+                    }
+                    if (hasCollision) {
+                        ImGui::TextColored(ImVec4(0.95f, 0.70f, 0.20f, 1.0f), "Two files target the same slot; the last one wins.");
+                    }
+
+                    ImGui::Separator();
+
+                    float buttonWidth = 120.0f;
+                    float buttonsWidth = buttonWidth * 2 + ImGui::GetStyle().ItemSpacing.x;
+                    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - buttonsWidth) * 0.5f);
+                    ImGui::BeginDisabled(!hasAssignment);
+                    if (ImGui::Button("Apply", ImVec2(buttonWidth, 0))) {
+                        MultiPropertyCmd* multiCmd = new MultiPropertyCmd();
+                        for (const PendingTextureFile& pending : pendingTextureFiles) {
+                            if (pending.slot < 0 || pending.slot >= (int)IM_ARRAYSIZE(textureLoadSlotSuffixes))
+                                continue;
+
+                            std::string propertyName = "submeshes[" + std::to_string(s) + "]" + textureLoadSlotSuffixes[pending.slot];
+                            for (const Entity& entity : entities) {
+                                multiCmd->addPropertyCmd<Texture>(project, sceneProject->id, entity, cpType, propertyName, Texture(pending.path), settingsMaterial.onValueChanged);
+                            }
+                        }
+                        multiCmd->setNoMerge();
+                        CommandHandle::get(project->getSelectedSceneId())->addCommand(multiCmd);
+
+                        pendingTextureFiles.clear();
+                        pendingTextureSubmesh = -1;
+                        ImGui::CloseCurrentPopup();
+                    }
+                    ImGui::EndDisabled();
+                    ImGui::SameLine();
+                    if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0))) {
+                        pendingTextureFiles.clear();
+                        pendingTextureSubmesh = -1;
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+                ImGui::EndPopup();
+            }
+
+            if (ImGui::BeginPopupModal("Load Textures Import Error", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Selected file must be within the assets directory.");
+                ImGui::Separator();
+                float buttonWidth = 120.0f;
+                ImGui::SetCursorPosX((ImGui::GetWindowSize().x - buttonWidth) * 0.5f);
+                if (ImGui::Button("OK", ImVec2(buttonWidth, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
         }
 
         beginTable(cpType, getLabelSize("Texture Shadow"), "submeshes_settings");
@@ -8266,6 +8480,60 @@ void editor::Properties::drawTilemapComponent(ComponentType cpType, SceneProject
     }
 }
 
+void editor::Properties::drawAnimatorControllerComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
+    AnimatorControllerComponent* animator = nullptr;
+    if (!entities.empty())
+        animator = sceneProject->scene->findComponent<AnimatorControllerComponent>(entities[0]);
+
+    RowSettings settingsWide;
+    settingsWide.secondColSize = -1;
+
+    if (entities.size() == 1){
+        if (ImGui::Button(ICON_FA_PERSON " Open Animator", ImVec2(-1, 0))){
+            if (AnimatorWindow* animatorWindow = Backend::getApp().getAnimatorWindow()){
+                animatorWindow->openForEntity(entities[0], sceneProject->id);
+            }
+        }
+    }
+
+    beginTable(cpType, getLabelSize("Controller Asset"));
+    propertyRow(RowPropertyType::Bool, cpType, "enabled", "Enabled", sceneProject, entities);
+    propertyRow(RowPropertyType::String, cpType, "controllerAsset", "Controller Asset", sceneProject, entities, settingsWide);
+    endTable();
+
+    if (!animator)
+        return;
+
+    // The graph itself is authored in the Animator window; the inspector keeps
+    // the read-out of what is playing and the raw parameter table.
+    ImGui::SeparatorText("State Machine");
+    ImGui::TextDisabled("%d states, %d transitions, %d parameters",
+        (int)animator->states.size(), (int)animator->transitions.size(), (int)animator->parameters.size());
+
+    static const char* parameterTypeNames[] = {"Float", "Int", "Bool", "Trigger"};
+    if (!animator->parameters.empty()){
+        RowSettings settingsFloat;
+        settingsFloat.secondColSize = 6 * ImGui::GetFontSize();
+
+        ImGui::SeparatorText("Parameters");
+        beginTable(cpType, getLabelSize("Default Value"), "animator_parameters");
+        for (size_t i = 0; i < animator->parameters.size(); i++){
+            const std::string prefix = "parameters[" + std::to_string(i) + "]";
+            std::string label = animator->parameters[i].name.empty()
+                ? "Parameter " + std::to_string(i + 1) : animator->parameters[i].name;
+            label += std::string(" (") + parameterTypeNames[std::min((int)animator->parameters[i].type, 3)] + ")";
+
+            if (animator->parameters[i].type == AnimatorParameter::Type::Bool ||
+                animator->parameters[i].type == AnimatorParameter::Type::Trigger){
+                propertyRow(RowPropertyType::Bool, cpType, prefix + ".boolValue", label, sceneProject, entities, settingsFloat);
+            }else{
+                propertyRow(RowPropertyType::Float, cpType, prefix + ".defaultValue", label, sceneProject, entities, settingsFloat);
+            }
+        }
+        endTable();
+    }
+}
+
 void editor::Properties::drawTerrainComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
     TerrainComponent& terrain = sceneProject->scene->getComponent<TerrainComponent>(entities[0]);
 
@@ -8619,7 +8887,51 @@ void editor::Properties::drawFogComponent(ComponentType cpType, SceneProject* sc
     settingsDensity.stepSize = 0.001f;
     settingsDensity.format = "%.4f";
 
-    beginTable(cpType, getLabelSize("Linear Start"));
+    RowSettings settingsAmount = settingsFloat;
+    settingsAmount.stepSize = 0.01f;
+    settingsAmount.format = "%.3f";
+
+    RowSettings settingsHeightFog;
+    settingsHeightFog.help = "Height fog and light shafts run as one fullscreen pass over the lit scene, not per material, so they reach everything the camera sees - the horizon included. Both cost a full-screen pass plus a depth pre-pass, so leave them off if the classic fog is enough.";
+
+    RowSettings settingsFalloff = settingsFloat;
+    settingsFalloff.help = "Scale height in metres: air density falls to 1/e for every this many metres of altitude above Ground Y.";
+
+    RowSettings settingsGround = settingsFloat;
+    settingsGround.help = "World Y the fog is measured from - usually the ground plane, so the haze pools low and thins out as you look up.";
+
+    RowSettings settingsSun = settingsFloat;
+    settingsSun.help = "How much of the in-scatter is lit by the sun instead of the flat fog colour. Higher makes the air glow toward the light.";
+
+    RowSettings settingsRange = settingsFloat;
+    settingsRange.help = "Distance where the aerial perspective stops deepening. Set it near the camera far clip for open outdoor scenes.";
+
+    RowSettings settingsScatter = settingsFloat;
+    settingsScatter.stepSize = 0.05f;
+    settingsScatter.format = "%.2f";
+    settingsScatter.help = "Scattering lobe: 0 scatters evenly, near 1 scatters almost only forward, which is what makes looking toward the sun wash the whole frame out.";
+
+    RowSettings settingsIntensity = settingsFloat;
+    settingsIntensity.stepSize = 0.05f;
+    settingsIntensity.help = "Brightness of the shafts added over the scene.";
+
+    RowSettings settingsThreshold = settingsFloat;
+    settingsThreshold.stepSize = 0.05f;
+    settingsThreshold.help = "Bright-pass cut in linear HDR. 1.0 sits where the sky starts, so lower also pulls bright clouds or lamps into the shafts.";
+
+    RowSettings settingsSoftness = settingsFloat;
+    settingsSoftness.help = "Metres of depth an occluder's edge feathers over. Small gives hard beams, large gives a soft haze.";
+
+    RowSettings settingsDecay = settingsFloat;
+    settingsDecay.stepSize = 0.001f;
+    settingsDecay.format = "%.4f";
+    settingsDecay.help = "Extinction per march step toward the sun. Lower makes the shafts fade out sooner from their own light.";
+
+    RowSettings settingsRayDensity = settingsFloat;
+    settingsRayDensity.stepSize = 0.05f;
+    settingsRayDensity.help = "Fraction of the pixel-to-sun ray that is marched. Lower shortens the beams; it does not change the cost.";
+
+    beginTable(cpType, getLabelSize("Light Shafts"));
     propertyRow(RowPropertyType::Enum, cpType, "type", "Type", sceneProject, entities, settingsFogType);
     propertyRow(RowPropertyType::Color3L, cpType, "color", "Color", sceneProject, entities);
     if (fog.type == FogType::LINEAR) {
@@ -8627,6 +8939,85 @@ void editor::Properties::drawFogComponent(ComponentType cpType, SceneProject* sc
         propertyRow(RowPropertyType::Float, cpType, "linearEnd", "Linear End", sceneProject, entities, settingsFloat);
     } else {
         propertyRow(RowPropertyType::Float, cpType, "density", "Density", sceneProject, entities, settingsDensity);
+    }
+
+    propertyRow(RowPropertyType::Bool, cpType, "heightFog", "Height Fog", sceneProject, entities, settingsHeightFog);
+    if (fog.heightFog) {
+        propertyRow(RowPropertyType::FloatPositive, cpType, "fogHeightFalloff", "Falloff", sceneProject, entities, settingsFalloff);
+        propertyRow(RowPropertyType::Float, cpType, "fogGroundHeight", "Ground Y", sceneProject, entities, settingsGround);
+        // same density the per-pixel fog uses: it is the per-metre extinction in both, and
+        // only the height profile and the integral along the ray differ
+        propertyRow(RowPropertyType::FloatPositive, cpType, "fogFarRange", "Far Range", sceneProject, entities, settingsRange);
+        propertyRow(RowPropertyType::Float, cpType, "fogScatteringG", "Scatter G", sceneProject, entities, settingsScatter);
+        propertyRow(RowPropertyType::Float, cpType, "fogSunAmount", "Sun Amount", sceneProject, entities, settingsSun);
+        propertyRow(RowPropertyType::Color3L, cpType, "fogSunColor", "Sun Color", sceneProject, entities);
+        RowSettings noiseSettings;
+        noiseSettings.help = "Adds animated world-space density variation to the height fog. Keep the strength subtle for natural aerial perspective.";
+        propertyRow(RowPropertyType::Bool, cpType, "fogNoiseEnabled", "Heterogeneous Fog", sceneProject, entities, noiseSettings);
+        if (fog.fogNoiseEnabled) {
+            RowSettings noiseScale = settingsFloat;
+            noiseScale.stepSize = 0.0005f;
+            noiseScale.format = "%.4f";
+            noiseScale.help = "World-space scale of the fog density noise.";
+            RowSettings noiseStrength = settingsAmount;
+            noiseStrength.help = "Variation around the analytic height-fog density.";
+            propertyRow(RowPropertyType::FloatPositive, cpType, "fogNoiseScale", "Noise Scale", sceneProject, entities, noiseScale);
+            propertyRow(RowPropertyType::FloatPositive, cpType, "fogNoiseStrength", "Noise Strength", sceneProject, entities, noiseStrength);
+            propertyRow(RowPropertyType::Float, cpType, "fogNoiseSpeed", "Wind Speed", sceneProject, entities);
+            propertyRow(RowPropertyType::Vector2, cpType, "fogNoiseWind", "Wind XZ", sceneProject, entities);
+        }
+    }
+
+    RowSettings volumetricSettings;
+    volumetricSettings.help = "Ray-marches the height fog through the camera ray with temporal jitter. It captures near-ground density and in-scattering better than the analytic integral, at the cost of the configured number of samples.";
+    propertyRow(RowPropertyType::Bool, cpType, "volumetricFog", "Volumetric Fog", sceneProject, entities, volumetricSettings);
+    if (fog.volumetricFog) {
+        RowSettings volumetricSteps;
+        volumetricSteps.help = "Quality/cost of the aerial-perspective ray march. Values are clamped by the renderer to 4-64 samples.";
+        propertyRow(RowPropertyType::UInt, cpType, "volumetricFogSteps", "Ray Steps", sceneProject, entities, volumetricSteps);
+        RowSettings volumetricIntensity = settingsAmount;
+        volumetricIntensity.help = "Scattering multiplier for the volumetric result; keep near 1 for a physically balanced response.";
+        propertyRow(RowPropertyType::FloatPositive, cpType, "volumetricFogIntensity", "Scattering", sceneProject, entities, volumetricIntensity);
+    }
+
+    propertyRow(RowPropertyType::Bool, cpType, "godRays", "Light Shafts", sceneProject, entities, settingsHeightFog);
+    if (fog.godRays) {
+        propertyRow(RowPropertyType::Float, cpType, "rayIntensity", "Intensity", sceneProject, entities, settingsIntensity);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "rayThreshold", "Threshold", sceneProject, entities, settingsThreshold);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "raySoftness", "Softness", sceneProject, entities, settingsSoftness);
+        propertyRow(RowPropertyType::Float, cpType, "rayDecay", "Decay", sceneProject, entities, settingsDecay);
+        propertyRow(RowPropertyType::Float, cpType, "rayDensity", "Ray Density", sceneProject, entities, settingsRayDensity);
+    }
+
+    RowSettings settingsCloud;
+    settingsCloud.help = "Procedural volumetric-style clouds are ray-marched in the atmosphere pass and lit by the strongest directional light. They are designed for large outdoor skies; increase quality through resolution and density before pushing coverage to 1.";
+    propertyRow(RowPropertyType::Bool, cpType, "cloudsEnabled", "Volumetric Clouds", sceneProject, entities, settingsCloud);
+    if (fog.cloudsEnabled) {
+        RowSettings cloudHeight = settingsFloat;
+        cloudHeight.help = "World Y where the cloud layer starts.";
+        RowSettings cloudThickness = settingsFloat;
+        cloudThickness.help = "Vertical thickness of the cloud volume in world metres.";
+        RowSettings cloudCoverage = settingsAmount;
+        cloudCoverage.help = "Noise threshold: higher values produce fewer, more broken clouds.";
+        RowSettings cloudDensity = settingsAmount;
+        cloudDensity.help = "Optical density of the volume. Higher values create darker, more opaque clouds.";
+        RowSettings cloudScale = settingsFloat;
+        cloudScale.stepSize = 0.0005f;
+        cloudScale.format = "%.4f";
+        cloudScale.help = "World-space noise scale. Smaller values create larger cloud formations.";
+        RowSettings cloudSpeed = settingsFloat;
+        cloudSpeed.help = "Animation speed applied to the world-space wind vector.";
+        RowSettings cloudSun = settingsAmount;
+        cloudSun.help = "Strength of direct sun illumination inside the cloud volume.";
+        propertyRow(RowPropertyType::Float, cpType, "cloudBaseHeight", "Base Height", sceneProject, entities, cloudHeight);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "cloudThickness", "Thickness", sceneProject, entities, cloudThickness);
+        propertyRow(RowPropertyType::Float, cpType, "cloudCoverage", "Coverage", sceneProject, entities, cloudCoverage);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "cloudDensity", "Density", sceneProject, entities, cloudDensity);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "cloudScale", "Noise Scale", sceneProject, entities, cloudScale);
+        propertyRow(RowPropertyType::Float, cpType, "cloudSpeed", "Wind Speed", sceneProject, entities, cloudSpeed);
+        propertyRow(RowPropertyType::Vector2, cpType, "cloudWind", "Wind XZ", sceneProject, entities);
+        propertyRow(RowPropertyType::Float, cpType, "cloudSunAmount", "Sun Amount", sceneProject, entities, cloudSun);
+        propertyRow(RowPropertyType::Color3L, cpType, "cloudColor", "Cloud Color", sceneProject, entities);
     }
     endTable();
 }
@@ -8705,6 +9096,22 @@ void editor::Properties::drawReflectionProbeComponent(ComponentType cpType, Scen
     }
 }
 
+void editor::Properties::drawDecalComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
+    RowSettings fadeSettings;
+    fadeSettings.stepSize = 0.01f;
+    fadeSettings.format = "%.3f";
+    fadeSettings.help = "Softens the projected box edges to avoid a hard rectangular cutout.";
+
+    beginTable(cpType, getLabelSize("Depth Fade"), "decal_component");
+    propertyRow(RowPropertyType::Bool, cpType, "enabled", "Enabled", sceneProject, entities);
+    propertyRow(RowPropertyType::Color3L, cpType, "color", "Color", sceneProject, entities);
+    propertyRow(RowPropertyType::Vector3, cpType, "size", "Projection Size", sceneProject, entities);
+    propertyRow(RowPropertyType::Float_0_1, cpType, "opacity", "Opacity", sceneProject, entities);
+    propertyRow(RowPropertyType::FloatPositive, cpType, "depthFade", "Depth Fade", sceneProject, entities, fadeSettings);
+    propertyRow(RowPropertyType::Texture, cpType, "texture", "Albedo Texture", sceneProject, entities);
+    endTable();
+}
+
 void editor::Properties::drawWaterComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
     WaterComponent& water = sceneProject->scene->getComponent<WaterComponent>(entities[0]);
 
@@ -8734,7 +9141,7 @@ void editor::Properties::drawWaterComponent(ComponentType cpType, SceneProject* 
     endTable();
 
     ImGui::SeparatorText("Waves");
-    beginTable(cpType, getLabelSize("Steepness"), "water_waves");
+    beginTable(cpType, getLabelSize("Wind Influence"), "water_waves");
     RowSettings heightSettings = floatSettings;
     heightSettings.stepSize = 0.01f;
     heightSettings.help = "How far the crests rise above the water level.";
@@ -8747,11 +9154,20 @@ void editor::Properties::drawWaterComponent(ComponentType cpType, SceneProject* 
     RowSettings steepnessSettings = floatSettings;
     steepnessSettings.stepSize = 0.01f;
     steepnessSettings.help = "0 gives round waves, 1 sharp crests. Lowered where the waves would fold over.";
+    RowSettings influenceSettings = floatSettings;
+    influenceSettings.stepSize = 0.01f;
+    influenceSettings.help = "How much of this sea the scene's wind raises. 0 keeps the five numbers above\nexactly as authored. It does nothing while Project Settings has the wind off.";
+    RowSettings fetchSettings = floatSettings;
+    fetchSettings.help = "Metres of open water the wind blows over before it reaches this one, which is what\nsays how big a sea a breeze can raise. 0 uses the water's own extent along the wind,\nso a canal ripples and an ocean swells with the same weather.";
     propertyRow(RowPropertyType::FloatPositive, cpType, "waveHeight", "Height", sceneProject, entities, heightSettings);
     propertyRow(RowPropertyType::FloatPositive, cpType, "waveLength", "Length", sceneProject, entities, lengthSettings);
     propertyRow(RowPropertyType::Float, cpType, "waveSpeed", "Speed", sceneProject, entities, floatSettings);
     propertyRow(RowPropertyType::Float, cpType, "waveDirection", "Direction", sceneProject, entities, directionSettings);
     propertyRow(RowPropertyType::Float_0_1, cpType, "waveSteepness", "Steepness", sceneProject, entities, steepnessSettings);
+    propertyRow(RowPropertyType::Float_0_1, cpType, "windInfluence", "Wind Influence", sceneProject, entities, influenceSettings);
+    if (water.windInfluence > 0.0f){
+        propertyRow(RowPropertyType::FloatPositive, cpType, "fetch", "Fetch", sceneProject, entities, fetchSettings);
+    }
     endTable();
 
     ImGui::SeparatorText("Ripples");
@@ -8843,6 +9259,50 @@ void editor::Properties::drawWaterComponent(ComponentType cpType, SceneProject* 
         propertyRow(RowPropertyType::FloatPositive, cpType, "buoyancyDepth", "Depth", sceneProject, entities, buoyancyDepthSettings);
     }
     endTable();
+
+    ImGui::SeparatorText("Simulation");
+    beginTable(cpType, getLabelSize("Resolution"), "water_simulation");
+    RowSettings simulateSettings;
+    simulateSettings.help = "Holds a depth of water per cell instead of one level plane: it runs downhill, fills the low spots, is raised by Rain and dried by Evaporation. The surface is fetched from the field in the vertex shader.";
+    RowSettings simResolutionSettings;
+    simResolutionSettings.sliderValues = &waterSimResolutionValues;
+    simResolutionSettings.help = "Cells along each side of the field. The CPU steps it every fixed update, so this is the cost knob.";
+    RowSettings simDepthSettings = floatSettings;
+    simDepthSettings.help = "Metres of water standing over the ground at the start. 0 starts dry, so only Rain fills it.";
+    RowSettings simFlowSettings = unitSettings;
+    simFlowSettings.help = "How fast the volume moves through the cell walls. 0 is still water.";
+    RowSettings simRainSettings = floatSettings;
+    simRainSettings.help = "Metres of water added over the area each second. 0 stops the rain.";
+    RowSettings simEvaporationSettings = floatSettings;
+    simEvaporationSettings.help = "Metres taken back each second, so a puddle the rain left dries out.";
+    RowSettings simDrySettings = floatSettings;
+    simDrySettings.help = "Under this depth the cell holds no water: no surface to draw and nothing to float on.";
+    RowSettings simEdgeSettings;
+    simEdgeSettings.help = "Water reaching the border leaves the field. Off, the rect is a basin that keeps everything.";
+    RowSettings simRippleSettings;
+    simRippleSettings.help = "Rain drops and impacts disturb the surface, and the surface rings back out over the field.";
+    propertyRow(RowPropertyType::Bool, cpType, "simulate", "Simulate", sceneProject, entities, simulateSettings);
+    if (water.simulate){
+        propertyRow(RowPropertyType::UIntSlider, cpType, "simResolution", "Resolution", sceneProject, entities, simResolutionSettings);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "simDepth", "Start Depth", sceneProject, entities, simDepthSettings);
+        propertyRow(RowPropertyType::Float_0_1, cpType, "simFlow", "Flow", sceneProject, entities, simFlowSettings);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "simRain", "Rain", sceneProject, entities, simRainSettings);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "simEvaporation", "Evaporation", sceneProject, entities, simEvaporationSettings);
+        propertyRow(RowPropertyType::FloatPositive, cpType, "simDryDepth", "Dry Depth", sceneProject, entities, simDrySettings);
+        propertyRow(RowPropertyType::Bool, cpType, "simEdgeDrain", "Edge Drain", sceneProject, entities, simEdgeSettings);
+        propertyRow(RowPropertyType::Bool, cpType, "simRipples", "Ripples", sceneProject, entities, simRippleSettings);
+        if (water.simRipples){
+            propertyRow(RowPropertyType::FloatPositive, cpType, "simRippleSpeed", "Ripple Speed", sceneProject, entities);
+            propertyRow(RowPropertyType::FloatPositive, cpType, "simRippleDamping", "Ripple Damping", sceneProject, entities);
+            propertyRow(RowPropertyType::FloatPositive, cpType, "simRippleStrength", "Ripple Strength", sceneProject, entities);
+        }
+
+        if (entities.size() == 1){
+            const double litres = sceneProject->scene->getSystem<WaterSystem>()->getVolume(entities[0]);
+            ImGui::TextDisabled("%.0f L standing in the field", litres);
+        }
+    }
+    endTable();
 }
 
 void editor::Properties::drawWaterExclusionComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities){
@@ -8906,13 +9366,14 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
     if (ImGui::BeginPopup("script_add_menu")) {
         bool addLua = ImGui::MenuItem("Lua Script");
         bool addCpp = ImGui::MenuItem("C++ Script");
-        if (addLua || addCpp) {
+        bool addGraph = ImGui::MenuItem("Graph Script");
+        if (addLua || addCpp || addGraph) {
             MultiPropertyCmd* multiCmd = new MultiPropertyCmd();
             for (const Entity& entity : entities) {
                 ScriptComponent& sc = sceneProject->scene->getComponent<ScriptComponent>(entity);
                 std::vector<ScriptEntry> newScripts = sc.scripts;
                 ScriptEntry entry;
-                entry.type = addLua ? ScriptType::LUA : ScriptType::CPP;
+                entry.type = addLua ? ScriptType::LUA : (addCpp ? ScriptType::CPP : ScriptType::GRAPH);
                 entry.enabled = true;
                 newScripts.push_back(entry);
                 multiCmd->addPropertyCmd<std::vector<ScriptEntry>>(project, sceneProject->id, entity, ComponentType::ScriptComponent, "scripts", newScripts);
@@ -8946,6 +9407,8 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
             typeLabel = " [C++]";
         } else if (script.type == ScriptType::LUA) {
             typeLabel = " [Lua]";
+        } else if (script.type == ScriptType::GRAPH) {
+            typeLabel = " [Graph]";
         }
 
         const float indentation = 10.0f;
@@ -8959,7 +9422,8 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, Theme::Colors::NestedHeaderActive);
 
         // Add icon to distinguish from component headers
-        std::string headerText = ICON_FA_FILE_CODE " " + scriptLabel + typeLabel;
+        const char* scriptIcon = script.type == ScriptType::GRAPH ? ICON_FA_DIAGRAM_PROJECT : ICON_FA_FILE_CODE;
+        std::string headerText = std::string(scriptIcon) + " " + scriptLabel + typeLabel;
 
         // AllowOverlap so the trailing trash button can receive clicks
         bool headerOpen = ImGui::CollapsingHeader(
@@ -9148,7 +9612,7 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
                 float btnSpacing = ImGui::GetStyle().ItemSpacing.x;
 
                 // Header Path
-                if (script.type != ScriptType::LUA) {
+                if (script.type == ScriptType::CPP) {
                     propertyHeader("Header File", secondColSize);
                     ImGui::SetNextItemWidth(secondColSize - openBtnWidth - clearBtnWidth - btnSpacing * 2.0f);
 
@@ -9200,7 +9664,7 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
                 }
 
                 // Source Path
-                propertyHeader("Source File", secondColSize);
+                propertyHeader(script.type == ScriptType::GRAPH ? "Graph File" : "Source File", secondColSize);
                 ImGui::SetNextItemWidth(secondColSize - openBtnWidth - clearBtnWidth - btnSpacing * 2.0f);
 
                 ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
@@ -9213,30 +9677,41 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
                 ImGui::SameLine();
                 if (ImGui::Button(ICON_FA_FOLDER_OPEN "##source_btn")) {
                     const fs::path sourceRoot = script.type == ScriptType::LUA
-                        ? project->getLuaPath() : projectPath;
+                        ? project->getLuaPath()
+                        : (script.type == ScriptType::GRAPH ? project->getAssetsPath() : projectPath);
                     fs::path startDirectory = sourceRoot;
                     if (!script.path.empty()) {
                         fs::path fullSrcPath = script.type == ScriptType::LUA
-                            ? project->resolveLuaPath(script.path) : projectPath / fs::path(script.path);
+                            ? project->resolveLuaPath(script.path)
+                            : (script.type == ScriptType::GRAPH
+                                ? project->getAssetsPath() / fs::path(script.path)
+                                : projectPath / fs::path(script.path));
                         startDirectory = fullSrcPath.parent_path();
                     }
                     std::string selected = FileDialogs::openFileDialog(
-                        startDirectory.string(), FILE_DIALOG_SCRIPT);
+                        startDirectory.string(),
+                        script.type == ScriptType::GRAPH ? FILE_DIALOG_ALL : FILE_DIALOG_SCRIPT);
                     if (!selected.empty()) {
                         std::filesystem::path p(selected);
                         const bool validType = script.type == ScriptType::LUA
                             ? Util::isLuaFile(p.string())
-                            : Util::isSourceFile(p.string());
+                            : (script.type == ScriptType::GRAPH
+                                ? Util::isGraphDataFile(p.string())
+                                : Util::isSourceFile(p.string()));
                         if (!validType) {
                             Backend::getApp().registerAlert("Error", script.type == ScriptType::LUA
                                 ? "Select a Lua script file."
-                                : "Select a C++ source file.");
+                                : (script.type == ScriptType::GRAPH
+                                    ? "Select a compiled graph (.gdat) file."
+                                    : "Select a C++ source file."));
                         } else {
                             // Lua sources are stored relative to the Lua root ("lua://")
                             if (!Util::isInsidePath(p, sourceRoot)) {
                                 Backend::getApp().registerAlert("Error", script.type == ScriptType::LUA
                                     ? "File must be inside the Lua directory."
-                                    : "File must be inside project directory.");
+                                    : (script.type == ScriptType::GRAPH
+                                        ? "File must be inside the assets directory."
+                                        : "File must be inside project directory."));
                             } else {
                                 std::error_code ec;
                                 std::filesystem::path rel = std::filesystem::relative(p, sourceRoot, ec);
@@ -9299,6 +9774,10 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
                                 }
                             }
 
+                            if (newScripts[scriptIdx].type == ScriptType::GRAPH) {
+                                GraphScriptProperties::refresh(newScripts[scriptIdx], *project);
+                            }
+
                             const ScriptEntry& updated = newScripts[scriptIdx];
                             bool hasAnyPath = !updated.path.empty() || !updated.headerPath.empty();
                             if (hasAnyPath) {
@@ -9321,39 +9800,53 @@ void editor::Properties::drawScriptComponent(ComponentType cpType, SceneProject*
 
             // Resolve header path (if present)
             std::filesystem::path projectPath = project->getProjectPath();
-            std::filesystem::path hdrPath = script.headerPath;
-            bool hasHeader = !script.headerPath.empty();
-            if (hasHeader) {
-                if (hdrPath.is_relative()) hdrPath = projectPath / hdrPath;
-            }
-            bool hdrExists = hasHeader && std::filesystem::exists(hdrPath);
-            ImGui::BeginDisabled(!hdrExists);
-            if (ImGui::Button((ICON_FA_FILE_LINES "##open_hdr_" + std::to_string(scriptIdx)).c_str())) {
-                Backend::getApp().getCodeEditor()->openFile(hdrPath.string(), true);
-            }
-            if (ImGui::IsItemHovered()) {
-                if (hdrExists){
-                    ImGui::SetTooltip("Header: %s", script.headerPath.c_str());
-                } else if (hasHeader) {
-                    ImGui::SetTooltip("Header file not found");
-                }
-            }
-            ImGui::EndDisabled();
 
-            ImGui::SameLine();
+            if (script.type == ScriptType::CPP) {
+                std::filesystem::path hdrPath = script.headerPath;
+                bool hasHeader = !script.headerPath.empty();
+                if (hasHeader) {
+                    if (hdrPath.is_relative()) hdrPath = projectPath / hdrPath;
+                }
+                bool hdrExists = hasHeader && std::filesystem::exists(hdrPath);
+                ImGui::BeginDisabled(!hdrExists);
+                if (ImGui::Button((ICON_FA_FILE_LINES "##open_hdr_" + std::to_string(scriptIdx)).c_str())) {
+                    Backend::getApp().getCodeEditor()->openFile(hdrPath.string(), true);
+                }
+                if (ImGui::IsItemHovered()) {
+                    if (hdrExists){
+                        ImGui::SetTooltip("Header: %s", script.headerPath.c_str());
+                    } else if (hasHeader) {
+                        ImGui::SetTooltip("Header file not found");
+                    }
+                }
+                ImGui::EndDisabled();
+
+                ImGui::SameLine();
+            }
 
             // Resolve source path: Lua sources are stored relative to the Lua root
+            // and graph sources relative to the assets root; C++ uses the project root.
             std::filesystem::path srcPath = script.type == ScriptType::LUA
-                ? project->resolveLuaPath(script.path) : std::filesystem::path(script.path);
+                ? project->resolveLuaPath(script.path)
+                : (script.type == ScriptType::GRAPH
+                    ? project->getAssetsPath() / std::filesystem::path(script.path)
+                    : std::filesystem::path(script.path));
             if (srcPath.is_relative()) srcPath = projectPath / srcPath;
             bool srcExists = !script.path.empty() && std::filesystem::exists(srcPath);
             ImGui::BeginDisabled(!srcExists);
-            if (ImGui::Button((ICON_FA_FILE_CODE "##open_src_" + std::to_string(scriptIdx)).c_str())) {
-                Backend::getApp().getCodeEditor()->openFile(srcPath.string(), true);
+            const char* sourceIcon = script.type == ScriptType::GRAPH ? ICON_FA_DIAGRAM_PROJECT : ICON_FA_FILE_CODE;
+            if (ImGui::Button((std::string(sourceIcon) + "##open_src_" + std::to_string(scriptIdx)).c_str())) {
+                if (script.type == ScriptType::GRAPH) {
+                    if (GraphEditorWindow* graphEditor = getGraphEditorWindow())
+                        graphEditor->openFile(srcPath);
+                } else {
+                    Backend::getApp().getCodeEditor()->openFile(srcPath.string(), true);
+                }
             }
             if (ImGui::IsItemHovered()) {
                 if (srcExists){
-                    ImGui::SetTooltip("Source: %s", script.path.c_str());
+                    ImGui::SetTooltip("%s: %s", script.type == ScriptType::GRAPH ? "Graph" : "Source",
+                                      script.path.c_str());
                 } else if (!script.path.empty()) {
                     ImGui::SetTooltip("Source file not found");
                 }
@@ -9640,11 +10133,73 @@ void editor::Properties::drawParticlesComponent(ComponentType cpType, SceneProje
     RowSettings settingsInt;
     settingsInt.secondColSize = 6 * ImGui::GetFontSize();
 
+    // Keep particle authoring discoverable: the actual preview is the regular
+    // ActionSystem preview, so it snapshots/restores the same entity graph as
+    // the Action inspector instead of maintaining a second particle simulator.
+    if (entities.size() == 1) {
+        Scene* previewScene = sceneProject->scene;
+        Entity previewEntity = entities[0];
+        ActionComponent* previewAction = previewScene ? previewScene->findComponent<ActionComponent>(previewEntity) : nullptr;
+        bool previewSceneStopped = sceneProject->playState == ScenePlayState::STOPPED;
+        bool previewIsThisParticle = actionPreviewing && actionPreviewEntity == previewEntity &&
+                                     actionPreviewSceneId == sceneProject->id;
+
+        ImGui::SeparatorText("Particle Preview");
+        if (!previewAction) {
+            ImGui::TextDisabled("Add an Action component to preview this emitter.");
+        } else {
+            ImGui::BeginDisabled(!previewSceneStopped);
+            ImGui::PushID("particle_preview_controls");
+
+            if (previewIsThisParticle && actionPreviewPlaying) {
+                if (ImGui::Button(ICON_FA_PAUSE "##pause")) {
+                    if (previewAction->state == ActionState::Running) {
+                        Action(previewScene, previewEntity).pause();
+                    }
+                    actionPreviewPlaying = false;
+                }
+            } else {
+                if (ImGui::Button(ICON_FA_PLAY "##play")) {
+                    if (!previewIsThisParticle) {
+                        startActionPreview(previewEntity, previewScene, sceneProject);
+                        previewAction = previewScene->findComponent<ActionComponent>(previewEntity);
+                    }
+                    if (previewAction) {
+                        if (previewAction->state == ActionState::Stopped) {
+                            Action(previewScene, previewEntity).start();
+                        }
+                        actionPreviewPlaying = true;
+                    }
+                }
+            }
+
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!previewIsThisParticle);
+            if (ImGui::Button(ICON_FA_STOP "##stop")) {
+                stopActionPreview(previewScene, sceneProject);
+                previewAction = previewScene->findComponent<ActionComponent>(previewEntity);
+            }
+            ImGui::EndDisabled();
+
+            ImGui::SameLine();
+            float previewTime = previewAction ? previewAction->timecount : 0.0f;
+            float previewDuration = previewScene->getSystem<ActionSystem>()->getDuration(previewEntity);
+            ImGui::AlignTextToFramePadding();
+            ImGui::Text("%.2fs / %.2fs", previewTime, previewDuration);
+            ImGui::SameLine();
+            ImGui::TextDisabled("Timeline is available in Action");
+
+            ImGui::PopID();
+            ImGui::EndDisabled();
+        }
+    }
+
     beginTable(cpType, getLabelSize("Max Per Update"));
     propertyRow(RowPropertyType::UInt, cpType, "maxParticles", "Max Particles", sceneProject, entities, settingsInt);
     propertyRow(RowPropertyType::Bool, cpType, "emitter", "Emitter", sceneProject, entities);
     propertyRow(RowPropertyType::Bool, cpType, "loop", "Loop", sceneProject, entities);
     propertyRow(RowPropertyType::Bool, cpType, "localSpace", "Local Space", sceneProject, entities);
+    propertyRow(RowPropertyType::Bool, cpType, "gpuSimulation", "GPU Simulation", sceneProject, entities);
     propertyRow(RowPropertyType::Int, cpType, "rate", "Rate", sceneProject, entities, settingsInt);
     propertyRow(RowPropertyType::Int, cpType, "maxPerUpdate", "Max Per Update", sceneProject, entities, settingsInt);
     endTable();
@@ -13763,6 +14318,20 @@ void editor::Properties::drawContent(){
 
         ImGui::BeginDisabled(isRuntimeSelection);
         if (ImGui::Button(ICON_FA_SQUARE_PLUS " New component", ImVec2(buttonWidth, 0))) {
+            componentAddDialog.setReadyMadeComponents(
+                libraryComponentCategories(),
+                [this, sceneProject, entities](const std::string& name) {
+                    attachLibraryComponent(project, sceneProject, entities, name);
+                },
+                [sceneProject, entities](const std::string& name) {
+                    for (const Entity& entity : entities) {
+                        if (runsLibraryComponent(sceneProject->scene, entity, name)) {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            );
             componentAddDialog.open(
                 [this, sceneProject, entities](ComponentType cpType) {
                     // Add component to all selected entities
@@ -13975,6 +14544,8 @@ void editor::Properties::drawContent(){
                     drawTilemapComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::TerrainComponent){
                     drawTerrainComponent(cpType, sceneProject, entities);
+                }else if (cpType == ComponentType::AnimatorControllerComponent){
+                    drawAnimatorControllerComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::LightComponent){
                     drawLightComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::Light2DComponent){
@@ -13987,6 +14558,8 @@ void editor::Properties::drawContent(){
                     drawMirrorComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::ReflectionProbeComponent){
                     drawReflectionProbeComponent(cpType, sceneProject, entities);
+                }else if (cpType == ComponentType::DecalComponent){
+                    drawDecalComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::CameraComponent){
                     drawCameraComponent(cpType, sceneProject, entities);
                 }else if (cpType == ComponentType::SoundComponent){
@@ -14121,7 +14694,7 @@ void editor::Properties::drawContent(){
                 }
             }
 
-            LightState currentLightState = doriax::editor::Catalog::getSceneProperty<LightState>(sceneProject->scene, "light_state");
+            LightState currentLightState = quantum::editor::Catalog::getSceneProperty<LightState>(sceneProject->scene, "light_state");
             if (currentLightState != LightState::OFF) {
                 ImGui::SeparatorText("Global Illumination");
 
@@ -14160,7 +14733,7 @@ void editor::Properties::drawContent(){
 
                     drawScenePropertyRow<bool>(sceneProject, "mesh_lod_enabled", "Enabled", ScenePropertyInputType::Checkbox, -1.0f, 0.0f, 1.0f,
                         "Draw simplified versions of meshes when their detail no longer shows on screen. Off: every mesh draws at full detail and no levels are built.");
-                    if (doriax::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "mesh_lod_enabled")) {
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "mesh_lod_enabled")) {
                         drawScenePropertyRow<float>(sceneProject, "mesh_lod_threshold", "Threshold", ScenePropertyInputType::SliderFloat, -1.0f, 0.25f, 8.0f,
                             "Screen pixels of geometric error a simplified mesh may show. Lower keeps more detail.");
                     }
@@ -14180,6 +14753,19 @@ void editor::Properties::drawContent(){
                     ImGui::EndTable();
                 }
 
+                ImGui::SeparatorText("Render Distance");
+
+                if (ImGui::BeginTable("scene_render_distance_settings_table", 2, tableFlags)) {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, getLabelSize("Distance"));
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    drawScenePropertyRow<float>(sceneProject, "render_distance", "Distance", ScenePropertyInputType::DragFloat, -1.0f, 0.0f, 0.0f,
+                        "How far the scene is drawn, in metres; 0 removes the limit. It caps the camera far plane, so geometry past it is culled instead of shaded, shadows are packed into the range that shows, and terrain ranges and foliage stop generating further out. Depth precision also goes to what is visible.\n"
+                        "Applies to perspective cameras; 2D and UI cameras keep their own clips.");
+
+                    ImGui::EndTable();
+                }
+
                 ImGui::SeparatorText("Ambient Occlusion (SSAO)");
 
                 if (ImGui::BeginTable("scene_ssao_settings_table", 2, tableFlags)) {
@@ -14188,11 +14774,63 @@ void editor::Properties::drawContent(){
 
                     drawScenePropertyRow<bool>(sceneProject, "ssao_enabled", "Enabled", ScenePropertyInputType::Checkbox);
 
-                    if (doriax::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "ssao_enabled")) {
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "ssao_enabled")) {
                         drawScenePropertyRow<float>(sceneProject, "ssao_radius", "Radius", ScenePropertyInputType::SliderFloat, -1.0f, 0.05f, 2.0f);
                         drawScenePropertyRow<float>(sceneProject, "ssao_intensity", "Intensity", ScenePropertyInputType::SliderFloat, -1.0f, 0.1f, 4.0f);
                         drawScenePropertyRow<float>(sceneProject, "ssao_bias", "Bias", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 0.1f);
                         drawScenePropertyRow<bool>(sceneProject, "ssao_debug", "Debug View", ScenePropertyInputType::Checkbox);
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::SeparatorText("Contact Shadows");
+
+                if (ImGui::BeginTable("scene_contact_shadow_settings_table", 2, tableFlags)) {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, getLabelSize("Intensity"));
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    drawScenePropertyRow<bool>(sceneProject, "contact_shadows_enabled", "Enabled", ScenePropertyInputType::Checkbox);
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "contact_shadows_enabled")) {
+                        drawScenePropertyRow<float>(sceneProject, "contact_shadow_length", "Length", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 8.0f);
+                        drawScenePropertyRow<int>(sceneProject, "contact_shadow_steps", "Steps", ScenePropertyInputType::DragInt, -1.0f, 4.0f, 64.0f);
+                        drawScenePropertyRow<float>(sceneProject, "contact_shadow_thickness", "Thickness", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 1.0f);
+                        drawScenePropertyRow<float>(sceneProject, "contact_shadow_intensity", "Intensity", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 1.0f);
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::SeparatorText("Screen-Space Global Illumination (SSGI)");
+
+                if (ImGui::BeginTable("scene_ssgi_settings_table", 2, tableFlags)) {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, getLabelSize("Intensity"));
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    drawScenePropertyRow<bool>(sceneProject, "ssgi_enabled", "Enabled", ScenePropertyInputType::Checkbox);
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "ssgi_enabled")) {
+                        drawScenePropertyRow<float>(sceneProject, "ssgi_radius", "Radius", ScenePropertyInputType::SliderFloat, -1.0f, 0.1f, 32.0f);
+                        drawScenePropertyRow<float>(sceneProject, "ssgi_intensity", "Intensity", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 4.0f);
+                        drawScenePropertyRow<int>(sceneProject, "ssgi_steps", "Steps", ScenePropertyInputType::DragInt, -1.0f, 4.0f, 32.0f);
+                        drawScenePropertyRow<float>(sceneProject, "ssgi_thickness", "Thickness", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 4.0f);
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::SeparatorText("Depth of Field (DOF)");
+
+                if (ImGui::BeginTable("scene_dof_settings_table", 2, tableFlags)) {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, getLabelSize("Focus Distance"));
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    drawScenePropertyRow<bool>(sceneProject, "dof_enabled", "Enabled", ScenePropertyInputType::Checkbox);
+
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "dof_enabled")) {
+                        drawScenePropertyRow<float>(sceneProject, "dof_focus_distance", "Focus Distance", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 100.0f);
+                        drawScenePropertyRow<float>(sceneProject, "dof_aperture", "Aperture", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 16.0f);
+                        drawScenePropertyRow<float>(sceneProject, "dof_focus_range", "Focus Range", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 50.0f);
+                        drawScenePropertyRow<float>(sceneProject, "dof_max_blur", "Max Blur", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 0.25f);
                     }
 
                     ImGui::EndTable();
@@ -14206,7 +14844,7 @@ void editor::Properties::drawContent(){
 
                     drawScenePropertyRow<bool>(sceneProject, "ssr_enabled", "Enabled", ScenePropertyInputType::Checkbox);
 
-                    if (doriax::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "ssr_enabled")) {
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "ssr_enabled")) {
                         drawScenePropertyRow<float>(sceneProject, "ssr_max_distance", "Max Distance", ScenePropertyInputType::SliderFloat, -1.0f, 1.0f, 50.0f);
                         drawScenePropertyRow<float>(sceneProject, "ssr_thickness", "Thickness", ScenePropertyInputType::SliderFloat, -1.0f, 0.05f, 4.0f);
                         drawScenePropertyRow<float>(sceneProject, "ssr_intensity", "Intensity", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 2.0f);
@@ -14215,8 +14853,8 @@ void editor::Properties::drawContent(){
                         // Debug View: visualize the SSR G-buffer channels (centralized in the composite)
                         {
                             const char* ssrDebugNames[] = { "Off", "Reflection", "Normal", "Roughness", "Metallic", "Albedo", "IBL Specular" };
-                            int debugMode = doriax::editor::Catalog::getSceneProperty<int>(sceneProject->scene, "ssr_debug_mode");
-                            int debugModeDefault = doriax::editor::Catalog::getScenePropertyDefault<int>("ssr_debug_mode");
+                            int debugMode = quantum::editor::Catalog::getSceneProperty<int>(sceneProject->scene, "ssr_debug_mode");
+                            int debugModeDefault = quantum::editor::Catalog::getScenePropertyDefault<int>("ssr_debug_mode");
                             ImGui::TableNextRow();
                             ImGui::TableSetColumnIndex(0);
                             ImGui::Text("Debug View");
@@ -14264,6 +14902,34 @@ void editor::Properties::drawContent(){
 
                     ImGui::EndTable();
                 }
+
+                ImGui::SeparatorText("Wind");
+
+                if (ImGui::BeginTable("scene_wind_table", 2, tableFlags)) {
+                    ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthFixed, getLabelSize("Direction"));
+                    ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    drawScenePropertyRow<bool>(sceneProject, "wind_enabled", "Enabled", ScenePropertyInputType::Checkbox, -1.0f, 0.0f, 1.0f,
+                        "Moves the air over the whole world. Off, every water keeps the waves\n"
+                        "it was authored with.");
+
+                    if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "wind_enabled")) {
+                        drawScenePropertyRow<float>(sceneProject, "wind_speed", "Speed", ScenePropertyInputType::DragFloat, 6 * ImGui::GetFontSize(), 0.0f, 60.0f,
+                            "Mean wind in metres per second. It sets how big and how fast the\n"
+                            "waves grow: 5 lifts a ripple, 15 a chop, 30 a sea.");
+                        drawScenePropertyRow<float>(sceneProject, "wind_direction", "Direction", ScenePropertyInputType::DragFloat, 6 * ImGui::GetFontSize(), 0.0f, 360.0f,
+                            "Angle around Y the wind blows toward. 0 is +X, the same convention\n"
+                            "and the same unit as the wave direction of a Water.");
+                        drawScenePropertyRow<float>(sceneProject, "wind_gustiness", "Gustiness", ScenePropertyInputType::SliderFloat, -1.0f, 0.0f, 1.0f,
+                            "0 = steady air. 1 = gusts take the speed from calm to double,\n"
+                            "crossing the water instead of blinking on it.");
+                        drawScenePropertyRow<float>(sceneProject, "wind_change", "Change", ScenePropertyInputType::DragFloat, 6 * ImGui::GetFontSize(), 0.0f, 4.0f,
+                            "How fast the gust pattern renews, in cycles per second. Low = long\n"
+                            "sweeps of wind, high = a choppy, shifty day.");
+                    }
+
+                    ImGui::EndTable();
+                }
             }
 
             ImGui::SeparatorText("Fixed Resolution");
@@ -14278,7 +14944,7 @@ void editor::Properties::drawContent(){
                     "scenes stay at native resolution on top. Letterbox/crop still follows the\n"
                     "project canvas and scaling mode.");
 
-                if (doriax::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "fixed_resolution_enabled")) {
+                if (quantum::editor::Catalog::getSceneProperty<bool>(sceneProject->scene, "fixed_resolution_enabled")) {
                     drawScenePropertyRow<int>(sceneProject, "fixed_resolution_width", "Width", ScenePropertyInputType::DragInt, 6 * ImGui::GetFontSize(), 1.0f, 8192.0f);
                     drawScenePropertyRow<int>(sceneProject, "fixed_resolution_height", "Height", ScenePropertyInputType::DragInt, 6 * ImGui::GetFontSize(), 1.0f, 8192.0f);
                     drawScenePropertyRow<TextureFilter>(sceneProject, "fixed_resolution_filter", "Filter", ScenePropertyInputType::Combo, 7 * ImGui::GetFontSize(), 0.0f, 1.0f,

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef CollideShapeResult3D_H
@@ -9,9 +9,9 @@
 
 #include "Jolt/Physics/Body/Body.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API CollideShapeResult3D{
+    class QUANTUM_API CollideShapeResult3D{
     private:
         Scene* scene;
         const JPH::Body* body1;

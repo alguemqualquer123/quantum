@@ -1,15 +1,16 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <string>
 #include <vector>
 #include "ai/AiTypes.h"
 #include "yaml-cpp/yaml.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 struct PanelVisibilitySettings {
     bool structure = true;
@@ -21,6 +22,12 @@ struct PanelVisibilitySettings {
     bool aiChat = true;
     bool notifications = true;
     bool resourceMonitor = false;
+    bool graphEditor = false;
+    bool terminal = false;
+    bool materialBrowser = false;
+    bool modelExport = false;
+    bool pluginBrowser = false;
+    bool worldCreator = false;
 
     bool operator==(const PanelVisibilitySettings& other) const {
         return structure == other.structure
@@ -31,8 +38,13 @@ struct PanelVisibilitySettings {
             && terrain == other.terrain
             && aiChat == other.aiChat
             && notifications == other.notifications
-            && resourceMonitor == other.resourceMonitor;
-    }
+            && resourceMonitor == other.resourceMonitor
+            && graphEditor == other.graphEditor
+            && terminal == other.terminal
+            && materialBrowser == other.materialBrowser
+            && modelExport == other.modelExport
+            && pluginBrowser == other.pluginBrowser
+            && worldCreator == other.worldCreator;    }
 
     bool operator!=(const PanelVisibilitySettings& other) const {
         return !(*this == other);
@@ -40,7 +52,7 @@ struct PanelVisibilitySettings {
 };
 
 // Compiler paths and job count are machine-specific, so they live in the project's
-// own .doriax/user/build.yaml rather than in project.yaml, and travel with the
+// own .quantum/user/build.yaml rather than in project.yaml, and travel with the
 // project when it moves.
 struct LocalBuildSettings {
     std::string cCompiler;
@@ -73,6 +85,10 @@ private:
     // stored editor-wide like emsdkPath.
     static std::string cmakePath;
     static std::filesystem::path defaultExportDirectory;
+
+    // Shell the Terminal panel keeps alive ("" = the platform default). Which shell a
+    // machine has is machine-specific, so it is editor-wide like cmakePath.
+    static std::string terminalShell;
     
     // Window settings. The size is physical pixels, only meaningful again at the
     // scale it was captured at; 0 marks a file from before that was tracked.
@@ -98,16 +114,42 @@ private:
     static bool multiViewportEnabled;
     static bool editorVSyncEnabled;
     static float uiScale;
+    // How far the scene viewport draws while editing; 0 follows the scene's own render
+    // distance. Editor-only, so it never reaches the scene file or a build.
+    static float viewportRenderDistance;
     static PanelVisibilitySettings panelVisibility;
 
-    // Theme preset (0=dark, 1=light) and the accent color as "#RRGGBB" (or
+    // Theme preset (0=gray, 1=light, 2=dark) and the accent color as "#RRGGBB" (or
     // "#RRGGBBAA"). Empty accent keeps whatever Theme's preset already picked.
     static int themePreset;
     static std::string accentColor;
 
+    // Extension of the marker file Explorer binds a project to ("" = ".dproj"). The
+    // association is per-user and machine-wide in effect, so it belongs to the editor
+    // rather than to one project.
+    static std::string projectFileExtension;
+
+    // Remapped keyboard shortcuts: KeyBindings id -> chord text ("Ctrl+Shift+S"). An
+    // empty value means the user unbound that command; a missing key means its default.
+    // Which keys a hand wants is a habit, not a property of a project, so it is stored
+    // editor-wide like the theme.
+    static std::map<std::string, std::string> shortcutOverrides;
+
+    // Plugin windows the user left open, by registry id rather than by title: two plugins may name a
+    // window the same and the id is what PluginRegistry keys on. Which plugins are even installed
+    // changes between runs, so an id here that nothing registers is kept rather than dropped - a
+    // project's own plugins only load on the next editor start.
+    static std::vector<std::string> openPluginWindows;
+
     // AI assistant settings (API keys are intentionally not stored here)
     static ai::Settings aiSettings;
     static ai::McpSettings mcpSettings;
+
+    // A marker survives an abnormal termination. The next boot can avoid
+    // restoring the project and dock layout that were active when the process
+    // died, without deleting either user's file.
+    static bool previousSessionUnclean;
+    static bool sessionMarkerWritten;
 
     // Private methods
     static void ensureConfigDirectory();
@@ -121,6 +163,9 @@ public:
 
     // Initialization
     static bool initialize();
+    static bool wasPreviousSessionUnclean();
+    static bool beginSession();
+    static void endSession();
 
     // Directory where editor config files live (settings.yaml, layout ini, ...)
     static std::filesystem::path getConfigDirectory();
@@ -146,6 +191,16 @@ public:
     // cmake executable override ("" = look it up on PATH)
     static std::string getCMakePath();
     static void setCMakePath(const std::string& path);
+
+    // Shell for the Terminal panel ("" = platform default); persist on set.
+    static std::string getTerminalShell();
+    static void setTerminalShell(const std::string& shell);
+
+    // Project marker extension ("" = the default). Always read through
+    // ProjectFile::normalizeExtension, which turns "" into the default form.
+    static std::string getProjectFileExtension();
+    static void setProjectFileExtension(const std::string& extension);
+
     static std::filesystem::path getDefaultExportDirectory();
     static void setDefaultExportDirectory(const std::filesystem::path& path);
     
@@ -194,15 +249,30 @@ public:
     static float getUiScale();
     static void setUiScale(float scale);
 
+    // Render-distance cap of the scene viewport while editing (0 = follow the scene). Play
+    // mode ignores it: what you tune is the editor's view, not what the game ships.
+    static float getViewportRenderDistance();
+    static void setViewportRenderDistance(float metres);
+
     // Panels toggled from the View menu
     static PanelVisibilitySettings getPanelVisibility();
     static void setPanelVisibility(const PanelVisibilitySettings& visibility);
+
+    // Plugin windows left open, by registry id. Persist on set, like the panels above.
+    static std::vector<std::string> getOpenPluginWindows();
+    static void setOpenPluginWindows(const std::vector<std::string>& windowIds);
 
     // Theme preset (0=dark, 1=light) and accent color ("#RRGGBB"); persist on set.
     static int getThemePreset();
     static void setThemePreset(int preset);
     static std::string getAccentColor();
     static void setAccentColor(const std::string& color);
+
+    // Keyboard shortcuts (empty chord text = deliberately unbound)
+    static std::map<std::string, std::string> getShortcutOverrides();
+    static void setShortcutOverride(const std::string& id, const std::string& chords);
+    static void removeShortcutOverride(const std::string& id);
+    static void clearShortcutOverrides();
 
     // AI assistant settings
     static ai::Settings getAiSettings();
@@ -215,4 +285,4 @@ public:
     static bool saveSettings();
 };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

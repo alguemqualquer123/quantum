@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 #include "Engine.h"
 #include "texture/Texture.h"
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
 class TextureSlicerToolDialog {
@@ -96,4 +96,4 @@ public:
 };
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef Label_h
@@ -9,13 +9,13 @@
 #include "Export.h"
 #include "ui/core/VisualElement.h"
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     class FontAtlas;
 
     // Single-line text element. Multiline, wrapping and rich text arrive with
     // the text layout phase.
-    class DORIAX_API Label : public VisualElement {
+    class QUANTUM_API Label : public VisualElement {
     public:
         Label();
         explicit Label(std::string text);

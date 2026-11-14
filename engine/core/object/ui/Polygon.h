@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef POLYGON_H
@@ -6,8 +6,8 @@
 
 #include "UILayout.h"
 
-namespace doriax{
-    class DORIAX_API Polygon: public UILayout{
+namespace quantum{
+    class QUANTUM_API Polygon: public UILayout{
 
     public:
         Polygon(Scene* scene);

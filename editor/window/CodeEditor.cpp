@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CodeEditor.h"
@@ -21,7 +21,7 @@
 #include <cstring>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -247,7 +247,7 @@ std::string parameterList(const std::string& line, size_t paren) {
     return "";
 }
 
-// First base of "class BoxScript : public doriax::Mesh {" -> "Mesh"
+// First base of "class BoxScript : public quantum::Mesh {" -> "Mesh"
 std::string parseBaseClass(const std::string& line, size_t colon) {
     if (colon >= line.size() || line[colon] != ':') return "";
 
@@ -359,9 +359,9 @@ void parseCppSymbols(const std::string& content, std::unordered_set<std::string>
             if (pos == std::string::npos) continue;
 
             // An export macro can precede the name, so it is the last word before the
-            // base list: "class DORIAX_API Mesh : public Object"
+            // base list: "class QUANTUM_API Mesh : public Object"
             size_t bodyStart = line.find_first_of(":{;", pos + std::strlen(keyword));
-            // "friend class doriax::Scene;" qualifies the name, it opens no base list
+            // "friend class quantum::Scene;" qualifies the name, it opens no base list
             while (bodyStart != std::string::npos && line.compare(bodyStart, 2, "::") == 0) {
                 bodyStart = line.find_first_of(":{;", bodyStart + 2);
             }
@@ -463,7 +463,7 @@ void collectProjectSources(const fs::path& projectPath, const std::unordered_set
          it != end && !ec; it.increment(ec)) {
         const fs::directory_entry& entry = *it;
 
-        // '.doriax' holds the engine copy and the generated resources, 'build' the artifacts
+        // '.quantum' holds the engine copy and the generated resources, 'build' the artifacts
         const std::string filename = entry.path().filename().string();
         if (filename.rfind('.', 0) == 0 || filename == "build") {
             if (entry.is_directory(ec)) it.disable_recursion_pending();
@@ -1274,7 +1274,7 @@ void editor::CodeEditor::insertCppEntityProperty(EditorInstance& instance, Entit
         varName = baseName + std::to_string(suffix++);
     }
 
-    std::string typeDecl = isSubclassType ? entityType : ("doriax::" + entityType);
+    std::string typeDecl = isSubclassType ? entityType : ("quantum::" + entityType);
     std::string propCode =
         "\n"
         "    DPROPERTY(\"" + toDisplayName(varName) + "\")\n"
@@ -1496,6 +1496,28 @@ bool editor::CodeEditor::canUndoLastFocused() const {
 
 bool editor::CodeEditor::canRedoLastFocused() const {
     return lastFocused && lastFocused->editor && lastFocused->editor->CanRedo();
+}
+
+void editor::CodeEditor::toggleCommentLastFocused() {
+    if (!lastFocused || !lastFocused->editor) return;
+    lastFocused->editor->ToggleComment();
+    lastFocused->isModified = lastFocused->editor->GetUndoIndex() != lastFocused->savedUndoIndex;
+}
+
+void editor::CodeEditor::toggleBlockCommentLastFocused() {
+    if (!lastFocused || !lastFocused->editor) return;
+    lastFocused->editor->ToggleBlockComment();
+    lastFocused->isModified = lastFocused->editor->GetUndoIndex() != lastFocused->savedUndoIndex;
+}
+
+void editor::CodeEditor::formatDocumentLastFocused() {
+    if (!lastFocused || !lastFocused->editor) return;
+    lastFocused->editor->FormatDocument();
+    lastFocused->isModified = lastFocused->editor->GetUndoIndex() != lastFocused->savedUndoIndex;
+}
+
+bool editor::CodeEditor::canEditLastFocused() const {
+    return lastFocused && lastFocused->editor && !lastFocused->editor->IsReadOnly();
 }
 
 bool editor::CodeEditor::hasUnsavedChanges() const {

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PROGRESSBAR_COMPONENT_H
@@ -6,14 +6,14 @@
 
 #include "ecs/Entity.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class ProgressbarType{
         VERTICAL,
         HORIZONTAL
     };
 
-    struct DORIAX_API ProgressbarComponent{
+    struct QUANTUM_API ProgressbarComponent{
         Entity fill = NULL_ENTITY;
         ProgressbarType type = ProgressbarType::HORIZONTAL;
 

@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "InterleavedBuffer.h"
 #include "Log.h"
 #include <cstdlib>
 
-using namespace doriax;
+using namespace quantum;
 
 InterleavedBuffer::InterleavedBuffer(): Buffer(){
     vectorBuffer.clear();

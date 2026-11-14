@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef Sound_h
@@ -8,9 +8,9 @@
 #include "Object.h"
 #include "component/SoundComponent.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Sound: public EntityHandle{
+    class QUANTUM_API Sound: public EntityHandle{
     public:
         Sound(Scene* scene);
         Sound(Scene* scene, bool is3D);
@@ -76,6 +76,14 @@ namespace doriax {
 
         void setDopplerFactor(float dopplerFactor);
         float getDopplerFactor() const;
+
+        void setOcclusionEnabled(bool enabled);
+        bool isOcclusionEnabled() const;
+        void setOcclusionVolume(float volume);
+        float getOcclusionVolume() const;
+        void setOcclusionUpdateInterval(float seconds);
+        float getOcclusionUpdateInterval() const;
+        float getOcclusionGain() const;
     };
 
 }

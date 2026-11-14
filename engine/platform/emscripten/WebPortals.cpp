@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-// DoriaxWeb's WebPortal backends, each adapting the engine calls to its portal's SDK
+// QuantumWeb's WebPortal backends, each adapting the engine calls to its portal's SDK
 
-#include "DoriaxWeb.h"
+#include "QuantumWeb.h"
 
 #include <emscripten/emscripten.h>
 #include <stdlib.h>
@@ -13,7 +13,7 @@
 #include "service/WebPortal.h"
 #include "subsystem/AudioSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     // The game stays paused while one of its ads plays or the portal asks for it
@@ -541,20 +541,20 @@ extern "C" {
     }
 }
 
-WebPortalBackend* DoriaxWeb::getWebPortalBackend(){
-#if defined(DORIAX_WEB_PORTAL_CRAZYGAMES)
+WebPortalBackend* QuantumWeb::getWebPortalBackend(){
+#if defined(QUANTUM_WEB_PORTAL_CRAZYGAMES)
     static CrazyGamesPortal portal;
     return &portal;
-#elif defined(DORIAX_WEB_PORTAL_POKI)
+#elif defined(QUANTUM_WEB_PORTAL_POKI)
     static PokiPortal portal;
     return &portal;
-#elif defined(DORIAX_WEB_PORTAL_GAMEDISTRIBUTION)
-    static GameDistributionPortal portal(DORIAX_WEB_PORTAL_GAME_ID);
+#elif defined(QUANTUM_WEB_PORTAL_GAMEDISTRIBUTION)
+    static GameDistributionPortal portal(QUANTUM_WEB_PORTAL_GAME_ID);
     return &portal;
-#elif defined(DORIAX_WEB_PORTAL_YANDEX)
+#elif defined(QUANTUM_WEB_PORTAL_YANDEX)
     static YandexPortal portal;
     return &portal;
-#elif defined(DORIAX_WEB_PORTAL_YOUTUBE)
+#elif defined(QUANTUM_WEB_PORTAL_YOUTUBE)
     static YouTubePortal portal;
     return &portal;
 #else

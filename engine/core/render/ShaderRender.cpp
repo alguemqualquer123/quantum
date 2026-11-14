@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderRender.h"
@@ -6,7 +6,7 @@
 #include "SystemRender.h"
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ShaderRender::ShaderRender(){ }
 

@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SpriteAnimation.h"
 
-using namespace doriax;
+using namespace quantum;
 
 SpriteAnimation::SpriteAnimation(Scene* scene): Action(scene){
     addComponent<SpriteAnimationComponent>();

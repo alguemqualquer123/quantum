@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ConversationStore.h"
@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 namespace {
 
@@ -254,4 +254,4 @@ void ConversationStore::remove(const std::string& id) {
     fs::remove(conversationsDir() / (id + ".meta"), ec);
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

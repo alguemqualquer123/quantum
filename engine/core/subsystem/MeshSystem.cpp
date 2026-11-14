@@ -1,7 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MeshSystem.h"
+#include "../../voxel/Mesher.h"
+#include "../../voxel/World.h"
 
 #include "Scene.h"
 #include "Engine.h"
@@ -37,7 +39,7 @@
 #include "stb_image_resize2.h"
 #include "pool/ObjModelData.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     thread_local int g_imageDecodeMaxDimension = 0;
@@ -286,6 +288,15 @@ void MeshSystem::applySubmeshOverride(const Submesh& saved, Submesh& submesh) {
         material.normalTexture = savedMaterial.normalTexture;
         material.normalTexCoord = savedMaterial.normalTexCoord;
     }
+    if (fields & SubmeshOverride_HeightTexture) {
+        material.heightTexture = savedMaterial.heightTexture;
+        material.heightTexCoord = savedMaterial.heightTexCoord;
+    }
+    // The parallax tuning travels with the map it tunes, so a model reload that brings
+    // its own height map leaves the field counts at the shader's defaults.
+    if (fields & SubmeshOverride_HeightScale)     material.heightScale     = savedMaterial.heightScale;
+    if (fields & SubmeshOverride_HeightMinLayers) material.heightMinLayers = savedMaterial.heightMinLayers;
+    if (fields & SubmeshOverride_HeightMaxLayers) material.heightMaxLayers = savedMaterial.heightMaxLayers;
 
     if (fields & SubmeshOverride_FaceCulling)   submesh.faceCulling   = saved.faceCulling;
     if (fields & SubmeshOverride_TextureShadow) submesh.textureShadow = saved.textureShadow;
@@ -3005,15 +3016,30 @@ bool MeshSystem::raycastTerrainSurface(const Ray& ray, TerrainComponent& terrain
     return true;
 }
 
+// The heightmap texels an area reads, with the one-texel margin a border vertex picks up
+// through bilinear filtering. Shared by the range sample and the partial walk, so the two
+// can never disagree about which texels a node owns.
+static bool terrainAreaTexelBounds(const TerrainComponent& terrain, float x, float z, float w, float h, int mapWidth, int mapHeight, int& firstX, int& lastX, int& firstZ, int& lastZ){
+    if (w <= 0 || h <= 0 || terrain.terrainSize <= std::numeric_limits<float>::epsilon()){
+        return false;
+    }
+
+    auto texelIndex = [&](float pos, int margin, int size){
+        return std::clamp(static_cast<int>(std::floor(size * pos / terrain.terrainSize)) + margin, 0, size - 1);
+    };
+
+    firstX = texelIndex(x, -1, mapWidth);
+    lastX = texelIndex(x + w, 1, mapWidth);
+    firstZ = texelIndex(z, -1, mapHeight);
+    lastZ = texelIndex(z + h, 1, mapHeight);
+    return true;
+}
+
 // Height range of an area of the heightmap, sampling every texel the vertex shader can
 // read in it: a range shorter than the geometry makes node culling drop visible nodes.
 void MeshSystem::getTerrainHeightRangeArea(TerrainComponent& terrain, float x, float z, float w, float h, float& minHeight, float& maxHeight){
     minHeight = 0.0f;
     maxHeight = 0.0f;
-
-    if (w <= 0 || h <= 0 || terrain.terrainSize <= std::numeric_limits<float>::epsilon()){
-        return;
-    }
 
     // The heightmap may be empty, a framebuffer, or present-but-unloaded (a missing
     // or corrupt file leaves a null data pointer with needLoad already cleared).
@@ -3033,38 +3059,112 @@ void MeshSystem::getTerrainHeightRangeArea(TerrainComponent& terrain, float x, f
         return;
     }
 
-    auto sampleHeight = [&](int sampleX, int sampleZ){
-        const size_t texelIndex = static_cast<size_t>(sampleZ) * static_cast<size_t>(width) + static_cast<size_t>(sampleX);
-        const size_t index = texelIndex * static_cast<size_t>(channels) * static_cast<size_t>(bytesPerChannel);
-        if (bytesPerChannel >= 2){
-            // 16-bit little-endian (native unsigned short) heightmap sample
-            const unsigned int value = static_cast<unsigned int>(pixels[index]) |
-                                       (static_cast<unsigned int>(pixels[index + 1]) << 8);
-            return terrain.maxHeight * static_cast<float>(value) / 65535.0f;
-        }
-        return terrain.maxHeight * pixels[index] / 255.0f;
-    };
-
-    // one texel of margin covers the bilinear filter of the vertices on the area border
-    auto texelIndex = [&](float pos, int margin, int size){
-        return std::clamp(static_cast<int>(std::floor(size * pos / terrain.terrainSize)) + margin, 0, size - 1);
-    };
-
-    const int firstX = texelIndex(x, -1, width);
-    const int lastX = texelIndex(x + w, 1, width);
-    const int firstZ = texelIndex(z, -1, height);
-    const int lastZ = texelIndex(z + h, 1, height);
+    int firstX, lastX, firstZ, lastZ;
+    if (!terrainAreaTexelBounds(terrain, x, z, w, h, width, height, firstX, lastX, firstZ, lastZ)){
+        return;
+    }
 
     minHeight = std::numeric_limits<float>::max();
     maxHeight = std::numeric_limits<float>::lowest();
 
     for (int j = firstZ; j <= lastZ; j++){
         for (int i = firstX; i <= lastX; i++){
-            const float sampledHeight = sampleHeight(i, j);
+            const size_t texelIndex = static_cast<size_t>(j) * static_cast<size_t>(width) + static_cast<size_t>(i);
+            const size_t index = texelIndex * static_cast<size_t>(channels) * static_cast<size_t>(bytesPerChannel);
+            const float sampledHeight = bytesPerChannel >= 2
+                // 16-bit little-endian (native unsigned short) heightmap sample
+                ? terrain.maxHeight * static_cast<float>(static_cast<unsigned int>(pixels[index]) | (static_cast<unsigned int>(pixels[index + 1]) << 8)) / 65535.0f
+                : terrain.maxHeight * pixels[index] / 255.0f;
             minHeight = std::min(minHeight, sampledHeight);
             maxHeight = std::max(maxHeight, sampledHeight);
         }
     }
+}
+
+// Recompute only the node ranges that read a texel the brush touched, then re-derive every
+// ancestor from its children. createTerrain's walk reads every texel of a map that can be
+// 4096 wide, which is what makes the editor stop responding on each sculpt click.
+// Returns false when there is no tree to patch, leaving the caller to do a full rebuild.
+bool MeshSystem::updateTerrainNodeRanges(TerrainComponent& terrain){
+    terrain.needUpdateRanges = false;
+
+    if (!terrain.heightMapLoaded || terrain.numNodes == 0){
+        return false;
+    }
+
+    if (terrain.heightMap.empty() || terrain.heightMap.isFramebuffer() || !terrain.heightMap.hasData()){
+        return false;
+    }
+
+    TextureData& textureData = terrain.heightMap.getData();
+    const int width = textureData.getWidth();
+    const int height = textureData.getHeight();
+
+    if (width <= 0 || height <= 0){
+        return false;
+    }
+
+    const int firstX = std::clamp(terrain.dirtyHeightMap.minX, 0, width - 1);
+    const int lastX = std::clamp(terrain.dirtyHeightMap.maxX, 0, width - 1);
+    const int firstZ = std::clamp(terrain.dirtyHeightMap.minY, 0, height - 1);
+    const int lastZ = std::clamp(terrain.dirtyHeightMap.maxY, 0, height - 1);
+
+    if (firstX > lastX || firstZ > lastZ){
+        return true;
+    }
+
+    const float halfMapSize = terrain.terrainSize / 2;
+    for (int i = 0; i < terrain.rootGridSize * terrain.rootGridSize; i++){
+        updateTerrainNodeRangesArea(terrain, terrain.grid[i], halfMapSize, width, height, firstX, firstZ, lastX, lastZ);
+    }
+
+    return true;
+}
+
+// Walk one node of the built tree. Returns whether its range moved, so the parent above it
+// knows whether it has to re-derive its own.
+bool MeshSystem::updateTerrainNodeRangesArea(TerrainComponent& terrain, size_t nodeIndex, float halfMapSize, int width, int height, int firstX, int firstZ, int lastX, int lastZ){
+    TerrainNode& node = terrain.nodes[nodeIndex];
+
+    const float halfSize = node.size / 2;
+    const float relativeX = node.position.x - halfSize + halfMapSize;
+    const float relativeZ = node.position.y - halfSize + halfMapSize;
+
+    int nodeFirstX, nodeLastX, nodeFirstZ, nodeLastZ;
+    if (!terrainAreaTexelBounds(terrain, relativeX, relativeZ, node.size, node.size, width, height, nodeFirstX, nodeLastX, nodeFirstZ, nodeLastZ)){
+        return false;
+    }
+    if (nodeFirstX > lastX || nodeLastX < firstX || nodeFirstZ > lastZ || nodeLastZ < firstZ){
+        return false;
+    }
+
+    if (!node.hasChilds){
+        const float oldMin = node.minHeight;
+        const float oldMax = node.maxHeight;
+        getTerrainHeightRangeArea(terrain, relativeX, relativeZ, node.size, node.size, node.minHeight, node.maxHeight);
+        return oldMin != node.minHeight || oldMax != node.maxHeight;
+    }
+
+    bool changed = false;
+    for (int c = 0; c < 4; c++){
+        changed = updateTerrainNodeRangesArea(terrain, node.childs[c], halfMapSize, width, height, firstX, firstZ, lastX, lastZ) || changed;
+    }
+
+    if (!changed){
+        return false;
+    }
+
+    float minHeight = std::numeric_limits<float>::max();
+    float maxHeight = std::numeric_limits<float>::lowest();
+    for (int c = 0; c < 4; c++){
+        const TerrainNode& child = terrain.nodes[node.childs[c]];
+        minHeight = std::min(minHeight, child.minHeight);
+        maxHeight = std::max(maxHeight, child.maxHeight);
+    }
+
+    node.minHeight = minHeight;
+    node.maxHeight = maxHeight;
+    return true;
 }
 
 void MeshSystem::createTerrainNode(TerrainComponent& terrain, float x, float y, float size, int lodDepth){
@@ -3134,6 +3234,7 @@ void MeshSystem::resetTerrainToUnbuilt(TerrainComponent& terrain, MeshComponent&
         mesh.needReload = true;
     }
     terrain.needUpdateTerrain = false;
+    terrain.needUpdateRanges = false;
 }
 
 bool MeshSystem::createTerrain(TerrainComponent& terrain, MeshComponent& mesh){
@@ -3237,8 +3338,7 @@ static const unsigned int TERRAIN_FOLIAGE_MAX_CHUNK_INSTANCES = 8192;
 // Share of the draw distance that stays full size; the rest shrinks out.
 static const float TERRAIN_FOLIAGE_FADE_START = 0.75f;
 
-bool MeshSystem::setFoliagePreviewEntity(Entity entity){
-    if (foliagePreviewEntity == entity){
+bool MeshSystem::setFoliagePreviewEntity(Entity entity){    if (foliagePreviewEntity == entity){
         return false;
     }
 
@@ -3258,6 +3358,13 @@ bool MeshSystem::hasPendingFoliageUpdates() const{
 }
 
 // A zero-density cell must attempt no placements.
+namespace {
+    // How much of a frame foliage may spend building chunk meshes, re-armed by MeshSystem::update.
+    // A count is the wrong unit: a grass tuft is 129 thousand triangles and two of them landing in
+    // one frame measured a 222 ms hitch, while a 12-triangle cube loads hundreds for nothing.
+    std::chrono::steady_clock::time_point foliageLoadDeadline{};
+}
+
 static unsigned int foliageCellAttempts(const TerrainFoliageLayer& layer){
     const float estimate = layer.density * TERRAIN_FOLIAGE_CELL_SIZE * TERRAIN_FOLIAGE_CELL_SIZE;
     return static_cast<unsigned int>(std::ceil(std::clamp(estimate, 0.0f, static_cast<float>(TERRAIN_FOLIAGE_MAX_CHUNK_INSTANCES))));
@@ -3555,12 +3662,17 @@ void MeshSystem::appendFoliageCell(TerrainComponent& terrain, TerrainFoliageLaye
     }
 }
 
-void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLayer& layer, TerrainFoliageInstances& instances, const Vector3& viewLocal, bool preview){
+void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLayer& layer, TerrainFoliageInstances& instances, const Vector3& viewLocal, bool preview, int layerIndex){
     const unsigned int attempts = std::max(1u, foliageCellAttempts(layer));
     const int placementRadius = std::max(1, static_cast<int>(std::ceil(terrain.terrainSize * 0.5f / TERRAIN_FOLIAGE_CELL_SIZE)));
     const int maxBatchSide = static_cast<int>(std::sqrt(TERRAIN_FOLIAGE_MAX_CHUNK_INSTANCES / attempts));
     const int previewRadius = (placementRadius + maxBatchSide - 1) / maxBatchSide;
-    const float drawDistance = std::max(0.0f, layer.drawDistance);
+    const float drawDistanceRaw = std::max(0.0f, layer.drawDistance);
+    // The scene render distance only ever tightens a layer: nothing has to be generated past
+    // the far plane the camera is capped to, and generating less is what the setting is for.
+    const float sceneRenderDistance = preview ? 0.0f : scene->getEffectiveRenderDistance();
+    const float drawDistance = (sceneRenderDistance > 0.0f && drawDistanceRaw > 0.0f) ?
+        std::min(drawDistanceRaw, sceneRenderDistance) : drawDistanceRaw;
     const int batchSide = preview ? (placementRadius + previewRadius - 1) / previewRadius :
         static_cast<int>(std::clamp(std::ceil(drawDistance / (TERRAIN_FOLIAGE_CELL_SIZE * TERRAIN_FOLIAGE_TARGET_BATCH_RADIUS)), 1.0f, static_cast<float>(maxBatchSide)));
     const float chunkSize = TERRAIN_FOLIAGE_CELL_SIZE * batchSide;
@@ -3584,14 +3696,13 @@ void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLay
     const float fadeStart = fadeEnd * TERRAIN_FOLIAGE_FADE_START;
     instances.pending = false;
 
-    const size_t chunkCount = static_cast<size_t>(columns) * rows;
-    if (instances.chunks.size() != chunkCount){
-        while (instances.chunks.size() > chunkCount){
-            destroyFoliageEntity(instances.chunks.back());
-            instances.chunks.pop_back();
-        }
-        instances.chunks.resize(chunkCount);
-        instances.needUpdate = true;
+    // The pool covers the widest window the ring can take (2 * terrainRadius per axis) and only
+    // grows. Resizing it to the live window remapped every slot whenever the camera neared a
+    // terrain edge, which re-scattered all chunks and destroyed/created entities mid-orbit.
+    instances.poolSide = std::max(instances.poolSide, 2 * terrainRadius);
+    const size_t poolCount = static_cast<size_t>(instances.poolSide) * instances.poolSide;
+    if (instances.chunks.size() < poolCount){
+        instances.chunks.resize(poolCount);
     }
 
     // Reuse meshes when resizing render batches.
@@ -3622,21 +3733,51 @@ void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLay
     }
 
     // Layer-wide invalidation only: a single slot going stale clears its own assigned flag.
-    const bool refillAll = instances.needUpdate || terrain.needUpdateFoliage;
+    bool refillAll = instances.needUpdate || terrain.needUpdateFoliage;
     instances.needUpdate = false;
 
+    // A density paint touched a rect of one layer's map, and cells outside it place exactly
+    // the instances they placed before, so chunks that miss the rect keep what they hold.
+    // sampleFoliageDensity maps a local position x to density texel floor((x + S/2) / S * W),
+    // and appendFoliageCell puts cell c on local x in [c * CELL, (c + 1) * CELL), so painted
+    // texels [min..max] span cells floor((min * S/W - S/2) / CELL) through
+    // floor(((max + 1) * S/W - S/2) / CELL): the second form is one cell generous when the
+    // rect edge lands on a cell boundary, and double math keeps that boundary call exact.
+    bool useDirtyCells = false;
+    int dirtyMinCellX = 0, dirtyMaxCellX = 0, dirtyMinCellZ = 0, dirtyMaxCellZ = 0;
+    if (!refillAll && terrain.foliageDirtyLayer == layerIndex && !terrain.dirtyFoliageDensity.empty()){
+        TextureData& densityData = layer.densityMap.getData();
+        const int mapWidth = densityData.getWidth();
+        const int mapHeight = densityData.getHeight();
+        const double size = terrain.terrainSize;
+        if (mapWidth > 0 && mapHeight > 0 && size > std::numeric_limits<float>::epsilon()){
+            const double half = size * 0.5;
+            const double cell = TERRAIN_FOLIAGE_CELL_SIZE;
+            const TerrainMapRegion& texels = terrain.dirtyFoliageDensity;
+            dirtyMinCellX = static_cast<int>(std::floor((static_cast<double>(texels.minX) * size / mapWidth - half) / cell));
+            dirtyMaxCellX = static_cast<int>(std::floor((static_cast<double>(texels.maxX + 1) * size / mapWidth - half) / cell));
+            dirtyMinCellZ = static_cast<int>(std::floor((static_cast<double>(texels.minY) * size / mapHeight - half) / cell));
+            dirtyMaxCellZ = static_cast<int>(std::floor((static_cast<double>(texels.maxY + 1) * size / mapHeight - half) / cell));
+            useDirtyCells = true;
+        }else{
+            // No readable pixels to map the rect through, so no chunk can tell whether the
+            // stamp touched it: refill everything, as before rects existed.
+            refillAll = true;
+        }
+    }
+
     // Each chunk entity parses the mesh for itself, so a new grid spreads its loads over frames.
-    int meshLoadBudget = 2;
+    bool meshLoadBudget = std::chrono::steady_clock::now() < foliageLoadDeadline;
 
     for (int offsetZ = 0; offsetZ < rows; offsetZ++){
         for (int offsetX = 0; offsetX < columns; offsetX++){
             const int chunkX = startX + offsetX;
             const int chunkZ = startZ + offsetZ;
 
-            TerrainFoliageChunk& chunk = instances.chunks[foliageSlotIndex(chunkX, chunkZ, columns, rows)];
+            TerrainFoliageChunk& chunk = instances.chunks[foliageSlotIndex(chunkX, chunkZ, instances.poolSide, instances.poolSide)];
 
             if (chunk.entity == NULL_ENTITY){
-                if (instances.loadFailed || meshLoadBudget == 0){
+                if (instances.loadFailed || !meshLoadBudget){
                     instances.pending = instances.pending || !instances.loadFailed;
                     continue;
                 }
@@ -3644,9 +3785,11 @@ void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLay
             }
 
             bool justLoaded = false;
-            if (!chunk.meshLoaded && !instances.loadFailed && meshLoadBudget > 0){
-                meshLoadBudget--;
+            if (!chunk.meshLoaded && !instances.loadFailed && meshLoadBudget){
                 instances.loadFailed = !loadFoliageMesh(chunk.entity, layer.meshPath);
+                // A load already started is not stopped mid-way; the deadline only decides whether
+                // another one may start in the same frame.
+                meshLoadBudget = std::chrono::steady_clock::now() < foliageLoadDeadline;
                 chunk.meshLoaded = !instances.loadFailed;
                 chunk.assigned = false;
                 justLoaded = true;
@@ -3698,7 +3841,13 @@ void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLay
                 continue;
             }
 
-            if (chunk.assigned && !refillAll && chunk.chunkX == chunkX && chunk.chunkZ == chunkZ){
+            // A slot already holding this chunk keeps its instances unless the painted rect
+            // touches the cells it covers: outside the stamp the density is what it was.
+            const bool touchedByRect = useDirtyCells &&
+                (chunkX * batchSide + batchSide - 1 >= dirtyMinCellX && chunkX * batchSide <= dirtyMaxCellX &&
+                 chunkZ * batchSide + batchSide - 1 >= dirtyMinCellZ && chunkZ * batchSide <= dirtyMaxCellZ);
+
+            if (chunk.assigned && !refillAll && !touchedByRect && chunk.chunkX == chunkX && chunk.chunkZ == chunkZ){
                 continue;
             }
 
@@ -3715,6 +3864,27 @@ void MeshSystem::updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLay
             instmesh.needUpdateInstances = true;
         }
     }
+
+    // Slots the window left keep their entity and loaded mesh for re-entry, but hold no plants:
+    // a sliding ring must not leave a double-planted trail. A slot holding window coordinates at
+    // a non-canonical index is stale the same way (the pool grew and the wrap changed).
+    for (size_t slot = 0; slot < instances.chunks.size(); slot++){
+        TerrainFoliageChunk& chunk = instances.chunks[slot];
+        if (!chunk.assigned || chunk.entity == NULL_ENTITY || !scene->isEntityCreated(chunk.entity)){
+            continue;
+        }
+        const bool inWindow = chunk.chunkX >= startX && chunk.chunkX < startX + columns &&
+            chunk.chunkZ >= startZ && chunk.chunkZ < startZ + rows;
+        if (inWindow && foliageSlotIndex(chunk.chunkX, chunk.chunkZ, instances.poolSide, instances.poolSide) == slot){
+            continue;
+        }
+        InstancedMeshComponent& instmesh = scene->getComponent<InstancedMeshComponent>(chunk.entity);
+        if (!instmesh.instances.empty()){
+            instmesh.instances.clear();
+            instmesh.needUpdateInstances = true;
+        }
+        chunk.assigned = false;
+    }
 }
 
 void MeshSystem::updateTerrainFoliage(Entity entity, TerrainComponent& terrain, Transform& transform){
@@ -3727,6 +3897,8 @@ void MeshSystem::updateTerrainFoliage(Entity entity, TerrainComponent& terrain, 
     if (terrain.foliageLayers.empty()){
         destroyTerrainFoliage(entity);
         terrain.needUpdateFoliage = false;
+        terrain.foliageDirtyLayer = -1;
+        terrain.dirtyFoliageDensity = TerrainMapRegion();
         return;
     }
 
@@ -3768,7 +3940,7 @@ void MeshSystem::updateTerrainFoliage(Entity entity, TerrainComponent& terrain, 
             continue;
         }
 
-        updateFoliageLayer(terrain, layer, instances, viewLocal, entity == foliagePreviewEntity);
+        updateFoliageLayer(terrain, layer, instances, viewLocal, entity == foliagePreviewEntity, static_cast<int>(i));
     }
 
     // Apply the terrain transform to every chunk, including newly created ones.
@@ -3790,6 +3962,10 @@ void MeshSystem::updateTerrainFoliage(Entity entity, TerrainComponent& terrain, 
     }
 
     terrain.needUpdateFoliage = false;
+    // One pass consumed the paint rect (only the layer it names ever reads it), so it clears
+    // with the catch-all flag, after every layer had its turn.
+    terrain.foliageDirtyLayer = -1;
+    terrain.dirtyFoliageDensity = TerrainMapRegion();
 }
 
 void MeshSystem::updateTerrainAutoRanges(TerrainComponent& terrain){
@@ -3810,7 +3986,11 @@ void MeshSystem::updateTerrainAutoRanges(TerrainComponent& terrain){
     float firstLevel = leafNodeSize * 2;
     // the coarsest level still has to reach as far as the camera sees, or the terrain
     // disappears once it is farther away than the ranges its own size gives
-    float lastLevel = std::max(camera.farClip, firstLevel * (1 << (terrain.levels - 1)));
+    float cameraFar = camera.farClip;
+    const float renderDistance = scene->getEffectiveRenderDistance();
+    if (renderDistance > 0.0f && cameraFar > 0.0f)
+        cameraFar = std::min(cameraFar, renderDistance);
+    float lastLevel = std::max(cameraFar, firstLevel * (1 << (terrain.levels - 1)));
 
     if (terrain.ranges.size() == static_cast<size_t>(terrain.levels) && terrain.ranges.front() == firstLevel && terrain.ranges.back() == lastLevel){
         return;
@@ -3877,6 +4057,183 @@ void MeshSystem::createPlane(MeshComponent& mesh, float width, float depth, unsi
 
     if (mesh.loaded)
         mesh.needReload = true;
+}
+
+bool MeshSystem::createVoxelMesh(MeshComponent& mesh, const VoxelMeshData& voxel,
+    unsigned int atlasColumns, unsigned int atlasRows){
+    if (voxel.vertices.empty() || voxel.indices.empty() || voxel.indices.size() % 3 != 0
+        || atlasColumns == 0 || atlasRows == 0)
+        return false;
+
+    for (uint32_t index : voxel.indices){
+        if (index >= voxel.vertices.size()) return false;
+    }
+
+    mesh.submeshes[0].primitiveType = PrimitiveType::TRIANGLES;
+    mesh.submeshes[0].faceCulling = true;
+    mesh.submeshes[0].hasTexCoord1 = true;
+    mesh.submeshes[0].hasNormal = true;
+    mesh.submeshes[0].hasTangent = true;
+    mesh.submeshes[0].hasVertexColor4 = true;
+    mesh.numSubmeshes = 1;
+
+    mesh.buffer.clear();
+    mesh.buffer.addAttribute(AttributeType::POSITION, 3);
+    mesh.buffer.addAttribute(AttributeType::TEXCOORD1, 2);
+    mesh.buffer.addAttribute(AttributeType::NORMAL, 3);
+    mesh.buffer.addAttribute(AttributeType::TANGENT, 4);
+    mesh.buffer.addAttribute(AttributeType::COLOR, 4);
+
+    const float invColumns = 1.0f / static_cast<float>(atlasColumns);
+    const float invRows = 1.0f / static_cast<float>(atlasRows);
+    for (size_t i = 0; i < voxel.vertices.size(); ++i){
+        const VoxelMeshVertex& source = voxel.vertices[i];
+        const size_t faceStart = (i / 4) * 4;
+        const VoxelMeshVertex& a = voxel.vertices[faceStart + 0];
+        const VoxelMeshVertex& b = voxel.vertices[faceStart + 1];
+        const VoxelMeshVertex& c = voxel.vertices[faceStart + 2];
+        const Vector3 p0(a.x, a.y, a.z);
+        const Vector3 p1(b.x, b.y, b.z);
+        const Vector3 p2(c.x, c.y, c.z);
+        Vector3 normal = (p1 - p0).crossProduct(p2 - p0).normalized();
+        if (!normal.isValid() || normal.squaredLength() < 0.5f) normal = Vector3::UNIT_Y;
+
+        const auto faceUV = [&normal](const VoxelMeshVertex& vertex) {
+            if (std::abs(normal.y) > 0.5f) return Vector2(vertex.x, vertex.z);
+            if (std::abs(normal.x) > 0.5f) return Vector2(vertex.z, vertex.y);
+            return Vector2(vertex.x, vertex.y);
+        };
+        float minU = std::numeric_limits<float>::max();
+        float minV = std::numeric_limits<float>::max();
+        float maxU = std::numeric_limits<float>::lowest();
+        float maxV = std::numeric_limits<float>::lowest();
+        for (size_t corner = 0; corner < 4; ++corner){
+            const Vector2 cornerUV = faceUV(voxel.vertices[faceStart + corner]);
+            minU = std::min(minU, cornerUV.x);
+            minV = std::min(minV, cornerUV.y);
+            maxU = std::max(maxU, cornerUV.x);
+            maxV = std::max(maxV, cornerUV.y);
+        }
+        const Vector2 uv = faceUV(source);
+        const float normalizedU = (maxU > minU) ? (uv.x - minU) / (maxU - minU) : 0.0f;
+        const float normalizedV = (maxV > minV) ? (uv.y - minV) / (maxV - minV) : 0.0f;
+        const unsigned int tile = static_cast<unsigned int>(source.block);
+        const float tileU = static_cast<float>(tile % atlasColumns) * invColumns;
+        const float tileV = static_cast<float>(tile / atlasColumns % atlasRows) * invRows;
+        const float light = static_cast<float>(source.light) / 15.0f;
+
+        mesh.buffer.addVector3(AttributeType::POSITION, Vector3(source.x, source.y, source.z));
+        mesh.buffer.addVector2(AttributeType::TEXCOORD1, Vector2(
+            tileU + normalizedU * invColumns,
+            tileV + normalizedV * invRows));
+        mesh.buffer.addVector3(AttributeType::NORMAL, normal);
+        mesh.buffer.addVector4(AttributeType::TANGENT, Vector4(1.0f, 0.0f, 0.0f, 1.0f));
+        mesh.buffer.addVector4(AttributeType::COLOR, Vector4(light, light, light, 1.0f));
+    }
+
+    mesh.indices.clear();
+    for (uint32_t index : voxel.indices) mesh.indices.addUInt32(AttributeType::INDEX, index);
+    mesh.vertexCount = static_cast<unsigned int>(voxel.vertices.size());
+    calculateMeshAABB(mesh);
+    mesh.needUpdateBuffer = mesh.loaded;
+    mesh.needReload = mesh.loaded;
+    return true;
+}
+
+size_t MeshSystem::updateVoxelWorld(::World& world, int centerChunkX, int centerChunkZ,
+    int radius, size_t maxJobs, unsigned int atlasColumns, unsigned int atlasRows){
+    world.updateAsync(centerChunkX, centerChunkZ, radius, maxJobs);
+    const std::vector<std::pair<int, int>> dirtyCoordinates = world.consumeMeshDirtyChunks();
+    const std::set<std::pair<int, int>> dirty(dirtyCoordinates.begin(), dirtyCoordinates.end());
+    const std::vector<std::pair<int, int>> coordinates = world.loadedChunkCoordinates();
+    std::set<std::pair<int, int>> loaded(coordinates.begin(), coordinates.end());
+
+    for (auto it = voxelRenderChunks.begin(); it != voxelRenderChunks.end();){
+        if (loaded.find(it->first) == loaded.end()){
+            if (scene->isEntityCreated(it->second.entity)) scene->destroyEntity(it->second.entity);
+            it = voxelRenderChunks.erase(it);
+        }else{
+            ++it;
+        }
+    }
+
+    for (const auto& coordinate : coordinates){
+        const int chunkX = coordinate.first;
+        const int chunkZ = coordinate.second;
+        const Chunk* chunk = world.findChunk(chunkX, chunkZ);
+        if (!chunk) continue;
+
+        auto renderIt = voxelRenderChunks.find(coordinate);
+        const bool newRenderChunk = renderIt == voxelRenderChunks.end();
+        if (renderIt == voxelRenderChunks.end()){
+            VoxelRenderChunk renderChunk;
+            renderChunk.entity = scene->createEntity();
+            scene->addComponent<Transform>(renderChunk.entity);
+            scene->addComponent<MeshComponent>(renderChunk.entity);
+            scene->setEntityName(renderChunk.entity,
+                "VoxelChunk_" + std::to_string(chunkX) + "_" + std::to_string(chunkZ));
+            renderIt = voxelRenderChunks.emplace(coordinate, renderChunk).first;
+        }
+
+        const VoxelMesher::Neighbors neighbors = {
+            world.findChunk(chunkX + 1, chunkZ), world.findChunk(chunkX - 1, chunkZ),
+            nullptr, nullptr, world.findChunk(chunkX, chunkZ + 1),
+            world.findChunk(chunkX, chunkZ - 1)
+        };
+        VoxelMeshData voxelMesh;
+        const int distance = (std::max)(std::abs(chunkX - centerChunkX),
+            std::abs(chunkZ - centerChunkZ));
+        const int lodLevel = (std::min)(3, distance);
+        if (!newRenderChunk && dirty.find(coordinate) == dirty.end()
+            && renderIt->second.lodLevel == lodLevel) {
+            continue;
+        }
+        if (lodLevel == 0) VoxelMesher::buildGreedy(*chunk, neighbors, voxelMesh);
+        else VoxelMesher::buildLOD(*chunk, neighbors, lodLevel, voxelMesh);
+        renderIt->second.lodLevel = lodLevel;
+        MeshComponent& mesh = scene->getComponent<MeshComponent>(renderIt->second.entity);
+        if (voxelMesh.vertices.empty()){
+            mesh.buffer.clear();
+            mesh.indices.clear();
+            mesh.vertexCount = 0;
+            mesh.numSubmeshes = 0;
+            mesh.needUpdateBuffer = mesh.loaded;
+            mesh.needReload = mesh.loaded;
+        }else if (!createVoxelMesh(mesh, voxelMesh, atlasColumns, atlasRows)){
+            continue;
+        }
+        Transform& transform = scene->getComponent<Transform>(renderIt->second.entity);
+        transform.position = Vector3(
+            static_cast<float>(chunkX * Chunk::SIZE), 0.0f,
+            static_cast<float>(chunkZ * Chunk::SIZE));
+    }
+    return coordinates.size();
+}
+
+size_t MeshSystem::updateVoxelWorldFromCamera(::World& world, int radius, size_t maxJobs,
+    unsigned int atlasColumns, unsigned int atlasRows){
+    if (!scene) return 0;
+    const Entity camera = scene->getRenderCamera();
+    const Transform* cameraTransform = scene->findComponent<Transform>(camera);
+    if (!cameraTransform) return 0;
+    const int centerChunkX = static_cast<int>(std::floor(
+        cameraTransform->worldPosition.x / static_cast<float>(Chunk::SIZE)));
+    const int centerChunkZ = static_cast<int>(std::floor(
+        cameraTransform->worldPosition.z / static_cast<float>(Chunk::SIZE)));
+    return updateVoxelWorld(world, centerChunkX, centerChunkZ, radius, maxJobs,
+        atlasColumns, atlasRows);
+}
+
+int MeshSystem::getVoxelChunkLOD(int chunkX, int chunkZ) const {
+    const auto it = voxelRenderChunks.find({chunkX, chunkZ});
+    return it == voxelRenderChunks.end() ? -1 : it->second.lodLevel;
+}
+
+void MeshSystem::destroyVoxelWorld(){
+    for (const auto& entry : voxelRenderChunks){
+        if (scene->isEntityCreated(entry.second.entity)) scene->destroyEntity(entry.second.entity);
+    }
+    voxelRenderChunks.clear();
 }
 
 // Vertical quad in the XY plane facing +Z (width along X, height along Y).
@@ -5042,9 +5399,69 @@ bool MeshSystem::loadGLTF(Entity entity, const std::string filename, bool asyncL
                     mat->emissiveFactor[0],
                     mat->emissiveFactor[1],
                     mat->emissiveFactor[2]);
+
+                // Read the scalar/vector parts of the Khronos PBR extensions. These
+                // values stay in a separate GPU block so the legacy material prefix
+                // remains ABI-compatible with existing custom shaders.
+                auto extension = [&](const char* name) -> const tinygltf::Value* {
+                    auto it = mat->extensions.find(name);
+                    return it == mat->extensions.end() ? nullptr : &it->second;
+                };
+                auto number = [](const tinygltf::Value& object, const char* key, double fallback) {
+                    if (object.IsObject() && object.Has(key)) {
+                        const tinygltf::Value& value = object.Get(key);
+                        if (value.IsNumber() && std::isfinite(value.GetNumberAsDouble()))
+                            return value.GetNumberAsDouble();
+                    }
+                    return fallback;
+                };
+                auto color = [](const tinygltf::Value& object, const char* key, const Vector3& fallback) {
+                    if (object.IsObject() && object.Has(key)) {
+                        const tinygltf::Value& value = object.Get(key);
+                        if (value.IsArray() && value.ArrayLen() >= 3 &&
+                            value.Get(0).IsNumber() && value.Get(1).IsNumber() && value.Get(2).IsNumber()) {
+                            return Vector3(
+                                static_cast<float>(value.Get(0).GetNumberAsDouble()),
+                                static_cast<float>(value.Get(1).GetNumberAsDouble()),
+                                static_cast<float>(value.Get(2).GetNumberAsDouble()));
+                        }
+                    }
+                    return fallback;
+                };
+
+                if (const tinygltf::Value* clearcoat = extension("KHR_materials_clearcoat")) {
+                    mesh.submeshes[i].material.clearcoatFactor = static_cast<float>(
+                        std::clamp(number(*clearcoat, "clearcoatFactor", 0.0), 0.0, 1.0));
+                    mesh.submeshes[i].material.clearcoatRoughness = static_cast<float>(
+                        std::clamp(number(*clearcoat, "roughnessFactor", 0.0), 0.0, 1.0));
+                }
+                if (const tinygltf::Value* sheen = extension("KHR_materials_sheen")) {
+                    mesh.submeshes[i].material.sheenColorFactor = color(
+                        *sheen, "sheenColorFactor", Vector3(0.0f, 0.0f, 0.0f));
+                    mesh.submeshes[i].material.sheenRoughnessFactor = static_cast<float>(
+                        std::clamp(number(*sheen, "sheenRoughnessFactor", 0.0), 0.0, 1.0));
+                }
+                if (const tinygltf::Value* transmission = extension("KHR_materials_transmission")) {
+                    mesh.submeshes[i].material.transmissionFactor = static_cast<float>(
+                        std::clamp(number(*transmission, "transmissionFactor", 0.0), 0.0, 1.0));
+                }
+                if (const tinygltf::Value* volume = extension("KHR_materials_volume")) {
+                    mesh.submeshes[i].material.attenuationColor = color(
+                        *volume, "attenuationColor", Vector3(1.0f, 1.0f, 1.0f));
+                    mesh.submeshes[i].material.attenuationDistance = static_cast<float>(
+                        std::max(number(*volume, "attenuationDistance", 0.0), 0.0));
+                    mesh.submeshes[i].material.thicknessFactor = static_cast<float>(
+                        std::max(number(*volume, "thicknessFactor", 0.0), 0.0));
+                }
+                if (const tinygltf::Value* anisotropy = extension("KHR_materials_anisotropy")) {
+                    mesh.submeshes[i].material.anisotropyStrength = static_cast<float>(
+                        std::clamp(number(*anisotropy, "anisotropyStrength", 0.0), -1.0, 1.0));
+                    mesh.submeshes[i].material.anisotropyRotation = static_cast<float>(
+                        number(*anisotropy, "anisotropyRotation", 0.0));
+                }
                 // leaf backlighting is authored as a glTF extra, there is no core material slot for it
-                if (mat->extras.IsObject() && mat->extras.Has("doriax_foliage_transmission")) {
-                    const auto& value = mat->extras.Get("doriax_foliage_transmission");
+                if (mat->extras.IsObject() && mat->extras.Has("quantum_foliage_transmission")) {
+                    const auto& value = mat->extras.Get("quantum_foliage_transmission");
                     if (value.IsNumber() && std::isfinite(value.GetNumberAsDouble()))
                         mesh.submeshes[i].material.foliageTransmission = std::clamp((float)value.GetNumberAsDouble(), 0.0f, 1.0f);
                 }
@@ -5496,6 +5913,37 @@ bool MeshSystem::loadGLTF(Entity entity, const std::string filename, bool asyncL
                     continue;
                 }
 
+                // The track builders below reinterpret the accessor bytes as float arrays, so reject
+                // anything that is not a tightly packed float accessor with the expected element type.
+                if (accessorIn.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT ||
+                    accessorOut.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+                    Log::warn("Cannot load animation: %s, channel %zu has non-float accessor", animation.name.c_str(), j);
+                    continue;
+                }
+
+                int outComponents = 0;
+                if (channel.target_path.compare("translation") == 0 || channel.target_path.compare("scale") == 0) {
+                    outComponents = 3;
+                } else if (channel.target_path.compare("rotation") == 0) {
+                    outComponents = 4;
+                } else if (channel.target_path.compare("weights") == 0) {
+                    outComponents = 1;
+                }
+
+                if (accessorIn.type != TINYGLTF_TYPE_SCALAR ||
+                    (outComponents != 0 &&
+                     tinygltf::GetNumComponentsInType((uint32_t) accessorOut.type) != outComponents)) {
+                    Log::warn("Cannot load animation: %s, channel %zu has an unexpected accessor type", animation.name.c_str(), j);
+                    continue;
+                }
+
+                if (accessorIn.ByteStride(bufferViewIn) != (int) sizeof(float) ||
+                    (outComponents != 0 &&
+                     accessorOut.ByteStride(bufferViewOut) != (int) (sizeof(float) * outComponents))) {
+                    Log::warn("Cannot load animation: %s, channel %zu is not tightly packed", animation.name.c_str(), j);
+                    continue;
+                }
+
                 //TODO: Implement rotation and weights non float
                 if (accessorOut.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT) {
 
@@ -5534,6 +5982,26 @@ bool MeshSystem::loadGLTF(Entity entity, const std::string filename, bool asyncL
                     std::vector<unsigned char>& outputData = model.gltfModel->buffers[bufferViewOut.buffer].data;
                     if (inputData.empty() || outputData.empty()) {
                         Log::warn("Cannot load animation: %s, channel %zu has empty buffer data", animation.name.c_str(), j);
+                        continue;
+                    }
+
+                    // Offsets are read straight from the file and tinygltf truncates buffers to
+                    // their declared length, so a malformed asset can leave accessors pointing
+                    // past the data. Validate the full span before doing pointer arithmetic.
+                    if (bufferViewIn.byteOffset < 0 || accessorIn.byteOffset < 0 ||
+                        bufferViewOut.byteOffset < 0 || accessorOut.byteOffset < 0) {
+                        Log::warn("Cannot load animation: %s, channel %zu has a negative buffer offset", animation.name.c_str(), j);
+                        continue;
+                    }
+
+                    size_t inputOffset = (size_t) bufferViewIn.byteOffset + (size_t) accessorIn.byteOffset;
+                    size_t outputOffset = (size_t) bufferViewOut.byteOffset + (size_t) accessorOut.byteOffset;
+                    size_t inputBytes = (size_t) accessorIn.count * (size_t) accessorIn.ByteStride(bufferViewIn);
+                    size_t outputBytes = (size_t) accessorOut.count * (size_t) accessorOut.ByteStride(bufferViewOut);
+
+                    if (inputOffset > inputData.size() || inputBytes > inputData.size() - inputOffset ||
+                        outputOffset > outputData.size() || outputBytes > outputData.size() - outputOffset) {
+                        Log::warn("Cannot load animation: %s, channel %zu exceeds buffer size", animation.name.c_str(), j);
                         continue;
                     }
 
@@ -6298,6 +6766,11 @@ bool MeshSystem::createOrUpdateTerrain(TerrainComponent& terrain, MeshComponent&
         }else{
             return false;
         }
+    }else if (terrain.needUpdateRanges){
+        // A sculpt brush changed a few texels: patch the ranges that read them rather than
+        // rebuilding the tree, whose range walk reads every texel of a map that can be 4096
+        // wide. The GPU texture upload is driven by needUpdateTexture, not by this.
+        updateTerrainNodeRanges(terrain);
     }
 
     return true;
@@ -6388,6 +6861,7 @@ void MeshSystem::load(){
 }
 
 void MeshSystem::destroy(){
+    destroyVoxelWorld();
     foliagePreviewEntity = NULL_ENTITY;
     while (!terrainFoliage.empty()){
         destroyTerrainFoliage(terrainFoliage.begin()->first);
@@ -6398,6 +6872,8 @@ void MeshSystem::update(double dt){
     if (paused) {
         return;
     }
+
+    foliageLoadDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(4);
 
     auto sprites = scene->getComponentArray<SpriteComponent>();
     for (int i = 0; i < sprites->size(); i++){

@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import <Foundation/Foundation.h>
 
-// StoreKit 2 for doriax::InAppPurchase, implemented in StoreKitAdapter.swift (this is its
+// StoreKit 2 for quantum::InAppPurchase, implemented in StoreKitAdapter.swift (this is its
 // bridging header). The ints are its enums; products and purchases go back as JSON, as on Android.
 @interface StoreKitAdapter : NSObject
 
@@ -21,17 +21,17 @@
 
 @end
 
-// Engine callbacks, implemented in DoriaxApple.mm
+// Engine callbacks, implemented in QuantumApple.mm
 #ifdef __cplusplus
 extern "C" {
 #endif
-void DoriaxStoreKitInitialized(int responseCode, const char *_Nonnull message);
-void DoriaxStoreKitProductsQueried(int responseCode, const char *_Nonnull message, const char *_Nonnull productsJson);
-void DoriaxStoreKitPurchaseUpdated(const char *_Nonnull purchaseJson);
-void DoriaxStoreKitPurchaseFailed(const char *_Nonnull productId, int responseCode, const char *_Nonnull message);
-void DoriaxStoreKitPurchasesQueried(int productType, int responseCode, const char *_Nonnull message, const char *_Nonnull purchasesJson);
-void DoriaxStoreKitPurchaseAcknowledged(const char *_Nonnull purchaseToken, int responseCode, const char *_Nonnull message);
-void DoriaxStoreKitPurchaseConsumed(const char *_Nonnull purchaseToken, int responseCode, const char *_Nonnull message);
+void QuantumStoreKitInitialized(int responseCode, const char *_Nonnull message);
+void QuantumStoreKitProductsQueried(int responseCode, const char *_Nonnull message, const char *_Nonnull productsJson);
+void QuantumStoreKitPurchaseUpdated(const char *_Nonnull purchaseJson);
+void QuantumStoreKitPurchaseFailed(const char *_Nonnull productId, int responseCode, const char *_Nonnull message);
+void QuantumStoreKitPurchasesQueried(int productType, int responseCode, const char *_Nonnull message, const char *_Nonnull purchasesJson);
+void QuantumStoreKitPurchaseAcknowledged(const char *_Nonnull purchaseToken, int responseCode, const char *_Nonnull message);
+void QuantumStoreKitPurchaseConsumed(const char *_Nonnull purchaseToken, int responseCode, const char *_Nonnull message);
 #ifdef __cplusplus
 }
 #endif

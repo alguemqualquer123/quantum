@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Renderer.h"
@@ -15,8 +15,8 @@
 #include <unordered_map>
 #include <vector>
 
-using namespace doriax;
-using namespace doriax::editor;
+using namespace quantum;
+using namespace quantum::editor;
 
 namespace {
 
@@ -147,9 +147,9 @@ bool Renderer::State::supportsVulkanDevice(
 bool Renderer::State::createVulkanDevice(){
     VkApplicationInfo application{};
     application.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    application.pApplicationName = "Doriax Engine Editor";
+    application.pApplicationName = "Quantum Engine Editor";
     application.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    application.pEngineName = "Doriax";
+    application.pEngineName = "Quantum";
     application.engineVersion = VK_MAKE_VERSION(1, 0, 0);
     application.apiVersion = VK_API_VERSION_1_3;
 

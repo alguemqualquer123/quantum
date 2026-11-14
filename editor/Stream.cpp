@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Stream.h"
@@ -9,6 +9,7 @@
 
 #include "Base64.h"
 #include "Catalog.h"
+#include "component/AnimatorControllerComponent.h"
 #include "Factory.h"
 #include "pool/SoundPool.h"
 #include "pool/ShaderPool.h"
@@ -19,8 +20,10 @@
 #include "render/SceneRender2D.h"
 #include "render/SceneRender3D.h"
 #include "window/TerrainEditWindow.h"
+#include "graph/GraphScriptProperties.h"
 
 #include <algorithm>
+#include <unordered_set>
 #include <cctype>
 #include <cmath>
 #include <cstdlib>
@@ -28,7 +31,7 @@
 #include <set>
 #include <stdexcept>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     // The customShaderId in a key is a session-local registry index, so a fork is
@@ -1149,6 +1152,7 @@ std::string editor::Stream::scriptTypeToString(ScriptType type) {
     switch (type) {
         case ScriptType::CPP: return "cpp";
         case ScriptType::LUA: return "lua";
+        case ScriptType::GRAPH: return "graph";
         default:              return "cpp";
     }
 }
@@ -1156,6 +1160,7 @@ std::string editor::Stream::scriptTypeToString(ScriptType type) {
 ScriptType editor::Stream::stringToScriptType(const std::string& str) {
     if (str == "lua") return ScriptType::LUA;
     if (str == "cpp") return ScriptType::CPP;
+    if (str == "graph") return ScriptType::GRAPH;
 
     // Backward compatibility: projects saved before ScriptType was reduced to
     // CPP/LUA used these three values. Remove these branches once support for
@@ -1338,11 +1343,47 @@ static std::string encodeModelTextureId(const std::string& id) {
     return relative.generic_string() + id.substr(separator);
 }
 
+// A scene authored on another machine stores the model's absolute path, which does not exist here,
+// and MeshSystem then keys every texture of that model by the dead path - the material loads
+// untextured and nothing says why. Re-resolve it by name: try the shortest suffix of the stored
+// path first so a file at the asset root wins over one nested under a directory of the same name.
+static std::string reanchorDeadModelPath(const std::string& dead) {
+    std::error_code ec;
+    if (fs::exists(fs::path(dead), ec)) return dead;
+
+    const fs::path source = fs::path(dead).lexically_normal();
+    std::vector<std::string> parts;
+    for (const fs::path& part : source) {
+        const std::string text = part.generic_string();
+        if (text.empty() || text == "/" || text == "." || text == "..") continue;
+        const size_t colon = text.find(':');
+        if (colon != std::string::npos) continue;  // "C:" drive root
+        parts.push_back(text);
+    }
+
+    for (size_t begin = parts.size(); begin-- > 0;) {
+        std::string candidate;
+        for (size_t i = begin; i < parts.size(); ++i) {
+            if (i != begin) candidate += "/";
+            candidate += parts[i];
+        }
+        const std::string resolved = MeshSystem::getModelFilenameKey(candidate);
+        if (fs::exists(fs::path(resolved), ec)) return resolved;
+    }
+    return dead;
+}
+
 static std::string decodeModelTextureId(const std::string& id) {
     const size_t separator = id.find("|gltf-image|");
-    if (separator == std::string::npos || fs::path(id.substr(0, separator)).is_absolute()) return id;
+    if (separator == std::string::npos) return id;
 
-    return MeshSystem::getModelFilenameKey(id.substr(0, separator)) + id.substr(separator);
+    const std::string prefix = id.substr(0, separator);
+    if (!fs::path(prefix).is_absolute()) return MeshSystem::getModelFilenameKey(prefix) + id.substr(separator);
+
+    const std::string repaired = reanchorDeadModelPath(prefix);
+    if (repaired == prefix) return id;
+    // Encode the repaired form so the next save drops the machine-specific path for good.
+    return encodeModelTextureId(repaired + id.substr(separator));
 }
 
 YAML::Node editor::Stream::encodeTexture(const Texture& texture, bool embedData) {
@@ -1828,7 +1869,7 @@ namespace {
 const char* const sceneDisplayKeys[] = {
     "showAllJoints", "showAllBones", "showAllBodies", "hideCameraView",
     "hideLightIcons", "hideSoundIcons", "hideContainerGuides", "showOrigin",
-    "showGrid3D", "hideSelectionOutline", "disableFaceCulling", "showGrid2D",
+    "showGrid3D", "hideSelectionOutline", "disableFaceCulling", "showClusteredLightGrid", "showGrid2D",
     "gridSpacing2D", "gridSpacing3D", "snapToGrid", "snapTile", "snapRotation",
     "rotationSnapDegrees",
 };
@@ -1859,6 +1900,7 @@ YAML::Node editor::Stream::encodeSceneDisplaySettings(const SceneDisplaySettings
     sceneNode["disableFaceCulling"]   = ds.disableFaceCulling;
     sceneNode["disableFog"]           = ds.disableFog;
     sceneNode["disableUnderwater"]    = ds.disableUnderwater;
+    sceneNode["showClusteredLightGrid"] = ds.showClusteredLightGrid;
     sceneNode["showGrid2D"]           = ds.showGrid2D;
     encodePositiveFinite(sceneNode, "gridSpacing2D", ds.gridSpacing2D);
     encodePositiveFinite(sceneNode, "gridSpacing3D", ds.gridSpacing3D);
@@ -1886,6 +1928,7 @@ void editor::Stream::decodeSceneDisplaySettings(const YAML::Node& node, SceneDis
     if (node["disableFaceCulling"])   ds.disableFaceCulling   = node["disableFaceCulling"].as<bool>();
     if (node["disableFog"])           ds.disableFog           = node["disableFog"].as<bool>();
     if (node["disableUnderwater"])    ds.disableUnderwater    = node["disableUnderwater"].as<bool>();
+    if (node["showClusteredLightGrid"]) ds.showClusteredLightGrid = node["showClusteredLightGrid"].as<bool>();
     if (node["showGrid2D"])           ds.showGrid2D           = node["showGrid2D"].as<bool>();
     if (node["gridSpacing2D"])        ds.gridSpacing2D        = decodePositiveFinite(node["gridSpacing2D"], ds.gridSpacing2D);
     if (node["gridSpacing3D"])        ds.gridSpacing3D        = decodePositiveFinite(node["gridSpacing3D"], ds.gridSpacing3D);
@@ -2630,7 +2673,15 @@ YAML::Node editor::Stream::encodeSceneProject(const Project* project, const Scen
     }
 
     YAML::Node entitiesNode;
+    std::unordered_set<Entity> encoded;
     for (Entity entity : sceneProject->entities) {
+        // A tracked id with no entity behind it - a model node destroyed without reconciling the
+        // list - or one the vector holds twice would save as a nameless entity that the next load
+        // really creates, so the outliner fills with blank rows that keep coming back.
+        if (!sceneProject->scene->isEntityCreated(entity) || !encoded.insert(entity).second) {
+            continue;
+        }
+
         // Skip bundle children (they are stored in the bundle file)
         if (project) {
             fs::path bundlePath = project->findEntityBundlePathFor(sceneProject->id, entity);
@@ -2790,6 +2841,60 @@ void collectSerializedEntities(const YAML::Node& entityNode, std::unordered_set<
 thread_local const EntityRegistry* pendingSceneRegistry = nullptr;
 thread_local std::unordered_set<Entity>* pendingSceneEntities = nullptr;
 
+bool isModelEntityReferenceAvailable(Entity entity, const EntityRegistry* registry) {
+    if (entity == NULL_ENTITY) {
+        return true;
+    }
+    if (registry && registry->isEntityCreated(entity)) {
+        return true;
+    }
+    return pendingSceneEntities && pendingSceneRegistry == registry &&
+        pendingSceneEntities->count(entity) != 0;
+}
+
+// Model-generated entities are serialized as ordinary scene entities. If a scene was saved while
+// those entities were being rebuilt, the model can retain ids that no longer exist. Reusing those
+// partial mappings makes the loader skip hierarchy creation and later dereference missing parts.
+void repairModelEntityReferences(ModelComponent& model, const EntityRegistry* registry) {
+    bool hasMissingReference = model.skeleton != NULL_ENTITY &&
+        !isModelEntityReferenceAvailable(model.skeleton, registry);
+
+    for (Entity animation : model.animations) {
+        if (!isModelEntityReferenceAvailable(animation, registry)) {
+            hasMissingReference = true;
+            break;
+        }
+    }
+
+    auto checkMap = [&](const auto& mapping) {
+        for (const auto& entry : mapping) {
+            if (!isModelEntityReferenceAvailable(entry.second, registry)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    hasMissingReference = hasMissingReference || checkMap(model.bonesIdMapping) ||
+        checkMap(model.bonesNameMapping) || checkMap(model.meshNodesMapping) ||
+        checkMap(model.nodesIdMapping);
+
+    if (!hasMissingReference) {
+        return;
+    }
+
+    model.skeleton = NULL_ENTITY;
+    model.animations.clear();
+    model.bonesIdMapping.clear();
+    model.bonesNameMapping.clear();
+    model.meshNodesMapping.clear();
+    model.nodesIdMapping.clear();
+    model.skinBindings.clear();
+    model.loadedFilename.clear();
+    model.needUpdateModel = true;
+    editor::Out::warning("Model '%s' had stale generated entity references; rebuilding its hierarchy.",
+                         model.filename.c_str());
+}
+
 }
 
 void editor::Stream::decodeSceneProjectEntities(Project* project, SceneProject* sceneProject, const YAML::Node& node){
@@ -2884,6 +2989,7 @@ YAML::Node editor::Stream::encodeScene(Scene* scene) {
     sceneNode["meshLodEnabled"] = scene->isMeshLodEnabled();
     sceneNode["meshLodThreshold"] = scene->getMeshLodThreshold();
     sceneNode["depthPrepassEnabled"] = scene->isDepthPrepassEnabled();
+    sceneNode["renderDistance"] = scene->getRenderDistance();
     sceneNode["lightState"] = lightStateToString(scene->getLightState());
     sceneNode["globalIlluminationIntensity"] = scene->getGlobalIlluminationIntensity();
     sceneNode["globalIlluminationColor"] = encodeVector3(scene->getGlobalIlluminationColor());
@@ -2894,18 +3000,72 @@ YAML::Node editor::Stream::encodeScene(Scene* scene) {
     sceneNode["ssaoRadius"] = scene->getSSAORadius();
     sceneNode["ssaoIntensity"] = scene->getSSAOIntensity();
     sceneNode["ssaoBias"] = scene->getSSAOBias();
+    sceneNode["contactShadowsEnabled"] = scene->isContactShadowsEnabled();
+    sceneNode["contactShadowLength"] = scene->getContactShadowLength();
+    sceneNode["contactShadowSteps"] = scene->getContactShadowSteps();
+    sceneNode["contactShadowThickness"] = scene->getContactShadowThickness();
+    sceneNode["contactShadowIntensity"] = scene->getContactShadowIntensity();
+    sceneNode["ssgiEnabled"] = scene->isSSGIEnabled();
+    sceneNode["ssgiRadius"] = scene->getSSGIRadius();
+    sceneNode["ssgiIntensity"] = scene->getSSGIIntensity();
+    sceneNode["ssgiSteps"] = scene->getSSGISteps();
+    sceneNode["ssgiThickness"] = scene->getSSGIThickness();
+    sceneNode["dofEnabled"] = scene->isDOFEnabled();
+    sceneNode["dofFocusDistance"] = scene->getDOFFocusDistance();
+    sceneNode["dofAperture"] = scene->getDOFAperture();
+    sceneNode["dofFocusRange"] = scene->getDOFFocusRange();
+    sceneNode["dofMaxBlur"] = scene->getDOFMaxBlur();
     sceneNode["ssrEnabled"] = scene->isSSREnabled();
     sceneNode["ssrMaxDistance"] = scene->getSSRMaxDistance();
     sceneNode["ssrThickness"] = scene->getSSRThickness();
     sceneNode["ssrMaxSteps"] = scene->getSSRMaxSteps();
     sceneNode["ssrIntensity"] = scene->getSSRIntensity();
     sceneNode["ssrBlur"] = scene->getSSRBlur();
+    sceneNode["taaEnabled"] = scene->isTAAEnabled();
+    sceneNode["taaBlend"] = scene->getTAABlend();
+    sceneNode["taaVelocityScale"] = scene->getTAAVelocityScale();
+    sceneNode["taaVelocityClamp"] = scene->getTAAVelocityClamp();
+    sceneNode["motionBlurEnabled"] = scene->isMotionBlurEnabled();
+    sceneNode["motionBlurIntensity"] = scene->getMotionBlurIntensity();
+    sceneNode["motionBlurSamples"] = scene->getMotionBlurSamples();
+    sceneNode["motionBlurVelocityClamp"] = scene->getMotionBlurVelocityClamp();
+    sceneNode["motionBlurDepthThreshold"] = scene->getMotionBlurDepthThreshold();
     sceneNode["gravity2D"] = encodeVector2(scene->getGravity2D());
     sceneNode["gravity3D"] = encodeVector3(scene->getGravity3D());
+    sceneNode["windEnabled"] = scene->isWindEnabled();
+    sceneNode["windSpeed"] = scene->getWindSpeed();
+    sceneNode["windDirection"] = scene->getWindDirection();
+    sceneNode["windGustiness"] = scene->getWindGustiness();
+    sceneNode["windChange"] = scene->getWindChange();
     sceneNode["fixedResolutionEnabled"] = scene->isFixedResolutionEnabled();
     sceneNode["fixedResolutionWidth"] = scene->getFixedResolutionWidth();
     sceneNode["fixedResolutionHeight"] = scene->getFixedResolutionHeight();
     sceneNode["fixedResolutionFilter"] = textureFilterToString(scene->getFixedResolutionFilter());
+    sceneNode["bloomEnabled"] = scene->isBloomEnabled();
+    sceneNode["bloomThreshold"] = scene->getBloomThreshold();
+    sceneNode["bloomSoftKnee"] = scene->getBloomSoftKnee();
+    sceneNode["bloomIntensity"] = scene->getBloomIntensity();
+    sceneNode["bloomDirtIntensity"] = scene->getBloomDirtIntensity();
+    sceneNode["bloomMipLevels"] = scene->getBloomLevels();
+    sceneNode["tonemapEnabled"] = scene->isTonemapEnabled();
+    sceneNode["tonemapMode"] = scene->getTonemapMode();
+    sceneNode["exposure"] = scene->getExposure();
+    sceneNode["autoExposure"] = scene->isAutoExposureEnabled();
+    sceneNode["autoExposureSpeed"] = scene->getAutoExposureSpeed();
+    sceneNode["autoExposureMinEV"] = scene->getAutoExposureMinEV();
+    sceneNode["autoExposureMaxEV"] = scene->getAutoExposureMaxEV();
+    sceneNode["exposureCompensation"] = scene->getExposureCompensation();
+    sceneNode["colorGradingEnabled"] = scene->isColorGradingEnabled();
+    sceneNode["colorGradingSaturation"] = scene->getColorGradingSaturation();
+    sceneNode["colorGradingContrast"] = scene->getColorGradingContrast();
+    sceneNode["colorGradingBrightness"] = scene->getColorGradingBrightness();
+    sceneNode["colorGradingHueShift"] = scene->getColorGradingHueShift();
+    sceneNode["colorGradingTemperature"] = scene->getColorGradingTemperature();
+    sceneNode["colorGradingTint"] = scene->getColorGradingTint();
+    if (!scene->getColorGradingLUTPath().empty())
+        sceneNode["colorGradingLUT"] = scene->getColorGradingLUTPath();
+    sceneNode["fxaaEnabled"] = scene->isFXAAEnabled();
+    sceneNode["fxaaIntensity"] = scene->getFXAAIntensity();
     sceneNode["enableUIEvents"] = uiEventStateToString(scene->getEnableUIEvents());
 
     if (!scene->getDefaultMeshShader().empty())
@@ -2960,6 +3120,9 @@ Scene* editor::Stream::decodeScene(Scene* scene, const YAML::Node& node) {
     if (node["depthPrepassEnabled"]) {
         scene->setDepthPrepassEnabled(node["depthPrepassEnabled"].as<bool>());
     }
+    if (node["renderDistance"]) {
+        scene->setRenderDistance(decodeFinite(node["renderDistance"], scene->getRenderDistance()));
+    }
 
     if (node["lightState"]) {
         scene->setLightState(stringToLightState(node["lightState"].as<std::string>()));
@@ -3003,6 +3166,51 @@ Scene* editor::Stream::decodeScene(Scene* scene, const YAML::Node& node) {
     if (node["ssaoBias"]) {
         scene->setSSAOBias(node["ssaoBias"].as<float>());
     }
+    if (node["contactShadowsEnabled"]) {
+        scene->setContactShadowsEnabled(node["contactShadowsEnabled"].as<bool>());
+    }
+    if (node["contactShadowLength"]) {
+        scene->setContactShadowLength(node["contactShadowLength"].as<float>());
+    }
+    if (node["contactShadowSteps"]) {
+        scene->setContactShadowSteps(node["contactShadowSteps"].as<int>());
+    }
+    if (node["contactShadowThickness"]) {
+        scene->setContactShadowThickness(node["contactShadowThickness"].as<float>());
+    }
+    if (node["contactShadowIntensity"]) {
+        scene->setContactShadowIntensity(node["contactShadowIntensity"].as<float>());
+    }
+    if (node["ssgiEnabled"]) {
+        scene->setSSGIEnabled(node["ssgiEnabled"].as<bool>());
+    }
+    if (node["ssgiRadius"]) {
+        scene->setSSGIRadius(node["ssgiRadius"].as<float>());
+    }
+    if (node["ssgiIntensity"]) {
+        scene->setSSGIIntensity(node["ssgiIntensity"].as<float>());
+    }
+    if (node["ssgiSteps"]) {
+        scene->setSSGISteps(node["ssgiSteps"].as<int>());
+    }
+    if (node["ssgiThickness"]) {
+        scene->setSSGIThickness(node["ssgiThickness"].as<float>());
+    }
+    if (node["dofEnabled"]) {
+        scene->setDOFEnabled(node["dofEnabled"].as<bool>());
+    }
+    if (node["dofFocusDistance"]) {
+        scene->setDOFFocusDistance(node["dofFocusDistance"].as<float>());
+    }
+    if (node["dofAperture"]) {
+        scene->setDOFAperture(node["dofAperture"].as<float>());
+    }
+    if (node["dofFocusRange"]) {
+        scene->setDOFFocusRange(node["dofFocusRange"].as<float>());
+    }
+    if (node["dofMaxBlur"]) {
+        scene->setDOFMaxBlur(node["dofMaxBlur"].as<float>());
+    }
     if (node["ssrEnabled"]) {
         scene->setSSREnabled(node["ssrEnabled"].as<bool>());
     }
@@ -3021,10 +3229,24 @@ Scene* editor::Stream::decodeScene(Scene* scene, const YAML::Node& node) {
     if (node["ssrBlur"]) {
         scene->setSSRBlur(node["ssrBlur"].as<float>());
     }
+    scene->setTAAEnabled(node["taaEnabled"] ? node["taaEnabled"].as<bool>() : SceneSettings().taaEnabled);
+    scene->setTAABlend(node["taaBlend"] ? node["taaBlend"].as<float>() : SceneSettings().taaBlend);
+    scene->setTAAVelocityScale(node["taaVelocityScale"] ? node["taaVelocityScale"].as<float>() : SceneSettings().taaVelocityScale);
+    scene->setTAAVelocityClamp(node["taaVelocityClamp"] ? node["taaVelocityClamp"].as<float>() : SceneSettings().taaVelocityClamp);
+    scene->setMotionBlurEnabled(node["motionBlurEnabled"] ? node["motionBlurEnabled"].as<bool>() : SceneSettings().motionBlurEnabled);
+    scene->setMotionBlurIntensity(node["motionBlurIntensity"] ? node["motionBlurIntensity"].as<float>() : SceneSettings().motionBlurIntensity);
+    scene->setMotionBlurSamples(node["motionBlurSamples"] ? node["motionBlurSamples"].as<int>() : SceneSettings().motionBlurSamples);
+    scene->setMotionBlurVelocityClamp(node["motionBlurVelocityClamp"] ? node["motionBlurVelocityClamp"].as<float>() : SceneSettings().motionBlurVelocityClamp);
+    scene->setMotionBlurDepthThreshold(node["motionBlurDepthThreshold"] ? node["motionBlurDepthThreshold"].as<float>() : SceneSettings().motionBlurDepthThreshold);
 
     // absent key restores the engine default so decoding into a reused scene (play restore) is exact
     scene->setGravity2D(node["gravity2D"] ? decodeVector2(node["gravity2D"]) : Vector2(0.0f, -9.81f));
     scene->setGravity3D(node["gravity3D"] ? decodeVector3(node["gravity3D"]) : Vector3(0.0f, -9.81f, 0.0f));
+    scene->setWindEnabled(node["windEnabled"] ? node["windEnabled"].as<bool>() : SceneSettings().windEnabled);
+    scene->setWindSpeed(node["windSpeed"] ? decodeFinite(node["windSpeed"], SceneSettings().windSpeed) : SceneSettings().windSpeed);
+    scene->setWindDirection(node["windDirection"] ? decodeFinite(node["windDirection"], SceneSettings().windDirection) : SceneSettings().windDirection);
+    scene->setWindGustiness(node["windGustiness"] ? decodeFinite(node["windGustiness"], SceneSettings().windGustiness) : SceneSettings().windGustiness);
+    scene->setWindChange(node["windChange"] ? decodeFinite(node["windChange"], SceneSettings().windChange) : SceneSettings().windChange);
 
     if (node["fixedResolutionEnabled"]) {
         scene->setFixedResolutionEnabled(node["fixedResolutionEnabled"].as<bool>());
@@ -3037,6 +3259,77 @@ Scene* editor::Stream::decodeScene(Scene* scene, const YAML::Node& node) {
     }
     if (node["fixedResolutionFilter"]) {
         scene->setFixedResolutionFilter(stringToTextureFilter(node["fixedResolutionFilter"].as<std::string>()));
+    }
+    if (node["bloomEnabled"]) {
+        scene->setBloomEnabled(node["bloomEnabled"].as<bool>());
+    }
+    if (node["bloomThreshold"]) {
+        scene->setBloomThreshold(node["bloomThreshold"].as<float>());
+    }
+    if (node["bloomSoftKnee"]) {
+        scene->setBloomSoftKnee(node["bloomSoftKnee"].as<float>());
+    }
+    if (node["bloomIntensity"]) {
+        scene->setBloomIntensity(node["bloomIntensity"].as<float>());
+    }
+    if (node["bloomDirtIntensity"]) {
+        scene->setBloomDirtIntensity(node["bloomDirtIntensity"].as<float>());
+    }
+    if (node["bloomMipLevels"]) {
+        scene->setBloomLevels(node["bloomMipLevels"].as<int>());
+    }
+    if (node["tonemapEnabled"]) {
+        scene->setTonemapEnabled(node["tonemapEnabled"].as<bool>());
+    }
+    if (node["tonemapMode"]) {
+        scene->setTonemapMode(node["tonemapMode"].as<int>());
+    }
+    if (node["exposure"]) {
+        scene->setExposure(node["exposure"].as<float>());
+    }
+    if (node["autoExposure"]) {
+        scene->setAutoExposureEnabled(node["autoExposure"].as<bool>());
+    }
+    if (node["autoExposureSpeed"]) {
+        scene->setAutoExposureSpeed(node["autoExposureSpeed"].as<float>());
+    }
+    if (node["autoExposureMinEV"]) {
+        scene->setAutoExposureMinEV(node["autoExposureMinEV"].as<float>());
+    }
+    if (node["autoExposureMaxEV"]) {
+        scene->setAutoExposureMaxEV(node["autoExposureMaxEV"].as<float>());
+    }
+    if (node["exposureCompensation"]) {
+        scene->setExposureCompensation(node["exposureCompensation"].as<float>());
+    }
+    if (node["colorGradingEnabled"]) {
+        scene->setColorGradingEnabled(node["colorGradingEnabled"].as<bool>());
+    }
+    if (node["colorGradingSaturation"]) {
+        scene->setColorGradingSaturation(node["colorGradingSaturation"].as<float>());
+    }
+    if (node["colorGradingContrast"]) {
+        scene->setColorGradingContrast(node["colorGradingContrast"].as<float>());
+    }
+    if (node["colorGradingBrightness"]) {
+        scene->setColorGradingBrightness(node["colorGradingBrightness"].as<float>());
+    }
+    if (node["colorGradingHueShift"]) {
+        scene->setColorGradingHueShift(node["colorGradingHueShift"].as<float>());
+    }
+    if (node["colorGradingTemperature"]) {
+        scene->setColorGradingTemperature(node["colorGradingTemperature"].as<float>());
+    }
+    if (node["colorGradingTint"]) {
+        scene->setColorGradingTint(node["colorGradingTint"].as<float>());
+    }
+    scene->setColorGradingLUTPath(node["colorGradingLUT"]
+        ? node["colorGradingLUT"].as<std::string>() : "");
+    if (node["fxaaEnabled"]) {
+        scene->setFXAAEnabled(node["fxaaEnabled"].as<bool>());
+    }
+    if (node["fxaaIntensity"]) {
+        scene->setFXAAIntensity(node["fxaaIntensity"].as<float>());
     }
 
     if (node["enableUIEvents"]) {
@@ -3602,7 +3895,7 @@ std::vector<Entity> editor::Stream::decodeEntity(const YAML::Node& entityNode, E
         if (entityNode["components"]){
             // yaml-cpp only names the key it failed on, so point at the entity holding it
             try {
-                decodeComponents(entity, parent, registry, entityNode["components"]);
+                decodeComponents(entity, parent, registry, entityNode["components"], project);
             } catch (const std::exception& e) {
                 throw std::runtime_error("entity '" + name + "' (id " + std::to_string(entity) + "): " + e.what());
             }
@@ -3677,12 +3970,22 @@ YAML::Node editor::Stream::encodeMaterial(const Material& material, bool embedTe
         node["normalTexture"] = encodeTexture(material.normalTexture, embedTextureData);
     }
 
+    if (hasTexture(material.heightTexture)) {
+        node["heightTexture"] = encodeTexture(material.heightTexture, embedTextureData);
+        // Parallax only compiles into a variant when a height map is set, so the tuning
+        // fields travel with it and a scene without one stays as terse as it was.
+        node["heightScale"] = material.heightScale;
+        node["heightMinLayers"] = material.heightMinLayers;
+        node["heightMaxLayers"] = material.heightMaxLayers;
+    }
+
     // Per-texture UV set (glTF texCoord): 0 = a_texcoord1, 1 = a_texcoord2
     node["baseColorTexCoord"] = material.baseColorTexCoord;
     node["metallicRoughnessTexCoord"] = material.metallicRoughnessTexCoord;
     node["occlusionTexCoord"] = material.occlusionTexCoord;
     node["emissiveTexCoord"] = material.emissiveTexCoord;
     node["normalTexCoord"] = material.normalTexCoord;
+    node["heightTexCoord"] = material.heightTexCoord;
 
     // Encode material name
     node["name"] = material.name;
@@ -3716,12 +4019,20 @@ Material editor::Stream::decodeMaterial(const YAML::Node& node, const Material* 
     material.metallicRoughnessTexture = texture("metallicRoughnessTexture");
     material.occlusionTexture = texture("occlusionTexture");
     material.normalTexture = texture("normalTexture");
+    material.heightTexture = texture("heightTexture");
+
+    // The layer counts cross the GPU as floats (u_fs_heightParams is one vec4), so they
+    // decode as floats too; a scale left out of an old scene keeps the struct default.
+    material.heightScale = decodeFinite(node["heightScale"], material.heightScale);
+    material.heightMinLayers = decodeFinite(node["heightMinLayers"], material.heightMinLayers);
+    material.heightMaxLayers = decodeFinite(node["heightMaxLayers"], material.heightMaxLayers);
 
     if (node["baseColorTexCoord"]) material.baseColorTexCoord = node["baseColorTexCoord"].as<int>();
     if (node["metallicRoughnessTexCoord"]) material.metallicRoughnessTexCoord = node["metallicRoughnessTexCoord"].as<int>();
     if (node["occlusionTexCoord"]) material.occlusionTexCoord = node["occlusionTexCoord"].as<int>();
     if (node["emissiveTexCoord"]) material.emissiveTexCoord = node["emissiveTexCoord"].as<int>();
     if (node["normalTexCoord"]) material.normalTexCoord = node["normalTexCoord"].as<int>();
+    if (node["heightTexCoord"]) material.heightTexCoord = node["heightTexCoord"].as<int>();
 
     if (node["name"]) material.name = node["name"].as<std::string>();
 
@@ -3899,6 +4210,11 @@ YAML::Node editor::Stream::encodeComponents(const Entity entity, const EntityReg
         compNode[Catalog::getComponentName(ComponentType::ReflectionProbeComponent, true)] = encodeReflectionProbeComponent(probe);
     }
 
+    if (signature.test(registry->getComponentId<DecalComponent>())) {
+        DecalComponent decal = registry->getComponent<DecalComponent>(entity);
+        compNode[Catalog::getComponentName(ComponentType::DecalComponent, true)] = encodeDecalComponent(decal);
+    }
+
     if (signature.test(registry->getComponentId<CameraComponent>())) {
         CameraComponent camera = registry->getComponent<CameraComponent>(entity);
         compNode[Catalog::getComponentName(ComponentType::CameraComponent, true)] = encodeCameraComponent(camera);
@@ -3996,6 +4312,15 @@ YAML::Node editor::Stream::encodeComponents(const Entity entity, const EntityReg
         AnimationComponent animation = registry->getComponent<AnimationComponent>(entity);
         compNode[Catalog::getComponentName(ComponentType::AnimationComponent, true)] = encodeAnimationComponent(animation);
     }
+    if (signature.test(registry->getComponentId<AnimatorControllerComponent>())) {
+        AnimatorControllerComponent controller = registry->getComponent<AnimatorControllerComponent>(entity);
+        compNode[Catalog::getComponentName(ComponentType::AnimatorControllerComponent, true)] = encodeAnimatorControllerComponent(controller);
+    }
+
+    if (signature.test(registry->getComponentId<NetworkComponent>())) {
+        NetworkComponent network = registry->getComponent<NetworkComponent>(entity);
+        compNode[Catalog::getComponentName(ComponentType::NetworkComponent, true)] = encodeNetworkComponent(network);
+    }
 
     if (signature.test(registry->getComponentId<BoneComponent>())) {
         BoneComponent bone = registry->getComponent<BoneComponent>(entity);
@@ -4065,12 +4390,19 @@ YAML::Node editor::Stream::encodeComponents(const Entity entity, const EntityReg
     return compNode;
 }
 
-void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegistry* registry, const YAML::Node& compNode){
+void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegistry* registry, const YAML::Node& compNode,
+                                      const Project* project){
     std::string compName;
 
     Signature signature = registry->getSignature(entity);
 
     compName = Catalog::getComponentName(ComponentType::Transform, true);
+    // getComponentName lowercases through removeComponentSuffix, so a scene that spells the key with
+    // its class name carries a component the decoder never looks at: the entity silently loads with
+    // no position at all, and a mesh among them stays unloaded forever because RenderSystem::update
+    // walks the Transform array. Read the old spelling; encode still only ever writes the new one.
+    if (!compNode[compName] && compNode["Transform"])
+        compName = "Transform";
     if (compNode[compName]) {
         Transform* existing = registry->findComponent<Transform>(entity);
         Transform transform = decodeTransform(compNode[compName], existing);
@@ -4351,6 +4683,20 @@ void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegist
         }
     }
 
+    compName = Catalog::getComponentName(ComponentType::DecalComponent, true);
+    if (compNode[compName]) {
+        DecalComponent* existing = registry->findComponent<DecalComponent>(entity);
+        DecalComponent decal = decodeDecalComponent(compNode[compName], existing);
+        if (!signature.test(registry->getComponentId<DecalComponent>())){
+            registry->addComponent<DecalComponent>(entity, decal);
+            Catalog::updateEntity(registry, entity, Catalog::getComponentStructuralUpdateFlags(ComponentType::DecalComponent));
+        }else{
+            uint64_t flags = Catalog::getChangedUpdateFlags(ComponentType::DecalComponent, existing, &decal);
+            registry->getComponent<DecalComponent>(entity) = decal;
+            Catalog::updateEntity(registry, entity, flags);
+        }
+    }
+
     compName = Catalog::getComponentName(ComponentType::CameraComponent, true);
     if (compNode[compName]) {
         CameraComponent* existing = registry->findComponent<CameraComponent>(entity);
@@ -4380,7 +4726,7 @@ void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegist
     compName = Catalog::getComponentName(ComponentType::ScriptComponent, true);
     if (compNode[compName]) {
         ScriptComponent* existing = registry->findComponent<ScriptComponent>(entity);
-        ScriptComponent script = decodeScriptComponent(compNode[compName], existing);
+        ScriptComponent script = decodeScriptComponent(compNode[compName], existing, project);
         if (!signature.test(registry->getComponentId<ScriptComponent>())){
             registry->addComponent<ScriptComponent>(entity, script);
         }else{
@@ -4429,10 +4775,24 @@ void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegist
         }
     }
 
+    compName = Catalog::getComponentName(ComponentType::NetworkComponent, true);
+    if (compNode[compName]) {
+        NetworkComponent* existing = registry->findComponent<NetworkComponent>(entity);
+        NetworkComponent network = decodeNetworkComponent(compNode[compName], existing);
+        if (!signature.test(registry->getComponentId<NetworkComponent>())) {
+            registry->addComponent<NetworkComponent>(entity, network);
+        } else {
+            uint64_t flags = Catalog::getChangedUpdateFlags(ComponentType::NetworkComponent, existing, &network);
+            registry->getComponent<NetworkComponent>(entity) = network;
+            Catalog::updateEntity(registry, entity, flags);
+        }
+    }
+
     compName = Catalog::getComponentName(ComponentType::ModelComponent, true);
     if (compNode[compName]) {
         ModelComponent* existing = registry->findComponent<ModelComponent>(entity);
         ModelComponent model = decodeModelComponent(compNode[compName], existing);
+        repairModelEntityReferences(model, registry);
         if (!signature.test(registry->getComponentId<ModelComponent>())){
             registry->addComponent<ModelComponent>(entity, model);
         }else{
@@ -4601,15 +4961,25 @@ void editor::Stream::decodeComponents(Entity entity, Entity parent, EntityRegist
     }
 
     compName = Catalog::getComponentName(ComponentType::AnimationComponent, true);
+        if (compNode[compName]) {
+            AnimationComponent* existing = registry->findComponent<AnimationComponent>(entity);
+            AnimationComponent animation = decodeAnimationComponent(compNode[compName], existing);
+            if (!signature.test(registry->getComponentId<AnimationComponent>())) {
+                registry->addComponent<AnimationComponent>(entity, animation);
+            } else {
+                uint64_t flags = Catalog::getChangedUpdateFlags(ComponentType::AnimationComponent, existing, &animation);
+                registry->getComponent<AnimationComponent>(entity) = animation;
+            }
+        }
+    compName = Catalog::getComponentName(ComponentType::AnimatorControllerComponent, true);
     if (compNode[compName]) {
-        AnimationComponent* existing = registry->findComponent<AnimationComponent>(entity);
-        AnimationComponent animation = decodeAnimationComponent(compNode[compName], existing);
-        if (!signature.test(registry->getComponentId<AnimationComponent>())){
-            registry->addComponent<AnimationComponent>(entity, animation);
-        }else{
-            uint64_t flags = Catalog::getChangedUpdateFlags(ComponentType::AnimationComponent, existing, &animation);
-            registry->getComponent<AnimationComponent>(entity) = animation;
-            Catalog::updateEntity(registry, entity, flags);
+        AnimatorControllerComponent* existing = registry->findComponent<AnimatorControllerComponent>(entity);
+        AnimatorControllerComponent controller = decodeAnimatorControllerComponent(compNode[compName], existing);
+        if (!signature.test(registry->getComponentId<AnimatorControllerComponent>())) {
+            registry->addComponent<AnimatorControllerComponent>(entity, controller);
+        } else {
+            uint64_t flags = Catalog::getChangedUpdateFlags(ComponentType::AnimatorControllerComponent, existing, &controller);
+            registry->getComponent<AnimatorControllerComponent>(entity) = controller;
         }
     }
 
@@ -6114,6 +6484,40 @@ YAML::Node editor::Stream::encodeFogComponent(const FogComponent& fog) {
     node["linearStart"] = fog.linearStart;
     node["linearEnd"] = fog.linearEnd;
 
+    node["heightFog"] = fog.heightFog;
+    node["fogHeightFalloff"] = fog.fogHeightFalloff;
+    node["fogGroundHeight"] = fog.fogGroundHeight;
+    node["fogSunAmount"] = fog.fogSunAmount;
+    node["fogFarRange"] = fog.fogFarRange;
+    node["fogScatteringG"] = fog.fogScatteringG;
+    node["fogSunColor"] = encodeVector3(fog.fogSunColor);
+    node["fogNoiseEnabled"] = fog.fogNoiseEnabled;
+    node["fogNoiseScale"] = fog.fogNoiseScale;
+    node["fogNoiseStrength"] = fog.fogNoiseStrength;
+    node["fogNoiseSpeed"] = fog.fogNoiseSpeed;
+    node["fogNoiseWind"] = encodeVector2(fog.fogNoiseWind);
+    node["volumetricFog"] = fog.volumetricFog;
+    node["volumetricFogSteps"] = fog.volumetricFogSteps;
+    node["volumetricFogIntensity"] = fog.volumetricFogIntensity;
+
+    node["godRays"] = fog.godRays;
+    node["rayIntensity"] = fog.rayIntensity;
+    node["rayThreshold"] = fog.rayThreshold;
+    node["raySoftness"] = fog.raySoftness;
+    node["rayDecay"] = fog.rayDecay;
+    node["rayDensity"] = fog.rayDensity;
+
+    node["cloudsEnabled"] = fog.cloudsEnabled;
+    node["cloudBaseHeight"] = fog.cloudBaseHeight;
+    node["cloudThickness"] = fog.cloudThickness;
+    node["cloudCoverage"] = fog.cloudCoverage;
+    node["cloudDensity"] = fog.cloudDensity;
+    node["cloudScale"] = fog.cloudScale;
+    node["cloudSpeed"] = fog.cloudSpeed;
+    node["cloudSunAmount"] = fog.cloudSunAmount;
+    node["cloudWind"] = encodeVector2(fog.cloudWind);
+    node["cloudColor"] = encodeVector3(fog.cloudColor);
+
     return node;
 }
 
@@ -6129,6 +6533,42 @@ FogComponent editor::Stream::decodeFogComponent(const YAML::Node& node, const Fo
     if (node["density"]) fog.density = node["density"].as<float>();
     if (node["linearStart"]) fog.linearStart = node["linearStart"].as<float>();
     if (node["linearEnd"]) fog.linearEnd = node["linearEnd"].as<float>();
+
+    // A scene written before the atmosphere pass simply has none of these keys, so it keeps
+    // the struct defaults - both switches off - and renders exactly as it did.
+    if (node["heightFog"]) fog.heightFog = node["heightFog"].as<bool>();
+    if (node["fogHeightFalloff"]) fog.fogHeightFalloff = node["fogHeightFalloff"].as<float>();
+    if (node["fogGroundHeight"]) fog.fogGroundHeight = node["fogGroundHeight"].as<float>();
+    if (node["fogSunAmount"]) fog.fogSunAmount = node["fogSunAmount"].as<float>();
+    if (node["fogFarRange"]) fog.fogFarRange = node["fogFarRange"].as<float>();
+    if (node["fogScatteringG"]) fog.fogScatteringG = node["fogScatteringG"].as<float>();
+    if (node["fogSunColor"]) fog.fogSunColor = decodeVector3(node["fogSunColor"]);
+    if (node["fogNoiseEnabled"]) fog.fogNoiseEnabled = node["fogNoiseEnabled"].as<bool>();
+    if (node["fogNoiseScale"]) fog.fogNoiseScale = node["fogNoiseScale"].as<float>();
+    if (node["fogNoiseStrength"]) fog.fogNoiseStrength = node["fogNoiseStrength"].as<float>();
+    if (node["fogNoiseSpeed"]) fog.fogNoiseSpeed = node["fogNoiseSpeed"].as<float>();
+    if (node["fogNoiseWind"]) fog.fogNoiseWind = decodeVector2(node["fogNoiseWind"]);
+    if (node["volumetricFog"]) fog.volumetricFog = node["volumetricFog"].as<bool>();
+    if (node["volumetricFogSteps"]) fog.volumetricFogSteps = node["volumetricFogSteps"].as<unsigned int>();
+    if (node["volumetricFogIntensity"]) fog.volumetricFogIntensity = node["volumetricFogIntensity"].as<float>();
+
+    if (node["godRays"]) fog.godRays = node["godRays"].as<bool>();
+    if (node["rayIntensity"]) fog.rayIntensity = node["rayIntensity"].as<float>();
+    if (node["rayThreshold"]) fog.rayThreshold = node["rayThreshold"].as<float>();
+    if (node["raySoftness"]) fog.raySoftness = node["raySoftness"].as<float>();
+    if (node["rayDecay"]) fog.rayDecay = node["rayDecay"].as<float>();
+    if (node["rayDensity"]) fog.rayDensity = node["rayDensity"].as<float>();
+
+    if (node["cloudsEnabled"]) fog.cloudsEnabled = node["cloudsEnabled"].as<bool>();
+    if (node["cloudBaseHeight"]) fog.cloudBaseHeight = node["cloudBaseHeight"].as<float>();
+    if (node["cloudThickness"]) fog.cloudThickness = node["cloudThickness"].as<float>();
+    if (node["cloudCoverage"]) fog.cloudCoverage = node["cloudCoverage"].as<float>();
+    if (node["cloudDensity"]) fog.cloudDensity = node["cloudDensity"].as<float>();
+    if (node["cloudScale"]) fog.cloudScale = node["cloudScale"].as<float>();
+    if (node["cloudSpeed"]) fog.cloudSpeed = node["cloudSpeed"].as<float>();
+    if (node["cloudSunAmount"]) fog.cloudSunAmount = node["cloudSunAmount"].as<float>();
+    if (node["cloudWind"]) fog.cloudWind = decodeVector2(node["cloudWind"]);
+    if (node["cloudColor"]) fog.cloudColor = decodeVector3(node["cloudColor"]);
 
     return fog;
 }
@@ -6208,6 +6648,29 @@ ReflectionProbeComponent editor::Stream::decodeReflectionProbeComponent(const YA
     return probe;
 }
 
+YAML::Node editor::Stream::encodeDecalComponent(const DecalComponent& decal) {
+    YAML::Node node;
+    node["enabled"] = decal.enabled;
+    node["color"] = encodeVector3(decal.color);
+    node["size"] = encodeVector3(decal.size);
+    node["opacity"] = decal.opacity;
+    node["depthFade"] = decal.depthFade;
+    node["texture"] = encodeTexture(decal.texture);
+    return node;
+}
+
+DecalComponent editor::Stream::decodeDecalComponent(const YAML::Node& node, const DecalComponent* oldDecal) {
+    DecalComponent decal;
+    if (oldDecal) decal = *oldDecal;
+    if (node["enabled"]) decal.enabled = node["enabled"].as<bool>();
+    if (node["color"]) decal.color = decodeVector3(node["color"]);
+    if (node["size"]) decal.size = decodeVector3(node["size"]);
+    if (node["opacity"]) decal.opacity = node["opacity"].as<float>();
+    if (node["depthFade"]) decal.depthFade = node["depthFade"].as<float>();
+    if (node["texture"]) decal.texture = decodeTexture(node["texture"]);
+    return decal;
+}
+
 YAML::Node editor::Stream::encodeCameraComponent(const CameraComponent& camera) {
     YAML::Node node;
 
@@ -6266,6 +6729,7 @@ YAML::Node editor::Stream::encodeSoundComponent(const SoundComponent& audio) {
 
     node["state"] = soundStateToString(audio.state);
     if (!audio.filename.empty()) node["filename"] = audio.filename;
+    if (audio.bus != "master") node["bus"] = audio.bus;
     node["enableClocked"] = audio.enableClocked;
     encodeFinite(node, "volume", audio.volume);
     encodeFinite(node, "speed", audio.speed);
@@ -6296,6 +6760,7 @@ SoundComponent editor::Stream::decodeSoundComponent(const YAML::Node& node, cons
     if (node["state"]) audio.state = stringToSoundState(node["state"].as<std::string>());
     // Written only when set
     audio.filename = node["filename"] ? node["filename"].as<std::string>() : "";
+    if (node["bus"]) audio.bus = node["bus"].as<std::string>();
     if (node["enableClocked"]) audio.enableClocked = node["enableClocked"].as<bool>();
     if (node["volume"]) audio.volume = decodeFiniteDouble(node["volume"], audio.volume);
     if (node["speed"]) audio.speed = decodeFinite(node["speed"], audio.speed);
@@ -6367,7 +6832,8 @@ YAML::Node editor::Stream::encodeScriptComponent(const ScriptComponent& script) 
     return node;
 }
 
-ScriptComponent editor::Stream::decodeScriptComponent(const YAML::Node& node, const ScriptComponent* oldScript) {
+ScriptComponent editor::Stream::decodeScriptComponent(const YAML::Node& node, const ScriptComponent* oldScript,
+                                                      const Project* project) {
     ScriptComponent script;
 
     // Use old values as defaults if provided
@@ -6404,6 +6870,10 @@ ScriptComponent editor::Stream::decodeScriptComponent(const YAML::Node& node, co
             for (const auto& propNode : scriptNode["properties"]) {
                 entry.properties.push_back(decodeScriptProperty(propNode));
             }
+        }
+
+        if (entry.type == ScriptType::GRAPH && project) {
+            GraphScriptProperties::refresh(entry, *project);
         }
 
         script.scripts.push_back(std::move(entry));
@@ -6489,6 +6959,8 @@ YAML::Node editor::Stream::encodeWaterComponent(const WaterComponent& water) {
     node["foamColor"] = encodeVector3(water.foamColor);
     node["shoreFoam"] = water.shoreFoam;
     node["crestFoam"] = water.crestFoam;
+    node["windInfluence"] = water.windInfluence;
+    node["fetch"] = water.fetch;
     node["receiveShadows"] = water.receiveShadows;
     node["depthEffects"] = water.depthEffects;
     node["planarReflection"] = water.planarReflection;
@@ -6500,6 +6972,18 @@ YAML::Node editor::Stream::encodeWaterComponent(const WaterComponent& water) {
     node["underwater"] = water.underwater;
     node["buoyancy"] = water.buoyancy;
     node["buoyancyDepth"] = water.buoyancyDepth;
+    node["simulate"] = water.simulate;
+    node["simResolution"] = water.simResolution;
+    node["simDepth"] = water.simDepth;
+    node["simFlow"] = water.simFlow;
+    node["simRain"] = water.simRain;
+    node["simEvaporation"] = water.simEvaporation;
+    node["simDryDepth"] = water.simDryDepth;
+    node["simEdgeDrain"] = water.simEdgeDrain;
+    node["simRipples"] = water.simRipples;
+    node["simRippleSpeed"] = water.simRippleSpeed;
+    node["simRippleDamping"] = water.simRippleDamping;
+    node["simRippleStrength"] = water.simRippleStrength;
 
     if (!water.customShader.empty())
         node["customShader"] = water.customShader;
@@ -6538,6 +7022,8 @@ WaterComponent editor::Stream::decodeWaterComponent(const YAML::Node& node, cons
     if (node["foamColor"]) water.foamColor = decodeVector3(node["foamColor"]);
     if (node["shoreFoam"]) water.shoreFoam = node["shoreFoam"].as<float>();
     if (node["crestFoam"]) water.crestFoam = node["crestFoam"].as<float>();
+    if (node["windInfluence"]) water.windInfluence = node["windInfluence"].as<float>();
+    if (node["fetch"]) water.fetch = node["fetch"].as<float>();
     if (node["receiveShadows"]) water.receiveShadows = node["receiveShadows"].as<bool>();
     if (node["depthEffects"]) water.depthEffects = node["depthEffects"].as<bool>();
     if (node["planarReflection"]) water.planarReflection = node["planarReflection"].as<bool>();
@@ -6549,6 +7035,18 @@ WaterComponent editor::Stream::decodeWaterComponent(const YAML::Node& node, cons
     if (node["underwater"]) water.underwater = node["underwater"].as<bool>();
     if (node["buoyancy"]) water.buoyancy = node["buoyancy"].as<bool>();
     if (node["buoyancyDepth"]) water.buoyancyDepth = node["buoyancyDepth"].as<float>();
+    if (node["simulate"]) water.simulate = node["simulate"].as<bool>();
+    if (node["simResolution"]) water.simResolution = node["simResolution"].as<unsigned int>();
+    if (node["simDepth"]) water.simDepth = node["simDepth"].as<float>();
+    if (node["simFlow"]) water.simFlow = node["simFlow"].as<float>();
+    if (node["simRain"]) water.simRain = node["simRain"].as<float>();
+    if (node["simEvaporation"]) water.simEvaporation = node["simEvaporation"].as<float>();
+    if (node["simDryDepth"]) water.simDryDepth = node["simDryDepth"].as<float>();
+    if (node["simEdgeDrain"]) water.simEdgeDrain = node["simEdgeDrain"].as<bool>();
+    if (node["simRipples"]) water.simRipples = node["simRipples"].as<bool>();
+    if (node["simRippleSpeed"]) water.simRippleSpeed = node["simRippleSpeed"].as<float>();
+    if (node["simRippleDamping"]) water.simRippleDamping = node["simRippleDamping"].as<float>();
+    if (node["simRippleStrength"]) water.simRippleStrength = node["simRippleStrength"].as<float>();
 
     // Written only when set
     water.customShader = node["customShader"] ? node["customShader"].as<std::string>() : "";
@@ -6688,6 +7186,31 @@ Shape3DType editor::Stream::stringToShape3DType(const std::string& str) {
     if (str == "mesh") return Shape3DType::MESH;
     if (str == "heightfield") return Shape3DType::HEIGHTFIELD;
     return Shape3DType::SPHERE;
+}
+
+std::string editor::Stream::autoColliderTypeToString(AutoColliderType type) {
+    switch (type) {
+        case AutoColliderType::NONE: return "none";
+        case AutoColliderType::SPHERE: return "sphere";
+        case AutoColliderType::BOX: return "box";
+        case AutoColliderType::PLANE: return "plane";
+        case AutoColliderType::CAPSULE: return "capsule";
+        case AutoColliderType::CYLINDER: return "cylinder";
+        case AutoColliderType::CONVEX_HULL: return "convex_hull";
+        case AutoColliderType::MESH_AUTO: return "mesh_auto";
+        default: return "box";
+    }
+}
+
+AutoColliderType editor::Stream::stringToAutoColliderType(const std::string& str) {
+    if (str == "sphere") return AutoColliderType::SPHERE;
+    if (str == "box") return AutoColliderType::BOX;
+    if (str == "plane") return AutoColliderType::PLANE;
+    if (str == "capsule") return AutoColliderType::CAPSULE;
+    if (str == "cylinder") return AutoColliderType::CYLINDER;
+    if (str == "convex_hull") return AutoColliderType::CONVEX_HULL;
+    if (str == "mesh_auto") return AutoColliderType::MESH_AUTO;
+    return AutoColliderType::BOX;
 }
 
 std::string editor::Stream::joint2DTypeToString(Joint2DType type) {
@@ -6859,6 +7382,10 @@ YAML::Node editor::Stream::encodeBody3DComponent(const Body3DComponent& body) {
     node["motionQuality"] = body3DMotionQualityToString(body.motionQuality);
     node["sensor"] = body.sensor;
     node["gravityFactor"] = body.gravityFactor;
+    node["linearDamping"] = body.linearDamping;
+    node["angularDamping"] = body.angularDamping;
+    node["categoryBits"] = body.categoryBits;
+    node["maskBits"] = body.maskBits;
     node["buoyancy"] = body.buoyancy;
     node["waterDrag"] = body.waterDrag;
     node["waterAngularDrag"] = body.waterAngularDrag;
@@ -6897,6 +7424,8 @@ YAML::Node editor::Stream::encodeBody3DComponent(const Body3DComponent& body) {
         shapeNode["topRadius"] = body.shapes[i].topRadius;
         shapeNode["bottomRadius"] = body.shapes[i].bottomRadius;
         shapeNode["density"] = body.shapes[i].density;
+        shapeNode["friction"] = body.shapes[i].friction;
+        shapeNode["restitution"] = body.shapes[i].restitution;
 
         switch (body.shapes[i].source) {
             case Shape3DSource::RAW_VERTICES: shapeNode["source"] = "raw_vertices"; break;
@@ -6939,6 +7468,10 @@ Body3DComponent editor::Stream::decodeBody3DComponent(const YAML::Node& node, co
     if (node["motionQuality"]) body.motionQuality = stringToBody3DMotionQuality(node["motionQuality"].as<std::string>());
     if (node["sensor"]) body.sensor = node["sensor"].as<bool>();
     if (node["gravityFactor"]) body.gravityFactor = node["gravityFactor"].as<float>();
+    if (node["linearDamping"]) body.linearDamping = std::max(0.0f, node["linearDamping"].as<float>());
+    if (node["angularDamping"]) body.angularDamping = std::max(0.0f, node["angularDamping"].as<float>());
+    if (node["categoryBits"]) body.categoryBits = node["categoryBits"].as<uint16_t>();
+    if (node["maskBits"]) body.maskBits = node["maskBits"].as<uint16_t>();
     if (node["buoyancy"]) body.buoyancy = node["buoyancy"].as<float>();
     if (node["waterDrag"]) body.waterDrag = node["waterDrag"].as<float>();
     if (node["waterAngularDrag"]) body.waterAngularDrag = node["waterAngularDrag"].as<float>();
@@ -6992,6 +7525,8 @@ Body3DComponent editor::Stream::decodeBody3DComponent(const YAML::Node& node, co
             if (node["shapes"][i]["topRadius"]) body.shapes[i].topRadius = node["shapes"][i]["topRadius"].as<float>();
             if (node["shapes"][i]["bottomRadius"]) body.shapes[i].bottomRadius = node["shapes"][i]["bottomRadius"].as<float>();
             if (node["shapes"][i]["density"]) body.shapes[i].density = node["shapes"][i]["density"].as<float>();
+            if (node["shapes"][i]["friction"]) body.shapes[i].friction = node["shapes"][i]["friction"].as<float>();
+            if (node["shapes"][i]["restitution"]) body.shapes[i].restitution = node["shapes"][i]["restitution"].as<float>();
 
             if (node["shapes"][i]["source"]) {
                 std::string source = node["shapes"][i]["source"].as<std::string>();
@@ -7042,6 +7577,81 @@ Body3DComponent editor::Stream::decodeBody3DComponent(const YAML::Node& node, co
     }
 
     return body;
+}
+
+// ==============================
+// AutoColliderComponent encode/decode
+// ==============================
+
+YAML::Node editor::Stream::encodeAutoColliderComponent(const AutoColliderComponent& collider) {
+    YAML::Node node;
+
+    node["type"] = autoColliderTypeToString(collider.type);
+    node["radius"] = collider.radius;
+    node["width"] = collider.width;
+    node["height"] = collider.height;
+    node["depth"] = collider.depth;
+    node["halfHeight"] = collider.halfHeight;
+    node["center"] = encodeVector3(collider.center);
+    node["sensor"] = collider.sensor;
+    node["density"] = collider.density;
+    node["categoryBits"] = collider.categoryBits;
+    node["maskBits"] = collider.maskBits;
+    node["sourceEntity"] = collider.sourceEntity;
+    node["needUpdate"] = collider.needUpdate;
+
+    return node;
+}
+
+AutoColliderComponent editor::Stream::decodeAutoColliderComponent(const YAML::Node& node, const AutoColliderComponent* oldCollider) {
+    AutoColliderComponent collider;
+
+    if (oldCollider) {
+        collider = *oldCollider;
+    }
+
+    if (node["type"]) collider.type = stringToAutoColliderType(node["type"].as<std::string>());
+    if (node["radius"]) collider.radius = node["radius"].as<float>();
+    if (node["width"]) collider.width = node["width"].as<float>();
+    if (node["height"]) collider.height = node["height"].as<float>();
+    if (node["depth"]) collider.depth = node["depth"].as<float>();
+    if (node["halfHeight"]) collider.halfHeight = node["halfHeight"].as<float>();
+    if (node["center"]) collider.center = decodeVector3(node["center"]);
+    if (node["sensor"]) collider.sensor = node["sensor"].as<bool>();
+    if (node["density"]) collider.density = node["density"].as<float>();
+    if (node["categoryBits"]) collider.categoryBits = node["categoryBits"].as<uint16_t>();
+    if (node["maskBits"]) collider.maskBits = node["maskBits"].as<uint16_t>();
+    if (node["sourceEntity"]) collider.sourceEntity = node["sourceEntity"].as<Entity>();
+    if (node["needUpdate"]) collider.needUpdate = node["needUpdate"].as<bool>();
+
+    return collider;
+}
+
+// ==============================
+// NetworkComponent encode/decode
+// ==============================
+
+YAML::Node editor::Stream::encodeNetworkComponent(const NetworkComponent& network) {
+    YAML::Node node;
+    node["netId"] = network.netId;
+    node["replicateTransform"] = network.replicateTransform;
+    node["ownerId"] = network.ownerId;
+    node["interestGroup"] = network.interestGroup;
+    node["interestRadius"] = network.interestRadius;
+    node["serverAuthority"] = network.serverAuthority;
+    return node;
+}
+
+NetworkComponent editor::Stream::decodeNetworkComponent(const YAML::Node& node, const NetworkComponent* oldNetwork) {
+    NetworkComponent network;
+    if (oldNetwork) network = *oldNetwork;
+    if (node["netId"]) network.netId = node["netId"].as<uint32_t>();
+    if (node["replicateTransform"]) network.replicateTransform = node["replicateTransform"].as<bool>();
+    if (node["ownerId"]) network.ownerId = node["ownerId"].as<uint32_t>();
+    if (node["interestGroup"]) network.interestGroup = node["interestGroup"].as<uint32_t>();
+    if (node["interestRadius"]) network.interestRadius = node["interestRadius"].as<float>();
+    if (node["serverAuthority"]) network.serverAuthority = node["serverAuthority"].as<bool>();
+    return network;
 }
 
 // ==============================
@@ -7509,6 +8119,231 @@ AnimationComponent editor::Stream::decodeAnimationComponent(const YAML::Node& no
     return animation;
 }
 
+YAML::Node editor::Stream::encodeAnimatorControllerComponent(const AnimatorControllerComponent& controller){
+    YAML::Node node;
+    node["enabled"] = controller.enabled;
+    node["controllerAsset"] = controller.controllerAsset;
+    node["rootMotionEnabled"] = controller.rootMotionEnabled;
+    node["rootMotionTarget"] = (uint32_t)controller.rootMotionTarget;
+    node["rootMotionScale"] = controller.rootMotionScale;
+
+    YAML::Node layers;
+    for (const auto& layer : controller.layers){
+        YAML::Node ln;
+        ln["name"] = layer.name;
+        ln["weight"] = layer.weight;
+        ln["additive"] = layer.additive;
+        ln["enabled"] = layer.enabled;
+        layers.push_back(ln);
+    }
+    node["layers"] = layers;
+
+    YAML::Node ikChains;
+    for (const auto& chain : controller.ikChains){
+        YAML::Node cn;
+        cn["root"] = (uint32_t)chain.root;
+        cn["middle"] = (uint32_t)chain.middle;
+        cn["tip"] = (uint32_t)chain.tip;
+        cn["target"] = (uint32_t)chain.target;
+        cn["pole"] = (uint32_t)chain.pole;
+        cn["weight"] = chain.weight;
+        cn["enabled"] = chain.enabled;
+        cn["orientBones"] = chain.orientBones;
+        ikChains.push_back(cn);
+    }
+    node["ikChains"] = ikChains;
+
+    YAML::Node params;
+    for(const auto& p : controller.parameters){
+        YAML::Node pn;
+        pn["name"] = p.name;
+        pn["type"] = (int)p.type;
+        pn["defaultValue"] = p.defaultValue;
+        pn["boolValue"] = p.boolValue;
+        params.push_back(pn);
+    }
+    node["parameters"] = params;
+
+    YAML::Node states;
+    for(const auto& s : controller.states){
+        YAML::Node sn;
+        sn["id"] = (int)s.id;
+        sn["name"] = s.name;
+        sn["x"] = s.x;
+        sn["y"] = s.y;
+        sn["isDefault"] = s.isDefault;
+        YAML::Node clips;
+        for(const auto& c : s.clips){
+            YAML::Node cn;
+            cn["name"] = c.name;
+            cn["animation"] = (uint32_t)c.animation;
+            cn["audio"] = (uint32_t)c.audio;
+            cn["speed"] = c.speed;
+            cn["offset"] = c.offset;
+            cn["loop"] = c.loop;
+            cn["layer"] = c.layer;
+            YAML::Node events;
+            for(const auto& e : c.events){
+                YAML::Node en;
+                en["time"] = e.time;
+                en["functionName"] = e.functionName;
+                en["parameter"] = e.parameter;
+                events.push_back(en);
+            }
+            cn["events"] = events;
+            clips.push_back(cn);
+        }
+        sn["clips"] = clips;
+        states.push_back(sn);
+    }
+    node["states"] = states;
+
+    YAML::Node transitions;
+    for(const auto& t : controller.transitions){
+        YAML::Node tn;
+        tn["id"] = (int)t.id;
+        tn["name"] = t.name;
+        tn["fromState"] = (int)t.fromState;
+        tn["toState"] = (int)t.toState;
+        tn["hasExitTime"] = t.hasExitTime;
+        tn["exitTime"] = t.exitTime;
+        tn["transitionDuration"] = t.transitionDuration;
+        tn["offset"] = t.offset;
+        tn["canTransitionToSelf"] = t.canTransitionToSelf;
+        tn["interruptionSource"] = (int)t.interruptionSource;
+        YAML::Node conds;
+        for(const auto& c : t.conditions){
+            YAML::Node cn;
+            cn["parameter"] = c.parameter;
+            cn["mode"] = (int)c.mode;
+            cn["value"] = c.value;
+            cn["boolValue"] = c.boolValue;
+            conds.push_back(cn);
+        }
+        tn["conditions"] = conds;
+        transitions.push_back(tn);
+    }
+    node["transitions"] = transitions;
+
+    return node;
+}
+
+AnimatorControllerComponent editor::Stream::decodeAnimatorControllerComponent(const YAML::Node& node, const AnimatorControllerComponent* oldController){
+    AnimatorControllerComponent controller;
+    if(oldController) controller = *oldController;
+
+    if(node["enabled"]) controller.enabled = node["enabled"].as<bool>();
+    if(node["controllerAsset"]) controller.controllerAsset = node["controllerAsset"].as<std::string>();
+    if(node["rootMotionEnabled"]) controller.rootMotionEnabled = node["rootMotionEnabled"].as<bool>();
+    if(node["rootMotionTarget"]) controller.rootMotionTarget = (Entity)node["rootMotionTarget"].as<uint32_t>();
+    if(node["rootMotionScale"]) controller.rootMotionScale = node["rootMotionScale"].as<float>();
+
+    if(node["layers"]){
+        controller.layers.clear();
+        for(const YAML::Node& ln : node["layers"]){
+            AnimatorLayer layer;
+            if(ln["name"]) layer.name = ln["name"].as<std::string>();
+            if(ln["weight"]) layer.weight = ln["weight"].as<float>();
+            if(ln["additive"]) layer.additive = ln["additive"].as<bool>();
+            if(ln["enabled"]) layer.enabled = ln["enabled"].as<bool>();
+            controller.layers.push_back(layer);
+        }
+    }
+
+    if(node["ikChains"]){
+        controller.ikChains.clear();
+        for(const YAML::Node& cn : node["ikChains"]){
+            AnimatorIKChain chain;
+            if(cn["root"]) chain.root = (Entity)cn["root"].as<uint32_t>();
+            if(cn["middle"]) chain.middle = (Entity)cn["middle"].as<uint32_t>();
+            if(cn["tip"]) chain.tip = (Entity)cn["tip"].as<uint32_t>();
+            if(cn["target"]) chain.target = (Entity)cn["target"].as<uint32_t>();
+            if(cn["pole"]) chain.pole = (Entity)cn["pole"].as<uint32_t>();
+            if(cn["weight"]) chain.weight = cn["weight"].as<float>();
+            if(cn["enabled"]) chain.enabled = cn["enabled"].as<bool>();
+            if(cn["orientBones"]) chain.orientBones = cn["orientBones"].as<bool>();
+            controller.ikChains.push_back(chain);
+        }
+    }
+
+    if(node["parameters"]){
+        controller.parameters.clear();
+        for(const YAML::Node& pn : node["parameters"]){
+            AnimatorParameter p;
+            if(pn["name"]) p.name = pn["name"].as<std::string>();
+            if(pn["type"]) p.type = (AnimatorParameter::Type)pn["type"].as<int>();
+            if(pn["defaultValue"]) p.defaultValue = pn["defaultValue"].as<float>();
+            if(pn["boolValue"]) p.boolValue = pn["boolValue"].as<bool>();
+            controller.parameters.push_back(p);
+        }
+    }
+
+    if(node["states"]){
+        controller.states.clear();
+        for(const YAML::Node& sn : node["states"]){
+            AnimatorState s;
+            if(sn["id"]) s.id = (uint32_t)sn["id"].as<int>();
+            if(sn["name"]) s.name = sn["name"].as<std::string>();
+            if(sn["x"]) s.x = sn["x"].as<float>();
+            if(sn["y"]) s.y = sn["y"].as<float>();
+            if(sn["isDefault"]) s.isDefault = sn["isDefault"].as<bool>();
+            if(sn["clips"]){
+                for(const YAML::Node& cn : sn["clips"]){
+                    AnimatorClip c;
+                    if(cn["name"]) c.name = cn["name"].as<std::string>();
+                    if(cn["animation"]) c.animation = (Entity)cn["animation"].as<uint32_t>();
+                    if(cn["audio"]) c.audio = (Entity)cn["audio"].as<uint32_t>();
+                    if(cn["speed"]) c.speed = cn["speed"].as<float>();
+                    if(cn["offset"]) c.offset = cn["offset"].as<float>();
+                    if(cn["loop"]) c.loop = cn["loop"].as<bool>();
+                    if(cn["layer"]) c.layer = cn["layer"].as<uint32_t>();
+                    if(cn["events"]){
+                        for(const YAML::Node& en : cn["events"]){
+                            AnimatorClip::Event e;
+                            if(en["time"]) e.time = en["time"].as<float>();
+                            if(en["functionName"]) e.functionName = en["functionName"].as<std::string>();
+                            if(en["parameter"]) e.parameter = en["parameter"].as<std::string>();
+                            c.events.push_back(e);
+                        }
+                    }
+                    s.clips.push_back(c);
+                }
+            }
+            controller.states.push_back(s);
+        }
+    }
+
+    if(node["transitions"]){
+        controller.transitions.clear();
+        for(const YAML::Node& tn : node["transitions"]){
+            AnimatorTransition t;
+            if(tn["id"]) t.id = (uint32_t)tn["id"].as<int>();
+            if(tn["name"]) t.name = tn["name"].as<std::string>();
+            if(tn["fromState"]) t.fromState = (uint32_t)tn["fromState"].as<int>();
+            if(tn["toState"]) t.toState = (uint32_t)tn["toState"].as<int>();
+            if(tn["hasExitTime"]) t.hasExitTime = tn["hasExitTime"].as<bool>();
+            if(tn["exitTime"]) t.exitTime = tn["exitTime"].as<float>();
+            if(tn["transitionDuration"]) t.transitionDuration = tn["transitionDuration"].as<float>();
+            if(tn["offset"]) t.offset = tn["offset"].as<float>();
+            if(tn["canTransitionToSelf"]) t.canTransitionToSelf = tn["canTransitionToSelf"].as<bool>();
+            if(tn["interruptionSource"]) t.interruptionSource = (AnimatorTransition::InterruptionSource)tn["interruptionSource"].as<int>();
+            if(tn["conditions"]){
+                for(const YAML::Node& cn : tn["conditions"]){
+                    AnimatorTransition::Condition c;
+                    if(cn["parameter"]) c.parameter = cn["parameter"].as<std::string>();
+                    if(cn["mode"]) c.mode = (AnimatorTransition::Condition::Mode)cn["mode"].as<int>();
+                    if(cn["value"]) c.value = cn["value"].as<float>();
+                    if(cn["boolValue"]) c.boolValue = cn["boolValue"].as<bool>();
+                    t.conditions.push_back(c);
+                }
+            }
+            controller.transitions.push_back(t);
+        }
+    }
+
+    return controller;
+}
+
 YAML::Node editor::Stream::encodeBoneComponent(const BoneComponent& bone) {
     YAML::Node node;
 
@@ -7733,6 +8568,12 @@ YAML::Node editor::Stream::encodeParticlesComponent(const ParticlesComponent& pa
     node["emitter"] = particles.emitter;
     node["loop"] = particles.loop;
     node["localSpace"] = particles.localSpace;
+    node["gpuSimulation"] = particles.gpuSimulation;
+    node["collisionEnabled"] = particles.collisionEnabled;
+    node["collisionBounce"] = particles.collisionBounce;
+    node["collisionFriction"] = particles.collisionFriction;
+    node["trailsEnabled"] = particles.trailsEnabled;
+    node["trailLength"] = particles.trailLength;
     node["rate"] = particles.rate;
     node["maxPerUpdate"] = particles.maxPerUpdate;
 
@@ -7903,6 +8744,12 @@ ParticlesComponent editor::Stream::decodeParticlesComponent(const YAML::Node& no
     if (node["emitter"]) particles.emitter = node["emitter"].as<bool>();
     if (node["loop"]) particles.loop = node["loop"].as<bool>();
     if (node["localSpace"]) particles.localSpace = node["localSpace"].as<bool>();
+    if (node["gpuSimulation"]) particles.gpuSimulation = node["gpuSimulation"].as<bool>();
+    if (node["collisionEnabled"]) particles.collisionEnabled = node["collisionEnabled"].as<bool>();
+    if (node["collisionBounce"]) particles.collisionBounce = node["collisionBounce"].as<float>();
+    if (node["collisionFriction"]) particles.collisionFriction = node["collisionFriction"].as<float>();
+    if (node["trailsEnabled"]) particles.trailsEnabled = node["trailsEnabled"].as<bool>();
+    if (node["trailLength"]) particles.trailLength = node["trailLength"].as<unsigned int>();
     if (node["rate"]) particles.rate = node["rate"].as<int>();
     if (node["maxPerUpdate"]) particles.maxPerUpdate = node["maxPerUpdate"].as<int>();
 
@@ -8218,6 +9065,8 @@ PointsComponent editor::Stream::decodePointsComponent(const YAML::Node& node, co
     // Reset runtime fields, a loaded component reloads so its render resources are released
     points.renderPoints.clear();
     points.numVisible = 0;
+    points.gpuSimulation = false;
+    points.gpuSimulationTime = 0.0f;
     points.needUpdate = true;
     points.needUpdateBuffer = false;
     points.needUpdateTexture = true;

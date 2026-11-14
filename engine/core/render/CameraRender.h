@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef CameraRender_h
@@ -8,8 +8,8 @@
 #include "math/Rect.h"
 #include "sokol/SokolCamera.h"
 
-namespace doriax{
-    class DORIAX_API CameraRender{
+namespace quantum{
+    class QUANTUM_API CameraRender{
     public:
         //***Backend***
         SokolCamera backend;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SokolCamera_h
@@ -10,7 +10,7 @@
 
 #include "sokol_gfx.h"
 
-namespace doriax{
+namespace quantum{
     class SokolCamera{
 
     private:

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef PaintList_h
@@ -12,7 +12,7 @@
 #include "math/Vector4.h"
 #include "texture/Texture.h"
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // Glyph quad produced by the text renderer, in absolute canvas
     // coordinates, ordered (x0,y0) (x1,y0) (x1,y1) (x0,y1).
@@ -45,7 +45,7 @@ namespace doriax::ui {
 
     // Flat command list produced by the paint pass and consumed by the vertex
     // builder. Kept GPU-free so it can be unit tested.
-    class DORIAX_API PaintList {
+    class QUANTUM_API PaintList {
     public:
         void clear();
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "NotificationsWindow.h"
@@ -12,7 +12,7 @@
 
 #include "imgui.h"
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 static ImVec4 GetLevelColor(NotificationLevel level) {
     switch (level) {
@@ -132,11 +132,12 @@ void NotificationsWindow::drawHistoryWindow() {
     }
 
     bool wasOpen = windowOpen;
-    if (hasNotification) {
+    const bool notificationPending = hasNotification.exchange(false, std::memory_order_acq_rel);
+    if (notificationPending) {
         App::pushTabNotificationStyle();
     }
-    if (!ImGui::Begin(WINDOW_NAME, &windowOpen, hasNotification ? ImGuiWindowFlags_UnsavedDocument : 0)) {
-        if (hasNotification) {
+    if (!ImGui::Begin(WINDOW_NAME, &windowOpen, notificationPending ? ImGuiWindowFlags_UnsavedDocument : 0)) {
+        if (notificationPending) {
             App::popTabNotificationStyle();
         }
         ImGui::End();
@@ -145,11 +146,9 @@ void NotificationsWindow::drawHistoryWindow() {
         }
         return;
     }
-    if (hasNotification) {
+    if (notificationPending) {
         App::popTabNotificationStyle();
     }
-
-    hasNotification = false;
 
     std::deque<NotificationEntry> snapshot;
     {

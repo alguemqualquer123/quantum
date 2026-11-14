@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "D3D11Context.h"
@@ -10,7 +10,7 @@
 
 #include <cstdio>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -234,6 +234,58 @@ void D3D11Context::endFrame() {
     const HRESULT result = gSwapChain->Present(gConfig.vsync ? 1 : 0, 0);
     if (FAILED(result))
         std::fprintf(stderr, "Error: Could not present the D3D11 swapchain (0x%08lx).\n", result);
+}
+
+bool D3D11Context::readBackFramebuffer(unsigned char* out, int width, int height) {
+    if (!out || width <= 0 || height <= 0 || !gDevice || !gDeviceContext || !gRenderTarget ||
+        width != gWidth || height != gHeight)
+        return false;
+
+    D3D11_TEXTURE2D_DESC sourceDescription{};
+    gRenderTarget->GetDesc(&sourceDescription);
+    if (sourceDescription.Format != COLOR_FORMAT || sourceDescription.SampleDesc.Count != 1)
+        return false;
+
+    D3D11_TEXTURE2D_DESC stagingDescription = sourceDescription;
+    stagingDescription.Usage = D3D11_USAGE_STAGING;
+    stagingDescription.BindFlags = 0;
+    stagingDescription.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+    stagingDescription.MiscFlags = 0;
+
+    ID3D11Texture2D* staging = nullptr;
+    HRESULT result = gDevice->CreateTexture2D(&stagingDescription, nullptr, &staging);
+    if (FAILED(result) || !staging) {
+        std::fprintf(stderr, "Error: Could not create the D3D11 readback texture (0x%08lx).\n", result);
+        return false;
+    }
+
+    gDeviceContext->CopyResource(staging, gRenderTarget);
+    D3D11_MAPPED_SUBRESOURCE mapped{};
+    result = gDeviceContext->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
+    if (FAILED(result)) {
+        staging->Release();
+        std::fprintf(stderr, "Error: Could not map the D3D11 readback texture (0x%08lx).\n", result);
+        return false;
+    }
+
+    const size_t rowBytes = static_cast<size_t>(width) * 4u;
+    for (int y = 0; y < height; ++y) {
+        const unsigned char* source = static_cast<const unsigned char*>(mapped.pData) +
+                                      static_cast<size_t>(y) * mapped.RowPitch;
+        unsigned char* destination = out + static_cast<size_t>(y) * rowBytes;
+        for (int x = 0; x < width; ++x) {
+            const unsigned char* pixel = source + static_cast<size_t>(x) * 4u;
+            unsigned char* output = destination + static_cast<size_t>(x) * 4u;
+            output[0] = pixel[2];
+            output[1] = pixel[1];
+            output[2] = pixel[0];
+            output[3] = pixel[3];
+        }
+    }
+
+    gDeviceContext->Unmap(staging, 0);
+    staging->Release();
+    return true;
 }
 
 sg_environment D3D11Context::environment() {

@@ -1,7 +1,7 @@
 # Docker build tests, ensuring the project builds across different systems.
 services:
   nix:
-    image: doriaxengine/doriax:nix
+    image: quantumengine/quantum:nix
     build:
       dockerfile: ./misc/containers/nix/Dockerfile
       context: ../../
@@ -22,7 +22,7 @@ services:
     tty: true
     command: /bin/sh -c "nix build . --no-write-lock-file"
   fedora:
-    image: doriaxengine/doriax:fedora
+    image: quantumengine/quantum:fedora
     build:
       dockerfile: ../../misc/containers/fedora/fedora-release/Dockerfile
     volumes:
@@ -33,7 +33,7 @@ services:
       - "../../build/containers/fedora:/opt/builddir"
     tty: true
   ubuntu:
-    image: doriaxengine/doriax:ubuntu
+    image: quantumengine/quantum:ubuntu
     build:
       dockerfile: ../../misc/containers/ubuntu/ubuntu-release/Dockerfile
     volumes:

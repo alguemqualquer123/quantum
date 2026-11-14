@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "EditorHost.h"
 
 #include "Out.h"
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 void EditorHost::enqueueMainThreadTask(std::function<void()> task) {
     if (task) {
@@ -118,10 +118,10 @@ ImageViewerWindow* EditorHost::getImageViewerWindow() const {
 static EditorHost s_defaultHost;
 static EditorHost* s_activeHost = &s_defaultHost;
 
-void doriax::editor::setEditorHost(EditorHost* host) {
+void quantum::editor::setEditorHost(EditorHost* host) {
     s_activeHost = host ? host : &s_defaultHost;
 }
 
-EditorHost& doriax::editor::getEditorHost() {
+EditorHost& quantum::editor::getEditorHost() {
     return *s_activeHost;
 }

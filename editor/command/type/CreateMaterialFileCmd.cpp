@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateMaterialFileCmd.h"
@@ -12,7 +12,7 @@
 #include <fstream>
 #include <system_error>
 
-using namespace doriax;
+using namespace quantum;
 
 fs::path editor::CreateMaterialFileCmd::findAvailableTargetFile(const fs::path& directory) {
     std::string baseName = "Material";

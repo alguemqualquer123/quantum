@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef Render_h
@@ -7,7 +7,7 @@
 #include "Export.h"
 
 
-namespace doriax{
+namespace quantum{
 
     enum class PrimitiveType{
         TRIANGLES,
@@ -79,7 +79,10 @@ namespace doriax{
         // keep appending: the ShaderKey stores this enum and validates cached .sdat
         POSTPROCESS, // fullscreen user post-process pass
         WATER,      // water surface displaced by Gerstner waves
-        UNDERWATER  // fullscreen fade of the scene seen from inside a water
+        UNDERWATER, // fullscreen fade of the scene seen from inside a water
+        ATMOSPHERE, // fullscreen height fog + light shafts over the HDR scene color
+        SSGI,       // screen-space diffuse bounce lighting
+        DECAL       // screen-space projected material decal
     };
 
     enum class AttributeType{
@@ -93,6 +96,10 @@ namespace doriax{
         POINTSIZE,
         POINTROTATION,
         TEXTURERECT,
+        PARTICLEVELOCITY,
+        PARTICLEACCELERATION,
+        PARTICLESPAWNTIME,
+        PARTICLELIFE,
         BONEWEIGHTS,
         BONEIDS,
         MORPHTARGET0,
@@ -136,6 +143,8 @@ namespace doriax{
         MATERIAL,
         PBR_FS_PARAMS,
         PBR_FS_TEXCOORDSETS,
+        PBR_FS_HEIGHT,
+        PBR_FS_MATERIAL_EXTENSIONS,
         PBR_VS_FADE,
         FS_LIGHTING,
         FS_REFLECTION_PROBE,
@@ -172,6 +181,7 @@ namespace doriax{
         SHADOW2D_VS_PARAMS,
         BLIT_FS_PARAMS,
         WATER_VS_PARAMS,
+        WATER_SIM_VS_PARAMS,
         WATER_FS_PARAMS,
         UNDERWATER_FS_PARAMS,
         // --- HDR pipeline ---
@@ -196,12 +206,17 @@ namespace doriax{
         FILMGRAIN_FS_PARAMS,
         CONTACT_SHADOWS_FS_PARAMS,
         HIZ_GEN_FS_PARAMS,
-        SSR_HIZ_FS_PARAMS
+        SSR_HIZ_FS_PARAMS,
+        // --- appended: the atmosphere pass's own block ---
+        ATMOSPHERE_FS_PARAMS,
+        SSGI_FS_PARAMS,
+        DECAL_FS_PARAMS
     };
 
     enum class StorageBufferType{
         VS_VERTEX,
-        VS_SKINNING
+        VS_SKINNING,
+        FS_LIGHT_GRID
     };
 
     enum class TextureShaderType{
@@ -210,7 +225,9 @@ namespace doriax{
         METALLICROUGHNESS,
         OCCULSION,
         NORMAL,
+        MATERIALHEIGHT, // the material height map (parallax); HEIGHTMAP is the terrain's own u_heightMap
         SHADOWATLAS,
+        SHADOWPAGETABLE,
         SHADOWPOINTATLAS,
         SKYCUBE,
         IRRADIANCEMAP,
@@ -237,6 +254,7 @@ namespace doriax{
         WATERREFLECTION,     // water planar reflection camera target
         WATERREFRACTION,     // copy of the scene drawn before the water
         WATEREXCLUSION,      // hull maps of the volumes keeping the water out
+        WATERFIELD,          // RGBA32F heightfield: r = depth, g = ground, b = ripple, a = flow speed
         // --- HDR pipeline textures ---
         SCENEDEPTHTEXTURE,    // camera-space depth for exposure/velocity
         VELOCITYTEXTURE,      // motion vectors (RG16F)
@@ -250,7 +268,8 @@ namespace doriax{
         HIZTEXTURE,           // hierarchical Z-buffer mips
         DOFTEXTURE,           // DOF blur output
         MOTIONBLURTEXTURE,    // motion blur output
-        PREVSCENECOLORTEXTURE // previous frame scene color (for TAA/history)
+        PREVSCENECOLORTEXTURE, // previous frame scene color (for TAA/history)
+        DECALTEXTURE
     };
 
     enum class TextureType {

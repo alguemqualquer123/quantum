@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef JOINT3D_COMPONENT_H
@@ -8,11 +8,11 @@
 #include "ecs/Entity.h"
 #include "math/Vector3.h"
 #include <vector>
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "Jolt/Physics/Constraints/TwoBodyConstraint.h"
 #endif
 
-namespace doriax{
+namespace quantum{
 
     enum class Joint3DType{
         FIXED,
@@ -29,8 +29,8 @@ namespace doriax{
         PULLEY
     };
 
-    struct DORIAX_API Joint3DComponent{
-#ifdef DORIAX_PHYSICS_3D
+    struct QUANTUM_API Joint3DComponent{
+#ifdef QUANTUM_PHYSICS_3D
         JPH::TwoBodyConstraint* joint = NULL;
 #endif
         Joint3DType type = Joint3DType::FIXED;

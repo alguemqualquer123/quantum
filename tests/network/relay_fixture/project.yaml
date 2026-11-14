@@ -1,0 +1,6 @@
+# (c) SR VINIX
+# SPDX-License-Identifier: MIT
+
+name: Network Relay Fixture
+luaDir: lua
+assetsDir: assets

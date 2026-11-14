@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TILEMAP_H
@@ -6,9 +6,9 @@
 
 #include "Mesh.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Tilemap: public Mesh{
+    class QUANTUM_API Tilemap: public Mesh{
 
     public:
         Tilemap(Scene* scene);

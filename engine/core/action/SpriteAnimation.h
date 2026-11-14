@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SPRITEANIMATION_H
@@ -6,8 +6,8 @@
 
 #include "Action.h"
 
-namespace doriax{
-    class DORIAX_API SpriteAnimation: public Action{
+namespace quantum{
+    class QUANTUM_API SpriteAnimation: public Action{
 
     public:
         SpriteAnimation(Scene* scene);

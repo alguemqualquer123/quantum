@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/widgets/Button.h"
@@ -8,7 +8,9 @@
 
 #include "slate/core/TextRenderer.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
+
+    const char* Button::getTypeName() const { return "Button"; }
 
     namespace {
         //See Label.cpp: the engine's default face is the Roboto subset compiled into
@@ -129,7 +131,7 @@ namespace doriax::slate {
         if (!enabled) {
             return WidgetVisualState::Disabled;
         }
-        return hasForcedState ? forcedState : WidgetVisualState::Normal;
+        return hasForcedState ? forcedState : Widget::getVisualState();
     }
 
     Vector2 Button::measure(Vector2 available) {

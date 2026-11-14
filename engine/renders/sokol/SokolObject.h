@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef sokolobject_h
@@ -13,9 +13,11 @@
 #include "sokol_gfx.h"
 
 #include <map>
+#include <string>
+#include <vector>
 
 
-namespace doriax{
+namespace quantum{
 
     struct UniformStageSlot{
         sg_shader_stage stage;
@@ -55,17 +57,28 @@ namespace doriax{
         sg_pipeline zprepass_pip;
         sg_pipeline zprepass_rtt_pip;
 
+        // The color format the PIP_RTT family is built for. sokol refuses a pipeline whose
+        // colors[0].pixel_format differs from the pass attachment, so an offscreen pass that
+        // renders into a float target has to say which one before it loads.
+        sg_pixel_format rttColorFormat;
+
         sg_pipeline_desc pipeline_desc;
 
         size_t bindSlotIndex;
 
         std::map< BufferInfo, size_t > bufferToBindSlot;
+        std::map<int, unsigned int> uniformBlockSizes;
+        std::map<int, std::string> uniformBlockNames;
+        std::vector<unsigned char> uniformBlockScratch;
 
 
         sg_vertex_format getVertexFormat(unsigned int elements, AttributeDataType dataType, bool normalized);
         sg_primitive_type getPrimitiveType(PrimitiveType primitiveType);
         sg_cull_mode getCullMode(CullingMode cullingMode);
         sg_face_winding getFaceWinding(WindingOrder windingOrder);
+
+        // pipelines come from a shared cache, so holding one means holding a reference to it
+        void retainAll() const;
 
     public:
 
@@ -75,6 +88,9 @@ namespace doriax{
 
         void beginLoad(PrimitiveType primitiveType);
         void setShader(ShaderRender* shader);
+        // Which pixel format the offscreen (PIP_RTT) pipeline writes to. Default RGBA8, which is
+        // what every pre-existing render target is; the HDR chain calls this for its float levels.
+        void setRenderTargetColorFormat(ColorFormat format);
         void setIndex(BufferRender* buffer, AttributeDataType dataType, size_t offset);
         void addAttribute(int slot, BufferRender* buffer, unsigned int elements, AttributeDataType dataType, unsigned int stride, size_t offset, bool normalized, bool perInstance);
         // rebind every vertex bind-slot that was filled from fromBufferId to toBuffer,
@@ -93,6 +109,14 @@ namespace doriax{
         void draw(unsigned int baseElement, unsigned int vertexCount, unsigned int instanceCount);
 
         void destroy();
+
+        // drop every cached handle: called when the graphics context is torn down
+        static void clearPipelineCache();
+
+        // Opens a pass and remembers the pixel format of its first color attachment, so
+        // beginDraw() can pick the pipeline variant baked for that format. Every pass that
+        // draws engine geometry has to be opened here or its meshes get rejected.
+        static void beginPass(const sg_pass& pass);
 
     };
 }

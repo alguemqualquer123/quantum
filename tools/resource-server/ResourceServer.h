@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// ResourceServer.h - the doriax-resource-server serving loop: localhost TCP,
+// ResourceServer.h - the quantum-resource-server serving loop: localhost TCP,
 // newline-delimited JSON, 1 s mtime watch tick.
 
 #pragma once
@@ -11,7 +11,7 @@
 
 #include "Connections.h"
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 namespace fs = std::filesystem;
 

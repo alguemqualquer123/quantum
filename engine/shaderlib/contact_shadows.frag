@@ -1,7 +1,8 @@
 #version 450
 
-// Contact Shadows: screen-space short-range shadows
-// Ray marches in depth buffer for near-contact detail
+// Screen-space contact shadows for the strongest directional light. The pass only marches a
+// short distance from the visible surface, so it fills the small gap between a receiver and the
+// first texel of the shadow atlas without replacing the atlas shadow itself.
 
 in vec2 v_texcoord;
 out vec4 frag_color;
@@ -12,70 +13,60 @@ uniform sampler u_sceneColor_smp;
 uniform texture2D u_depthTexture;
 uniform sampler u_depth_smp;
 
-uniform texture2D u_normalTexture;
-uniform sampler u_normal_smp;
-
 uniform u_fs_contactShadowsParams {
+    mat4 viewProjection;
     mat4 invViewProjection;
-    vec4 params; // x = rayLength, y = numSteps, z = thickness, w = intensity
+    vec4 cameraPosition;
+    vec4 lightDirection;
+    vec4 params; // x = ray length, y = step count, z = thickness, w = intensity
 } contactShadowsParams;
 
-// Linearize depth
-float linearizeDepth(float depth){
-    float near = 0.1;
-    float far = 1000.0;
-    return (2.0 * near * far) / (far + near - depth * (far - near));
-}
+#include "includes/depth_util.glsl"
 
 // Reconstruct world position from depth
 vec3 reconstructWorldPos(vec2 uv, float depth){
-    vec4 clipPos = vec4(uv * 2.0 - 1.0, depth, 1.0);
-    vec4 worldPos = contactShadowsParams.invViewProjection * clipPos;
+    vec3 ndc = vec3(uv.x * 2.0 - 1.0, depthUVToNDCY(uv.y), depth * 2.0 - 1.0);
+    vec4 worldPos = contactShadowsParams.invViewProjection * vec4(ndc, 1.0);
     return worldPos.xyz / worldPos.w;
 }
 
 void main(){
-    float rayLength = contactShadowsParams.params.x;
-    float numSteps = contactShadowsParams.params.y;
-    float thickness = contactShadowsParams.params.z;
-    float intensity = contactShadowsParams.params.w;
-
-    // Sample depth and normal
-    float centerDepth = texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord).r;
-    vec3 normal = texture(sampler2D(u_normalTexture, u_normal_smp), v_texcoord).rgb * 2.0 - 1.0;
-
-    // Reconstruct world position
-    vec3 worldPos = reconstructWorldPos(v_texcoord, centerDepth);
-
-    // Ray march in world space along light direction (simplified: use normal as direction)
-    vec3 rayDir = normalize(normal) * 0.01; // Small steps along normal
-
-    float shadow = 0.0;
-    vec3 currentPos = worldPos;
-
-    for (float i = 0.0; i < numSteps; i += 1.0){
-        currentPos += rayDir * (rayLength / numSteps);
-
-        // Project back to screen space
-        vec4 clipPos = vec4(currentPos, 1.0);
-        vec2 sampleUV = (clipPos.xy / clipPos.w) * 0.5 + 0.5;
-
-        // Sample depth at this position
-        float sampleDepth = texture(sampler2D(u_depthTexture, u_depth_smp), sampleUV).r;
-        float sampleLinearDepth = linearizeDepth(sampleDepth);
-
-        // Check if occluded
-        float currentLinearDepth = linearizeDepth(centerDepth);
-        if (sampleLinearDepth < currentLinearDepth - thickness){
-            shadow += intensity;
-        }
+    vec3 sceneColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord).rgb;
+    float centerDepth = decodeDepth(texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord));
+    if (centerDepth >= 0.999999 || contactShadowsParams.params.w <= 0.0){
+        frag_color = vec4(sceneColor, 1.0);
+        return;
     }
 
-    shadow = min(shadow, 1.0);
+    float rayLength = contactShadowsParams.params.x;
+    int numSteps = int(contactShadowsParams.params.y + 0.5);
+    float thickness = contactShadowsParams.params.z;
+    float intensity = contactShadowsParams.params.w;
+    vec3 worldPos = reconstructWorldPos(v_texcoord, centerDepth);
+    vec3 rayDir = normalize(contactShadowsParams.lightDirection.xyz);
+    float shadow = 0.0;
+    float previousVisibility = 1.0;
+    for (int i = 1; i <= 64; i++){
+        if (i > numSteps) break;
+        float t = rayLength * (float(i) / float(max(numSteps, 1)));
+        vec3 marchPos = worldPos + rayDir * t;
+        vec4 clipPos = contactShadowsParams.viewProjection * vec4(marchPos, 1.0);
+        if (clipPos.w <= 0.0) break;
 
-    // Apply shadow to scene color
-    vec3 color = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord).rgb;
-    color *= (1.0 - shadow);
+        vec3 ndc = clipPos.xyz / clipPos.w;
+        vec2 sampleUV = vec2(ndc.x * 0.5 + 0.5, ndcYToDepthUV(ndc.y));
+        if (sampleUV.x <= 0.001 || sampleUV.x >= 0.999 || sampleUV.y <= 0.001 || sampleUV.y >= 0.999)
+            break;
 
-    frag_color = vec4(color, shadow);
+        float sampleDepth = decodeDepth(texture(sampler2D(u_depthTexture, u_depth_smp), sampleUV));
+        vec3 blockerPos = reconstructWorldPos(sampleUV, sampleDepth);
+        float cameraDistance = distance(blockerPos, contactShadowsParams.cameraPosition.xyz);
+        float marchDistance = distance(marchPos, contactShadowsParams.cameraPosition.xyz);
+        float occluded = smoothstep(thickness, thickness * 2.0, marchDistance - cameraDistance);
+        shadow = max(shadow, occluded * previousVisibility);
+        previousVisibility *= 0.92;
+        if (shadow > 0.98) break;
+    }
+
+    frag_color = vec4(sceneColor * (1.0 - clamp(shadow * intensity, 0.0, 1.0)), 1.0);
 }

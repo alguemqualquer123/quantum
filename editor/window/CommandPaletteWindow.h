@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
     struct PaletteCommand {
         std::string id;
         std::string label;

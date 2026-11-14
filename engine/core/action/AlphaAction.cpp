@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AlphaAction.h"
 
-using namespace doriax;
+using namespace quantum;
 
 AlphaAction::AlphaAction(Scene* scene): TimedAction(scene){
     addComponent<AlphaActionComponent>();

@@ -1,10 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Water.h"
 #include "subsystem/RenderSystem.h"
+#include "subsystem/WaterSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Water::Water(Scene* scene): Object(scene){
     addComponent<WaterComponent>();
@@ -159,6 +160,48 @@ float Water::getWaveSteepness() const{
     WaterComponent& water = getComponent<WaterComponent>();
 
     return water.waveSteepness;
+}
+
+void Water::setWindInfluence(float windInfluence){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.windInfluence = windInfluence;
+}
+
+float Water::getWindInfluence() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.windInfluence;
+}
+
+void Water::setFetch(float fetch){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.fetch = fetch;
+}
+
+float Water::getFetch() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.fetch;
+}
+
+float Water::getSeaHeight() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.seaHeight;
+}
+
+float Water::getSeaLength() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.seaLength;
+}
+
+float Water::getSeaWind() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.seaWind;
 }
 
 void Water::setNormalTexture(const std::string& path){
@@ -416,6 +459,156 @@ float Water::getBuoyancyDepth() const{
     return water.buoyancyDepth;
 }
 
+void Water::setSimulate(bool simulate){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    if (water.simulate != simulate){
+        water.simulate = simulate;
+        water.needReload = true;
+    }
+}
+
+bool Water::isSimulated() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simulate;
+}
+
+void Water::setSimResolution(unsigned int cells){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    if (water.simResolution != cells){
+        water.simResolution = cells;
+        water.needReload = true;
+    }
+}
+
+unsigned int Water::getSimResolution() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simResolution;
+}
+
+void Water::setSimDepth(float simDepth){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simDepth = simDepth;
+}
+
+float Water::getSimDepth() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simDepth;
+}
+
+void Water::setSimFlow(float simFlow){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simFlow = simFlow;
+}
+
+float Water::getSimFlow() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simFlow;
+}
+
+void Water::setSimRain(float simRain){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simRain = simRain;
+}
+
+float Water::getSimRain() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simRain;
+}
+
+void Water::setSimEvaporation(float simEvaporation){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simEvaporation = simEvaporation;
+}
+
+float Water::getSimEvaporation() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simEvaporation;
+}
+
+void Water::setSimDryDepth(float simDryDepth){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simDryDepth = simDryDepth;
+}
+
+float Water::getSimDryDepth() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simDryDepth;
+}
+
+void Water::setSimEdgeDrain(bool simEdgeDrain){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simEdgeDrain = simEdgeDrain;
+}
+
+bool Water::isSimEdgeDrain() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simEdgeDrain;
+}
+
+void Water::setSimRipples(bool simRipples){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simRipples = simRipples;
+}
+
+bool Water::isSimRipples() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simRipples;
+}
+
+void Water::setSimRippleSpeed(float simRippleSpeed){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simRippleSpeed = simRippleSpeed;
+}
+
+float Water::getSimRippleSpeed() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simRippleSpeed;
+}
+
+void Water::setSimRippleDamping(float simRippleDamping){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simRippleDamping = simRippleDamping;
+}
+
+float Water::getSimRippleDamping() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simRippleDamping;
+}
+
+void Water::setSimRippleStrength(float simRippleStrength){
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    water.simRippleStrength = simRippleStrength;
+}
+
+float Water::getSimRippleStrength() const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    return water.simRippleStrength;
+}
+
 void Water::setCustomShader(const std::string& path){
     WaterComponent& water = getComponent<WaterComponent>();
 
@@ -496,4 +689,43 @@ Vector3 Water::getNormal(float x, float z) const{
     RenderSystem::getWaterSurfaceOffset(water, x, z, &normal);
 
     return normal;
+}
+
+float Water::getSimWaterDepth(float x, float z) const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    float height = 0.0f, depth = 0.0f;
+    Vector3 normal(0.0f, 1.0f, 0.0f);
+
+    if (!WaterSystem::getSimSurface(water, x, z, height, normal, depth))
+        return 0.0f;
+
+    return depth;
+}
+
+Vector3 Water::getSimVelocity(float x, float z) const{
+    WaterComponent& water = getComponent<WaterComponent>();
+
+    Vector3 velocity(0.0f, 0.0f, 0.0f);
+    WaterSystem::getSimFlow(water, x, z, velocity);
+
+    return velocity;
+}
+
+void Water::addDisturbance(const Vector3& worldPosition, float radius, float strength){
+    scene->getSystem<WaterSystem>()->addDisturbance(worldPosition, radius, strength);
+}
+
+void Water::addWater(const Vector3& worldPosition, float radius, float cubicMetres){
+    WaterComponent& water = getComponent<WaterComponent>();
+    WaterSystem::addWater(water, worldPosition, radius, cubicMetres);
+}
+
+float Water::drainWater(const Vector3& worldPosition, float radius, float cubicMetres){
+    WaterComponent& water = getComponent<WaterComponent>();
+    return WaterSystem::drainWater(water, worldPosition, radius, cubicMetres);
+}
+
+double Water::getSimVolume() const{
+    return scene->getSystem<WaterSystem>()->getVolume(entity);
 }

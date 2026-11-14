@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RenameFileCmd.h"
 
 #include "util/Util.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::RenameFileCmd::RenameFileCmd(Project* project, std::string oldName, std::string newName, std::string directory){
     this->project = project;

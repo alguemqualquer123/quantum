@@ -1,5 +1,5 @@
 //
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
 
@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <utility>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -23,7 +23,7 @@ namespace {
     };
 
     const BuiltinModelEntry kBuiltinModels[] = {
-        { "BananaMan.glb", doriax_builtin_bananaman_glb_data, doriax_builtin_bananaman_glb_size },
+        { "BananaMan.glb", quantum_builtin_bananaman_glb_data, quantum_builtin_bananaman_glb_size },
     };
 
     const BuiltinModelEntry* entryFor(const std::string& path) {

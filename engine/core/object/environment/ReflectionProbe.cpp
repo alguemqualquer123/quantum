@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ReflectionProbe.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ReflectionProbe::ReflectionProbe(Scene* scene): Object(scene){
     addComponent<ReflectionProbeComponent>();

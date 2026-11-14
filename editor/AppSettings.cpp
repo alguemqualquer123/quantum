@@ -1,40 +1,63 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AppSettings.h"
 #include "Out.h"
 #include "ai/SecretStore.h"
+#include "util/FileUtils.h"
+#include "util/ProjectFile.h"
 #include <fstream>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
 std::filesystem::path userConfigDirectory() {
 #if defined(_WIN32)
     if (const char* appData = std::getenv("APPDATA"); appData && *appData) {
-        return std::filesystem::path(appData) / "Doriax";
+        return std::filesystem::path(appData) / "Quantum";
     }
 #elif defined(__APPLE__)
     if (const char* home = std::getenv("HOME"); home && *home) {
-        return std::filesystem::path(home) / "Library" / "Application Support" / "Doriax";
+        return std::filesystem::path(home) / "Library" / "Application Support" / "Quantum";
     }
 #else
     if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg) {
-        return std::filesystem::path(xdg) / "doriax";
+        return std::filesystem::path(xdg) / "quantum";
     }
     if (const char* home = std::getenv("HOME"); home && *home) {
-        return std::filesystem::path(home) / ".config" / "doriax";
+        return std::filesystem::path(home) / ".config" / "quantum";
     }
 #endif
     return std::filesystem::current_path();
 }
 
+// Where the same files lived before the fork took the Quantum name.
+std::filesystem::path legacyUserConfigDirectory() {
+#if defined(_WIN32)
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData) {
+        return std::filesystem::path(appData) / "Quantum";
+    }
+#elif defined(__APPLE__)
+    if (const char* home = std::getenv("HOME"); home && *home) {
+        return std::filesystem::path(home) / "Library" / "Application Support" / "Quantum";
+    }
+#else
+    if (const char* xdg = std::getenv("XDG_CONFIG_HOME"); xdg && *xdg) {
+        return std::filesystem::path(xdg) / "quantum";
+    }
+    if (const char* home = std::getenv("HOME"); home && *home) {
+        return std::filesystem::path(home) / ".config" / "quantum";
+    }
+#endif
+    return {};
+}
+
 bool isWritableDirectory(const std::filesystem::path& dir) {
-    const std::filesystem::path probe = dir / ".doriax_write_test";
+    const std::filesystem::path probe = dir / ".quantum_write_test";
     std::error_code ec;
     {
         std::ofstream f(probe);
@@ -85,6 +108,7 @@ std::string AppSettings::lastCMakeGenerator;
 std::string AppSettings::emsdkPath;
 std::string AppSettings::cmakePath;
 std::filesystem::path AppSettings::defaultExportDirectory;
+std::string AppSettings::terminalShell;
 int AppSettings::windowWidth = 1280;
 int AppSettings::windowHeight = 720;
 bool AppSettings::isMaximized = false;
@@ -98,13 +122,21 @@ float AppSettings::codeEditorFontSize = AppSettings::defaultCodeEditorFontSize;
 bool AppSettings::multiViewportEnabled = false;
 bool AppSettings::editorVSyncEnabled = true;
 float AppSettings::uiScale = 1.0f;
+bool AppSettings::previousSessionUnclean = false;
+bool AppSettings::sessionMarkerWritten = false;
+float AppSettings::viewportRenderDistance = 0.0f;
 PanelVisibilitySettings AppSettings::panelVisibility;
 int AppSettings::themePreset = 0;
 std::string AppSettings::accentColor;
+std::string AppSettings::projectFileExtension;
+std::map<std::string, std::string> AppSettings::shortcutOverrides;
+std::vector<std::string> AppSettings::openPluginWindows;
 ai::Settings AppSettings::aiSettings;
 ai::McpSettings AppSettings::mcpSettings;
 
 bool AppSettings::initialize() {
+    FileUtils::adoptLegacyDirectory(legacyUserConfigDirectory(), userConfigDirectory());
+
     // Settings live in the working directory, where a run from a build tree
     // keeps them. A desktop launcher starts the app in "/" instead, so there
     // they go to the per-user config directory: nothing could be saved
@@ -117,7 +149,12 @@ bool AppSettings::initialize() {
         configFilePath = workingDirSettings;
     } else {
         const std::filesystem::path userDir = userConfigDirectory();
-        if (std::filesystem::exists(userDir / "settings.yaml", ec) || !isWritableDirectory(workingDir)) {
+        // A project folder is content, not a home for editor config: double-clicking a
+        // project marker starts the editor with the project as the working directory,
+        // and settings.yaml, editor.log and the layout ini would appear inside it.
+        const bool projectWorkingDir = !ProjectFile::resolve(workingDir).empty();
+        if (std::filesystem::exists(userDir / "settings.yaml", ec) || !isWritableDirectory(workingDir)
+            || projectWorkingDir) {
             configFilePath = userDir / "settings.yaml";
         } else {
             configFilePath = workingDirSettings;
@@ -125,7 +162,42 @@ bool AppSettings::initialize() {
     }
 
     ensureConfigDirectory();
+    const std::filesystem::path sessionMarker = configFilePath.parent_path() / ".editor-session-active";
+    previousSessionUnclean = std::filesystem::exists(sessionMarker);
+    sessionMarkerWritten = false;
     return loadSettings();
+}
+
+bool AppSettings::wasPreviousSessionUnclean() {
+    return previousSessionUnclean;
+}
+
+bool AppSettings::beginSession() {
+    const std::filesystem::path marker = getConfigDirectory() / ".editor-session-active";
+    try {
+        std::ofstream file(marker, std::ios::out | std::ios::trunc);
+        if (!file.is_open()) {
+            Out::warning("Could not create editor recovery marker: %s", marker.string().c_str());
+            return false;
+        }
+        file << "editor session active\n";
+        file.flush();
+        sessionMarkerWritten = file.good();
+    } catch (const std::exception& e) {
+        Out::warning("Could not create editor recovery marker: %s", e.what());
+        sessionMarkerWritten = false;
+    }
+    return sessionMarkerWritten;
+}
+
+void AppSettings::endSession() {
+    if (!sessionMarkerWritten) return;
+    std::error_code ec;
+    std::filesystem::remove(getConfigDirectory() / ".editor-session-active", ec);
+    if (ec) {
+        Out::warning("Could not clear editor recovery marker: %s", ec.message().c_str());
+    }
+    sessionMarkerWritten = false;
 }
 
 std::filesystem::path AppSettings::getConfigDirectory() {
@@ -252,6 +324,9 @@ bool AppSettings::loadSettings() {
             if (editorNode["ui_scale"]) {
                 setUiScale(editorNode["ui_scale"].as<float>());
             }
+            if (editorNode["render_distance"]) {
+                viewportRenderDistance = std::max(0.0f, editorNode["render_distance"].as<float>());
+            }
             if (editorNode["panels"]) {
                 auto panelsNode = editorNode["panels"];
                 if (panelsNode["structure"]) panelVisibility.structure = panelsNode["structure"].as<bool>();
@@ -263,12 +338,47 @@ bool AppSettings::loadSettings() {
                 if (panelsNode["ai_chat"]) panelVisibility.aiChat = panelsNode["ai_chat"].as<bool>();
                 if (panelsNode["notifications"]) panelVisibility.notifications = panelsNode["notifications"].as<bool>();
                 if (panelsNode["resource_monitor"]) panelVisibility.resourceMonitor = panelsNode["resource_monitor"].as<bool>();
+                if (panelsNode["graph_editor"]) panelVisibility.graphEditor = panelsNode["graph_editor"].as<bool>();
+                if (panelsNode["terminal"]) panelVisibility.terminal = panelsNode["terminal"].as<bool>();
+                if (panelsNode["material_browser"]) panelVisibility.materialBrowser = panelsNode["material_browser"].as<bool>();
+                if (panelsNode["model_export"]) panelVisibility.modelExport = panelsNode["model_export"].as<bool>();
+                if (panelsNode["plugin_browser"]) panelVisibility.pluginBrowser = panelsNode["plugin_browser"].as<bool>();
+                if (panelsNode["world_creator"]) panelVisibility.worldCreator = panelsNode["world_creator"].as<bool>();
+            }
+            if (editorNode["terminal_shell"]) {
+                terminalShell = editorNode["terminal_shell"].as<std::string>();
             }
             if (editorNode["theme_preset"]) {
                 themePreset = editorNode["theme_preset"].as<int>();
             }
             if (editorNode["accent_color"]) {
                 accentColor = editorNode["accent_color"].as<std::string>();
+            }
+            if (editorNode["project_file_extension"]) {
+                projectFileExtension = editorNode["project_file_extension"].as<std::string>();
+            }
+            if (editorNode["shortcuts"]) {
+                // Replace, not merge: initialize() can run twice in one process, and a
+                // stale chord from an earlier load would outrank the file.
+                shortcutOverrides.clear();
+                for (const auto& entry : editorNode["shortcuts"]) {
+                    shortcutOverrides[entry.first.as<std::string>()] =
+                        entry.second.IsScalar() ? entry.second.as<std::string>() : std::string();
+                }
+            }
+            if (editorNode["plugin_windows"] && editorNode["plugin_windows"].IsSequence()) {
+                // Replace, not append, for the same reason as the shortcuts above.
+                openPluginWindows.clear();
+                for (const auto& windowNode : editorNode["plugin_windows"]) {
+                    if (!windowNode.IsScalar()) continue;
+                    const std::string windowId = windowNode.as<std::string>();
+                    // The View menu and the host both key on the id, so a repeat in the file would be
+                    // one window with two checkboxes.
+                    if (std::find(openPluginWindows.begin(), openPluginWindows.end(), windowId)
+                        == openPluginWindows.end()) {
+                        openPluginWindows.push_back(windowId);
+                    }
+                }
             }
         }
 
@@ -311,8 +421,23 @@ bool AppSettings::loadSettings() {
             if (mcpNode["allow_changes"]) mcpSettings.allowChanges = mcpNode["allow_changes"].as<bool>();
         }
 
+        auto finiteOr = [](float value, float fallback) {
+            return std::isfinite(value) ? value : fallback;
+        };
+        windowWidth = std::clamp(windowWidth, 320, 16384);
+        windowHeight = std::clamp(windowHeight, 200, 16384);
+        windowUiScale = std::clamp(finiteOr(windowUiScale, 0.0f), 0.0f, 3.0f);
+        layoutUiScale = std::clamp(finiteOr(layoutUiScale, 0.0f), 0.0f, 3.0f);
+        resourcesIconSize = std::clamp(resourcesIconSize, 16, 256);
+        resourcesLayout = std::clamp(resourcesLayout, 0, 3);
+        resourcesItemViewStyle = std::clamp(resourcesItemViewStyle, 0, 1);
+        resourcesLeftPanelWidth = std::clamp(finiteOr(resourcesLeftPanelWidth, 200.0f), 120.0f, 2048.0f);
+        setCodeEditorFontSize(finiteOr(codeEditorFontSize, defaultCodeEditorFontSize));
+        setUiScale(finiteOr(uiScale, 1.0f));
+        if (recentProjects.size() > 32) recentProjects.resize(32);
         return true;
     } catch (const std::exception& e) {
+        settingsData = YAML::Node();
         Out::error("Failed to load settings: %s", e.what());
         return false;
     }
@@ -404,6 +529,10 @@ bool AppSettings::saveSettings() {
         editorNode["multi_viewport"] = multiViewportEnabled;
         editorNode["vsync"] = editorVSyncEnabled;
         editorNode["ui_scale"] = uiScale;
+        // Omitted at 0 so "the viewport follows the scene" stays the readable default.
+        if (viewportRenderDistance > 0.0f) {
+            editorNode["render_distance"] = viewportRenderDistance;
+        }
         YAML::Node panelsNode;
         panelsNode["structure"] = panelVisibility.structure;
         panelsNode["properties"] = panelVisibility.properties;
@@ -414,9 +543,41 @@ bool AppSettings::saveSettings() {
         panelsNode["ai_chat"] = panelVisibility.aiChat;
         panelsNode["notifications"] = panelVisibility.notifications;
         panelsNode["resource_monitor"] = panelVisibility.resourceMonitor;
+        panelsNode["graph_editor"] = panelVisibility.graphEditor;
+        panelsNode["terminal"] = panelVisibility.terminal;
+        panelsNode["material_browser"] = panelVisibility.materialBrowser;
+        panelsNode["model_export"] = panelVisibility.modelExport;
+        panelsNode["plugin_browser"] = panelVisibility.pluginBrowser;
+        panelsNode["world_creator"] = panelVisibility.worldCreator;
         editorNode["panels"] = panelsNode;
+        if (terminalShell.empty())
+            editorNode.remove("terminal_shell");
+        else
+            editorNode["terminal_shell"] = terminalShell;
         editorNode["theme_preset"] = themePreset;
         editorNode["accent_color"] = accentColor;
+        if (projectFileExtension.empty())
+            editorNode.remove("project_file_extension");
+        else
+            editorNode["project_file_extension"] = projectFileExtension;
+        if (shortcutOverrides.empty()) {
+            editorNode.remove("shortcuts");
+        } else {
+            YAML::Node shortcutsNode(YAML::NodeType::Map);
+            for (const auto& overrideEntry : shortcutOverrides) {
+                shortcutsNode[overrideEntry.first] = overrideEntry.second;
+            }
+            editorNode["shortcuts"] = shortcutsNode;
+        }
+        if (openPluginWindows.empty()) {
+            editorNode.remove("plugin_windows");
+        } else {
+            YAML::Node windowsNode(YAML::NodeType::Sequence);
+            for (const std::string& windowId : openPluginWindows) {
+                windowsNode.push_back(windowId);
+            }
+            editorNode["plugin_windows"] = windowsNode;
+        }
         settingsData["editor"] = editorNode;
 
         // AI assistant settings. Secrets must never be serialized here.
@@ -511,6 +672,27 @@ std::string AppSettings::getCMakePath() {
 
 void AppSettings::setCMakePath(const std::string& path) {
     cmakePath = path;
+    saveSettings();
+}
+
+std::string AppSettings::getTerminalShell() {
+    return terminalShell;
+}
+
+void AppSettings::setTerminalShell(const std::string& shell) {
+    terminalShell = shell;
+    saveSettings();
+}
+
+std::string AppSettings::getProjectFileExtension() {
+    return projectFileExtension;
+}
+
+void AppSettings::setProjectFileExtension(const std::string& extension) {
+    const std::string normalized = ProjectFile::normalizeExtension(extension);
+    // The default is what an unset key already means, so storing it would only make
+    // the setting look overridden when nothing is.
+    projectFileExtension = normalized == ProjectFile::DEFAULT_EXTENSION ? std::string() : normalized;
     saveSettings();
 }
 
@@ -657,6 +839,14 @@ void AppSettings::setEditorVSyncEnabled(bool enabled) {
     editorVSyncEnabled = enabled;
 }
 
+float AppSettings::getViewportRenderDistance() {
+    return viewportRenderDistance;
+}
+
+void AppSettings::setViewportRenderDistance(float metres) {
+    viewportRenderDistance = metres > 0.0f ? metres : 0.0f;
+}
+
 float AppSettings::getUiScale() {
     return uiScale;
 }
@@ -675,6 +865,19 @@ void AppSettings::setPanelVisibility(const PanelVisibilitySettings& visibility) 
     saveSettings();
 }
 
+std::vector<std::string> AppSettings::getOpenPluginWindows() {
+    return openPluginWindows;
+}
+
+void AppSettings::setOpenPluginWindows(const std::vector<std::string>& windowIds) {
+    // The host calls this on every frame it notices a change, and a change it notices can be the
+    // same list it just read back. Writing the file on a no-op would make closing a window a disk
+    // hit, and one plugin window closing another would make it a hit per frame.
+    if (windowIds == openPluginWindows) return;
+    openPluginWindows = windowIds;
+    saveSettings();
+}
+
 int AppSettings::getThemePreset() {
     return themePreset;
 }
@@ -690,6 +893,26 @@ std::string AppSettings::getAccentColor() {
 
 void AppSettings::setAccentColor(const std::string& color) {
     accentColor = color;
+    saveSettings();
+}
+
+std::map<std::string, std::string> AppSettings::getShortcutOverrides() {
+    return shortcutOverrides;
+}
+
+void AppSettings::setShortcutOverride(const std::string& id, const std::string& chords) {
+    shortcutOverrides[id] = chords;
+    saveSettings();
+}
+
+void AppSettings::removeShortcutOverride(const std::string& id) {
+    if (shortcutOverrides.erase(id) == 0) return;
+    saveSettings();
+}
+
+void AppSettings::clearShortcutOverrides() {
+    if (shortcutOverrides.empty()) return;
+    shortcutOverrides.clear();
     saveSettings();
 }
 
@@ -713,9 +936,9 @@ void AppSettings::setMcpSettings(const ai::McpSettings& settings) {
     mcpSettings = settings;
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -726,7 +949,7 @@ std::filesystem::path localSettingsFile(const std::filesystem::path& projectFile
     const std::filesystem::path projectDir = projectFile.has_filename() && projectFile.filename() == "project.yaml"
         ? projectFile.parent_path()
         : projectFile;
-    return projectDir / ".doriax" / "user" / "build.yaml";
+    return projectDir / ".quantum" / "user" / "build.yaml";
 }
 
 std::string legacyProjectKey(const std::filesystem::path& projectFile) {
@@ -762,7 +985,7 @@ bool storeLocalSettings(const std::filesystem::path& projectFile, const YAML::No
         Out::error("Failed to open local build settings for writing: %s", file.string().c_str());
         return false;
     }
-    fout << "# Build configuration for this machine only. Version control ignores .doriax/.\n";
+    fout << "# Build configuration for this machine only. Version control ignores .quantum/.\n";
     fout << YAML::Dump(node) << "\n";
     fout.close();
     if (!fout) {
@@ -868,4 +1091,4 @@ bool AppSettings::setBuildSettings(const std::filesystem::path& projectFile, con
     return storeLocalSettings(projectFile, local);
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "MarkdownRenderer.h"
@@ -7,7 +7,7 @@
 #include <cctype>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -356,4 +356,4 @@ void renderMarkdown(const std::string& content,
     }
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

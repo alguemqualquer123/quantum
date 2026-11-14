@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "IBLEnvironment.h"
@@ -12,7 +12,7 @@
 #include <cstring>
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

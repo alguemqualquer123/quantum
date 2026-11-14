@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import "ViewController.h"
 #import "Renderer.h"
 #import "EngineView.h"
-#import "DoriaxGameController.h"
+#import "QuantumGameController.h"
 
 // A hidden window updates the game this often, without drawing
 static const NSTimeInterval HIDDEN_UPDATE_PERIOD = 1.0 / 60.0;
@@ -93,7 +93,7 @@ static const NSTimeInterval HIDDEN_UPDATE_PERIOD = 1.0 / 60.0;
         return;
 
     // a hidden game keeps updating, but the pads are no longer read
-    [DoriaxGameController setSuspended:hidden];
+    [QuantumGameController setSuspended:hidden];
     _view.paused = hidden;
 
     if (hidden) {

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MANIFOLD2D_H
@@ -7,9 +7,9 @@
 #include "Scene.h"
 #include "box2d/box2d.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Manifold2D{
+    class QUANTUM_API Manifold2D{
         private:
             Scene* scene;
             const b2Manifold* manifold;

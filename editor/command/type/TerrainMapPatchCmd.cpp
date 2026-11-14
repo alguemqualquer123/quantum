@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TerrainMapPatchCmd.h"
 
 #include <utility>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::TerrainMapPatchCmd::TerrainMapPatchCmd(Project* project, uint32_t sceneId, Entity entity, const TerrainMapRef& ref, TerrainMapPatch patch){
     this->project = project;
@@ -53,7 +53,7 @@ void editor::TerrainMapPatchCmd::apply(const std::vector<unsigned char>& regionP
 
     TerrainMapUtils::writeFile(project, patch.path, patch.mapWidth, patch.mapHeight, patch.channels, bytesPerChannel,
                                std::vector<unsigned char>(pixels, pixels + mapBytes));
-    TerrainMapUtils::refresh(sceneProject, entity, ref);
+    TerrainMapUtils::refresh(sceneProject, entity, ref, patch.region);
 
     if (project->isEntityInBundle(sceneId, entity)){
         project->bundlePropertyChanged(sceneId, entity, ComponentType::TerrainComponent, {TerrainMapUtils::getPropertyName(ref)});

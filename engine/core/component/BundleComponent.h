@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BUNDLE_COMPONENT_H
@@ -6,7 +6,7 @@
 
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
     struct BundleComponent {
         std::string name;

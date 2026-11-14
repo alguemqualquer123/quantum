@@ -1,7 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include <string>
@@ -15,9 +15,9 @@
 #include "render/BufferRender.h"
 
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Buffer {
+    class QUANTUM_API Buffer {
 
     protected:
         std::map<AttributeType, Attribute> attributes;

@@ -1,5 +1,5 @@
 //
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Based on LihO implementation:
 // https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c
@@ -12,8 +12,8 @@
 #include <vector>
 #include <string>
 
-namespace doriax {
-    class DORIAX_API Base64 {
+namespace quantum {
+    class QUANTUM_API Base64 {
     private:
         static const std::string base64_chars;
         static bool is_base64(unsigned char c);

@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Points.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Points::Points(Scene* scene): Object(scene){
     addComponent<PointsComponent>();

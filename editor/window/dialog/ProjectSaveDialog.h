@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 // ProjectSaveDialog.h
@@ -9,7 +9,7 @@
 #include <functional>
 #include "imgui.h"
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
     namespace fs = std::filesystem;
@@ -39,4 +39,4 @@ namespace editor {
     };
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

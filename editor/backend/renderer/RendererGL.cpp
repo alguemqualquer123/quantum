@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Renderer.h"
@@ -8,8 +8,8 @@
 
 #include "imgui_impl_opengl3.h"
 
-using namespace doriax;
-using namespace doriax::editor;
+using namespace quantum;
+using namespace quantum::editor;
 
 namespace {
 

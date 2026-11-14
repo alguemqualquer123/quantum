@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderData.h"
@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-using namespace doriax;
+using namespace quantum;
 
 ShaderData::ShaderData(){
 
@@ -68,6 +68,14 @@ int ShaderData::getAttrIndex(AttributeType type){
         attrstr = "a_pointrotation";
     }else if (type == AttributeType::TEXTURERECT){
         attrstr = "a_texturerect";
+    }else if (type == AttributeType::PARTICLEVELOCITY){
+        attrstr = "a_particleVelocity";
+    }else if (type == AttributeType::PARTICLEACCELERATION){
+        attrstr = "a_particleAcceleration";
+    }else if (type == AttributeType::PARTICLESPAWNTIME){
+        attrstr = "a_particleSpawnTime";
+    }else if (type == AttributeType::PARTICLELIFE){
+        attrstr = "a_particleLife";
     }else if (type == AttributeType::BONEIDS){
         attrstr = "a_boneIds";
     }else if (type == AttributeType::BONEWEIGHTS){
@@ -153,6 +161,10 @@ int ShaderData::getUniformBlockIndex(UniformBlockType type){
         ustr = "u_fs_pbrParams";
     }else if (type == UniformBlockType::PBR_FS_TEXCOORDSETS){
         ustr = "u_fs_texCoordSets";
+    }else if (type == UniformBlockType::PBR_FS_HEIGHT){
+        ustr = "u_fs_heightParams";
+    }else if (type == UniformBlockType::PBR_FS_MATERIAL_EXTENSIONS){
+        ustr = "u_fs_materialExtensions";
     }else if (type == UniformBlockType::PBR_VS_FADE){
         ustr = "u_vs_fade";
     }else if (type == UniformBlockType::FS_LIGHTING){
@@ -225,10 +237,44 @@ int ShaderData::getUniformBlockIndex(UniformBlockType type){
         ustr = "u_fs_blitParams";
     }else if (type == UniformBlockType::WATER_VS_PARAMS){
         ustr = "u_vs_waterParams";
+    }else if (type == UniformBlockType::WATER_SIM_VS_PARAMS){
+        ustr = "u_vs_waterSimParams";
     }else if (type == UniformBlockType::WATER_FS_PARAMS){
         ustr = "u_fs_waterParams";
     }else if (type == UniformBlockType::UNDERWATER_FS_PARAMS){
         ustr = "u_fs_underwaterParams";
+    // --- HDR pipeline: names must match the blocks the chain shaders declare ---
+    }else if (type == UniformBlockType::BLOOM_THRESHOLD_FS_PARAMS){
+        ustr = "u_fs_bloomThresholdParams";
+    }else if (type == UniformBlockType::BLOOM_DOWNSAMPLE_FS_PARAMS){
+        ustr = "u_fs_bloomDownsampleParams";
+    }else if (type == UniformBlockType::BLOOM_UPSAMPLE_FS_PARAMS){
+        ustr = "u_fs_bloomUpsampleParams";
+    }else if (type == UniformBlockType::BLOOM_COMPOSITE_FS_PARAMS){
+        ustr = "u_fs_bloomCompositeParams";
+    }else if (type == UniformBlockType::TONEMAP_FS_PARAMS){
+        ustr = "u_fs_tonemapParams";
+    }else if (type == UniformBlockType::EXPOSURE_FS_PARAMS){
+        ustr = "u_fs_exposureParams";
+    }else if (type == UniformBlockType::COLORGRADING_FS_PARAMS){
+        ustr = "u_fs_colorGradingParams";
+    }else if (type == UniformBlockType::FXAA_FS_PARAMS){
+        ustr = "u_fs_fxaaParams";
+    // --- Depth of field: names must match the blocks the three passes declare ---
+    }else if (type == UniformBlockType::DOF_COC_FS_PARAMS){
+        ustr = "u_fs_dofCocParams";
+    }else if (type == UniformBlockType::DOF_BLUR_FS_PARAMS){
+        ustr = "u_fs_dofBlurParams";
+    }else if (type == UniformBlockType::DOF_COMPOSITE_FS_PARAMS){
+        ustr = "u_fs_dofCompositeParams";
+    }else if (type == UniformBlockType::ATMOSPHERE_FS_PARAMS){
+        ustr = "u_fs_atmosphereParams";
+    }else if (type == UniformBlockType::CONTACT_SHADOWS_FS_PARAMS){
+        ustr = "u_fs_contactShadowsParams";
+    }else if (type == UniformBlockType::SSGI_FS_PARAMS){
+        ustr = "u_fs_ssgiParams";
+    }else if (type == UniformBlockType::DECAL_FS_PARAMS){
+        ustr = "u_fs_decalParams";
     }
 
     if (ustr.empty()){
@@ -277,6 +323,8 @@ int ShaderData::getStorageBufferIndex(StorageBufferType type){
         ustr = "sbo_vertex";
     }else if (type == StorageBufferType::VS_SKINNING){
         ustr = "sbo_skinning";
+    }else if (type == StorageBufferType::FS_LIGHT_GRID){
+        ustr = "sbo_lightGrid";
     }
 
     if (ustr.empty()){
@@ -308,8 +356,12 @@ std::pair<int, int> ShaderData::getTextureIndex(TextureShaderType type){
         texstr = "u_occlusionTexture";
     }else if (type == TextureShaderType::NORMAL){
         texstr = "u_normalTexture";
+    }else if (type == TextureShaderType::MATERIALHEIGHT){
+        texstr = "u_heightTexture";
     }else if (type == TextureShaderType::SHADOWATLAS){
         texstr = "u_shadowAtlas";
+    }else if (type == TextureShaderType::SHADOWPAGETABLE){
+        texstr = "u_shadowPageTable";
     }else if (type == TextureShaderType::SHADOWPOINTATLAS){
         texstr = "u_shadowPointAtlas";
     }else if (type == TextureShaderType::SKYCUBE){
@@ -362,6 +414,37 @@ std::pair<int, int> ShaderData::getTextureIndex(TextureShaderType type){
         texstr = "u_refractionTexture";
     }else if (type == TextureShaderType::WATEREXCLUSION){
         texstr = "u_waterExclusionMaps";
+    }else if (type == TextureShaderType::WATERFIELD){
+        texstr = "u_waterFieldTexture";
+    // --- HDR pipeline ---
+    }else if (type == TextureShaderType::SCENEDEPTHTEXTURE){
+        texstr = "u_sceneDepthTexture";
+    }else if (type == TextureShaderType::VELOCITYTEXTURE){
+        texstr = "u_velocityTexture";
+    }else if (type == TextureShaderType::EXPOSURETEXTURE){
+        texstr = "u_exposureTexture";
+    }else if (type == TextureShaderType::BLOOMTEXTURE0){
+        texstr = "u_bloomTexture0";
+    }else if (type == TextureShaderType::BLOOMTEXTURE1){
+        texstr = "u_bloomTexture1";
+    }else if (type == TextureShaderType::BLOOMTEXTURE2){
+        texstr = "u_bloomTexture2";
+    }else if (type == TextureShaderType::BLOOMTEXTURE3){
+        texstr = "u_bloomTexture3";
+    }else if (type == TextureShaderType::BLOOMTEXTURE4){
+        texstr = "u_bloomTexture4";
+    }else if (type == TextureShaderType::LUT3DTEXTURE){
+        texstr = "u_lut3DTexture";
+    }else if (type == TextureShaderType::HIZTEXTURE){
+        texstr = "u_hizTexture";
+    }else if (type == TextureShaderType::DOFTEXTURE){
+        texstr = "u_dofTexture";
+    }else if (type == TextureShaderType::MOTIONBLURTEXTURE){
+        texstr = "u_motionBlurTexture";
+    }else if (type == TextureShaderType::PREVSCENECOLORTEXTURE){
+        texstr = "u_prevSceneColorTexture";
+    }else if (type == TextureShaderType::DECALTEXTURE){
+        texstr = "u_decalTexture";
     }
 
     if (texstr.empty()){

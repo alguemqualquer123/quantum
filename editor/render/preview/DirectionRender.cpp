@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "DirectionRender.h"
 
 #include "Configs.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::DirectionRender::DirectionRender(){
     scene = new Scene(EntityPool::System);

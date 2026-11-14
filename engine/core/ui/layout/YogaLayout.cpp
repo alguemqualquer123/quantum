@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/layout/YogaLayout.h"
@@ -7,8 +7,8 @@
 
 #include "ui/core/VisualElement.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 namespace {
 

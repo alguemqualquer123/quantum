@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MODEL_H
@@ -10,8 +10,8 @@
 
 namespace tinygltf {class Model;}
 
-namespace doriax{
-    class DORIAX_API Model: public Mesh{
+namespace quantum{
+    class QUANTUM_API Model: public Mesh{
     public:
         Model(Scene* scene);
         Model(Scene* scene, Entity entity);

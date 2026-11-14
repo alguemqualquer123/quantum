@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "InputTextContextMenu.h"
@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <cstring>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -179,4 +179,4 @@ bool InputTextContextMenu::drawForLastItem(char* buffer, size_t bufferSize,
     return changed;
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

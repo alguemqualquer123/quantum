@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef EXTERNALBUFFER_H
@@ -7,9 +7,9 @@
 #include "buffer/Buffer.h"
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API ExternalBuffer : public Buffer {
+    class QUANTUM_API ExternalBuffer : public Buffer {
 
     protected:
         std::string name;

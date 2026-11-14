@@ -33,7 +33,7 @@ let
       "-${builtins.substring 0 4 date}-${builtins.substring 4 2 date}-${builtins.substring 6 2 date}";
 in
 llvmPackages.stdenv.mkDerivation {
-  pname = "doriax";
+  pname = "quantum";
   version = "0-unstable${day}";
 
   src = ../../.;
@@ -64,5 +64,5 @@ llvmPackages.stdenv.mkDerivation {
   ];
 
   # The build sees no tags, so name it after its commit; without one CMake says "unknown"
-  cmakeFlags = lib.optional (rev != null) "-D DORIAXEDITOR_VERSION=unstable${day}-g${rev}";
+  cmakeFlags = lib.optional (rev != null) "-D QUANTUMEDITOR_VERSION=unstable${day}-g${rev}";
 }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef texturedata_h
@@ -10,9 +10,9 @@
 #include <array>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API TextureData {
+    class QUANTUM_API TextureData {
     private:
 
         int width;

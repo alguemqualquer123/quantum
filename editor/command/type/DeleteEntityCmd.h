@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,7 +13,7 @@
 
 #include "yaml-cpp/yaml.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     struct DeleteEntityData{
         Entity entity = NULL_ENTITY;

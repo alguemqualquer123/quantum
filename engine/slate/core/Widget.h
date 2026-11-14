@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateWidget_h
@@ -22,7 +22,7 @@
 //pass, kept opaque here so this header stays free of the layout dependency
 struct YGNode;
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Accumulated paint state while the tree is walked top-down: nested clips
     // intersect, nested opacities multiply, and a ScaleBox ancestor contributes
@@ -80,6 +80,12 @@ namespace doriax::slate {
         void setVisible(bool visible);
         bool isEnabled() const;
         void setEnabled(bool enabled);
+        bool isFocusable() const;
+        Widget& setFocusable(bool focusable);
+        bool isFocused() const;
+        void setFocused(bool focused);
+        bool isHovered() const;
+        void setHovered(bool hovered);
         void setOpacity(float opacity);
         float getOpacity() const;
         const std::string& getTooltip() const;
@@ -88,6 +94,7 @@ namespace doriax::slate {
         //Which look the style resolves for. Containers that restyle their own
         //children (tab strips, list rows) override this.
         virtual WidgetVisualState getVisualState() const;
+        virtual const char* getTypeName() const;
 
         //hierarchy
         Widget* getParent() const;
@@ -167,6 +174,22 @@ namespace doriax::slate {
         //content (text, icons) call it first.
         virtual void paint(PaintContext& context);
 
+        // Event hooks are split into capture, target and bubble phases by
+        // EventRouter. Returning true marks the event handled; stopPropagation
+        // prevents later phases from observing it.
+        virtual bool onPointerDown(SlatePointerEvent& event);
+        virtual bool onPointerUp(SlatePointerEvent& event);
+        virtual bool onPointerMove(SlatePointerEvent& event);
+        virtual bool onKeyDown(SlateKeyEvent& event);
+        virtual bool onPointerDownCapture(SlatePointerEvent& event);
+        virtual bool onPointerUpCapture(SlatePointerEvent& event);
+        virtual bool onPointerMoveCapture(SlatePointerEvent& event);
+        virtual bool onKeyDownCapture(SlateKeyEvent& event);
+        virtual bool onPointerDownBubble(SlatePointerEvent& event);
+        virtual bool onPointerUpBubble(SlatePointerEvent& event);
+        virtual bool onPointerMoveBubble(SlatePointerEvent& event);
+        virtual bool onKeyDownBubble(SlateKeyEvent& event);
+
     protected:
         //Rect minus the style padding, used by content-bearing widgets.
         Rect contentRect(const Rect& rect) const;
@@ -187,6 +210,9 @@ namespace doriax::slate {
 
         bool visible;
         bool enabled;
+        bool focusable;
+        bool focused;
+        bool hovered;
         float opacity;
         int zOrder;
 

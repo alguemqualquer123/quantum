@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneNameCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::SceneNameCmd::SceneNameCmd(Project* project, uint32_t sceneId, std::string name){
     this->project = project;

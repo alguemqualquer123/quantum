@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Angle.h"
@@ -8,7 +8,7 @@
 #include <cmath>
 #include <math.h>
 
-using namespace doriax;
+using namespace quantum;
 
 float Angle::radToDefault(float radians){
     if (Engine::isUseDegrees()){

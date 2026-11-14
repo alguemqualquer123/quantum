@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Vulkan device and swapchain for the native desktop backends. The window system
 // is the only part that differs per platform, so the backend passes in the
@@ -11,7 +11,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace doriax {
+namespace quantum {
 
     struct VulkanContextConfig {
         // VK_KHR_win32_surface, VK_KHR_xlib_surface, VK_EXT_metal_surface, ...
@@ -36,6 +36,10 @@ namespace doriax {
         // minimized window) leave the swapchain invalid and sokol skips the pass.
         static void beginFrame();
         static void endFrame();
+
+        // Copies the acquired swapchain image into CPU-visible RGBA rows. The
+        // call is made after sokol submits the frame and before presentation.
+        static bool readBackFramebuffer(unsigned char* out, int width, int height);
 
         static sg_environment environment();
         static sg_swapchain swapchain();

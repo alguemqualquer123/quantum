@@ -2,7 +2,7 @@
 // Based on: https://github.com/oviano/sokol-multithread
 // ---------------------------------------
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 // not using 'semaphore.h' file name to avoid errors when building Android with Mac
@@ -16,7 +16,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-namespace doriax {
+namespace quantum {
 
 	class Semaphore {
 	public:

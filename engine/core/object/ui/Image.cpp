@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Image.h"
@@ -7,7 +7,7 @@
 #include "subsystem/RenderSystem.h"
 #include "subsystem/UISystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Image::Image(Scene* scene): UILayout(scene){
     addComponent<UIComponent>();

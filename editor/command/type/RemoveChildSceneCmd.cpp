@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RemoveChildSceneCmd.h"
@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::RemoveChildSceneCmd::RemoveChildSceneCmd(Project* project, uint32_t sceneId, uint32_t childSceneId){
     this->project = project;

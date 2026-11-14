@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/PaintList.h"
@@ -6,15 +6,15 @@
 namespace {
     //The header keeps the command storage private and exposes no addCommand hook,
     //so command creation is a translation-unit helper over the caller's vector.
-    doriax::slate::PaintCommand& pushCommand(std::vector<doriax::slate::PaintCommand>& commands, doriax::slate::PaintCommand::Type type) {
-        commands.push_back(doriax::slate::PaintCommand());
-        doriax::slate::PaintCommand& command = commands.back();
+    quantum::slate::PaintCommand& pushCommand(std::vector<quantum::slate::PaintCommand>& commands, quantum::slate::PaintCommand::Type type) {
+        commands.push_back(quantum::slate::PaintCommand());
+        quantum::slate::PaintCommand& command = commands.back();
         command.type = type;
         return command;
     }
 }
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     void PaintList::clear() {
         //resize(0) keeps the capacity, so steady-state frames do not allocate;

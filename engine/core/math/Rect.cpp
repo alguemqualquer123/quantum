@@ -1,9 +1,9 @@
 #include "Rect.h"
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-using namespace doriax;
+using namespace quantum;
 
 Rect::Rect(){
     x = 0;

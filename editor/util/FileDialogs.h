@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,7 +10,7 @@
 #include "nfd.hpp"
 #include "util/Util.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     enum FileDialogType {
         FILE_DIALOG_ALL = 0,
@@ -51,47 +51,9 @@ namespace doriax::editor{
                 nfdu8char_t* path;
                 nfdopendialogu8args_t args = {0};
 
-                std::string imageExtensions;
-                std::string fontExtensions;
-                std::string modelExtensions;
-                std::string audioExtensions;
-                std::string shaderExtensions;
-                std::string scriptExtensions;
-                std::string bundleExtensions;
-                std::string materialExtensions;
+                std::vector<std::string> extensionStorage;
                 std::vector<nfdfilteritem_t> filterItems;
-                if (filterFlags & FILE_DIALOG_IMAGE) {
-                    imageExtensions = Util::getImageExtensions();
-                    filterItems.push_back({ "Image files", imageExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_FONT) {
-                    fontExtensions = Util::getFontExtensions();
-                    filterItems.push_back({ "Font files", fontExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_MODEL) {
-                    modelExtensions = Util::getModelExtensions();
-                    filterItems.push_back({ "Model files", modelExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_AUDIO) {
-                    audioExtensions = Util::getAudioExtensions();
-                    filterItems.push_back({ "Sound files", audioExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_SHADER) {
-                    shaderExtensions = Util::getShaderExtensions();
-                    filterItems.push_back({ "Shader files", shaderExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_SCRIPT) {
-                    scriptExtensions = Util::getScriptExtensions();
-                    filterItems.push_back({ "Script files", scriptExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_BUNDLE) {
-                    bundleExtensions = Util::getBundleExtensions();
-                    filterItems.push_back({ "Entity bundles", bundleExtensions.c_str() });
-                }
-                if (filterFlags & FILE_DIALOG_MATERIAL) {
-                    materialExtensions = Util::getMaterialExtensions();
-                    filterItems.push_back({ "Material files", materialExtensions.c_str() });
-                }
+                buildFilterItems(filterFlags, extensionStorage, filterItems);
 
                 if (!filterItems.empty()) {
                     args.filterCount = (nfdfiltersize_t)filterItems.size();
@@ -118,11 +80,21 @@ namespace doriax::editor{
             return retPath;
         }
 
-        inline static std::vector<std::string> openFileDialogMultiple(){
+        inline static std::vector<std::string> openFileDialogMultiple(std::string defaultPath = "", int filterFlags = FILE_DIALOG_ALL){
             std::vector<std::string> filePaths;
             const nfdpathset_t* pathSet;
             nfdopendialogu8args_t args = {0};
 
+            std::vector<std::string> extensionStorage;
+            std::vector<nfdfilteritem_t> filterItems;
+            buildFilterItems(filterFlags, extensionStorage, filterItems);
+
+            if (!filterItems.empty()) {
+                args.filterCount = (nfdfiltersize_t)filterItems.size();
+                args.filterList = filterItems.data();
+            }
+
+            args.defaultPath = defaultPath.c_str();
             args.parentWindow = *static_cast<nfdwindowhandle_t*>(Backend::getNFDWindowHandle());
 
             const nfdresult_t res = NFD_OpenDialogMultipleU8_With(&pathSet, &args);
@@ -224,6 +196,30 @@ namespace doriax::editor{
             }
 
             return retPath;
+        }
+
+    private:
+        inline static void buildFilterItems(int filterFlags, std::vector<std::string>& storage, std::vector<nfdfilteritem_t>& filterItems) {
+            // Pointers into storage.back() must stay valid until NFD returns,
+            // so reserve before pushing and never resize afterwards.
+            storage.reserve(8);
+
+            auto addFilter = [&](int flag, const char* label, const std::string& extensions) {
+                if ((filterFlags & flag) == 0) {
+                    return;
+                }
+                storage.push_back(extensions);
+                filterItems.push_back({label, storage.back().c_str()});
+            };
+
+            addFilter(FILE_DIALOG_IMAGE, "Image files", Util::getImageExtensions());
+            addFilter(FILE_DIALOG_FONT, "Font files", Util::getFontExtensions());
+            addFilter(FILE_DIALOG_MODEL, "Model files", Util::getModelExtensions());
+            addFilter(FILE_DIALOG_AUDIO, "Sound files", Util::getAudioExtensions());
+            addFilter(FILE_DIALOG_SHADER, "Shader files", Util::getShaderExtensions());
+            addFilter(FILE_DIALOG_SCRIPT, "Script files", Util::getScriptExtensions());
+            addFilter(FILE_DIALOG_BUNDLE, "Entity bundles", Util::getBundleExtensions());
+            addFilter(FILE_DIALOG_MATERIAL, "Material files", Util::getMaterialExtensions());
         }
     };
 

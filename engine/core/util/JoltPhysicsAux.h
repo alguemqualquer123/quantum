@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef JoltPhysicsAux_h
@@ -58,7 +58,7 @@
 
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
 	class OnlyStaticBodyFilter : public JPH::BodyFilter{
 	private:
@@ -145,7 +145,9 @@ namespace doriax{
 			Entity entity2 = inBody2.GetUserData();
 			Body3D body2(scene, entity2);
 
-			physicsSystem->onContactAdded3D(body1, body2, Contact3D(scene, &inBody1, &inBody2, &inManifold, &ioSettings));
+			Contact3D contact(scene, &inBody1, &inBody2, &inManifold, &ioSettings);
+			contact.applyShapeMaterials();
+			physicsSystem->onContactAdded3D(body1, body2, contact);
 		}
 
 		virtual void OnContactPersisted(const JPH::Body &inBody1, const JPH::Body &inBody2, const JPH::ContactManifold &inManifold, JPH::ContactSettings &ioSettings) override{
@@ -155,7 +157,9 @@ namespace doriax{
 			Entity entity2 = inBody2.GetUserData();
 			Body3D body2(scene, entity2);
 
-			physicsSystem->onContactPersisted3D(body1, body2, Contact3D(scene, &inBody1, &inBody2, &inManifold, &ioSettings));
+			Contact3D contact(scene, &inBody1, &inBody2, &inManifold, &ioSettings);
+			contact.applyShapeMaterials();
+			physicsSystem->onContactPersisted3D(body1, body2, contact);
 		}
 
 		virtual void OnContactRemoved(const JPH::SubShapeIDPair &inSubShapePair) override{

@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ObjectRender.h"
 
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ObjectRender::ObjectRender(){ }
 
@@ -28,6 +28,10 @@ void ObjectRender::beginLoad(PrimitiveType primitiveType){
 
 void ObjectRender::setShader(ShaderRender* shader){
     backend.setShader(shader);
+}
+
+void ObjectRender::setRenderTargetColorFormat(ColorFormat format){
+    backend.setRenderTargetColorFormat(format);
 }
 
 void ObjectRender::setIndex(BufferRender* buffer, AttributeDataType dataType, size_t offset){

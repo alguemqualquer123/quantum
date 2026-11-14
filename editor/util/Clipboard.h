@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 struct ClipboardImage {
     std::string mimeType;
@@ -38,4 +38,4 @@ ClipboardContent readClipboardContent();
 // readClipboardContent() or as file:// URIs.
 std::vector<std::string> clipboardTextToFilePaths(const char* clipboardText);
 
-} // namespace doriax::editor
+} // namespace quantum::editor

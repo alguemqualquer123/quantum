@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Theme.h"
@@ -15,7 +15,7 @@ bool g_hasBaseStyle = false;
 float g_appliedDpiScale = 0.0f;
 float g_uiScale = 1.0f;
 
-doriax::editor::Theme::Preset g_preset = doriax::editor::Theme::Preset::Dark;
+quantum::editor::Theme::Preset g_preset = quantum::editor::Theme::Preset::Gray;
 std::string g_accentHex = "#3E5C82";
 
 struct Tokens {
@@ -37,7 +37,7 @@ struct Tokens {
     ImVec4 warning;
 };
 
-Tokens darkTokens() {
+Tokens grayTokens() {
     Tokens t;
     t.text = ImVec4(0.82f, 0.80f, 0.79f, 1.00f);
     t.textDisabled = ImVec4(0.47f, 0.44f, 0.42f, 1.00f);
@@ -58,6 +58,18 @@ Tokens lightTokens() {
     t.bgSurface = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
     t.bgElevated = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
     t.border = ImVec4(0.72f, 0.72f, 0.75f, 1.00f);
+    return t;
+}
+
+Tokens blackTokens() {
+    Tokens t;
+    t.text = ImVec4(0.90f, 0.90f, 0.91f, 1.00f);
+    t.textDisabled = ImVec4(0.50f, 0.50f, 0.53f, 1.00f);
+    t.bgDeep = ImVec4(0.020f, 0.020f, 0.024f, 1.00f);
+    t.bgBase = ImVec4(0.035f, 0.035f, 0.040f, 1.00f);
+    t.bgSurface = ImVec4(0.070f, 0.070f, 0.078f, 1.00f);
+    t.bgElevated = ImVec4(0.115f, 0.115f, 0.125f, 1.00f);
+    t.border = ImVec4(0.16f, 0.16f, 0.18f, 1.00f);
     return t;
 }
 
@@ -107,37 +119,37 @@ bool parseAccent(ImVec4& out) {
 
 }
 
-ImVec4 doriax::editor::Theme::Colors::ButtonActivated;
-ImVec4 doriax::editor::Theme::Colors::IconButtonHovered;
-ImVec4 doriax::editor::Theme::Colors::IconButtonActive;
-ImVec4 doriax::editor::Theme::Colors::FileCardBackground;
-ImVec4 doriax::editor::Theme::Colors::FileCardBackgroundHovered;
-ImVec4 doriax::editor::Theme::Colors::SubtleText;
-ImVec4 doriax::editor::Theme::Colors::filenameLabel;
-ImVec4 doriax::editor::Theme::Colors::ExtEntityButton;
-ImVec4 doriax::editor::Theme::Colors::ExtEntityButtonHovered;
-ImVec4 doriax::editor::Theme::Colors::ExtEntityButtonActive;
-ImVec4 doriax::editor::Theme::Colors::NestedHeader;
-ImVec4 doriax::editor::Theme::Colors::NestedHeaderHovered;
-ImVec4 doriax::editor::Theme::Colors::NestedHeaderActive;
-ImVec4 doriax::editor::Theme::Colors::DisabledGreenText;
-ImVec4 doriax::editor::Theme::Colors::ChildSceneText;
-ImVec4 doriax::editor::Theme::Colors::SubSelectionText;
-ImVec4 doriax::editor::Theme::Colors::WarningText;
-ImVec4 doriax::editor::Theme::Colors::SuccessText;
-ImVec4 doriax::editor::Theme::Colors::DangerText;
-ImVec4 doriax::editor::Theme::Colors::NetworkDown;
-ImVec4 doriax::editor::Theme::Colors::NetworkUp;
+ImVec4 quantum::editor::Theme::Colors::ButtonActivated;
+ImVec4 quantum::editor::Theme::Colors::IconButtonHovered;
+ImVec4 quantum::editor::Theme::Colors::IconButtonActive;
+ImVec4 quantum::editor::Theme::Colors::FileCardBackground;
+ImVec4 quantum::editor::Theme::Colors::FileCardBackgroundHovered;
+ImVec4 quantum::editor::Theme::Colors::SubtleText;
+ImVec4 quantum::editor::Theme::Colors::filenameLabel;
+ImVec4 quantum::editor::Theme::Colors::ExtEntityButton;
+ImVec4 quantum::editor::Theme::Colors::ExtEntityButtonHovered;
+ImVec4 quantum::editor::Theme::Colors::ExtEntityButtonActive;
+ImVec4 quantum::editor::Theme::Colors::NestedHeader;
+ImVec4 quantum::editor::Theme::Colors::NestedHeaderHovered;
+ImVec4 quantum::editor::Theme::Colors::NestedHeaderActive;
+ImVec4 quantum::editor::Theme::Colors::DisabledGreenText;
+ImVec4 quantum::editor::Theme::Colors::ChildSceneText;
+ImVec4 quantum::editor::Theme::Colors::SubSelectionText;
+ImVec4 quantum::editor::Theme::Colors::WarningText;
+ImVec4 quantum::editor::Theme::Colors::SuccessText;
+ImVec4 quantum::editor::Theme::Colors::DangerText;
+ImVec4 quantum::editor::Theme::Colors::NetworkDown;
+ImVec4 quantum::editor::Theme::Colors::NetworkUp;
 
-void doriax::editor::Theme::setPreset(Preset preset) {
+void quantum::editor::Theme::setPreset(Preset preset) {
     g_preset = preset;
 }
 
-doriax::editor::Theme::Preset doriax::editor::Theme::getPreset() {
+quantum::editor::Theme::Preset quantum::editor::Theme::getPreset() {
     return g_preset;
 }
 
-bool doriax::editor::Theme::setAccentColor(const char* hex) {
+bool quantum::editor::Theme::setAccentColor(const char* hex) {
     if (!hex) {
         return false;
     }
@@ -152,21 +164,26 @@ bool doriax::editor::Theme::setAccentColor(const char* hex) {
     return true;
 }
 
-const char* doriax::editor::Theme::getAccentColor() {
+const char* quantum::editor::Theme::getAccentColor() {
     return g_accentHex.c_str();
 }
 
-void doriax::editor::Theme::apply() {
+void quantum::editor::Theme::apply() {
     ImGuiStyle& style = ImGui::GetStyle();
     ImVec4* colors = style.Colors;
 
-    Tokens t = (g_preset == Preset::Dark) ? darkTokens() : lightTokens();
+    Tokens t;
+    switch (g_preset) {
+        case Preset::Light: t = lightTokens(); break;
+        case Preset::Dark: t = blackTokens(); break;
+        default: t = grayTokens(); break;
+    }
     if (!parseAccent(t.accent)) {
         t.accent = ImVec4(0.24f, 0.36f, 0.51f, 1.00f);
     }
     const ImVec4 black(0.0f, 0.0f, 0.0f, 1.00f);
     const ImVec4 white(1.0f, 1.0f, 1.0f, 1.00f);
-    const bool dark = g_preset == Preset::Dark;
+    const bool dark = g_preset != Preset::Light;
     t.accentBright = ImLerp(t.accent, dark ? white : black, 0.25f);
     t.button = ImLerp(t.bgSurface, t.accent, dark ? 0.55f : 0.35f);
     t.buttonHovered = ImLerp(t.button, dark ? white : black, 0.12f);
@@ -317,7 +334,7 @@ void doriax::editor::Theme::apply() {
     g_appliedDpiScale = 0.0f;
 }
 
-void doriax::editor::Theme::applyDpiScale(float dpiScale) {
+void quantum::editor::Theme::applyDpiScale(float dpiScale) {
     if (!g_hasBaseStyle) {
         return;
     }
@@ -339,16 +356,16 @@ void doriax::editor::Theme::applyDpiScale(float dpiScale) {
     g_appliedDpiScale = dpiScale;
 }
 
-void doriax::editor::Theme::setUiScale(float uiScale) {
+void quantum::editor::Theme::setUiScale(float uiScale) {
     g_uiScale = uiScale;
     g_appliedDpiScale = 0.0f;
 }
 
-float doriax::editor::Theme::uiScale() {
+float quantum::editor::Theme::uiScale() {
     return g_uiScale;
 }
 
-float doriax::editor::Theme::dpiScale() {
+float quantum::editor::Theme::dpiScale() {
     ImGuiContext* ctx = ImGui::GetCurrentContext();
     if (ctx && ctx->CurrentWindow && ctx->CurrentWindow->Viewport && ctx->CurrentWindow->Viewport->DpiScale > 0.0f) {
         return ctx->CurrentWindow->Viewport->DpiScale * g_uiScale;
@@ -356,11 +373,11 @@ float doriax::editor::Theme::dpiScale() {
     return ((g_appliedDpiScale > 0.0f) ? g_appliedDpiScale : 1.0f) * g_uiScale;
 }
 
-float doriax::editor::Theme::dpi(float value) {
+float quantum::editor::Theme::dpi(float value) {
     return value * dpiScale();
 }
 
-ImVec2 doriax::editor::Theme::dpi(const ImVec2& value) {
+ImVec2 quantum::editor::Theme::dpi(const ImVec2& value) {
     const float scale = dpiScale();
     return ImVec2(value.x * scale, value.y * scale);
 }

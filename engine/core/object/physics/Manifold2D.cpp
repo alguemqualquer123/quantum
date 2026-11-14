@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Manifold2D.h"
 
 #include "PhysicsSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Manifold2D::Manifold2D(Scene* scene, const b2Manifold* manifold){
     this->scene = scene;

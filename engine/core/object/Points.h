@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef POINTS_H
@@ -7,9 +7,9 @@
 #include "Object.h"
 #include "buffer/ExternalBuffer.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Points: public Object{
+    class QUANTUM_API Points: public Object{
     public:
         Points(Scene* scene);
         Points(Scene* scene, Entity entity);

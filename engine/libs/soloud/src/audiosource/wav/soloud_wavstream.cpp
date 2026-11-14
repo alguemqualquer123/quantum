@@ -31,7 +31,9 @@ freely, subject to the following restrictions:
 #include "dr_wav.h"
 #include "soloud_wavstream.h"
 #include "soloud_file.h"
+#include "soloud_file_hack_on.h"
 #include "stb_vorbis.h"
+#include "soloud_file_hack_off.h"
 
 namespace SoLoud
 {
@@ -131,7 +133,11 @@ namespace SoLoud
 			{
 				int e;
 
-				mCodec.mOgg = stb_vorbis_open_file((Soloud_Filehack *)mFile, 0, &e, 0);
+				if (mFile->getMemPtr()) {
+					mCodec.mOgg = stb_vorbis_open_memory(mFile->getMemPtr(), mFile->length(), &e, 0);
+				} else {
+					mCodec.mOgg = stb_vorbis_open_file((Soloud_Filehack *)mFile, 0, &e, 0);
+				}
 
 				if (!mCodec.mOgg)
 				{
@@ -446,7 +452,11 @@ namespace SoLoud
 		fp->seek(0);
 		int e;
 		stb_vorbis *v;
-		v = stb_vorbis_open_file((Soloud_Filehack *)fp, 0, &e, 0);
+		if (fp->getMemPtr()) {
+			v = stb_vorbis_open_memory(fp->getMemPtr(), fp->length(), &e, 0);
+		} else {
+			v = stb_vorbis_open_file((Soloud_Filehack *)fp, 0, &e, 0);
+		}
 		if (v == NULL)
 			return FILE_LOAD_FAILED;
 		stb_vorbis_info info = stb_vorbis_get_info(v);

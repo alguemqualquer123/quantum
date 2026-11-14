@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SPRITEFRAMEDATA_H
@@ -6,7 +6,7 @@
 
 #include "math/Rect.h"
 
-namespace doriax{
+namespace quantum{
 
     struct SpriteFrameData{
         std::string name;

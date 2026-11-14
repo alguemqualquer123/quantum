@@ -1,7 +1,7 @@
 //
 // Inspired by work of Jari Komppa in SoLoud audio engine
 // https://sol.gfxile.net/soloud/file.html
-// Modified by (c) 2020 Eduardo Doria.
+// Modified by (c) 2020 SR VINIX.
 //
 
 #include "FileData.h"
@@ -10,7 +10,7 @@
 #include "System.h"
 #include <stack>
 
-using namespace doriax;
+using namespace quantum;
 
 FileData::~FileData(){
 

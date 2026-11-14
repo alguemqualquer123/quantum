@@ -14,6 +14,10 @@
 in vec3 v_position;
 in vec3 v_normal;
 in float v_waveHeight;
+#ifdef USE_WATER_SIM
+    in float v_simWet;   // standing depth over the one that makes the cell dry
+    in float v_simFlow;  // metres per second the water is running
+#endif
 
 out vec4 g_finalColor;
 
@@ -41,16 +45,19 @@ uniform u_fs_waterParams {
 
 // same layout as fs_lighting_t (RenderSystem.h) and mesh.frag
 uniform u_fs_lighting {
-    vec4 direction_range[MAX_LIGHTS]; //direction.xyz and range.w
-    vec4 color_intensity[MAX_LIGHTS]; //color.xyz and intensity.w
-    vec4 position_type[MAX_LIGHTS]; //position.xyz and type.w
-    vec4 inCone_ouCone_shadows_cascades[MAX_LIGHTS]; //innerConeCos.x, outerConeCos.y, shadowMapIndex.z, numCascades.w
-    vec4 spotUp_maskAspect[MAX_LIGHTS]; //spot projection up.xyz; mask width/height in .w (0 = default circle)
+    vec4 direction_range[MAX_FORWARD_LIGHTS]; //direction.xyz and range.w
+    vec4 color_intensity[MAX_FORWARD_LIGHTS]; //color.xyz and intensity.w
+    vec4 position_type[MAX_FORWARD_LIGHTS]; //position.xyz and type.w
+    vec4 inCone_ouCone_shadows_cascades[MAX_FORWARD_LIGHTS]; //innerConeCos.x, outerConeCos.y, shadowMapIndex.z, numCascades.w
+    vec4 spotUp_maskAspect[MAX_FORWARD_LIGHTS]; //spot projection up.xyz; mask width/height in .w (0 = default circle)
     vec4 eyePos; //eyePos.xyz
     vec4 cameraDir; //camera backward axis.xyz
     vec4 globalIllum; //globalColor.xyz and globalIntensity.w
     vec4 envColor; //environment color.rgb (linear) and environment rotation.w (radians)
     vec4 viewportInfo; //1.0/viewportSize.xy in .xy, rendering-flipped flag in .w
+    vec4 clusterInfo; //tile size, grid width, grid height, depth slices
+    vec4 clusterDepth; //near, far, log2(far / near), enabled
+    vec4 clusterDebug; //x = editor overlay enabled
 } lighting;
 
 uniform texture2D u_waterNormalTexture;
@@ -94,6 +101,7 @@ uniform sampler u_waterExclusionMaps_smp;
     uniform u_fs_shadow_projection {
         mat4 lightVPMatrix[MAX_SHADOW_ATLAS_SLOTS];
         vec4 shadowParams[MAX_SHADOW_ATLAS_SLOTS]; // normalBias in .x
+        mat4 logicalLightVPMatrix[MAX_SHADOW_ATLAS_SLOTS];
     } uShadowProjection;
     #define SHADOW_FRAGMENT_PROJECTION
     #define SHADOW_OFFSET_NORMAL v_normal
@@ -105,6 +113,8 @@ uniform sampler u_waterExclusionMaps_smp;
 
     uniform texture2D u_shadowAtlas;
     uniform samplerShadow u_shadowAtlas_smp;
+    uniform texture2D u_shadowPageTable;
+    uniform sampler u_shadowPageTable_smp;
     uniform texture2D u_shadowPointAtlas;
     uniform sampler u_shadowPointAtlas_smp;
 #endif
@@ -119,6 +129,7 @@ float clampedDot(vec3 x, vec3 y){
 #include "includes/srgb.glsl"
 #include "includes/brdf.glsl"
 #include "includes/punctual.glsl"
+#include "includes/clustered_lighting.glsl"
 #if defined(USE_SCENE_DEPTH) || defined(USE_SHADOWS)
     #include "includes/depth_util.glsl"
 #endif
@@ -330,7 +341,9 @@ void main(){
     float crest = clamp(v_waveHeight / max(water.ripples.z, 0.001), 0.0, 1.0);
 
     if (water.flags.x > 0.5){
-        for (int i = 0; i < MAX_LIGHTS; ++i){
+        for (int i = 0; i < MAX_FORWARD_LIGHTS; ++i){
+            if (!clusteredLightEnabled(i))
+                continue;
             Light light = Light(
                 int(lighting.position_type[i].w),
                 lighting.direction_range[i].xyz,
@@ -426,6 +439,13 @@ void main(){
     float crestFoam = water.ripples.w;
     float crestMask = smoothstep(1.0 - crestFoam * 2.0, 1.0 - crestFoam, crest) * step(0.001, crestFoam);
     foam = max(foam, crestMask * smoothstep(0.4, 0.7, noise));
+#ifdef USE_WATER_SIM
+    // running water froths over the ground it scrapes, on the crest-foam knob. The speed arrives
+    // in metres per second, so the range has to be the speeds a real stream reaches: at the old
+    // 0.15..0.9 a 0.6 m/s trickle saturated to full white and a shelf of rainwater read as snow.
+    float flowFoam = clamp(water.ripples.w * 3.0, 0.0, 1.0) * smoothstep(0.8, 3.0, v_simFlow);
+    foam = max(foam, flowFoam * smoothstep(0.4, 0.7, noise));
+#endif
 
     vec3 color;
     float alpha;
@@ -517,10 +537,20 @@ void main(){
         color = getFogColor(color) - getFogColor(vec3(0.0)) * (1.0 - coverage);
     #endif
 
+#ifdef USE_WATER_SIM
+    // where the water has left the ground there is no surface at all, so the puddle
+    // keeps the outline the flow gave it instead of showing the whole rect
+    if (v_simWet < 0.5)
+        discard;
+#endif
     // after the derivatives, which a discarded neighbor would spoil
     if (isExcluded(v_position)){
         discard;
     }
+
+    vec4 clusterDebug = clusteredLightDebugColor();
+    if (clusterDebug.a > 0.0)
+        color = mix(color, clusterDebug.rgb, clusterDebug.a);
 
     g_finalColor = vec4(linearTosRGB(color + transmitted), alpha);
 }

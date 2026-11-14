@@ -1,10 +1,10 @@
 //
 // Inspired by work of Jari Komppa in SoLoud audio engine
 // https://sol.gfxile.net/soloud/file.html
-// Modified by Eduardo Doria.
+// Modified by SR VINIX.
 //
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Data.h"
@@ -13,7 +13,7 @@
 #include <string.h>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 Data::Data(): dataPtr(NULL), dataLength(0), offset(0), dataOwned(false) {
 
@@ -82,9 +82,9 @@ void Data::seek(int aOffset) {
     if (aOffset >= 0)
         offset = aOffset;
     else
-        offset = dataLength + aOffset;
-    if (offset > dataLength-1)
-        offset = dataLength-1;
+        offset = aOffset < -(int)dataLength ? 0 : dataLength + aOffset;
+    if (offset > dataLength)
+        offset = dataLength;
 }
 
 unsigned int Data::pos() {

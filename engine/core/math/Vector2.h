@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef vector2_h
@@ -10,20 +10,20 @@
 #include <math.h>
 #include <string>
 
-namespace doriax { class Vector2; }
-doriax::Vector2 operator * ( const float fScalar, const doriax::Vector2& rkVector );
-doriax::Vector2 operator / ( const float fScalar, const doriax::Vector2& rkVector );
-doriax::Vector2 operator + (const doriax::Vector2& lhs, const float rhs);
-doriax::Vector2 operator + (const float lhs, const doriax::Vector2& rhs);
-doriax::Vector2 operator - (const doriax::Vector2& lhs, const float rhs);
-doriax::Vector2 operator - (const float lhs, const doriax::Vector2& rhs);
+namespace quantum { class Vector2; }
+quantum::Vector2 operator * ( const float fScalar, const quantum::Vector2& rkVector );
+quantum::Vector2 operator / ( const float fScalar, const quantum::Vector2& rkVector );
+quantum::Vector2 operator + (const quantum::Vector2& lhs, const float rhs);
+quantum::Vector2 operator + (const float lhs, const quantum::Vector2& rhs);
+quantum::Vector2 operator - (const quantum::Vector2& lhs, const float rhs);
+quantum::Vector2 operator - (const float lhs, const quantum::Vector2& rhs);
 
-namespace doriax {
+namespace quantum {
 
     class Vector3;
     class Vector4;
 
-    class DORIAX_API Vector2
+    class QUANTUM_API Vector2
     {
     public:
         float x, y;

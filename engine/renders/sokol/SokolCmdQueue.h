@@ -1,5 +1,5 @@
 // ---------------------------------------
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Based on: https://github.com/oviano/sokol-multithread
 // ---------------------------------------
@@ -20,7 +20,7 @@
 
 // ----------------------------------------------------------------------------------------------------
 
-namespace doriax {
+namespace quantum {
 
 	struct SokolRenderCommand
 	{

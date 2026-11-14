@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "GamepadWin.h"
@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

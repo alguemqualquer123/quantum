@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "VulkanContext.h"
@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -47,6 +47,7 @@ namespace {
     VkSwapchainKHR gSwapchain = VK_NULL_HANDLE;
     bool gSwapchainValid = false;
     bool gImageAcquired = false;
+    bool gTransferSourceSupported = false;
     uint32_t gImageCount = 0;
     uint32_t gImageIndex = 0;
     uint32_t gSyncSlot = 0;
@@ -60,6 +61,20 @@ namespace {
     VkImage gDepthImage = VK_NULL_HANDLE;
     VkDeviceMemory gDepthMemory = VK_NULL_HANDLE;
     VkImageView gDepthView = VK_NULL_HANDLE;
+
+    uint32_t findMemoryType(uint32_t typeBits, VkMemoryPropertyFlags required,
+                            VkMemoryPropertyFlags* selectedFlags = nullptr) {
+        VkPhysicalDeviceMemoryProperties properties{};
+        vkGetPhysicalDeviceMemoryProperties(gPhysicalDevice, &properties);
+        for (uint32_t i = 0; i < properties.memoryTypeCount; ++i) {
+            if ((typeBits & (1u << i)) == 0) continue;
+            const VkMemoryPropertyFlags flags = properties.memoryTypes[i].propertyFlags;
+            if ((flags & required) != required) continue;
+            if (selectedFlags) *selectedFlags = flags;
+            return i;
+        }
+        return UINT32_MAX;
+    }
 
     bool hasInstanceExtension(const char* name) {
         uint32_t count = 0;
@@ -101,9 +116,9 @@ namespace {
     bool createInstance() {
         VkApplicationInfo application{};
         application.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-        application.pApplicationName = "Doriax";
+        application.pApplicationName = "Quantum";
         application.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-        application.pEngineName = "Doriax";
+        application.pEngineName = "Quantum";
         application.engineVersion = VK_MAKE_VERSION(1, 0, 0);
         application.apiVersion = VK_API_VERSION_1_3;
 
@@ -429,6 +444,7 @@ namespace {
         }
         gImageCount = 0;
         gSwapchainValid = false;
+        gTransferSourceSupported = false;
     }
 
     bool createSwapchain() {
@@ -458,7 +474,11 @@ namespace {
         swapchainInfo.imageColorSpace = gSurfaceFormat.colorSpace;
         swapchainInfo.imageExtent = capabilities.currentExtent;
         swapchainInfo.imageArrayLayers = 1;
+        const bool transferSourceSupported =
+            (capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
         swapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        if (transferSourceSupported)
+            swapchainInfo.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         swapchainInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         swapchainInfo.preTransform = capabilities.currentTransform;
         swapchainInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -476,6 +496,7 @@ namespace {
         // The old swapchain goes only after the new one has taken it as its ancestor
         destroySwapchain();
         gSwapchain = created;
+        gTransferSourceSupported = transferSourceSupported;
 
         if (vkGetSwapchainImagesKHR(gDevice, gSwapchain, &gImageCount, nullptr) != VK_SUCCESS) {
             std::fprintf(stderr, "Error: Could not read the Vulkan swapchain images.\n");
@@ -621,6 +642,196 @@ void VulkanContext::endFrame() {
     }
 
     gSyncSlot = (gSyncSlot + 1) % gImageCount;
+}
+
+bool VulkanContext::readBackFramebuffer(unsigned char* out, int width, int height) {
+    if (!out || width <= 0 || height <= 0 || !gDevice || !gQueue || !gImageAcquired ||
+        !gSwapchainValid || !gTransferSourceSupported || width != gWidth || height != gHeight)
+        return false;
+
+    const bool bgra = gSurfaceFormat.format == VK_FORMAT_B8G8R8A8_UNORM;
+    const bool rgba = gSurfaceFormat.format == VK_FORMAT_R8G8B8A8_UNORM;
+    if (!bgra && !rgba) return false;
+
+    VkResult result = vkQueueWaitIdle(gQueue);
+    if (result != VK_SUCCESS) return false;
+
+    const VkDeviceSize byteCount = static_cast<VkDeviceSize>(width) *
+                                   static_cast<VkDeviceSize>(height) * 4u;
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VkDeviceMemory memory = VK_NULL_HANDLE;
+    VkCommandPool commandPool = VK_NULL_HANDLE;
+    VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+
+    auto cleanup = [&]() {
+        if (commandPool != VK_NULL_HANDLE)
+            vkDestroyCommandPool(gDevice, commandPool, nullptr);
+        if (buffer != VK_NULL_HANDLE)
+            vkDestroyBuffer(gDevice, buffer, nullptr);
+        if (memory != VK_NULL_HANDLE)
+            vkFreeMemory(gDevice, memory, nullptr);
+    };
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = byteCount;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    result = vkCreateBuffer(gDevice, &bufferInfo, nullptr, &buffer);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkMemoryRequirements requirements{};
+    vkGetBufferMemoryRequirements(gDevice, buffer, &requirements);
+    VkMemoryPropertyFlags memoryFlags = 0;
+    uint32_t memoryType = findMemoryType(
+        requirements.memoryTypeBits,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        &memoryFlags);
+    if (memoryType == UINT32_MAX) {
+        memoryType = findMemoryType(requirements.memoryTypeBits,
+                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &memoryFlags);
+    }
+    if (memoryType == UINT32_MAX) {
+        cleanup();
+        return false;
+    }
+
+    VkMemoryAllocateInfo allocateInfo{};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = requirements.size;
+    allocateInfo.memoryTypeIndex = memoryType;
+    result = vkAllocateMemory(gDevice, &allocateInfo, nullptr, &memory);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+    result = vkBindBufferMemory(gDevice, buffer, memory, 0);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkCommandPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+    poolInfo.queueFamilyIndex = gQueueFamily;
+    result = vkCreateCommandPool(gDevice, &poolInfo, nullptr, &commandPool);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkCommandBufferAllocateInfo commandInfo{};
+    commandInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    commandInfo.commandPool = commandPool;
+    commandInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    commandInfo.commandBufferCount = 1;
+    result = vkAllocateCommandBuffers(gDevice, &commandInfo, &commandBuffer);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkCommandBufferBeginInfo beginInfo{};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    result = vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkImageMemoryBarrier toTransfer{};
+    toTransfer.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    toTransfer.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    toTransfer.oldLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    toTransfer.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    toTransfer.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    toTransfer.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    toTransfer.image = gImages[gImageIndex];
+    toTransfer.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    toTransfer.subresourceRange.levelCount = 1;
+    toTransfer.subresourceRange.layerCount = 1;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr,
+                         1, &toTransfer);
+
+    VkBufferImageCopy copy{};
+    copy.bufferRowLength = static_cast<uint32_t>(width);
+    copy.bufferImageHeight = static_cast<uint32_t>(height);
+    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    vkCmdCopyImageToBuffer(commandBuffer, gImages[gImageIndex],
+                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &copy);
+
+    VkImageMemoryBarrier toPresent = toTransfer;
+    toPresent.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    toPresent.dstAccessMask = 0;
+    toPresent.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    toPresent.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, nullptr, 0, nullptr,
+                         1, &toPresent);
+
+    result = vkEndCommandBuffer(commandBuffer);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    result = vkQueueSubmit(gQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    if (result == VK_SUCCESS) result = vkQueueWaitIdle(gQueue);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+
+    void* mapped = nullptr;
+    result = vkMapMemory(gDevice, memory, 0, byteCount, 0, &mapped);
+    if (result != VK_SUCCESS) {
+        cleanup();
+        return false;
+    }
+    if ((memoryFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+        VkMappedMemoryRange range{};
+        range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        range.memory = memory;
+        range.size = VK_WHOLE_SIZE;
+        vkInvalidateMappedMemoryRanges(gDevice, 1, &range);
+    }
+
+    const unsigned char* source = static_cast<const unsigned char*>(mapped);
+    const size_t rowBytes = static_cast<size_t>(width) * 4u;
+    for (int y = 0; y < height; ++y) {
+        const unsigned char* sourceRow = source + static_cast<size_t>(y) * rowBytes;
+        unsigned char* destinationRow = out + static_cast<size_t>(y) * rowBytes;
+        for (int x = 0; x < width; ++x) {
+            const unsigned char* pixel = sourceRow + static_cast<size_t>(x) * 4u;
+            unsigned char* output = destinationRow + static_cast<size_t>(x) * 4u;
+            if (bgra) {
+                output[0] = pixel[2];
+                output[1] = pixel[1];
+                output[2] = pixel[0];
+                output[3] = pixel[3];
+            } else {
+                output[0] = pixel[0];
+                output[1] = pixel[1];
+                output[2] = pixel[2];
+                output[3] = pixel[3];
+            }
+        }
+    }
+    vkUnmapMemory(gDevice, memory);
+    cleanup();
+    return true;
 }
 
 sg_environment VulkanContext::environment() {

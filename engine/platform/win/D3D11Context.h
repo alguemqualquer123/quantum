@@ -1,14 +1,14 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Direct3D 11 device and swapchain for the Win32 backend. Shaped like
-// VulkanContext so DoriaxWin drives every graphics backend the same way.
+// VulkanContext so QuantumWin drives every graphics backend the same way.
 
 #ifndef D3D11Context_h
 #define D3D11Context_h
 
 #include "System.h"
 
-namespace doriax {
+namespace quantum {
 
     struct D3D11ContextConfig {
         bool vsync = true;
@@ -28,6 +28,9 @@ namespace doriax {
         // and sokol skips the pass.
         static void beginFrame();
         static void endFrame();
+
+        // Copies the current backbuffer into CPU-visible RGBA rows before Present.
+        static bool readBackFramebuffer(unsigned char* out, int width, int height);
 
         static sg_environment environment();
         static sg_swapchain swapchain();

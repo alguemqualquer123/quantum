@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/Geometry.h"
@@ -9,7 +9,7 @@
 
 #include "slate/core/PaintList.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         constexpr float kPi = 3.14159265358979323846f;

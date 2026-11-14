@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ScriptProperty.h"
@@ -7,7 +7,7 @@
 #include "lua.hpp"
 #include "LuaBridge.h"
 
-namespace doriax {
+namespace quantum {
 
     void ScriptProperty::reportStaleValue() const {
         Log::warn("Script property '%s' had a value of another type, reset to default", name.c_str());

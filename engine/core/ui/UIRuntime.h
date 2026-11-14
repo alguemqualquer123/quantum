@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef UIRuntime_h
@@ -11,7 +11,7 @@
 #include "ui/render/PaintList.h"
 #include "ui/render/VertexBuilder.h"
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     class UIRenderer;
 
@@ -19,7 +19,7 @@ namespace doriax::ui {
     // tree ("canvas"), painted after the scenes each frame. Layout arrives with
     // the flexbox phase; today elements are placed explicitly through
     // VisualElement::setPosition/setSize.
-    class DORIAX_API UIRuntime {
+    class QUANTUM_API UIRuntime {
     public:
         struct Stats {
             unsigned int elements = 0;   //visited by the paint pass

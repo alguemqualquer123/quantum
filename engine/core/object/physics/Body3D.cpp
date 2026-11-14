@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Body3D.h"
@@ -11,7 +11,7 @@
 #include <iostream>
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 JPH::EMotionType getBodyTypeToJolt(BodyType type){
     if (type == BodyType::STATIC){
@@ -379,6 +379,54 @@ float Body3D::getShapeDensity(size_t index) const{
     return 0;
 }
 
+void Body3D::setShapeFriction(float friction){
+    setShapeFriction(0, friction);
+}
+
+void Body3D::setShapeFriction(size_t index, float friction){
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    if (index >= body.numShapes) {
+        Log::error("Cannot find shape %i of body", index);
+        return;
+    }
+    body.shapes[index].friction = std::clamp(friction, 0.0f, 1.0f);
+}
+
+float Body3D::getShapeFriction() const{
+    return getShapeFriction(0);
+}
+
+float Body3D::getShapeFriction(size_t index) const{
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    if (index < body.numShapes) return body.shapes[index].friction;
+    Log::error("Cannot find shape %i of body", index);
+    return 0.0f;
+}
+
+void Body3D::setShapeRestitution(float restitution){
+    setShapeRestitution(0, restitution);
+}
+
+void Body3D::setShapeRestitution(size_t index, float restitution){
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    if (index >= body.numShapes) {
+        Log::error("Cannot find shape %i of body", index);
+        return;
+    }
+    body.shapes[index].restitution = std::clamp(restitution, 0.0f, 1.0f);
+}
+
+float Body3D::getShapeRestitution() const{
+    return getShapeRestitution(0);
+}
+
+float Body3D::getShapeRestitution(size_t index) const{
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    if (index < body.numShapes) return body.shapes[index].restitution;
+    Log::error("Cannot find shape %i of body", index);
+    return 0.0f;
+}
+
 void Body3D::setType(BodyType type){
     Body3DComponent& body = getComponent<Body3DComponent>();
 
@@ -523,6 +571,11 @@ float Body3D::getMass() const{
 
 void Body3D::setMass(float mass){
     JPH::Body& jbody = getJoltBodyWrite();
+    // Jolt only allocates motion properties for a moving body, so a static one has no mass to set
+    if (jbody.IsStatic()){
+        Log::warn("Cannot set the mass of static 3D Body entity: %u", entity);
+        return;
+    }
     JPH::MassProperties massProperties = jbody.GetShape()->GetMassProperties();
     massProperties.mMass = mass;
     jbody.GetMotionProperties()->SetMassProperties(jbody.GetMotionProperties()->GetAllowedDOFs(), massProperties);
@@ -556,6 +609,38 @@ void Body3D::setGravityFactor(float gravityFactor){
         JPH::MotionProperties* motionProperties = getJoltBodyWrite().GetMotionPropertiesUnchecked();
         if (motionProperties){
             motionProperties->SetGravityFactor(gravityFactor);
+        }
+    }
+}
+
+float Body3D::getLinearDamping() const{
+    return getComponent<Body3DComponent>().linearDamping;
+}
+
+void Body3D::setLinearDamping(float linearDamping){
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    body.linearDamping = std::max(0.0f, linearDamping);
+
+    if (!body.body.IsInvalid()){
+        JPH::MotionProperties* motionProperties = getJoltBodyWrite().GetMotionPropertiesUnchecked();
+        if (motionProperties){
+            motionProperties->SetLinearDamping(body.linearDamping);
+        }
+    }
+}
+
+float Body3D::getAngularDamping() const{
+    return getComponent<Body3DComponent>().angularDamping;
+}
+
+void Body3D::setAngularDamping(float angularDamping){
+    Body3DComponent& body = getComponent<Body3DComponent>();
+    body.angularDamping = std::max(0.0f, angularDamping);
+
+    if (!body.body.IsInvalid()){
+        JPH::MotionProperties* motionProperties = getJoltBodyWrite().GetMotionPropertiesUnchecked();
+        if (motionProperties){
+            motionProperties->SetAngularDamping(body.angularDamping);
         }
     }
 }
@@ -645,11 +730,24 @@ void Body3D::setCollisionGroupID(uint32_t group){
 }
 
 bool Body3D::isAllowSleeping() const{
-    return getJoltBody().GetAllowSleeping();
+    // A static body has no motion properties, and Jolt's sleep accessors dereference them
+    // unconditionally, so the question only has an answer for a body that can move.
+    const JPH::MotionProperties* motionProperties = getJoltBody().GetMotionPropertiesUnchecked();
+    if (!motionProperties){
+        return true;
+    }
+
+    return motionProperties->GetAllowSleeping();
 }
 
 void Body3D::setAllowSleeping(bool allowSleeping){
-    getJoltBodyWrite().SetAllowSleeping(allowSleeping);
+    JPH::Body& jbody = getJoltBodyWrite();
+    if (!jbody.GetMotionPropertiesUnchecked()){
+        Log::verbose("Static 3D Body entity %u never sleeps, so allow sleeping has no effect", entity);
+        return;
+    }
+
+    jbody.SetAllowSleeping(allowSleeping);
 }
 
 float Body3D::getFriction() const{

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef sphere_h
@@ -7,13 +7,13 @@
 #include <cmath>
 #include "Vector3.h"
 
-namespace doriax{
+namespace quantum{
 
     class Plane;
     class AABB;
     class OBB;
 
-    class DORIAX_API Sphere {
+    class QUANTUM_API Sphere {
     public:
         Vector3 center;
         float radius;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "util/GlbBuilder.h"
@@ -20,7 +20,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -221,7 +221,7 @@ bool GlbBuilder::build(std::string& error) {
 
 std::vector<unsigned char> GlbBuilder::write(const tinygltf::Value& extras) {
     model.asset.version = "2.0";
-    model.asset.generator = "Doriax FBX importer (ufbx)";
+    model.asset.generator = "Quantum FBX importer (ufbx)";
     model.asset.extras = extras;
 
     tinygltf::TinyGLTF writer;

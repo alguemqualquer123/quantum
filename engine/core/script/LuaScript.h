@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LUA_H
@@ -6,7 +6,7 @@
 
 #include "Object.h"
 
-namespace doriax {
+namespace quantum {
     class LuaScript {
     public:
         static void setObject(const std::string& global, Object* object);

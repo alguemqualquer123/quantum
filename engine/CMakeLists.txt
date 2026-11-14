@@ -1,40 +1,40 @@
 # Mirrored by cxxStandards in editor/util/CxxStandards.h. Covers the engine, the editor
 # and the exported game; Play plugins read the project setting (editor/Generator.cpp).
-set(DORIAX_CXX_STANDARDS 17 20 23)
-if(NOT DEFINED DORIAX_CXX_STANDARD)
-    set(DORIAX_CXX_STANDARD 17 CACHE STRING "C++ standard for the engine, editor and project")
-    set_property(CACHE DORIAX_CXX_STANDARD PROPERTY STRINGS ${DORIAX_CXX_STANDARDS})
+set(QUANTUM_CXX_STANDARDS 17 20 23)
+if(NOT DEFINED QUANTUM_CXX_STANDARD)
+    set(QUANTUM_CXX_STANDARD 17 CACHE STRING "C++ standard for the engine, editor and project")
+    set_property(CACHE QUANTUM_CXX_STANDARD PROPERTY STRINGS ${QUANTUM_CXX_STANDARDS})
 endif()
 
-option(DORIAX_PHYSICS_2D "Enable Box2D-based 2D physics" ON)
-option(DORIAX_PHYSICS_3D "Enable Jolt-based 3D physics" ON)
-option(DORIAX_ADMOB "Link Google Mobile Ads into iOS builds" ON)
-option(DORIAX_STOREKIT "Compile StoreKit in-app purchases into iOS builds" ON)
-set(DORIAX_WEB_PORTALS none crazygames poki gamedistribution yandex youtube)
-set(DORIAX_WEB_PORTAL none CACHE STRING "Game portal SDK of web builds")
-set_property(CACHE DORIAX_WEB_PORTAL PROPERTY STRINGS ${DORIAX_WEB_PORTALS})
-set(DORIAX_WEB_PORTAL_GAME_ID "" CACHE STRING "Game ID for web portals that need one, like GameDistribution")
+option(QUANTUM_PHYSICS_2D "Enable Box2D-based 2D physics" ON)
+option(QUANTUM_PHYSICS_3D "Enable Jolt-based 3D physics" ON)
+option(QUANTUM_ADMOB "Link Google Mobile Ads into iOS builds" ON)
+option(QUANTUM_STOREKIT "Compile StoreKit in-app purchases into iOS builds" ON)
+set(QUANTUM_WEB_PORTALS none crazygames poki gamedistribution yandex youtube)
+set(QUANTUM_WEB_PORTAL none CACHE STRING "Game portal SDK of web builds")
+set_property(CACHE QUANTUM_WEB_PORTAL PROPERTY STRINGS ${QUANTUM_WEB_PORTALS})
+set(QUANTUM_WEB_PORTAL_GAME_ID "" CACHE STRING "Game ID for web portals that need one, like GameDistribution")
 
 # =============================================================
 # STANDALONE PROJECT SETUP
 # Only runs when this file is used as the top-level build
-# (i.e. building doriax-project outside the editor).
+# (i.e. building quantum-project outside the editor).
 # =============================================================
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     cmake_minimum_required(VERSION 3.20)
 
     if(NOT DEFINED APP_NAME)
-        set(APP_NAME doriax-project)
+        set(APP_NAME quantum-project)
     endif()
 
     project(${APP_NAME})
 
-    set(DORIAX_SHARED OFF)
+    set(QUANTUM_SHARED OFF)
 
-    if(NOT DORIAX_ROOT)
-        set(DORIAX_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
+    if(NOT QUANTUM_ROOT)
+        set(QUANTUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
-    file(TO_CMAKE_PATH ${DORIAX_ROOT} DORIAX_ROOT)
+    file(TO_CMAKE_PATH ${QUANTUM_ROOT} QUANTUM_ROOT)
 
     #add_definitions(-DDISABLE_LUA_BINDINGS)
     #add_definitions(-DNO_LUA_INIT)
@@ -50,64 +50,64 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
     # Project-wide runtime settings are injected here by the editor Exporter.
     # Standalone engine builds keep the defaults declared by each platform.
-    # @DORIAX_PROJECT_SETTINGS@
-    if(NOT DEFINED DORIAX_VSYNC_ENABLED)
-        set(DORIAX_VSYNC_ENABLED ON)
+    # @QUANTUM_PROJECT_SETTINGS@
+    if(NOT DEFINED QUANTUM_VSYNC_ENABLED)
+        set(QUANTUM_VSYNC_ENABLED ON)
     endif()
-    if(DORIAX_VSYNC_ENABLED)
-        set(DORIAX_VSYNC_ENABLED_VALUE 1)
+    if(QUANTUM_VSYNC_ENABLED)
+        set(QUANTUM_VSYNC_ENABLED_VALUE 1)
     else()
-        set(DORIAX_VSYNC_ENABLED_VALUE 0)
+        set(QUANTUM_VSYNC_ENABLED_VALUE 0)
     endif()
-    add_definitions("-DDORIAX_VSYNC_ENABLED=${DORIAX_VSYNC_ENABLED_VALUE}")
+    add_definitions("-DQUANTUM_VSYNC_ENABLED=${QUANTUM_VSYNC_ENABLED_VALUE}")
 
-    if(NOT DEFINED DORIAX_WINDOW_WIDTH)
-        set(DORIAX_WINDOW_WIDTH 960)
+    if(NOT DEFINED QUANTUM_WINDOW_WIDTH)
+        set(QUANTUM_WINDOW_WIDTH 960)
     endif()
-    if(NOT DEFINED DORIAX_WINDOW_HEIGHT)
-        set(DORIAX_WINDOW_HEIGHT 540)
+    if(NOT DEFINED QUANTUM_WINDOW_HEIGHT)
+        set(QUANTUM_WINDOW_HEIGHT 540)
     endif()
     # 0 = windowed, 1 = maximized, 2 = fullscreen
-    if(NOT DEFINED DORIAX_WINDOW_MODE)
-        set(DORIAX_WINDOW_MODE 0)
+    if(NOT DEFINED QUANTUM_WINDOW_MODE)
+        set(QUANTUM_WINDOW_MODE 0)
     endif()
-    if(NOT DEFINED DORIAX_WINDOW_RESIZABLE)
-        set(DORIAX_WINDOW_RESIZABLE ON)
+    if(NOT DEFINED QUANTUM_WINDOW_RESIZABLE)
+        set(QUANTUM_WINDOW_RESIZABLE ON)
     endif()
-    if(NOT DEFINED DORIAX_WINDOW_TITLE)
-        set(DORIAX_WINDOW_TITLE "Doriax")
+    if(NOT DEFINED QUANTUM_WINDOW_TITLE)
+        set(QUANTUM_WINDOW_TITLE "Quantum")
     endif()
     # Prefix of the web build's saved keys
-    if(NOT DEFINED DORIAX_STORAGE_ID)
-        set(DORIAX_STORAGE_ID "${APP_NAME}")
+    if(NOT DEFINED QUANTUM_STORAGE_ID)
+        set(QUANTUM_STORAGE_ID "${APP_NAME}")
     endif()
     # ON only when the editor export generated project/app_icon.h (+ .ico/.rc)
-    if(NOT DEFINED DORIAX_WINDOW_ICON)
-        set(DORIAX_WINDOW_ICON OFF)
+    if(NOT DEFINED QUANTUM_WINDOW_ICON)
+        set(QUANTUM_WINDOW_ICON OFF)
     endif()
-    if(DORIAX_WINDOW_RESIZABLE)
-        set(DORIAX_WINDOW_RESIZABLE_VALUE 1)
+    if(QUANTUM_WINDOW_RESIZABLE)
+        set(QUANTUM_WINDOW_RESIZABLE_VALUE 1)
     else()
-        set(DORIAX_WINDOW_RESIZABLE_VALUE 0)
+        set(QUANTUM_WINDOW_RESIZABLE_VALUE 0)
     endif()
-    add_definitions("-DDEFAULT_WINDOW_WIDTH=${DORIAX_WINDOW_WIDTH}")
-    add_definitions("-DDEFAULT_WINDOW_HEIGHT=${DORIAX_WINDOW_HEIGHT}")
-    add_definitions("-DDORIAX_WINDOW_MODE=${DORIAX_WINDOW_MODE}")
-    add_definitions("-DDORIAX_WINDOW_RESIZABLE=${DORIAX_WINDOW_RESIZABLE_VALUE}")
-    add_definitions("-DDORIAX_WINDOW_TITLE=\"${DORIAX_WINDOW_TITLE}\"")
-    add_definitions("-DDORIAX_STORAGE_ID=\"${DORIAX_STORAGE_ID}\"")
+    add_definitions("-DDEFAULT_WINDOW_WIDTH=${QUANTUM_WINDOW_WIDTH}")
+    add_definitions("-DDEFAULT_WINDOW_HEIGHT=${QUANTUM_WINDOW_HEIGHT}")
+    add_definitions("-DQUANTUM_WINDOW_MODE=${QUANTUM_WINDOW_MODE}")
+    add_definitions("-DQUANTUM_WINDOW_RESIZABLE=${QUANTUM_WINDOW_RESIZABLE_VALUE}")
+    add_definitions("-DQUANTUM_WINDOW_TITLE=\"${QUANTUM_WINDOW_TITLE}\"")
+    add_definitions("-DQUANTUM_STORAGE_ID=\"${QUANTUM_STORAGE_ID}\"")
     # X11 class / Wayland app_id (APP_NAME is a plain identifier, safe to quote).
     # Desktop environments match it against <APP_NAME>.desktop for the app icon.
-    add_definitions("-DDORIAX_APP_ID=\"${APP_NAME}\"")
-    if(DORIAX_WINDOW_ICON AND EXISTS "${PROJECT_ROOT}/app_icon.h")
-        add_definitions("-DDORIAX_WINDOW_ICON")
+    add_definitions("-DQUANTUM_APP_ID=\"${APP_NAME}\"")
+    if(QUANTUM_WINDOW_ICON AND EXISTS "${PROJECT_ROOT}/app_icon.h")
+        add_definitions("-DQUANTUM_WINDOW_ICON")
     endif()
 
     # Per-project HybridArray capacities (SceneMaxValues) are injected here by the
     # editor Exporter, replacing the marker below. When building manually (without
     # the editor), the marker is left untouched and the engine defaults declared in
     # core/Engine.h apply.
-    # @DORIAX_SCENE_MAX_VALUES@
+    # @QUANTUM_SCENE_MAX_VALUES@
 
     if(NOT GRAPHIC_BACKEND)
         if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
@@ -150,7 +150,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             message(FATAL_ERROR "APP_BACKEND is not set")
         endif()
     endif()
-    if((NOT DORIAX_VSYNC_ENABLED) AND (CMAKE_SYSTEM_NAME STREQUAL "Darwin") AND
+    if((NOT QUANTUM_VSYNC_ENABLED) AND (CMAKE_SYSTEM_NAME STREQUAL "Darwin") AND
        (APP_BACKEND STREQUAL "apple"))
         message(WARNING "VSync off is not supported by the macOS Metal application backend; this build will remain synchronized")
     endif()
@@ -171,7 +171,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
     # FindVulkan reads the VULKAN_SDK environment variable the SDK installer
     # sets. A macro, not a function, so Vulkan_FOUND lands in the caller.
-    macro(doriax_find_vulkan backendOption)
+    macro(quantum_find_vulkan backendOption)
         # sokol_gfx binds every resource through VK_EXT_descriptor_buffer, which
         # MoltenVK does not implement, so the build only fails at device selection
         if(APPLE)
@@ -181,12 +181,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         # An app started from the Dock inherits no shell environment, so on macOS
         # the SDK is also looked for where its installer unpacks it
         if(APPLE AND NOT DEFINED ENV{VULKAN_SDK})
-            file(GLOB doriaxVulkanSdkDirs "$ENV{HOME}/VulkanSDK/*/macOS")
-            if(doriaxVulkanSdkDirs)
-                list(SORT doriaxVulkanSdkDirs)
-                list(POP_BACK doriaxVulkanSdkDirs doriaxVulkanSdkNewest)
-                set(ENV{VULKAN_SDK} "${doriaxVulkanSdkNewest}")
-                message(STATUS "Using the Vulkan SDK at ${doriaxVulkanSdkNewest}")
+            file(GLOB quantumVulkanSdkDirs "$ENV{HOME}/VulkanSDK/*/macOS")
+            if(quantumVulkanSdkDirs)
+                list(SORT quantumVulkanSdkDirs)
+                list(POP_BACK quantumVulkanSdkDirs quantumVulkanSdkNewest)
+                set(ENV{VULKAN_SDK} "${quantumVulkanSdkNewest}")
+                message(STATUS "Using the Vulkan SDK at ${quantumVulkanSdkNewest}")
             endif()
         endif()
         find_package(Vulkan QUIET)
@@ -196,7 +196,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     endmacro()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-        add_definitions("-DDORIAX_WEB")
+        add_definitions("-DQUANTUM_WEB")
 
         if(GRAPHIC_BACKEND STREQUAL "gles3")
             add_definitions("-DSOKOL_GLES3")
@@ -205,18 +205,18 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
         add_definitions("-DWITH_MINIAUDIO")
 
-        if(NOT DORIAX_WEB_PORTAL IN_LIST DORIAX_WEB_PORTALS)
-            message(FATAL_ERROR "DORIAX_WEB_PORTAL=${DORIAX_WEB_PORTAL} is not one of: ${DORIAX_WEB_PORTALS}")
+        if(NOT QUANTUM_WEB_PORTAL IN_LIST QUANTUM_WEB_PORTALS)
+            message(FATAL_ERROR "QUANTUM_WEB_PORTAL=${QUANTUM_WEB_PORTAL} is not one of: ${QUANTUM_WEB_PORTALS}")
         endif()
-        if(NOT DORIAX_WEB_PORTAL STREQUAL "none")
-            string(TOUPPER "${DORIAX_WEB_PORTAL}" WEB_PORTAL_NAME)
-            add_definitions("-DDORIAX_WEB_PORTAL_${WEB_PORTAL_NAME}")
-            add_definitions("-DDORIAX_WEB_PORTAL_GAME_ID=\"${DORIAX_WEB_PORTAL_GAME_ID}\"")
+        if(NOT QUANTUM_WEB_PORTAL STREQUAL "none")
+            string(TOUPPER "${QUANTUM_WEB_PORTAL}" WEB_PORTAL_NAME)
+            add_definitions("-DQUANTUM_WEB_PORTAL_${WEB_PORTAL_NAME}")
+            add_definitions("-DQUANTUM_WEB_PORTAL_GAME_ID=\"${QUANTUM_WEB_PORTAL_GAME_ID}\"")
         endif()
 
         set(CMAKE_EXECUTABLE_SUFFIX ".html")
 
-        set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/emscripten)
+        set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/emscripten)
 
         set(EM_PRELOAD_FILES)
         if(EXISTS "${PROJECT_ROOT}/assets")
@@ -227,7 +227,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         endif()
 
         list(APPEND PLATFORM_SOURCE
-            ${PLATFORM_ROOT}/DoriaxWeb.cpp
+            ${PLATFORM_ROOT}/QuantumWeb.cpp
             ${PLATFORM_ROOT}/WebPortals.cpp
             ${PLATFORM_ROOT}/main.cpp
         )
@@ -278,7 +278,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Android")
-        add_definitions("-DDORIAX_ANDROID")
+        add_definitions("-DQUANTUM_ANDROID")
 
         if(GRAPHIC_BACKEND STREQUAL "gles3")
             add_definitions("-DSOKOL_GLES3")
@@ -290,7 +290,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         add_definitions("-DLUA_USE_C89")
         add_definitions("-DWITH_MINIAUDIO")
 
-        set(APP_NAME doriax-android)
+        set(APP_NAME quantum-android)
 
         if(ANDROID_ABI MATCHES "^arm(eabi)?(-v7a)?(64-v8a)?$")
             #add_compile_options("-march=armv8.2a+fp16")
@@ -300,10 +300,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             set(IS_ARM ON)
         endif()
 
-        set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/android)
+        set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/android)
 
         list(APPEND PLATFORM_SOURCE
-            ${PLATFORM_ROOT}/DoriaxAndroid.cpp
+            ${PLATFORM_ROOT}/QuantumAndroid.cpp
             ${PLATFORM_ROOT}/AndroidMain.cpp
             ${PLATFORM_ROOT}/AndroidServices.cpp
             ${PLATFORM_ROOT}/NativeEngine.cpp
@@ -327,7 +327,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
-        add_definitions("-DDORIAX_WIN")
+        add_definitions("-DQUANTUM_WIN")
 
         # The native Win32 backend creates a WGL context, a Vulkan surface and
         # swapchain, or a D3D11 device and swapchain.
@@ -360,10 +360,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             list(APPEND PLATFORM_PROPERTIES LINK_FLAGS "/ENTRY:mainCRTStartup")
         endif()
 
-        set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/win)
+        set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/win)
 
         list(APPEND PLATFORM_SOURCE
-            ${PLATFORM_ROOT}/DoriaxWin.cpp
+            ${PLATFORM_ROOT}/QuantumWin.cpp
             ${PLATFORM_ROOT}/WindowWin.cpp
             ${PLATFORM_ROOT}/SystemWin.cpp
             ${PLATFORM_ROOT}/WinInputRouter.cpp
@@ -373,17 +373,18 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
         list(APPEND PLATFORM_LIBS
             user32
+            imm32
             gdi32
             shell32
         )
 
         if(GRAPHIC_BACKEND STREQUAL "vulkan")
             # Device and swapchain are shared with the other desktops
-            include_directories(${DORIAX_ROOT}/platform/common)
+            include_directories(${QUANTUM_ROOT}/platform/common)
             list(APPEND PLATFORM_SOURCE
-                ${DORIAX_ROOT}/platform/common/VulkanContext.cpp
+                ${QUANTUM_ROOT}/platform/common/VulkanContext.cpp
             )
-            doriax_find_vulkan("GRAPHIC_BACKEND")
+            quantum_find_vulkan("GRAPHIC_BACKEND")
             list(APPEND PLATFORM_LIBS Vulkan::Vulkan)
         elseif(GRAPHIC_BACKEND STREQUAL "d3d11")
             # d3d11 and dxgi ship with the Windows SDK, nothing to find
@@ -423,14 +424,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             set(LUA_DEST_DIR ${CMAKE_BINARY_DIR}/lua)
         endif()
 
-        add_definitions("-DDORIAX_LINUX")
+        add_definitions("-DQUANTUM_LINUX")
 
         find_package(X11 REQUIRED)
 
-        set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/linux)
+        set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/linux)
 
         list(APPEND PLATFORM_SOURCE
-            ${PLATFORM_ROOT}/DoriaxLinux.cpp
+            ${PLATFORM_ROOT}/QuantumLinux.cpp
             ${PLATFORM_ROOT}/WindowLinux.cpp
             ${PLATFORM_ROOT}/SystemLinux.cpp
             ${PLATFORM_ROOT}/LinuxInputRouter.cpp
@@ -440,7 +441,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         )
 
         # GamepadDB parses the community mapping database in common/
-        include_directories(${DORIAX_ROOT}/platform/common)
+        include_directories(${QUANTUM_ROOT}/platform/common)
 
         list(APPEND PLATFORM_LIBS
             X11::X11 dl m
@@ -450,9 +451,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             # The device and swapchain are the same on every desktop; only the
             # surface differs, so the backend passes that in.
             list(APPEND PLATFORM_SOURCE
-                ${DORIAX_ROOT}/platform/common/VulkanContext.cpp
+                ${QUANTUM_ROOT}/platform/common/VulkanContext.cpp
             )
-            doriax_find_vulkan("GRAPHIC_BACKEND")
+            quantum_find_vulkan("GRAPHIC_BACKEND")
             list(APPEND PLATFORM_LIBS Vulkan::Vulkan)
         else()
             list(APPEND PLATFORM_LIBS GL)
@@ -484,21 +485,21 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         # entry point in platform/apple needs, shared with iOS. Every other
         # generator builds a bare executable, on the backend in platform/mac.
         if(GRAPHIC_BACKEND STREQUAL "metal" AND CMAKE_GENERATOR STREQUAL "Xcode")
-            add_definitions("-DDORIAX_APPLE")
+            add_definitions("-DQUANTUM_APPLE")
 
-            set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/apple)
+            set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/apple)
 
-            set(APP_BUNDLE_IDENTIFIER "org.doriax.doriaxengine")
+            set(APP_BUNDLE_IDENTIFIER "org.quantum.quantumengine")
             set(PLATFORM_EXEC_FLAGS MACOSX_BUNDLE)
 
             include_directories(/System/Library/Frameworks)
 
             # The drawable and the input translation come from platform/mac
-            include_directories(${DORIAX_ROOT}/platform/mac)
+            include_directories(${QUANTUM_ROOT}/platform/mac)
 
             list(APPEND PLATFORM_SOURCE
-                ${DORIAX_ROOT}/platform/mac/MacInputRouter.mm
-                ${DORIAX_ROOT}/platform/mac/MacViewMetal.mm
+                ${QUANTUM_ROOT}/platform/mac/MacInputRouter.mm
+                ${QUANTUM_ROOT}/platform/mac/MacViewMetal.mm
                 ${PLATFORM_ROOT}/macos/EngineView.h
                 ${PLATFORM_ROOT}/macos/EngineView.mm
                 ${PLATFORM_ROOT}/macos/main.m
@@ -508,10 +509,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
                 ${PLATFORM_ROOT}/macos/ViewController.m
                 ${PLATFORM_ROOT}/Renderer.h
                 ${PLATFORM_ROOT}/Renderer.mm
-                ${PLATFORM_ROOT}/DoriaxApple.h
-                ${PLATFORM_ROOT}/DoriaxApple.mm
-                ${PLATFORM_ROOT}/DoriaxGameController.h
-                ${PLATFORM_ROOT}/DoriaxGameController.mm
+                ${PLATFORM_ROOT}/QuantumApple.h
+                ${PLATFORM_ROOT}/QuantumApple.mm
+                ${PLATFORM_ROOT}/QuantumGameController.h
+                ${PLATFORM_ROOT}/QuantumGameController.mm
             )
 
             list(APPEND PLATFORM_RESOURCES
@@ -520,7 +521,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             set(BUNDLE_RESOURCES_DIR $<TARGET_BUNDLE_CONTENT_DIR:${APP_NAME}>/Resources)
 
             list(APPEND PLATFORM_PROPERTIES
-                MACOSX_BUNDLE_INFO_PLIST "${DORIAX_ROOT}/workspaces/xcode/macos/Info.plist"
+                MACOSX_BUNDLE_INFO_PLIST "${QUANTUM_ROOT}/workspaces/xcode/macos/Info.plist"
                 XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
             )
 
@@ -532,7 +533,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
                 "-framework GameController"
             )
         else()
-            set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/mac)
+            set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/mac)
 
             if(EXISTS "${PROJECT_ROOT}/assets")
                 set(ASSETS_DEST_DIR ${CMAKE_BINARY_DIR}/assets)
@@ -542,16 +543,16 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             endif()
 
             # Gamepads come from the same GameController code iOS and the editor use
-            include_directories(${DORIAX_ROOT}/platform/apple)
+            include_directories(${QUANTUM_ROOT}/platform/apple)
 
             list(APPEND PLATFORM_SOURCE
-                ${PLATFORM_ROOT}/DoriaxMac.h
-                ${PLATFORM_ROOT}/DoriaxMac.mm
+                ${PLATFORM_ROOT}/QuantumMac.h
+                ${PLATFORM_ROOT}/QuantumMac.mm
                 ${PLATFORM_ROOT}/WindowMac.mm
                 ${PLATFORM_ROOT}/SystemMac.mm
                 ${PLATFORM_ROOT}/MacInputRouter.mm
                 ${PLATFORM_ROOT}/main.mm
-                ${DORIAX_ROOT}/platform/apple/DoriaxGameController.mm
+                ${QUANTUM_ROOT}/platform/apple/QuantumGameController.mm
             )
 
             list(APPEND PLATFORM_LIBS
@@ -566,12 +567,12 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
                 list(APPEND PLATFORM_LIBS "-framework OpenGL")
             elseif(GRAPHIC_BACKEND STREQUAL "vulkan")
                 # Device and swapchain are shared with the other desktops
-                include_directories(${DORIAX_ROOT}/platform/common)
+                include_directories(${QUANTUM_ROOT}/platform/common)
                 list(APPEND PLATFORM_SOURCE
                     ${PLATFORM_ROOT}/MacViewVulkan.mm
-                    ${DORIAX_ROOT}/platform/common/VulkanContext.cpp
+                    ${QUANTUM_ROOT}/platform/common/VulkanContext.cpp
                 )
-                doriax_find_vulkan("GRAPHIC_BACKEND")
+                quantum_find_vulkan("GRAPHIC_BACKEND")
                 list(APPEND PLATFORM_LIBS Vulkan::Vulkan)
             else()
                 list(APPEND PLATFORM_SOURCE ${PLATFORM_ROOT}/MacViewMetal.mm)
@@ -585,7 +586,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-        add_definitions("-DDORIAX_APPLE")
+        add_definitions("-DQUANTUM_APPLE")
 
         if(GRAPHIC_BACKEND STREQUAL "metal")
             add_definitions("-DSOKOL_METAL")
@@ -593,9 +594,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
         add_definitions("-DWITH_MINIAUDIO")
 
-        set(PLATFORM_ROOT ${DORIAX_ROOT}/platform/apple)
+        set(PLATFORM_ROOT ${QUANTUM_ROOT}/platform/apple)
 
-        set(APP_BUNDLE_IDENTIFIER "org.doriax.doriaxengine")
+        set(APP_BUNDLE_IDENTIFIER "org.quantum.quantumengine")
 
         include_directories(/System/Library/Frameworks)
 
@@ -614,10 +615,10 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             ${PLATFORM_ROOT}/ios/StoreKitAdapter.h
             ${PLATFORM_ROOT}/Renderer.h
             ${PLATFORM_ROOT}/Renderer.mm
-            ${PLATFORM_ROOT}/DoriaxApple.h
-            ${PLATFORM_ROOT}/DoriaxApple.mm
-            ${PLATFORM_ROOT}/DoriaxGameController.h
-            ${PLATFORM_ROOT}/DoriaxGameController.mm
+            ${PLATFORM_ROOT}/QuantumApple.h
+            ${PLATFORM_ROOT}/QuantumApple.mm
+            ${PLATFORM_ROOT}/QuantumGameController.h
+            ${PLATFORM_ROOT}/QuantumGameController.mm
         )
 
         list(APPEND PLATFORM_RESOURCES
@@ -629,7 +630,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         list(APPEND PLATFORM_LIBS
             -ObjC
 
-            # GameController framework for gamepad input (DoriaxGameController.mm)
+            # GameController framework for gamepad input (QuantumGameController.mm)
             "-framework GameController"
 
             # Audio session and units for miniaudio
@@ -637,8 +638,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             "-framework AudioToolbox"
         )
 
-        if(DORIAX_ADMOB)
-            add_definitions("-DDORIAX_ADMOB")
+        if(QUANTUM_ADMOB)
+            add_definitions("-DQUANTUM_ADMOB")
 
             set(GOOGLE_MOBILE_ADS_ROOT ${PLATFORM_ROOT}/GoogleMobileAdsSdkiOS-13.11.0)
 
@@ -661,8 +662,8 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             endif()
         endif()
 
-        if(DORIAX_STOREKIT)
-            add_definitions("-DDORIAX_STOREKIT")
+        if(QUANTUM_STOREKIT)
+            add_definitions("-DQUANTUM_STOREKIT")
 
             # StoreKit 2 is Swift only; the adapter implements its header, which needs Swift 6.1
             enable_language(Swift)
@@ -673,7 +674,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
             )
         endif()
 
-        if(DORIAX_ADMOB OR DORIAX_STOREKIT)
+        if(QUANTUM_ADMOB OR QUANTUM_STOREKIT)
             list(APPEND PLATFORM_PROPERTIES
                 XCODE_ATTRIBUTE_SWIFT_VERSION "5.0"
                 XCODE_ATTRIBUTE_LD_RUNPATH_SEARCH_PATHS "/usr/lib/swift @executable_path/Frameworks"
@@ -690,7 +691,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
         list(APPEND PLATFORM_PROPERTIES
             XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${APP_BUNDLE_IDENTIFIER}
-            MACOSX_BUNDLE_INFO_PLIST "${DORIAX_ROOT}/workspaces/xcode/ios/Info.plist"
+            MACOSX_BUNDLE_INFO_PLIST "${QUANTUM_ROOT}/workspaces/xcode/ios/Info.plist"
             XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
         )
     endif()
@@ -702,23 +703,23 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 endif() # End standalone project setup
 
 # =============================================================
-# DORIAX LIBRARY BUILD
+# QUANTUM LIBRARY BUILD
 # Always runs (both standalone and when included by the editor).
 # =============================================================
 
-option(DORIAX_SHARED "Build doriax as a shared library" OFF)
+option(QUANTUM_SHARED "Build quantum as a shared library" OFF)
 
-if(DORIAX_SHARED)
+if(QUANTUM_SHARED)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-    set(DORIAX_LIB_TYPE SHARED)
+    set(QUANTUM_LIB_TYPE SHARED)
 else()
-    set(DORIAX_LIB_TYPE STATIC)
+    set(QUANTUM_LIB_TYPE STATIC)
 endif()
 
 if(WIN32)
     if(MSVC)
         add_compile_options(/bigobj)
-        if(DORIAX_SHARED)
+        if(QUANTUM_SHARED)
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         else()
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -754,6 +755,8 @@ include_directories(core/subsystem)
 include_directories(core/texture)
 include_directories(core/util)
 
+include_directories(plugin)
+
 include_directories(renders)
 
 include_directories(SYSTEM libs)
@@ -770,13 +773,13 @@ include_directories(SYSTEM libs/tinygltf)
 include_directories(SYSTEM libs/tinyxml2)
 
 # Built after the standalone block, so it sees the physics switches the Exporter injects there
-set(DORIAX_PHYSICS_LIBS "")
-if(DORIAX_PHYSICS_2D)
-    list(APPEND DORIAX_PHYSICS_LIBS box2d)
+set(QUANTUM_PHYSICS_LIBS "")
+if(QUANTUM_PHYSICS_2D)
+    list(APPEND QUANTUM_PHYSICS_LIBS box2d)
     include_directories(SYSTEM libs/box2d/include)
 endif()
-if(DORIAX_PHYSICS_3D)
-    list(APPEND DORIAX_PHYSICS_LIBS joltphysics)
+if(QUANTUM_PHYSICS_3D)
+    list(APPEND QUANTUM_PHYSICS_LIBS joltphysics)
     include_directories(SYSTEM libs/joltphysics)
     # Otherwise Jolt defines _HAS_EXCEPTIONS=0 PUBLIC, which breaks try/catch on MSVC
     set(CPP_EXCEPTIONS_ENABLED ON)
@@ -794,7 +797,7 @@ add_subdirectory(libs/soloud)
 add_subdirectory(libs/tinyobjloader)
 add_subdirectory(libs/tinygltf)
 add_subdirectory(libs/tinyxml2)
-foreach(lib IN LISTS DORIAX_PHYSICS_LIBS)
+foreach(lib IN LISTS QUANTUM_PHYSICS_LIBS)
     add_subdirectory(libs/${lib})
 endforeach()
 add_subdirectory(libs/harfbuzz)
@@ -811,7 +814,7 @@ endif()
 
 foreach(lib IN ITEMS
     sokol lua stb soloud tinyobjloader tinygltf tinyxml2
-    harfbuzz sheenbidi meshoptimizer yoga ${DORIAX_PHYSICS_LIBS})
+    harfbuzz sheenbidi meshoptimizer yoga ${QUANTUM_PHYSICS_LIBS})
     target_compile_options(${lib} PRIVATE ${EXTERNAL_WARNING_FLAG})
 endforeach()
 
@@ -826,8 +829,9 @@ endif()
 
 #add_definitions("-DPROJECT_ROOT=\"${PROJECT_ROOT}\"")
 
-set(DORIAX_SRCS
+set(QUANTUM_SRCS
     core/Engine.cpp
+    core/event/EventBus.cpp
     core/Input.cpp
     core/Log.cpp
     core/Scene.cpp
@@ -858,9 +862,11 @@ set(DORIAX_SRCS
     core/io/File.cpp
     core/io/FileData.cpp
     core/io/ResourcePack.cpp
+    core/io/SaveGame.cpp
     core/manager/BundleManager.cpp
     core/manager/SceneManager.cpp
     core/io/UserSettings.cpp
+    core/InputActionMap.cpp
     core/math/AABB.cpp
     core/math/Matrix3.cpp
     core/math/Matrix4.cpp
@@ -873,8 +879,16 @@ set(DORIAX_SRCS
     core/math/Vector2.cpp
     core/math/Vector3.cpp
     core/math/Vector4.cpp
+    core/model/MeshExport.cpp
+    core/model/MeshImport.cpp
+    core/model/MeshModeling.cpp
+    core/model/MeshPicker.cpp
+    core/model/MeshReport.cpp
+    core/model/MeshTopology.cpp
+    core/object/AnimatorController.cpp
     core/object/Bone.cpp
     core/object/Camera.cpp
+    core/object/Decal.cpp
     core/object/EntityHandle.cpp
     core/object/Light.cpp
     core/object/Light2D.cpp
@@ -922,16 +936,37 @@ set(DORIAX_SRCS
     core/render/SystemRender.cpp
     core/render/TextureRender.cpp
     core/script/LuaBinding.cpp
+    core/script/LuaDebugger.cpp
     core/script/LuaFunctionBase.cpp
     core/script/LuaScript.cpp
     core/script/ScriptBase.cpp
     core/script/ScriptProperty.cpp
+    core/script/graph/ExecutableGraph.cpp
+    core/script/graph/Graph.cpp
+    core/script/graph/GraphCompiler.cpp
+    core/script/graph/GraphDump.cpp
+    core/script/graph/GraphReader.cpp
+    core/script/graph/GraphRuntime.cpp
+    core/script/graph/GraphSchema.cpp
+    core/script/graph/GraphTypes.cpp
+    core/script/graph/GraphValue.cpp
+    core/script/graph/NodeCatalog.cpp
+    core/script/graph/NodeDefs.cpp
+    core/script/graph/NodeOps_Animation.cpp
+    core/script/graph/NodeOps_Entity.cpp
+    core/script/graph/NodeOps_Flow.cpp
+    core/script/graph/NodeOps_Logic.cpp
+    core/script/graph/NodeOps_Math.cpp
+    core/script/graph/NodeOps_Placeholder.cpp
+    core/script/graph/NodeOps_Reflection.cpp
+    core/script/graph/NodeOps_Variables.cpp
     core/script/binding/ActionClassesLua.cpp
     core/script/binding/CoreClassesLua.cpp
     core/script/binding/ECSClassesLua.cpp
     core/script/binding/IOClassesLua.cpp
     core/script/binding/MathClassesLua.cpp
     core/script/binding/ObjectClassesLua.cpp
+    core/script/binding/PluginClassesLua.cpp
     core/script/binding/ThreadClassesLua.cpp
     core/script/binding/UtilClassesLua.cpp
     core/service/AdMob.cpp
@@ -946,7 +981,9 @@ set(DORIAX_SRCS
     core/subsystem/PhysicsSystem.cpp
     core/subsystem/RenderSystem.cpp
     core/subsystem/NetworkSystem.cpp
+    core/subsystem/NetworkProtocol.cpp
     core/subsystem/UISystem.cpp
+    core/subsystem/WaterSystem.cpp
     core/texture/Framebuffer.cpp
     core/texture/IBLEnvironment.cpp
     core/texture/Texture.cpp
@@ -963,15 +1000,36 @@ set(DORIAX_SRCS
     core/ui/render/VertexBuilder.cpp
     core/util/Angle.cpp
     core/util/Base64.cpp
+    core/util/Checksum.cpp
     core/util/Color.cpp
+    core/util/FrameCapture.cpp
+    core/util/Noise.cpp
+    core/util/PngWriter.cpp
     core/util/STBText.cpp
     core/util/StringUtils.cpp
+    core/util/TerrainErosion.cpp
+    core/util/TerrainGenerator.cpp
+    core/util/TerrainMaterialLibrary.cpp
+    core/util/TerrainSplat.cpp
     core/util/UniqueToken.cpp
+    core/util/Wind.cpp
     core/util/XMLUtils.cpp
+    plugin/PluginCatalog.cpp
+    plugin/PluginContext.cpp
+    plugin/PluginInterface.cpp
+    plugin/PluginLoader.cpp
+    plugin/PluginLock.cpp
+    plugin/PluginManifest.cpp
+    plugin/PluginManager.cpp
+    plugin/PluginPlatform.cpp
+    plugin/PluginRegistry.cpp
+    plugin/PluginSettings.cpp
+    plugin/PluginUiSchema.cpp
+    plugin/PluginVersion.cpp
 )
 
-if(DORIAX_PHYSICS_2D)
-    list(APPEND DORIAX_SRCS
+if(QUANTUM_PHYSICS_2D)
+    list(APPEND QUANTUM_SRCS
         core/object/physics/Body2D.cpp
         core/object/physics/Contact2D.cpp
         core/object/physics/Joint2D.cpp
@@ -979,8 +1037,8 @@ if(DORIAX_PHYSICS_2D)
     )
 endif()
 
-if(DORIAX_PHYSICS_3D)
-    list(APPEND DORIAX_SRCS
+if(QUANTUM_PHYSICS_3D)
+    list(APPEND QUANTUM_SRCS
         core/object/physics/Body3D.cpp
         core/object/physics/CollideShapeResult3D.cpp
         core/object/physics/Contact3D.cpp
@@ -1001,78 +1059,101 @@ set(RENDER_SOKOL_SRC
 )
 
 add_library(
-    doriax
+    quantum
 
-    ${DORIAX_LIB_TYPE}
+    ${QUANTUM_LIB_TYPE}
 
     ${RENDER_SOKOL_SRC}
-    ${DORIAX_SRCS}
+    ${QUANTUM_SRCS}
 )
 
-target_compile_definitions(doriax
+target_compile_definitions(quantum
     PUBLIC
-        $<$<BOOL:${DORIAX_PHYSICS_2D}>:DORIAX_PHYSICS_2D>
-        $<$<BOOL:${DORIAX_PHYSICS_3D}>:DORIAX_PHYSICS_3D>
+        $<$<BOOL:${QUANTUM_PHYSICS_2D}>:QUANTUM_PHYSICS_2D>
+        $<$<BOOL:${QUANTUM_PHYSICS_3D}>:QUANTUM_PHYSICS_3D>
 )
+
+# What a plugin's manifest "minEngineVersion" is compared against. The editor build inherits the
+# git-describe value from the top level; a standalone project has no such variable and gets a
+# number, which PluginVersion then declines to guess at rather than refusing every plugin.
+if(QUANTUMEDITOR_VERSION)
+    set(QUANTUM_ENGINE_VERSION_STRING "${QUANTUMEDITOR_VERSION}")
+else()
+    set(QUANTUM_ENGINE_VERSION_STRING "0.0.0")
+endif()
+target_compile_definitions(quantum PUBLIC "QUANTUM_ENGINE_VERSION=\"${QUANTUM_ENGINE_VERSION_STRING}\"")
 
 find_package(Threads REQUIRED)
-target_link_libraries(doriax PRIVATE ws2_32)
+target_link_libraries(quantum PRIVATE ws2_32)
 
 if(EMSCRIPTEN AND EMSCRIPTEN_THREAD_SUPPORT)
-	target_compile_options(doriax PRIVATE -pthread)
+	target_compile_options(quantum PRIVATE -pthread)
 endif()
 
 target_link_libraries(
-    doriax
+    quantum
 
     PUBLIC
 
     sokol lua stb tinyobjloader tinygltf tinyxml2 soloud harfbuzz sheenbidi meshoptimizer yoga
-    ${DORIAX_PHYSICS_LIBS}
+    ${QUANTUM_PHYSICS_LIBS}
 )
 
 # Checked after the marker above, so the value the Exporter injects is validated too
-if(NOT DORIAX_CXX_STANDARD IN_LIST DORIAX_CXX_STANDARDS)
-    string(REPLACE ";" ", " DORIAX_CXX_STANDARDS_TEXT "${DORIAX_CXX_STANDARDS}")
-    message(FATAL_ERROR "DORIAX_CXX_STANDARD must be one of: ${DORIAX_CXX_STANDARDS_TEXT} (got '${DORIAX_CXX_STANDARD}')")
+if(NOT QUANTUM_CXX_STANDARD IN_LIST QUANTUM_CXX_STANDARDS)
+    string(REPLACE ";" ", " QUANTUM_CXX_STANDARDS_TEXT "${QUANTUM_CXX_STANDARDS}")
+    message(FATAL_ERROR "QUANTUM_CXX_STANDARD must be one of: ${QUANTUM_CXX_STANDARDS_TEXT} (got '${QUANTUM_CXX_STANDARD}')")
 endif()
-message(STATUS "C++ standard is set to ${DORIAX_CXX_STANDARD}")
+message(STATUS "C++ standard is set to ${QUANTUM_CXX_STANDARD}")
 
 set_target_properties(
-    doriax
+    quantum
 
     PROPERTIES
 
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    CXX_STANDARD ${DORIAX_CXX_STANDARD}
+    CXX_STANDARD ${QUANTUM_CXX_STANDARD}
     CXX_STANDARD_REQUIRED ON
-    OBJCXX_STANDARD ${DORIAX_CXX_STANDARD}
+    OBJCXX_STANDARD ${QUANTUM_CXX_STANDARD}
     OBJCXX_STANDARD_REQUIRED ON
 )
 
-if(DORIAX_SHARED)
-    target_compile_definitions(doriax 
+if(QUANTUM_SHARED)
+    target_compile_definitions(quantum
         PRIVATE 
-        DORIAX_EXPORTS
+        QUANTUM_EXPORTS
         PUBLIC
-        DORIAX_SHARED
+        QUANTUM_SHARED
     )
+
+    # MSBuild decides whether to relink an exe from the timestamp of the import
+    # library, and the linker does not rewrite quantum.lib when the export list is
+    # unchanged. A header-only change (a struct gaining a field) therefore produces a
+    # new quantum.dll while every consumer keeps code compiled against the old offsets,
+    # which crashes on the first call across the boundary. Touching the import library
+    # on every engine link forces the dependents to relink with it.
+    if(CMAKE_GENERATOR MATCHES "Visual Studio")
+        add_custom_command(TARGET quantum POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E touch "$<TARGET_LINKER_FILE:quantum>"
+            COMMENT "Refreshing the engine import library timestamp"
+        )
+    endif()
 endif()
 
 # C++ scripts link only the engine library, so it has to export the physics libraries
-if(DORIAX_SHARED AND DORIAX_PHYSICS_2D)
+if(QUANTUM_SHARED AND QUANTUM_PHYSICS_2D)
     target_compile_definitions(box2d PRIVATE box2d_EXPORTS)
     if(MINGW)
         target_compile_options(box2d PRIVATE "SHELL:-include \"${CMAKE_CURRENT_SOURCE_DIR}/platform/win/Box2DExport.h\"")
     endif()
 endif()
 
-if(DORIAX_SHARED AND DORIAX_PHYSICS_3D)
+if(QUANTUM_SHARED AND QUANTUM_PHYSICS_3D)
     target_compile_definitions(joltphysics PRIVATE JPH_SHARED_LIBRARY JPH_BUILD_SHARED_LIBRARY)
     # MSVC links Jolt variables, like JPH::Allocate, only through dllimport
-    target_compile_definitions(doriax INTERFACE JPH_SHARED_LIBRARY)
+    target_compile_definitions(quantum INTERFACE JPH_SHARED_LIBRARY)
     if(MINGW)
         target_compile_options(joltphysics PRIVATE "SHELL:-include \"${CMAKE_CURRENT_SOURCE_DIR}/platform/win/JoltExport.h\"")
     endif()
@@ -1081,7 +1162,7 @@ endif()
 if(WIN32)
     # Without this, windows.h pulls winsock.h and it clashes with winsock2.h in
     # any TU that touches the Winsock2 API.
-    target_compile_definitions(doriax PRIVATE WIN32_LEAN_AND_MEAN)
+    target_compile_definitions(quantum PRIVATE WIN32_LEAN_AND_MEAN)
 endif()
 
 # =============================================================
@@ -1119,14 +1200,14 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     endif()
 
     if(WIN32)
-        include(${DORIAX_ROOT}/platform/win/WindowsManifest.cmake)
-        doriax_add_windows_manifest(${APP_NAME})
+        include(${QUANTUM_ROOT}/platform/win/WindowsManifest.cmake)
+        quantum_add_windows_manifest(${APP_NAME})
     endif()
 
     # Project script roots are injected here by the editor Exporter. They are
-    # scoped to this target: include_directories() would reach the doriax
+    # scoped to this target: include_directories() would reach the quantum
     # library too, ahead of core/, letting a project header shadow an engine one.
-    # @DORIAX_SCRIPT_DIRS@
+    # @QUANTUM_SCRIPT_DIRS@
 
     if(DEFINED ASSETS_DEST_DIR OR DEFINED LUA_DEST_DIR)
         install(TARGETS ${APP_NAME} RUNTIME DESTINATION bin)
@@ -1169,9 +1250,9 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
         PROPERTIES
         ${PLATFORM_PROPERTIES}
         RESOURCE "${PLATFORM_RESOURCES}"
-        CXX_STANDARD ${DORIAX_CXX_STANDARD}
+        CXX_STANDARD ${QUANTUM_CXX_STANDARD}
         CXX_STANDARD_REQUIRED ON
-        OBJCXX_STANDARD ${DORIAX_CXX_STANDARD}
+        OBJCXX_STANDARD ${QUANTUM_CXX_STANDARD}
         OBJCXX_STANDARD_REQUIRED ON
     )
 
@@ -1191,15 +1272,15 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
         PRIVATE
 
-        doriax
+        quantum
         Threads::Threads
         ${PLATFORM_LIBS}
     )
 
     # Optional user build file; the editor writes the same hook, with the same
     # variable names, into the project CMakeLists.txt it generates.
-    set(DORIAX_TARGET ${APP_NAME})
-    set(DORIAX_SCRIPTS_DIR ${PROJECT_ROOT}/scripts)
+    set(QUANTUM_TARGET ${APP_NAME})
+    set(QUANTUM_SCRIPTS_DIR ${PROJECT_ROOT}/scripts)
     include(${PROJECT_ROOT}/ProjectBuild.cmake OPTIONAL)
 
 endif() # End standalone executable build

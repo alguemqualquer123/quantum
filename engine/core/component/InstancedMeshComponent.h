@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef INSTANCED_MESH_COMPONENT_H
@@ -9,7 +9,7 @@
 
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     struct InstanceData{
         Vector3 position = Vector3(0.0, 0.0, 0.0);
@@ -58,7 +58,7 @@ namespace doriax{
         }
     };
 
-    struct DORIAX_API InstancedMeshComponent{
+    struct QUANTUM_API InstancedMeshComponent{
         ExternalBuffer buffer;
 
         std::vector<InstanceData> instances;

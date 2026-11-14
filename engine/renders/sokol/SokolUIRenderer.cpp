@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "SokolUIRenderer.h"
@@ -13,8 +13,8 @@
 #include "texture/Framebuffer.h"
 #include "render/FramebufferRender.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 namespace {
 
@@ -67,7 +67,7 @@ SokolUIRenderer::SokolUIRenderer() :
 SokolUIRenderer::~SokolUIRenderer() {
 }
 
-namespace doriax {
+namespace quantum {
     std::unique_ptr<ui::UIRenderer> ui::createUIRenderer() {
         return std::unique_ptr<ui::UIRenderer>(new SokolUIRenderer());
     }
@@ -94,7 +94,7 @@ bool SokolUIRenderer::ensureLoaded(const ui::UIMesh& mesh) {
 
     if (!vertexBuffer.getRender()->createBuffer(vertexCapacity, vertexBuffer.getData(), vertexBuffer.getType(), vertexBuffer.getUsage()) ||
         !indexBuffer.getRender()->createBuffer(indexCapacity, indexBuffer.getData(), indexBuffer.getType(), indexBuffer.getUsage())) {
-        Log::error("Doriax UI: failed to create the UI vertex/index buffers");
+        Log::error("Quantum UI: failed to create the UI vertex/index buffers");
         return false;
     }
 
@@ -108,7 +108,7 @@ bool SokolUIRenderer::ensureLoaded(const ui::UIMesh& mesh) {
         std::shared_ptr<ShaderRender> shader = ShaderPool::get(ShaderType::UI, properties[i], 0);
         if (!shader || !shader->isCreated()) {
             if (!shaderMissingLogged) {
-                Log::error("Doriax UI: the UI shader variants are not compiled yet; run 'doriax-resource-compiler.exe shaders --project <dir> --backend opengl'");
+                Log::error("Quantum UI: the UI shader variants are not compiled yet; run 'quantum-resource-compiler.exe shaders --project <dir> --backend opengl'");
                 shaderMissingLogged = true;
             }
             return false;
@@ -139,7 +139,7 @@ bool SokolUIRenderer::ensureLoaded(const ui::UIMesh& mesh) {
             fontSlotTex = shaderData.getTextureIndex(TextureShaderType::UI);
 
         if (!render.endLoad(PIP_DEFAULT | PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW)) {
-            Log::error("Doriax UI: failed to create the UI pipeline (shader variant %u)", (unsigned int)properties[i]);
+            Log::error("Quantum UI: failed to create the UI pipeline (shader variant %u)", (unsigned int)properties[i]);
             return false;
         }
     }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,9 +6,9 @@
 #include <iterator>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
-    // Mirrored by DORIAX_CXX_STANDARDS in engine/CMakeLists.txt, first entry is the default
+    // Mirrored by QUANTUM_CXX_STANDARDS in engine/CMakeLists.txt, first entry is the default
     inline constexpr int cxxStandards[] = {17, 20, 23};
 
     inline bool isSupportedCxxStandard(int standard) {

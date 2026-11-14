@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Quaternion.h"
@@ -13,7 +13,7 @@
 #include <float.h>
 #include "Log.h"
 
-using namespace doriax;
+using namespace quantum;
 
 const Quaternion Quaternion::IDENTITY( 1, 0, 0, 0 );
 

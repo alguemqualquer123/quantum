@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -21,7 +21,7 @@
 #include "AABB.h"
 #include "OBB.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace luabridge
 {
@@ -630,24 +630,29 @@ void LuaBinding::registerMathClasses(lua_State *L){
             luabridge::overload<const AABB&>(&Ray::intersects),
             luabridge::overload<const OBB&>(&Ray::intersects),
             luabridge::overload<const Plane&>(&Ray::intersects),
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
             luabridge::overload<const Body2D&>(&Ray::intersects),
             luabridge::overload<const Body2D&, size_t>(&Ray::intersects),
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
             luabridge::overload<const Body3D&>(&Ray::intersects),
             luabridge::overload<const Body3D&, size_t>(&Ray::intersects),
 #endif
             luabridge::overload<Scene*, RayFilter>(&Ray::intersects),
-            luabridge::overload<Scene*, RayFilter, bool>(&Ray::intersects),
             luabridge::overload<Scene*, RayFilter, uint16_t, uint16_t>(&Ray::intersects),
-            luabridge::overload<Scene*, RayFilter, bool, uint16_t, uint16_t>(&Ray::intersects),
             luabridge::overload<Scene*, RayFilter, Entity>(&Ray::intersects),
             luabridge::overload<Scene*, RayFilter, const std::vector<Entity>&>(&Ray::intersects),
+            // LuaBridge picks the first overload whose argument *count* matches and Stack<bool>::get
+            // reads any non-nil value as true, so a bool parameter listed ahead of the numeric form
+            // of the same arity silently swallows it: intersects(scene, filter, entity) used to be
+            // decoded as onlyStatic = true and never ignored anything. Type-strict overloads first,
+            // bool last -- a real boolean fails the numeric decode and falls through to this one.
+            luabridge::overload<Scene*, RayFilter, bool>(&Ray::intersects),
+            luabridge::overload<Scene*, RayFilter, bool, uint16_t, uint16_t>(&Ray::intersects),
             luabridge::overload<Scene*, RayFilter, bool, uint16_t, uint16_t, Entity>(&Ray::intersects),
             luabridge::overload<Scene*, RayFilter, bool, uint16_t, uint16_t, const std::vector<Entity>&>(&Ray::intersects),
             luabridge::overload<const Sphere&>(&Ray::intersects)
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
             ,
             luabridge::overload<Scene*, uint8_t>(&Ray::intersects),
             luabridge::overload<Scene*, uint8_t, uint16_t, uint16_t>(&Ray::intersects),
@@ -657,6 +662,8 @@ void LuaBinding::registerMathClasses(lua_State *L){
             luabridge::overload<Scene*, uint8_t, uint16_t, uint16_t, const std::vector<Entity>&>(&Ray::intersects)
 #endif
         )
+        .addFunction("cast", &Ray::cast)
+        .addFunction("overlaps", &Ray::overlaps)
         .endClass();
 
 #endif //DISABLE_LUA_BINDINGS

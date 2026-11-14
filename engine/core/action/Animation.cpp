@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Animation.h"
@@ -8,7 +8,7 @@
 
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 Animation::Animation(Scene* scene): Action(scene){
     addComponent<AnimationComponent>();

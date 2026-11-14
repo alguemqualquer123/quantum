@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef StringUtils_h
@@ -9,8 +9,8 @@
 #include <string>
 #include <vector>
 
-namespace doriax{
-    class DORIAX_API StringUtils{
+namespace quantum{
+    class QUANTUM_API StringUtils{
     public:
         static std::string toUTF8(wchar_t codepoint);
 

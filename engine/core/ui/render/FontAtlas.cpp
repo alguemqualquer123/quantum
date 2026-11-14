@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/render/FontAtlas.h"
@@ -11,8 +11,8 @@
 #include "pool/FontPool.h"
 #include "util/STBText.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 namespace {
 
@@ -49,14 +49,14 @@ FontAtlas::FontAtlas(const std::string& fontPath, unsigned int fontSize) :
     publishedVersion(0),
     uploadedVersion(0) {
 
-    const std::string baseId = "doriax_ui_atlas|" + fontPath + "|" + std::to_string(fontSize);
+    const std::string baseId = "quantum_ui_atlas|" + fontPath + "|" + std::to_string(fontSize);
 
     font = FontPool::get(baseId);
     if (!font)
         font = FontPool::get(baseId, fontPath, std::vector<std::string>(), fontSize);
 
     if (!font || font->getTextureData() == nullptr) {
-        Log::error("Doriax UI: cannot load the font '%s' (size %u) for the UI atlas",
+        Log::error("Quantum UI: cannot load the font '%s' (size %u) for the UI atlas",
                    fontPath.empty() ? "<built-in>" : fontPath.c_str(), fontSize);
         font.reset();
         return;
@@ -94,7 +94,7 @@ void FontAtlas::syncTexture() {
     if (version != publishedVersion) {
         //Versioned id: each atlas growth publishes fresh pixels (the data pool
         //keeps earlier versions), exactly like the legacy scene UI does.
-        texture.setData("doriax_ui_atlas|" + fontPath + "|" + std::to_string(fontSize) + "#" + std::to_string(version), *data);
+        texture.setData("quantum_ui_atlas|" + fontPath + "|" + std::to_string(fontSize) + "#" + std::to_string(version), *data);
         publishedVersion = version;
         uploadedVersion = 0;
     }

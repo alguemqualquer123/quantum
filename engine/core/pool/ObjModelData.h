@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef OBJMODELDATA_H
@@ -7,7 +7,7 @@
 #include <vector>
 #include "tiny_obj_loader.h"
 
-namespace doriax{
+namespace quantum{
 
     struct ObjModelData {
         tinyobj::attrib_t attrib;

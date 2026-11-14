@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlatePaintList_h
@@ -13,7 +13,7 @@
 #include "texture/Texture.h"
 #include "slate/core/SlateTypes.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // One glyph quad, absolute canvas coordinates, ordered
     // (x0,y0) (x1,y0) (x1,y1) (x0,y1).

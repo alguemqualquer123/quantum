@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Plane.h"
@@ -6,7 +6,7 @@
 #include "Matrix3.h"
 #include "OBB.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Plane::Plane () {
     normal = Vector3::ZERO;

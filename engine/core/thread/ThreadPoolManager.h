@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef threadpoolmanager_h
@@ -15,9 +15,9 @@
 #include <memory>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API ThreadPoolManager {
+    class QUANTUM_API ThreadPoolManager {
     private:
         static std::unique_ptr<ThreadPoolManager> instance;
         static std::mutex instanceMutex;

@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ToolsLayer.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ToolsLayer::ToolsLayer(bool use2DGizmos){
     if (use2DGizmos){

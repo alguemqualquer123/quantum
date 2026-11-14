@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXT_COMPONENT_H
@@ -10,7 +10,7 @@
 
 #include <array>
 
-namespace doriax{
+namespace quantum{
 
     class STBText;
 
@@ -18,7 +18,7 @@ namespace doriax{
     //for what it misses. Empty slots are skipped, the built-in fonts close the chain
     typedef std::array<std::string, MAX_TEXT_FONTS> FontArray;
 
-    struct DORIAX_API TextComponent{
+    struct QUANTUM_API TextComponent{
         bool loaded = false;
 
         FontArray font;

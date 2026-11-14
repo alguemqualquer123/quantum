@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "BundleManager.h"
@@ -11,7 +11,7 @@
 #include <exception>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 std::vector<BundleManager::BundleEntry> BundleManager::entries;
 std::function<void(Scene*)> BundleManager::scriptStarter = LuaBinding::initializeLuaScripts;

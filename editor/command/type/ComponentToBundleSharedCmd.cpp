@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ComponentToBundleSharedCmd.h"
@@ -6,7 +6,7 @@
 #include "Stream.h"
 #include "util/ProjectUtils.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ComponentToBundleSharedCmd::ComponentToBundleSharedCmd(Project* project, uint32_t sceneId, Entity entity, ComponentType componentType){
     this->project = project;
@@ -42,7 +42,9 @@ void editor::ComponentToBundleSharedCmd::rebuildModel(ComponentToBundleSharedDat
     }
 
     ModelComponent& rebuilt = scene->getComponent<ModelComponent>(entityData.entity);
-    ProjectUtils::destroyModelNodes(scene, rebuilt);
+    if (ProjectUtils::destroyModelNodes(scene, rebuilt)) {
+        ProjectUtils::reconcileTrackedEntities(scene, sceneProject->entities, project, sceneId);
+    }
     rebuilt.loadedFilename.clear();
     rebuilt.needUpdateModel = true;
     entityData.modelRebuilt = true;

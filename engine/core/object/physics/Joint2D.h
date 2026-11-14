@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef JOINT2D_H
@@ -6,9 +6,9 @@
 
 #include "EntityHandle.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Joint2D: public EntityHandle{
+    class QUANTUM_API Joint2D: public EntityHandle{
     public:
         Joint2D(Scene* scene);
         Joint2D(Scene* scene, Entity entity);

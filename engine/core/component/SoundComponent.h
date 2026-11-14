@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SOUND_COMPONENT_H
@@ -12,7 +12,7 @@ namespace SoLoud{
     class Wav;
 }
 
-namespace doriax{
+namespace quantum{
 
     enum class SoundState{
         Playing,
@@ -27,13 +27,14 @@ namespace doriax{
         EXPONENTIAL_DISTANCE
     };
 
-    struct DORIAX_API SoundComponent{
+    struct QUANTUM_API SoundComponent{
         std::shared_ptr<SoLoud::Wav> sample = nullptr;
         unsigned int handle = 0; //Soloud handle
 
         SoundState state = SoundState::Stopped;
 
         std::string filename;
+        std::string bus = "master";
         bool loaded = false;
         bool loadFailed = false;
 
@@ -64,9 +65,19 @@ namespace doriax{
         float attenuationRolloffFactor = 1.0; // means that end of max distance sound will be zero
         float dopplerFactor = 1.0;
 
+        // Optional static-body occlusion for 3D voices. Disabled by default to preserve
+        // existing projects; the runtime raycasts from the source to the active listener.
+        bool occlusionEnabled = false;
+        float occlusionVolume = 0.25f;
+        float occlusionUpdateInterval = 0.05f;
+
         // setted by system
         double length = 0;
         double playingTime = 0;
+
+        // Runtime-only occlusion state.
+        float occlusionElapsed = 0.0f;
+        float occlusionGain = 1.0f;
 
         bool needUpdate = true;
     };

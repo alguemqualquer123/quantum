@@ -1,7 +1,8 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/StyleSet.h"
+#include "slate/core/Widget.h"
 
 #include <algorithm>
 #include <set>
@@ -11,7 +12,7 @@
 #include "Log.h"
 #include "texture/Texture.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         //The one active theme. Widgets reach it through StyleSet::get, the same
@@ -215,6 +216,58 @@ namespace doriax::slate {
         return &it->second;
     }
 
+    void StyleSet::registerRule(const std::string& selector, const std::string& styleName) {
+        if (!selector.empty() && !styleName.empty()) {
+            rules[selector] = styleName;
+            resolvedCache.clear();
+        }
+    }
+
+    const WidgetStyle& StyleSet::resolveFor(const Widget& widget, WidgetVisualState state) {
+        static const WidgetStyle defaultStyle;
+        const std::string idSelector = widget.getId().empty() ? std::string() : "#" + widget.getId();
+        int bestSpecificity = -1;
+        const std::string* bestStyle = nullptr;
+
+        auto stateName = [state]() -> const char* {
+            switch (state) {
+            case WidgetVisualState::Hovered: return ":hover";
+            case WidgetVisualState::Pressed: return ":active";
+            case WidgetVisualState::Focused: return ":focus";
+            case WidgetVisualState::Disabled: return ":disabled";
+            default: return "";
+            }
+        };
+        const std::string pseudo = stateName();
+
+        for (const auto& rule : rules) {
+            std::string selector = rule.first;
+            std::string base = selector;
+            const size_t pseudoAt = base.find(':');
+            if (pseudoAt != std::string::npos) {
+                if (base.substr(pseudoAt) != pseudo) continue;
+                base.resize(pseudoAt);
+            }
+            bool matches = false;
+            int specificity = 0;
+            if (!base.empty() && base[0] == '#') {
+                matches = base == idSelector;
+                specificity = 100;
+            } else if (!base.empty() && base[0] == '.') {
+                matches = widget.hasStyleClass(base.substr(1));
+                specificity = 10;
+            } else {
+                matches = base == widget.getTypeName();
+                specificity = 1;
+            }
+            if (matches && specificity >= bestSpecificity) {
+                bestSpecificity = specificity;
+                bestStyle = &rule.second;
+            }
+        }
+        return bestStyle != nullptr ? resolve(*bestStyle, state) : defaultStyle;
+    }
+
     const WidgetStyle& StyleSet::resolve(const std::string& name, WidgetVisualState state) {
         static const WidgetStyle defaultStyle;
 
@@ -275,6 +328,7 @@ namespace doriax::slate {
         brushes.clear();
         colors.clear();
         styles.clear();
+        rules.clear();
         resolvedCache.clear();
         loggedMissingColors.clear();
         loggedMissingBrushes.clear();

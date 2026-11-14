@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneRender3D.h"
@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 uint64_t editor::SceneRender3D::quantizeHullKey(const Vector3& p) {
     auto q = [](float v) { return int32_t(std::lround(v * SceneRender3D::kHullQuantizeScale)); };

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SKY_COMPONENT_H
@@ -9,9 +9,9 @@
 #include "shader/ShaderUniforms.h"
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API SkyComponent{
+    struct QUANTUM_API SkyComponent{
         bool loaded = false;
         bool loadCalled = false;
 

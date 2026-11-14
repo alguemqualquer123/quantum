@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TIMEDACTION_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "action/Ease.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API TimedActionComponent{
+    struct QUANTUM_API TimedActionComponent{
         float time = 0;
         float value = 0;
         

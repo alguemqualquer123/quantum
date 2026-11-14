@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,12 +7,12 @@
 
 #include <atomic>
 
-namespace doriax::editor {
+namespace quantum::editor {
 class Project;
 class ResourcesWindow;
 }
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class HttpClient;
 
@@ -145,4 +145,4 @@ private:
     ActionResult screenCapture(const Json& arguments);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

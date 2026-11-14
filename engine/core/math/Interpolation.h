@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef INTERPOLATION_H
 #define INTERPOLATION_H
 
-namespace doriax {
+namespace quantum {
 
     class Interpolation {
     public:

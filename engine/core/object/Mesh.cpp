@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Mesh.h"
@@ -11,7 +11,7 @@
 
 #include <cfloat>
 
-using namespace doriax;
+using namespace quantum;
 
 // Read while a model has no geometry, on the heap as a game build's mesh is large
 static const MeshComponent& getDefaultMesh(){
@@ -162,6 +162,26 @@ void Mesh::setTexture(Framebuffer* framebuffer){
     for (MeshComponent* mesh : getMeshes()){
         mesh->submeshes[0].material.baseColorTexture.setFramebuffer(framebuffer);
 
+        mesh->submeshes[0].needUpdateTexture = true;
+    }
+}
+
+void Mesh::setHeightTexture(const std::string& path){
+    for (MeshComponent* mesh : getMeshes()){
+        mesh->submeshes[0].material.heightTexture.setPath(path);
+
+        mesh->submeshes[0].needUpdateTexture = true;
+        // Parallax is a shader variant bit (HAS_HEIGHT), so the first height map on a
+        // material has to recompute the variant, not only rebind a texture.
+        mesh->needReload = true;
+    }
+}
+
+void Mesh::setHeightScale(const float scale){
+    for (MeshComponent* mesh : getMeshes()){
+        mesh->submeshes[0].material.heightScale = scale;
+
+        // the tuning travels in u_fs_heightParams, which is uploaded every frame
         mesh->submeshes[0].needUpdateTexture = true;
     }
 }

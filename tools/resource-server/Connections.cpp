@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // Connections.cpp - see Connections.h.
@@ -23,7 +23,7 @@
     #include <psapi.h>
 #endif
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 unsigned long long ConnectionLog::add(ConnectionRecord record) {
     record.id = nextId_++;

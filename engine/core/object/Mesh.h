@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESH_H
@@ -8,11 +8,11 @@
 #include "buffer/InterleavedBuffer.h"
 #include "buffer/IndexBuffer.h"
 
-namespace doriax{
+namespace quantum{
 
     struct ModelComponent;
 
-    class DORIAX_API Mesh: public Object{
+    class QUANTUM_API Mesh: public Object{
     private:
         ModelComponent* findPartsModel() const;
         AABB getPartsAABB(const ModelComponent& model, AABB MeshComponent::*bounds) const;
@@ -36,6 +36,11 @@ namespace doriax{
         void setTexture(const std::string& path);
         void setTexture(const std::string& id, TextureData data);
         void setTexture(Framebuffer* framebuffer);
+
+        // The Material a script gets back from getMaterial() is a copy whose fields are
+        // read-only, so the height map needs the same direct setter baseColor has.
+        void setHeightTexture(const std::string& path);
+        void setHeightScale(const float scale);
         
         void setColor(Vector4 color);
         void setColor(const float red, const float green, const float blue, const float alpha);

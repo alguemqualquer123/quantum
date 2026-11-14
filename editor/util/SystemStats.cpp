@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "SystemStats.h"
@@ -52,7 +52,7 @@
 #include <unistd.h>
 #endif
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
     // Monotonic wall clock in seconds; the denominator of every rate below.
@@ -1248,4 +1248,4 @@ unsigned long long SystemStats::revision() {
     return state().revision;
 }
 
-}  // namespace doriax::editor
+}  // namespace quantum::editor

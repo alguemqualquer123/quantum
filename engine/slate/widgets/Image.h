@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateImage_h
@@ -12,7 +12,7 @@
 #include "slate/core/SlateTypes.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // A brush on screen: icon, sprite, banner, nine-slice panel background.
     // The brush is always looked up by name so art can be swapped per theme.

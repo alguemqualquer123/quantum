@@ -1,15 +1,17 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "Project.h"
 
+#include "util/TerrainMapRegion.h"
+
 #include <algorithm>
 #include <string>
 #include <vector>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     enum class TerrainMapTarget{
         HeightMap,
@@ -27,44 +29,6 @@ namespace doriax::editor{
 
         bool operator==(const TerrainMapRef& other) const{
             return target == other.target && layer == other.layer;
-        }
-    };
-
-    // Inclusive texel bounds of what a stroke wrote.
-    struct TerrainMapRegion{
-        int minX = 0;
-        int minY = 0;
-        int maxX = -1;
-        int maxY = -1;
-
-        bool empty() const{
-            return maxX < minX || maxY < minY;
-        }
-
-        int width() const{
-            return empty() ? 0 : maxX - minX + 1;
-        }
-
-        int height() const{
-            return empty() ? 0 : maxY - minY + 1;
-        }
-
-        bool fitsIn(int mapWidth, int mapHeight) const{
-            return !empty() && minX >= 0 && minY >= 0 && maxX < mapWidth && maxY < mapHeight;
-        }
-
-        void merge(int x0, int y0, int x1, int y1){
-            if (empty()){
-                minX = x0;
-                minY = y0;
-                maxX = x1;
-                maxY = y1;
-                return;
-            }
-            minX = std::min(minX, x0);
-            minY = std::min(minY, y0);
-            maxX = std::max(maxX, x1);
-            maxY = std::max(maxY, y1);
         }
     };
 
@@ -94,7 +58,11 @@ namespace doriax::editor{
         static std::string getContainerPropertyName(const TerrainMapRef& ref);
         static bool hasLoadedData(Texture& texture);
         static bool writeFile(Project* project, const std::string& relativePath, int width, int height, int channels, int bytesPerChannel, const std::vector<unsigned char>& pixels);
-        static void refresh(SceneProject* sceneProject, Entity entity, const TerrainMapRef& ref);
+        // Re-arms what the engine has to redo after a map was written. A stroke that says which
+        // texels it touched narrows the work to them: a heightmap one to the CDLOD ranges over
+        // those texels, a density one to the foliage chunks overlapping them. An empty rect is
+        // the whole-map case (a new map, a new size, a whole-map undo) and invalidates broadly.
+        static void refresh(SceneProject* sceneProject, Entity entity, const TerrainMapRef& ref, const TerrainMapRegion& dirtyRegion = TerrainMapRegion());
 
         // Copies an inclusive texel rect out of a full map buffer.
         static std::vector<unsigned char> copyRegion(const unsigned char* pixels, int mapWidth, int bytesPerTexel, const TerrainMapRegion& region);

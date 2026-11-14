@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 struct MarkdownStyle {
     ImU32 textColor = 0;
@@ -33,4 +33,4 @@ void renderMarkdown(const std::string& content,
                     const MarkdownStyle& style,
                     std::vector<SelectableTextView::Paragraph>& out);
 
-} // namespace doriax::editor
+} // namespace quantum::editor

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CustomTextEditor.h"
@@ -7,9 +7,11 @@
 #include "SemanticSuggestions.h"
 #include "engine_api_suggestions.h"
 #include "external/IconsFontAwesome6.h"
+#include "script/ScriptSearch.h"
 #include "util/UIUtils.h"
 #include "App.h"
 #include "Backend.h"
+#include "KeyBindings.h"
 #include "Theme.h"
 
 #include <algorithm>
@@ -24,7 +26,7 @@
 #include <Windows.h>
 #endif
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -33,6 +35,11 @@ std::string toLower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return text;
+}
+
+// needle at pos, without the out-of-range compare() that throws (and aborts here)
+bool startsWithAt(const std::string& text, size_t pos, const std::string& needle) {
+    return pos <= text.size() && text.compare(pos, needle.size(), needle) == 0;
 }
 
 // Identifier that ends at endColumn, skipping trailing whitespace
@@ -201,6 +208,11 @@ CustomTextEditor::CustomTextEditor()
     , showFindDialog(false)
     , showReplaceInput(false)
     , findCaseSensitive(false)
+    , findUseRegex(false)
+    , findWholeWord(false)
+    , findInSelection(false)
+    , showGoToLine(false)
+    , goToLineRefocus(false)
     , charWidth(0)
     , lineHeight(0)
     , lineHeightFactor(1.35f)
@@ -232,6 +244,7 @@ CustomTextEditor::CustomTextEditor()
     cursors.push_back(Cursor());
     memset(findInputBuffer, 0, sizeof(findInputBuffer));
     memset(replaceInputBuffer, 0, sizeof(replaceInputBuffer));
+    memset(goToLineBuffer, 0, sizeof(goToLineBuffer));
     initializePalette();
     initializeLanguage();
     initializeSuggestions();
@@ -481,9 +494,9 @@ void CustomTextEditor::addEngineAPISuggestions() {
     // "CppMethod" is unbound in Lua: suggesting it there yields a nil call at runtime.
     const bool isLua = (language == SyntaxLanguage::Lua);
 
-    // In C++ the engine's top-level classes and enums are reached through "doriax::"
+    // In C++ the engine's top-level classes and enums are reached through "quantum::"
     if (!isLua) {
-        suggestions->AddSymbol("doriax", SuggestionKind::Module, "namespace doriax");
+        suggestions->AddSymbol("quantum", SuggestionKind::Module, "namespace quantum");
     }
 
     for (const auto& sym : apiSymbols) {
@@ -495,11 +508,35 @@ void CustomTextEditor::addEngineAPISuggestions() {
         if (it != kindMap.end()) sk = it->second;
         const bool topLevel = !sym.parent || !sym.parent[0];
         suggestions->AddSymbol(sym.name, sk, sym.detail, sym.parent ? sym.parent : "", "",
-                               (topLevel && !isLua) ? "doriax" : "");
+                               (topLevel && !isLua) ? "quantum" : "");
 
         if (sk == SuggestionKind::Class && sym.detail) {
             suggestions->SetClassParent(sym.name, baseClassFromDetail(sym.detail));
         }
+    }
+
+    // The script events are hand-written statics in engine/core/Engine.h, so no
+    // generator lists them and this is the list. Lua assigns Engine.onX = f, C++
+    // subscribes with REGISTER_ENGINE_EVENT(onX); both want the same names.
+    static const char* const engineEvents[] = {
+        "onViewLoaded", "onViewChanged", "onViewDestroyed", "onDraw", "onPostDraw",
+        "onUpdate", "onFixedUpdate", "onPostUpdate", "onPause", "onResume", "onShutdown",
+        "onSceneLoaded", "onTouchStart", "onTouchEnd", "onTouchMove", "onTouchCancel",
+        "onMouseDown", "onMouseUp", "onMouseScroll", "onMouseMove", "onMouseEnter",
+        "onMouseLeave", "onKeyDown", "onKeyUp", "onCharInput", "onGamepadConnect",
+        "onGamepadDisconnect", "onGamepadButtonDown", "onGamepadButtonUp", "onGamepadAxisMove",
+    };
+    for (const char* event : engineEvents) {
+        suggestions->AddSymbol(event, SuggestionKind::Field,
+                               std::string("Engine.") + event + " event handler", "Engine");
+    }
+
+    if (!isLua) {
+        // The two macros a game script needs and no header declares as a symbol
+        suggestions->AddSymbol("DPROPERTY", SuggestionKind::Function,
+                               "DPROPERTY(Type, name) exposed script property");
+        suggestions->AddSymbol("REGISTER_ENGINE_EVENT", SuggestionKind::Function,
+                               "REGISTER_ENGINE_EVENT(onUpdate) subscribes an event handler");
     }
 }
 
@@ -1037,6 +1074,26 @@ void CustomTextEditor::DeleteSelection() {
     finalizeUndoRecord();
 }
 
+// True when the caret sits exactly between two quotes that close each other; the pair is
+// removed and the caret left where its opening half was. Quotes are ASCII, so a byte
+// comparison cannot split a UTF-8 sequence: a continuation byte matches nothing here.
+bool CustomTextEditor::deleteEmptyPair(Cursor& cursor) {
+    const int line = cursor.position.line;
+    const int column = cursor.position.column;
+    if (line < 0 || line >= static_cast<int>(lines.size())) return false;
+    if (column <= 0 || column >= static_cast<int>(lines[line].size())) return false;
+
+    const std::string& text = lines[line];
+    const char opening = text[static_cast<size_t>(column) - 1];
+    const char closing = text[static_cast<size_t>(column)];
+    const char expected = quotePair(opening);
+    if (expected == 0 || expected != closing) return false;
+
+    lines[line].erase(static_cast<size_t>(column) - 1, 2);
+    cursor.position.column = column - 1;
+    return true;
+}
+
 void CustomTextEditor::Backspace() {
     if (readOnly) return;
 
@@ -1055,6 +1112,9 @@ void CustomTextEditor::Backspace() {
             delEnd = cursor.selection.getMax();
             deleteRange(delStart, delEnd);
             cursor.position = delStart;
+        } else if (deleteEmptyPair(cursor)) {
+            delStart = cursor.position;
+            delEnd = TextPosition(delStart.line, delStart.column + 2);
         } else if (cursor.position.column > 0) {
             delEnd = cursor.position;
             cursor.position.column = prevUtf8Column(cursor.position.line, cursor.position.column);
@@ -1427,175 +1487,367 @@ void CustomTextEditor::CloseFind() {
     showFindDialog = false;
     searchText.clear();
     searchResults.clear();
+    findError.clear();
     currentSearchResult = -1;
+}
+
+void CustomTextEditor::SetFindRegex(bool on) {
+    if (findUseRegex == on) return;
+    findUseRegex = on;
+    updateSearchResults();
+}
+
+void CustomTextEditor::SetFindWholeWord(bool on) {
+    if (findWholeWord == on) return;
+    findWholeWord = on;
+    updateSearchResults();
+}
+
+void CustomTextEditor::SetFindInSelection(bool on) {
+    if (findInSelection == on) return;
+    findInSelection = on;
+    updateSearchResults();
+}
+
+CustomTextEditor::FindRequest CustomTextEditor::findRequest() const {
+    FindRequest request;
+    request.query = searchText;
+    request.useRegex = findUseRegex;
+    request.caseSensitive = findCaseSensitive;
+    request.wholeWord = findWholeWord;
+    request.inSelection = findInSelection;
+    request.firstLine = -1;
+    request.lastLine = -1;
+    if (findInSelection && !cursors.empty() && !cursors[primaryCursor].selection.isEmpty()) {
+        const Cursor& cursor = cursors[primaryCursor];
+        request.firstLine = cursor.selection.getMin().line;
+        // A selection that stops at column 0 touched that line with its newline only
+        request.lastLine = cursor.selection.getMax().column > 0
+            ? cursor.selection.getMax().line : cursor.selection.getMax().line - 1;
+    }
+    return request;
+}
+
+script::SearchOptions CustomTextEditor::findOptionsFromRequest(const FindRequest& request) {
+    script::SearchOptions options;
+    options.query = request.query;
+    options.useRegex = request.useRegex;
+    options.caseSensitive = request.caseSensitive;
+    options.wholeWord = request.wholeWord;
+    options.firstLine = request.firstLine;
+    options.lastLine = request.lastLine;
+    // A document search wants every hit, not the first 400 of a project scan
+    options.maxMatchesPerFile = 20000;
+    options.maxTotalMatches = 20000;
+    return options;
+}
+
+void CustomTextEditor::finishLineEdit() {
+    tokenizeAll();
+    ensureValidCursors();
+    maxLineWidthDirty = true;
+    finalizeUndoRecord();
+    updateSearchResults();
+    scrollToCursor();
 }
 
 void CustomTextEditor::updateSearchResults() {
     searchResults.clear();
     currentSearchResult = -1;
+    findError.clear();
 
-    if (searchText.empty()) return;
+    const FindRequest request = findRequest();
+    if (request.query.empty()) return;
 
-    std::string searchLower = findCaseSensitive ? searchText : toLower(searchText);
+    script::SearchOptions options = findOptionsFromRequest(request);
+    script::ScriptRegex regex;
+    if (!script::buildSearchRegex(options, regex, findError)) return;
 
-    for (int lineIdx = 0; lineIdx < static_cast<int>(lines.size()); ++lineIdx) {
-        std::string line = findCaseSensitive ? lines[lineIdx] : toLower(lines[lineIdx]);
-
-        size_t pos = 0;
-        while ((pos = line.find(searchLower, pos)) != std::string::npos) {
-            searchResults.push_back(TextPosition(lineIdx, static_cast<int>(pos)));
-            ++pos;
-        }
+    script::SearchFileResult found;
+    script::searchLines(lines, options, regex, found);
+    searchResults.reserve(found.matches.size());
+    for (const script::SearchMatch& match : found.matches) {
+        searchResults.push_back(FindSpan{ match.line, match.column, match.endColumn });
     }
 }
 
-bool CustomTextEditor::ReplaceNext() {
-    if (searchText.empty() || readOnly) return false;
+void CustomTextEditor::selectSearchResult(int index, bool caretAtEnd) {
+    if (index < 0 || index >= static_cast<int>(searchResults.size())) return;
+    const FindSpan& hit = searchResults[(size_t)index];
 
-    TextPosition pMin = cursors[primaryCursor].selection.getMin();
-    TextPosition pMax = cursors[primaryCursor].selection.getMax();
-
-    bool match = false;
-    if (!cursors[primaryCursor].selection.isEmpty() && pMin.line == pMax.line && static_cast<size_t>(pMax.column - pMin.column) == searchText.size()) {
-        std::string selText = lines[pMin.line].substr(pMin.column, searchText.size());
-        match = findCaseSensitive ? (selText == searchText)
-                                  : (toLower(selText) == toLower(searchText));
-    }
-
-    if (match) {
-        if (cursors.size() > 1) {
-            Cursor pC = cursors[primaryCursor];
-            cursors.clear();
-            cursors.push_back(pC);
-            primaryCursor = 0;
-        }
-        InsertText(replaceInputBuffer, false);
-    }
-
-    return FindNext();
+    currentSearchResult = index;
+    SetCursorPosition(hit.line, hit.column);
+    cursors[primaryCursor].selection.start = TextPosition(hit.line, hit.column);
+    cursors[primaryCursor].selection.end = TextPosition(hit.line, hit.endColumn);
+    cursors[primaryCursor].position = caretAtEnd ? cursors[primaryCursor].selection.end
+                                                 : cursors[primaryCursor].selection.start;
+    pendingScrollToCursor = true;
 }
 
 bool CustomTextEditor::FindNext() {
     if (searchResults.empty()) return false;
 
-    TextPosition cursorPos = cursors[primaryCursor].position;
-    // If we have a selection, use the end of selection as starting point to avoid finding the same text again
-    if (!cursors[primaryCursor].selection.isEmpty()) {
-        cursorPos = cursors[primaryCursor].selection.getMax();
-    }
+    const int count = static_cast<int>(searchResults.size());
+    const TextPosition pivot = !cursors[primaryCursor].selection.isEmpty()
+        ? cursors[primaryCursor].selection.getMax()
+        : cursors[primaryCursor].position;
 
-    pendingScrollToCursor = true;
-
-    for (size_t i = 0; i < searchResults.size(); ++i) {
-        if (searchResults[i] >= cursorPos) {
-            currentSearchResult = static_cast<int>(i);
-            SetCursorPosition(searchResults[i].line, searchResults[i].column);
-
-            cursors[primaryCursor].selection.start = searchResults[i];
-            cursors[primaryCursor].selection.end = TextPosition(
-                searchResults[i].line,
-                searchResults[i].column + static_cast<int>(searchText.size())
-            );
-            cursors[primaryCursor].position = cursors[primaryCursor].selection.end;
-
+    for (int i = 0; i < count; ++i) {
+        // The selected hit is skipped by index: a zero-width match starts exactly where
+        // the selection ends, and comparing positions alone would land on it again.
+        if (i == currentSearchResult) continue;
+        const FindSpan& hit = searchResults[(size_t)i];
+        if (hit.line > pivot.line || (hit.line == pivot.line && hit.column >= pivot.column)) {
+            selectSearchResult(i, true);
             return true;
         }
     }
 
-    // Wrap around
-    if (!searchResults.empty()) {
-        currentSearchResult = 0;
-        SetCursorPosition(searchResults[0].line, searchResults[0].column);
-
-        cursors[primaryCursor].selection.start = searchResults[0];
-        cursors[primaryCursor].selection.end = TextPosition(
-            searchResults[0].line,
-            searchResults[0].column + static_cast<int>(searchText.size())
-        );
-        cursors[primaryCursor].position = cursors[primaryCursor].selection.end;
-
-        return true;
-    }
-
-    return false;
+    selectSearchResult(0, true);   // wrap to the first
+    return true;
 }
 
 bool CustomTextEditor::FindPrevious() {
     if (searchResults.empty()) return false;
 
-    TextPosition cursorPos = cursors[primaryCursor].position;
-    // If we have a selection use start as pivot
-    if (!cursors[primaryCursor].selection.isEmpty()) {
-        cursorPos = cursors[primaryCursor].selection.getMin();
-    }
+    const int count = static_cast<int>(searchResults.size());
+    const TextPosition pivot = !cursors[primaryCursor].selection.isEmpty()
+        ? cursors[primaryCursor].selection.getMin()
+        : cursors[primaryCursor].position;
 
-    pendingScrollToCursor = true;
-
-    for (int i = static_cast<int>(searchResults.size()) - 1; i >= 0; --i) {
-        if (searchResults[i] < cursorPos) {
-            currentSearchResult = i;
-            SetCursorPosition(searchResults[i].line, searchResults[i].column);
-
-            cursors[primaryCursor].selection.start = searchResults[i];
-            cursors[primaryCursor].selection.end = TextPosition(
-                searchResults[i].line,
-                searchResults[i].column + static_cast<int>(searchText.size())
-            );
-            cursors[primaryCursor].position = cursors[primaryCursor].selection.start;
-
+    for (int i = count - 1; i >= 0; --i) {
+        if (i == currentSearchResult) continue;
+        const FindSpan& hit = searchResults[(size_t)i];
+        if (hit.line < pivot.line || (hit.line == pivot.line && hit.column < pivot.column)) {
+            selectSearchResult(i, false);
             return true;
         }
     }
 
-    // Wrap around
-    if (!searchResults.empty()) {
-        int lastIdx = static_cast<int>(searchResults.size()) - 1;
-        currentSearchResult = lastIdx;
-        SetCursorPosition(searchResults[lastIdx].line, searchResults[lastIdx].column);
+    selectSearchResult(count - 1, false);   // wrap to the last
+    return true;
+}
 
-        cursors[primaryCursor].selection.start = searchResults[lastIdx];
-        cursors[primaryCursor].selection.end = TextPosition(
-            searchResults[lastIdx].line,
-            searchResults[lastIdx].column + static_cast<int>(searchText.size())
-        );
-        cursors[primaryCursor].position = cursors[primaryCursor].selection.start;
+bool CustomTextEditor::ReplaceNext() {
+    if (readOnly || searchText.empty() || searchResults.empty()) return false;
 
-        return true;
+    const int index = currentSearchResult >= 0 ? currentSearchResult : 0;
+    const FindSpan& hit = searchResults[(size_t)index];
+    const Cursor& cursor = cursors[primaryCursor];
+    const TextPosition selMin = cursor.selection.getMin();
+    const TextPosition selMax = cursor.selection.getMax();
+
+    // "Replace" acts on the selected match only; anywhere else it just moves to the next
+    if (selMin.line != hit.line || selMin.column != hit.column || selMax.column != hit.endColumn) {
+        return FindNext();
     }
 
-    return false;
+    const FindRequest request = findRequest();
+    script::SearchOptions options = findOptionsFromRequest(request);
+    script::ScriptRegex regex;
+    if (!script::buildSearchRegex(options, regex, findError)) return false;
+
+    // The pattern runs again on this one line so `$1` can splice the groups of this match
+    script::RegexMatch match;
+    regex.search(lines[(size_t)hit.line], static_cast<size_t>(hit.column), match);
+    std::string replacement = script::expandReplacement(replaceInputBuffer, match,
+                                                        lines[(size_t)hit.line], request.useRegex);
+
+    // One replacement cannot be spread over several cursors, so the bar's cursor is kept
+    if (cursors.size() > 1) {
+        Cursor keep = cursors[primaryCursor];
+        cursors.clear();
+        cursors.push_back(keep);
+        primaryCursor = 0;
+    }
+
+    if (replacement.empty()) {
+        DeleteSelection();
+    } else {
+        InsertText(replacement, false);
+    }
+    updateSearchResults();
+    return FindNext();
+}
+
+int CustomTextEditor::replaceAllRequest(const FindRequest& request, const std::string& replacement) {
+    if (readOnly || request.query.empty()) return 0;
+
+    script::SearchOptions options = findOptionsFromRequest(request);
+    script::ScriptRegex regex;
+    if (!script::buildSearchRegex(options, regex, findError)) return 0;
+
+    std::vector<std::string> updated = lines;
+    bool truncated = false;
+    const int count = script::replaceLines(updated, options, regex, replacement, 0, truncated);
+    if (count == 0) return 0;
+
+    addUndoRecord();
+    lines.swap(updated);
+    tokenizeAll();
+    ensureValidCursors();
+    finalizeUndoRecord();
+    maxLineWidthDirty = true;
+    updateSearchResults();
+    return count;
 }
 
 int CustomTextEditor::ReplaceAll(const std::string& find, const std::string& replace, bool caseSensitive) {
-    if (find.empty() || readOnly) return 0;
+    FindRequest request;
+    request.query = find;
+    request.useRegex = false;
+    request.caseSensitive = caseSensitive;
+    request.wholeWord = false;
+    request.inSelection = false;
+    request.firstLine = -1;
+    request.lastLine = -1;
+    return replaceAllRequest(request, replace);
+}
+
+int CustomTextEditor::ReplaceAllFromFindBar() {
+    return replaceAllRequest(findRequest(), std::string(replaceInputBuffer));
+}
+
+void CustomTextEditor::OpenGoToLine() {
+    showGoToLine = true;
+    goToLineRefocus = true;
+    const int line = cursors.empty() ? 1 : cursors[primaryCursor].position.line + 1;
+    snprintf(goToLineBuffer, sizeof(goToLineBuffer), "%d", line);
+}
+
+void CustomTextEditor::GoToLine(int line, int column) {
+    if (lines.empty()) return;
+    const int target = std::max(1, std::min(line, static_cast<int>(lines.size()))) - 1;
+    const int col = std::max(1, column) - 1;
+    SetCursorPosition(target, std::min(col, static_cast<int>(lines[(size_t)target].size())));
+    scrollToCursor();
+}
+
+void CustomTextEditor::DeleteLines() {
+    if (readOnly || cursors.empty()) return;
+    const std::vector<int> targets = cursorLines();
+    if (targets.empty()) return;
 
     addUndoRecord();
+    // Erased from the back so the indices of the lines below stay valid
+    for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
+        lines.erase(lines.begin() + *it);
+    }
+    if (lines.empty()) lines.push_back(std::string());
 
-    const std::string findText = caseSensitive ? find : toLower(find);
-
-    int count = 0;
-    for (int lineIdx = static_cast<int>(lines.size()) - 1; lineIdx >= 0; --lineIdx) {
-        std::string lineText = caseSensitive ? lines[lineIdx] : toLower(lines[lineIdx]);
-
-        size_t pos = lineText.rfind(findText);
-        while (pos != std::string::npos) {
-            lines[lineIdx].replace(pos, find.size(), replace);
-            ++count;
-            if (pos == 0) break;
-
-            // The replacement changed the line, so the folded view is rebuilt
-            lineText = caseSensitive ? lines[lineIdx] : toLower(lines[lineIdx]);
-            pos = lineText.rfind(findText, pos - 1);
+    // Each cursor moves up by the number of deleted lines above it
+    for (Cursor& cursor : cursors) {
+        int shift = 0;
+        for (int deleted : targets) {
+            if (deleted < cursor.position.line) ++shift;
         }
+        cursor.position.line = std::max(0, cursor.position.line - shift);
+        cursor.position.column = 0;
+        cursor.selection.start = cursor.position;
+        cursor.selection.end = cursor.position;
+    }
+    finishLineEdit();
+}
+
+void CustomTextEditor::DuplicateLines() {
+    if (readOnly || cursors.empty()) return;
+    const std::vector<int> targets = cursorLines();
+    if (targets.empty()) return;
+
+    addUndoRecord();
+    for (auto it = targets.rbegin(); it != targets.rend(); ++it) {
+        lines.insert(lines.begin() + *it + 1, lines[(size_t)*it]);
     }
 
-    if (count > 0) {
-        tokenizeAll();
-        finalizeUndoRecord();
-        updateSearchResults();
+    for (Cursor& cursor : cursors) {
+        int shift = 0;
+        for (int source : targets) {
+            if (source < cursor.position.line) ++shift;
+        }
+        cursor.position.line += shift;
+        cursor.selection.start = cursor.position;
+        cursor.selection.end = cursor.position;
     }
+    finishLineEdit();
+}
 
-    return count;
+void CustomTextEditor::MoveLines(int delta) {
+    if (readOnly || cursors.empty() || lines.empty()) return;
+    const std::vector<int> targets = cursorLines();
+    if (targets.empty()) return;
+
+    const int first = targets.front();
+    const int last = targets.back();
+    // A gap between two cursors moves with them, which is what the same command does in
+    // VSCode: the block is the lines the cursors touch, not only those lines.
+    if (first + delta < 0 || last + delta >= static_cast<int>(lines.size())) return;
+
+    addUndoRecord();
+    std::vector<std::string> block(lines.begin() + first, lines.begin() + last + 1);
+    lines.erase(lines.begin() + first, lines.begin() + last + 1);
+    lines.insert(lines.begin() + first + delta, block.begin(), block.end());
+
+    for (Cursor& cursor : cursors) {
+        if (cursor.position.line >= first && cursor.position.line <= last) {
+            cursor.position.line += delta;
+        }
+        cursor.selection.start = cursor.position;
+        cursor.selection.end = cursor.position;
+    }
+    finishLineEdit();
+}
+
+void CustomTextEditor::SelectLines() {
+    if (cursors.empty()) return;
+    Cursor& cursor = cursors[primaryCursor];
+    const int lastLine = static_cast<int>(lines.size()) - 1;
+
+    const TextPosition min = cursor.selection.getMin();
+    const TextPosition max = cursor.selection.getMax();
+
+    // The end is the start of the line after the block, which is what carries the newline
+    // of the last line selected; a partial selection snaps to the whole lines it touches.
+    const int endLine = max.line + 1;
+
+    cursor.selection.start = TextPosition(min.line, 0);
+    cursor.selection.end = endLine > lastLine
+        ? TextPosition(lastLine, static_cast<int>(lines[(size_t)lastLine].size()))
+        : TextPosition(endLine, 0);
+    cursor.position = cursor.selection.end;
+    pendingScrollToCursor = true;
+}
+
+std::string CustomTextEditor::wordUnderCursor() const {
+    if (cursors.empty() || showFindDialog || showAutoComplete) return std::string();
+    const Cursor& cursor = cursors[primaryCursor];
+    if (!cursor.selection.isEmpty()) return std::string();
+
+    const int line = cursor.position.line;
+    const int column = cursor.position.column;
+    if (line < 0 || line >= static_cast<int>(lines.size())) return std::string();
+    const std::string& text = lines[(size_t)line];
+    if (text.empty() || column > static_cast<int>(text.size())) return std::string();
+
+    // The word the caret is inside, or the one it sits just to the right of
+    const char at = column < static_cast<int>(text.size()) ? text[(size_t)column] : '\0';
+    const char before = column > 0 ? text[(size_t)column - 1] : '\0';
+    if (!isWordChar(at) && !isWordChar(before)) return std::string();
+
+    const TextPosition start = findWordStart(cursor.position);
+    const TextPosition end = findWordEnd(cursor.position);
+    const int length = end.column - start.column;
+    // Two characters, so a lone "a" or "i" does not light up half the file
+    if (length < 2 || start.line != end.line) return std::string();
+    return text.substr((size_t)start.column, (size_t)length);
+}
+
+char CustomTextEditor::quotePair(char c) {
+    switch (c) {
+    case '"': return '"';
+    case '\'': return '\'';
+    case '`': return '`';
+    default: return 0;
+    }
 }
 
 int CustomTextEditor::getLineIndent(int lineIndex) const {
@@ -1735,6 +1987,333 @@ void CustomTextEditor::reindentAfterTyping(int typedLength) {
     }
 
     if (changed) finalizeUndoRecord();
+}
+
+// -- Comment and format commands --
+
+const std::string& CustomTextEditor::lineCommentPrefix() const {
+    return languageDef.singleLineComment;
+}
+
+std::string CustomTextEditor::blockCommentStart() const {
+    if (!languageDef.multiLineCommentStart.empty()) return languageDef.multiLineCommentStart;
+    // Lua and CMake open a long comment by putting their line marker in front of a long bracket
+    if (language == SyntaxLanguage::Lua && !languageDef.singleLineComment.empty())
+        return languageDef.singleLineComment + "[[";
+    if (language == SyntaxLanguage::CMake) return "#[[";
+    return "";
+}
+
+std::string CustomTextEditor::blockCommentEnd() const {
+    if (!languageDef.multiLineCommentEnd.empty()) return languageDef.multiLineCommentEnd;
+    if (language == SyntaxLanguage::Lua || language == SyntaxLanguage::CMake) return "]]";
+    return "";
+}
+
+int CustomTextEditor::firstCodeColumn(int lineIndex) const {
+    if (lineIndex < 0 || lineIndex >= static_cast<int>(lines.size())) return 0;
+    const size_t content = lines[lineIndex].find_first_not_of(" \t");
+    return content == std::string::npos ? static_cast<int>(lines[lineIndex].size()) : static_cast<int>(content);
+}
+
+std::vector<int> CustomTextEditor::cursorLines() const {
+    std::vector<int> result;
+    for (const Cursor& cursor : cursors) {
+        int first = cursor.selection.getMin().line;
+        int last = cursor.selection.getMax().line;
+        // A selection that only touches column 0 of the next line does not cover it
+        if (last > first && cursor.selection.getMax().column == 0) --last;
+        for (int line = first; line <= last; ++line) result.push_back(line);
+    }
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+    return result;
+}
+
+void CustomTextEditor::insertColumns(int line, int column, const std::string& text) {
+    if (line < 0 || line >= static_cast<int>(lines.size()) || text.empty()) return;
+    column = std::clamp(column, 0, static_cast<int>(lines[line].size()));
+
+    lines[line].insert(column, text);
+
+    const TextPosition from(line, column);
+    const TextPosition to(line, column + static_cast<int>(text.size()));
+    for (auto& cursor : cursors) {
+        adjustCursorAfterInsert(cursor, from, to);
+        if (cursor.position.line == line) cursor.preferredColumn = -1;
+    }
+    if (showParamHint) paramHintAnchor = adjustPosAfterInsert(paramHintAnchor, from, to);
+}
+
+void CustomTextEditor::eraseColumns(int line, int column, int count) {
+    if (line < 0 || line >= static_cast<int>(lines.size()) || count <= 0) return;
+    column = std::clamp(column, 0, static_cast<int>(lines[line].size()));
+    count = std::min(count, static_cast<int>(lines[line].size()) - column);
+    if (count == 0) return;
+
+    lines[line].erase(column, count);
+
+    const TextPosition from(line, column);
+    const TextPosition to(line, column + count);
+    for (auto& cursor : cursors) {
+        adjustCursorAfterDelete(cursor, from, to);
+        if (cursor.position.line == line) cursor.preferredColumn = -1;
+    }
+    if (showParamHint) paramHintAnchor = adjustPosAfterDelete(paramHintAnchor, from, to);
+}
+
+void CustomTextEditor::ToggleComment() {
+    if (readOnly || lineCommentPrefix().empty()) return;
+
+    const std::string& prefix = lineCommentPrefix();
+    std::vector<int> targets = cursorLines();
+    if (targets.empty()) return;
+
+    // Blank lines and the inside of a comment that spans lines carry no code to mark, so
+    // they are left out and a block comment never gets // on each of its rows. The token
+    // state is carried down in one pass instead of using lineStartState(), which rescans
+    // from the first line every time and turns a whole-file comment into a quadratic scan.
+    std::vector<int> code;
+    OpenToken state;
+    std::vector<Token> tokens;
+    for (int line = 0; line <= targets.back() && line < static_cast<int>(lines.size()); ++line) {
+        const bool insideToken = state.type != TokenType::Default;
+        tokenizeText(lines[line], state, tokens);
+        // The row that opens a spanning comment is comment syntax itself: marking it would
+        // bury the opener and stripping the prefix would cut "--" out of "--[".
+        const int content = static_cast<int>(lines[line].find_first_not_of(" \t"));
+        const bool opensToken = state.type != TokenType::Default && content >= 0 && !tokens.empty() &&
+            tokens.front().start == content &&
+            (tokens.front().type == TokenType::Comment || tokens.front().type == TokenType::MultiLineComment);
+        if (!insideToken && !opensToken && content != -1 &&
+            std::find(targets.begin(), targets.end(), line) != targets.end()) {
+            code.push_back(line);
+        }
+    }
+    if (code.empty()) return;
+
+    // One line without the marker is enough to comment the whole block, as in VSCode
+    bool uncomment = true;
+    for (int line : code) {
+        if (!startsWithAt(lines[line], firstCodeColumn(line), prefix)) {
+            uncomment = false;
+            break;
+        }
+    }
+
+    addUndoRecord();
+    for (int line : code) {
+        const int column = firstCodeColumn(line);
+        const bool marked = startsWithAt(lines[line], column, prefix);
+        // A line that already carries the marker keeps it in the comment pass and a line
+        // without it stays without in the uncomment pass, so the command cannot stack
+        // "-- --" or leave a half uncommented block behind.
+        if (marked != uncomment) continue;
+        if (!uncomment) {
+            insertColumns(line, column, prefix + " ");
+            continue;
+        }
+        int count = static_cast<int>(prefix.size());
+        // The space the marker brought with it leaves with it
+        if (startsWithAt(lines[line], column + prefix.size(), " ")) ++count;
+        eraseColumns(line, column, count);
+    }
+    tokenizeAll();
+    finalizeUndoRecord();
+}
+
+void CustomTextEditor::ToggleBlockComment() {
+    if (readOnly || cursors.empty()) return;
+
+    const std::string open = blockCommentStart();
+    const std::string close = blockCommentEnd();
+    if (open.empty() || close.empty()) return;
+
+    TextPosition start = cursors[primaryCursor].selection.getMin();
+    TextPosition end = cursors[primaryCursor].selection.getMax();
+    if (start == end) {
+        // Without a selection the line under the caret is what gets wrapped
+        const int line = cursors[primaryCursor].position.line;
+        if (line < 0 || line >= static_cast<int>(lines.size())) return;
+        start = TextPosition(line, firstCodeColumn(line));
+        end = TextPosition(line, static_cast<int>(lines[line].size()));
+    }
+    if (start.line < 0 || start.line >= static_cast<int>(lines.size())) return;
+
+    const std::string between = getRange(start, end);
+    TextPosition openStart = start;
+    TextPosition closeEnd = end;
+    bool wrapped = between.size() >= open.size() + close.size() &&
+                   between.compare(0, open.size(), open) == 0 &&
+                   startsWithAt(between, between.size() - close.size(), close);
+    // Inserting shifts the selection inward, so on the second call the markers sit just
+    // outside the range instead of inside it; that is the wrapped state to undo.
+    if (!wrapped && start.column >= static_cast<int>(open.size()) &&
+        end.column >= static_cast<int>(close.size()) &&
+        startsWithAt(lines[start.line], start.column - static_cast<int>(open.size()), open) &&
+        startsWithAt(lines[end.line], end.column - static_cast<int>(close.size()), close)) {
+        wrapped = true;
+        openStart = TextPosition(start.line, start.column - static_cast<int>(open.size()));
+        closeEnd = end;
+    }
+
+    addUndoRecord();
+    if (wrapped) {
+        // The far marker first, so the near one's columns stay valid
+        const TextPosition closeStart(closeEnd.line, closeEnd.column - static_cast<int>(close.size()));
+        deleteRange(closeStart, closeEnd);
+        for (auto& cursor : cursors) adjustCursorAfterDelete(cursor, closeStart, closeEnd);
+
+        const TextPosition openEnd(openStart.line, openStart.column + static_cast<int>(open.size()));
+        deleteRange(openStart, openEnd);
+        for (auto& cursor : cursors) adjustCursorAfterDelete(cursor, openStart, openEnd);
+    } else {
+        insertColumns(start.line, start.column, open);
+        // The end sits behind the marker that was just put in front of it, on the same line
+        const int shift = (end.line == start.line) ? static_cast<int>(open.size()) : 0;
+        insertColumns(end.line, end.column + shift, close);
+    }
+    tokenizeAll();
+    finalizeUndoRecord();
+}
+
+std::vector<int> CustomTextEditor::computeBufferIndents() const {
+    // One level per unclosed bracket, plus Lua's block keywords, since they do the
+    // same job there that braces do in C++. Lines inside a comment or a string that
+    // spans lines are prose, so they come back as -1 and keep whatever they have.
+    std::vector<int> level(lines.size(), 0);
+
+    // A label or an access specifier (public:, case:) is a soft level: it indents the
+    // lines under it, but the brace that ends the block swallows it, otherwise a switch
+    // would leave its own closing brace one level too deep.
+    std::vector<char> stack;
+    const auto closeThroughSoft = [&stack]() {
+        while (!stack.empty()) {
+            const char top = stack.back();
+            stack.pop_back();
+            if (top == 'h') break;
+        }
+    };
+
+    OpenToken open;
+    std::vector<Token> tokens;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        const bool insideToken = open.type != TokenType::Default;
+        tokenizeText(lines[i], open, tokens);
+        if (insideToken) {
+            level[i] = -1;
+            continue;
+        }
+
+        const std::string& text = lines[i];
+        if (text.find_first_not_of(" \t") == std::string::npos) continue;
+
+        // Read the line's brackets before touching the stack: a label line has to drop the
+        // label it replaces, and the level it prints at is the one after that drop.
+        std::vector<char> ops;
+        bool label = false;
+        std::string lastCode;
+        for (const Token& token : tokens) {
+            if (token.type == TokenType::Comment || token.type == TokenType::MultiLineComment ||
+                token.type == TokenType::String) {
+                continue;
+            }
+            const std::string piece = text.substr(token.start, token.length);
+            lastCode = piece;
+            for (char c : piece) {
+                if (c == '{' || c == '(' || c == '[') ops.push_back('o');
+                else if (c == '}' || c == ')' || c == ']') ops.push_back('c');
+            }
+            if (language == SyntaxLanguage::Lua && token.type == TokenType::Keyword) {
+                if (piece == "function" || piece == "then" || piece == "do" || piece == "repeat") ops.push_back('o');
+                else if (piece == "end" || piece == "until" || piece == "elseif") ops.push_back('c');
+            }
+        }
+        if (language != SyntaxLanguage::Lua && lastCode == ":") label = true;
+
+        if (label) {
+            while (!stack.empty() && stack.back() == 's') stack.pop_back();
+        }
+        int softs = 0;
+        while (softs < static_cast<int>(stack.size()) && stack[stack.size() - 1 - softs] == 's') ++softs;
+        const bool startsClosed = closesBlock(text);
+        // Clamped: an unbalanced file (a stray run of openers) must not build a line whose
+        // indent is longer than the code on it.
+        level[i] = std::clamp(static_cast<int>(stack.size()) - (startsClosed ? softs + 1 : 0), 0, 32);
+
+        for (char op : ops) {
+            if (op == 'o') stack.push_back('h');
+            else closeThroughSoft();
+        }
+        if (label) stack.push_back('s');
+    }
+
+    return level;
+}
+
+void CustomTextEditor::FormatDocument() {
+    if (readOnly || language == SyntaxLanguage::None || lines.empty()) return;
+
+    const std::vector<int> wanted = computeBufferIndents();
+
+    // Rewriting a tab-indented file into spaces would touch every one of its lines,
+    // so the character the file itself prefers wins
+    int tabs = 0;
+    int spaces = 0;
+    for (const std::string& line : lines) {
+        if (line.empty()) continue;
+        if (line[0] == '\t') ++tabs;
+        else if (line[0] == ' ') ++spaces;
+    }
+    const std::string unit = (tabs > spaces) ? "\t" : std::string(tabSize, ' ');
+
+    std::vector<std::string> formatted(lines.size());
+    std::vector<int> oldEnd(lines.size(), 0);
+    std::vector<int> newEnd(lines.size(), 0);
+    bool changed = false;
+    for (size_t i = 0; i < lines.size() && i < wanted.size(); ++i) {
+        formatted[i] = lines[i];
+        if (wanted[i] < 0) continue;
+
+        std::string indent;
+        for (int level = 0; level < wanted[i]; ++level) indent += unit;
+
+        const int contentStart = firstCodeColumn(static_cast<int>(i));
+        const size_t contentEnd = lines[i].find_last_not_of(" \t");
+        // A line that holds nothing but whitespace loses all of it
+        formatted[i] = contentEnd == std::string::npos
+                           ? std::string()
+                           : indent + lines[i].substr(contentStart, contentEnd - contentStart + 1);
+
+        oldEnd[i] = contentStart;
+        newEnd[i] = static_cast<int>(indent.size());
+        if (formatted[i] != lines[i]) changed = true;
+    }
+    if (!changed) return;
+
+    addUndoRecord();
+    for (size_t i = 0; i < lines.size(); ++i) {
+        if (formatted[i] == lines[i]) continue;
+
+        const int lineSize = static_cast<int>(formatted[i].size());
+        auto mapColumn = [&](int column) {
+            if (column <= oldEnd[i]) return newEnd[i];
+            return std::min(column - oldEnd[i] + newEnd[i], lineSize);
+        };
+        for (auto& cursor : cursors) {
+            if (cursor.position.line == static_cast<int>(i)) {
+                cursor.position.column = mapColumn(cursor.position.column);
+                cursor.preferredColumn = -1;
+            }
+            if (cursor.selection.start.line == static_cast<int>(i))
+                cursor.selection.start.column = mapColumn(cursor.selection.start.column);
+            if (cursor.selection.end.line == static_cast<int>(i))
+                cursor.selection.end.column = mapColumn(cursor.selection.end.column);
+        }
+        lines[i] = formatted[i];
+    }
+    tokenizeAll();
+    finalizeUndoRecord();
 }
 
 void CustomTextEditor::ensureValidCursors() {
@@ -2365,7 +2944,7 @@ std::string CustomTextEditor::findEnclosingType(int lineIndex) const {
         }
 
         // "void BoxScript::onUpdate() {" — the qualifier right before the name is the
-        // class, while "doriax::Vector3 helper()" only names a return type
+        // class, while "quantum::Vector3 helper()" only names a return type
         size_t paren = line.find('(');
         if (paren != std::string::npos) {
             size_t nameStart = paren;
@@ -2384,7 +2963,7 @@ std::string CustomTextEditor::findEnclosingType(int lineIndex) const {
             if (last != std::string::npos && code[last] == '{') return "";
         }
 
-        // "class BoxScript final : public doriax::Mesh {" — the last word before the base list
+        // "class BoxScript final : public quantum::Mesh {" — the last word before the base list
         if (line.rfind("class ", 0) == 0 || line.rfind("struct ", 0) == 0) {
             std::string head = line.substr(0, line.find_first_of(":{"));
             std::string name = wordEndingAt(head, static_cast<int>(head.size()) - 1);
@@ -3073,6 +3652,25 @@ void CustomTextEditor::handleKeyboardInput() {
         OpenFind();
     }
 
+    // Ctrl+G is VSCode's "Go to Line/Column"; the box takes the number and jumps
+    if (ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_G)) {
+        OpenGoToLine();
+    }
+
+    // Ctrl+L selects the current line and keeps adding lines on every press
+    if (ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_L)) {
+        SelectLines();
+    }
+
+    // Ctrl+Shift+K deletes the line, Ctrl+Shift+D duplicates it. Ctrl+D on its own is the
+    // multi-cursor "add next occurrence" below, so the shift has to be told apart here.
+    if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_K)) {
+        DeleteLines();
+    }
+    if (ctrl && shift && !alt && ImGui::IsKeyPressed(ImGuiKey_D)) {
+        DuplicateLines();
+    }
+
     if (ctrl && (ImGui::IsKeyPressed(ImGuiKey_Equal) || ImGui::IsKeyPressed(ImGuiKey_KeypadAdd))) {
         if (onFontZoom) onFontZoom(1);
     }
@@ -3085,7 +3683,7 @@ void CustomTextEditor::handleKeyboardInput() {
         if (onFontZoom) onFontZoom(0);
     }
 
-    if (ctrl && ImGui::IsKeyPressed(ImGuiKey_D)) {
+    if (ctrl && !shift && ImGui::IsKeyPressed(ImGuiKey_D)) {
         // Select word at cursor or add cursor at next occurrence
         if (!cursors.empty()) {
             std::string word = getRange(cursors.back().selection.getMin(), cursors.back().selection.getMax());
@@ -3190,6 +3788,8 @@ void CustomTextEditor::handleKeyboardInput() {
                     sortCursors();
                 }
             }
+        } else if (alt) {
+            MoveLines(-1);   // VSCode's "Move Line Up"
         } else {
             for (auto& cursor : cursors) {
                 moveCursor(cursor, -1, 0, shift);
@@ -3209,6 +3809,8 @@ void CustomTextEditor::handleKeyboardInput() {
                     AddCursor(pos.line + 1, visualColumnToByteOffset(pos.line + 1, visualCol));
                 }
             }
+        } else if (alt) {
+            MoveLines(1);    // VSCode's "Move Line Down"
         } else {
             for (auto& cursor : cursors) {
                 moveCursor(cursor, 1, 0, shift);
@@ -3372,9 +3974,33 @@ void CustomTextEditor::handleKeyboardInput() {
         }
     }
 
-    // Trigger auto-complete with Ctrl+Space (manual invoke shows the full list)
+    // Trigger auto-complete with Ctrl+Space (manual invoke shows the full list).
+    // Shift+Space does the same, the other binding VSCode documents for "Trigger Suggest"
     if (ctrl && ImGui::IsKeyPressed(ImGuiKey_Space)) {
         TriggerAutoComplete(true);
+    }
+    if (shift && !ctrl && !alt && ImGui::IsKeyPressed(ImGuiKey_Space)) {
+        TriggerAutoComplete(true);
+        // Windows still queues the space that Shift+Space produced, and handleTextInput()
+        // runs after this: without dropping it the binding would type a space as the list
+        // opens, which then lands inside the moment a suggestion is accepted.
+        ImGuiIO& io = ImGui::GetIO();
+        for (int i = io.InputQueueCharacters.Size - 1; i >= 0; --i) {
+            if (io.InputQueueCharacters[i] == ' ') io.InputQueueCharacters.erase(&io.InputQueueCharacters[i]);
+        }
+    }
+
+    // The three code commands the menu and the palette also expose. Read through the
+    // registry so a remap in Editor Settings > Shortcuts moves this too; the defaults are
+    // VSCode's (Ctrl+/ plus its numpad twin, Ctrl+Shift+A, Ctrl+Shift+F).
+    if (KeyBindings::pressed("code.comment")) {
+        ToggleComment();
+    }
+    if (KeyBindings::pressed("code.blockComment")) {
+        ToggleBlockComment();
+    }
+    if (KeyBindings::pressed("code.format")) {
+        FormatDocument();
     }
 
     if (showParamHint) {
@@ -4276,6 +4902,8 @@ void CustomTextEditor::renderSuggestions(const ImVec2& origin) {
             if (ImGui::Selectable("##item", selected, ImGuiSelectableFlags_None, ImVec2(availWidth, itemHeight))) {
                 clickedIndex = i;
             }
+            // Hover moves the selection, as it does in VSCode, so the side panel follows the mouse
+            if (ImGui::IsItemHovered()) suggestionIndex = i;
 
             ImGui::PopStyleColor(3);
 
@@ -4338,6 +4966,65 @@ void CustomTextEditor::renderSuggestions(const ImVec2& origin) {
 
     ImGui::PopStyleColor(6);
     ImGui::PopStyleVar(4);
+
+    renderSuggestionDetails(screenPos, popupWidth, popupActualHeight);
+}
+
+void CustomTextEditor::renderSuggestionDetails(const ImVec2& listPos, float listWidth, float listHeight) {
+    if (!showAutoComplete || currentSuggestions.empty()) return;
+    if (suggestionIndex < 0 || suggestionIndex >= static_cast<int>(currentSuggestions.size())) return;
+
+    const SuggestionItem& item = currentSuggestions[suggestionIndex];
+
+    const float width = Theme::dpi(280.0f);
+    const ImVec2 displaySize = ImGui::GetIO().DisplaySize;
+    ImVec2 pos(listPos.x + listWidth + 2.0f, std::min(listPos.y, displaySize.y - listHeight - Theme::dpi(8.0f)));
+    // The panel reads better beside the list, so when there is no room on the right it
+    // goes to the left, and when there is none there either the list alone stays
+    if (pos.x + width > displaySize.x) pos.x = listPos.x - width - 2.0f;
+    if (pos.x < 0) return;
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                             ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_AlwaysAutoResize;
+
+    ImGui::SetNextWindowPos(pos);
+    ImGui::SetNextWindowSize(ImVec2(width, 0));
+    ImGui::PushID("SuggestionDetails");
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, Theme::dpi(ImVec2(8.0f, 6.0f)));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, Theme::dpi(ImVec2(4.0f, 4.0f)));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, Theme::dpi(4.0f));
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.12f, 0.12f, 0.12f, 0.98f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 0.8f));
+
+    if (ImGui::Begin("##SuggestionDetails", nullptr, flags)) {
+        ImGui::PushTextWrapPos(pos.x + width - Theme::dpi(8.0f));
+
+        ImGui::TextColored(SemanticSuggestions::GetKindColor(item.kind), "%s %s",
+                           SemanticSuggestions::GetKindIcon(item.kind), item.label.c_str());
+
+        std::string origin = SemanticSuggestions::GetKindName(item.kind);
+        if (!item.namespaceName.empty()) origin = item.namespaceName + "::" + origin;
+        if (!item.parentType.empty()) origin = item.parentType + "." + origin;
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.55f, 0.55f, 0.55f, 1.0f));
+        ImGui::TextUnformatted(origin.c_str());
+
+        if (!item.detail.empty()) ImGui::TextUnformatted(item.detail.c_str());
+        ImGui::PopStyleColor();
+
+        // The prose only when there is some: the generated API header carries signatures, not comments
+        if (!item.documentation.empty()) {
+            ImGui::Separator();
+            ImGui::TextUnformatted(item.documentation.c_str());
+        }
+
+        ImGui::PopTextWrapPos();
+    }
+    ImGui::End();
+
+    ImGui::PopStyleColor(2);
+    ImGui::PopStyleVar(3);
+    ImGui::PopID();
 }
 
 void CustomTextEditor::renderAutoComplete(const ImVec2& origin) {
@@ -4596,6 +5283,21 @@ void CustomTextEditor::renderContextMenu() {
             ImGui::Separator();
             menuItem(ICON_FA_I_CURSOR " Select All", "Ctrl+A", hasLine, [&] { SelectAll(); });
             ImGui::Separator();
+            // The three rows the registry owns: the hint has to name the chord that
+            // actually fires, not the VSCode default this file used to hardcode.
+            const std::string commentHint = KeyBindings::primaryText("code.comment");
+            const std::string blockHint = KeyBindings::primaryText("code.blockComment");
+            const std::string formatHint = KeyBindings::primaryText("code.format");
+            menuItem(ICON_FA_COMMENT_SLASH " Toggle Comment",
+                     commentHint.empty() ? nullptr : commentHint.c_str(),
+                     canEdit && !lineCommentPrefix().empty(), [&] { ToggleComment(); });
+            menuItem(ICON_FA_COMMENT " Toggle Block Comment",
+                     blockHint.empty() ? nullptr : blockHint.c_str(),
+                     canEdit && !blockCommentStart().empty(), [&] { ToggleBlockComment(); });
+            menuItem(ICON_FA_WAND_MAGIC_SPARKLES " Format Document",
+                     formatHint.empty() ? nullptr : formatHint.c_str(),
+                     canEdit && language != SyntaxLanguage::None, [&] { FormatDocument(); });
+            ImGui::Separator();
             menuItem(ICON_FA_MAGNIFYING_GLASS " Find", "Ctrl+F", true, [&] { OpenFind(); });
         }
     }
@@ -4763,4 +5465,4 @@ void CustomTextEditor::Render(const char* title, const ImVec2& size, bool border
     ImGui::PopFont();
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

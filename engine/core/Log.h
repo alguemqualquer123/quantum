@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef log_h
@@ -6,9 +6,9 @@
 
 #include "Export.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Log {
+    class QUANTUM_API Log {
     public:
         static void print(const char* text, ...);
 

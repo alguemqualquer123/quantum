@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "XMLUtils.h"
@@ -6,7 +6,7 @@
 #include "io/File.h"
 #include "io/FileData.h"
 
-using namespace doriax;
+using namespace quantum;
 
 tinyxml2::XMLElement* XMLUtils::getNodeForKey(const char* XMLFilePath, const char* rootName, const char* key, tinyxml2::XMLElement** rootNode, tinyxml2::XMLDocument* doc){
     tinyxml2::XMLElement* curNode = NULL;

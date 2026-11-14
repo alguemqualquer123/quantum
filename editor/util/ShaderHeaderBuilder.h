@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class ShaderHeaderBuilder {
     public:
@@ -22,4 +22,4 @@ namespace doriax::editor {
         static std::string buildShaderHeader(const std::string& suffix, std::vector<HeaderShader> shaders);
     };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

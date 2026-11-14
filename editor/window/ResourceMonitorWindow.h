@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -14,7 +14,7 @@
 #include "util/ProcessStats.h"
 #include "util/SystemStats.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
     // System-monitor style panel: machine-wide CPU, memory, GPU/VRAM, temperature
     // and network throughput from SystemStats, plus live CPU & RAM for the editor
     // and any child process it launches, plus caller-fed asset/GPU counters. All

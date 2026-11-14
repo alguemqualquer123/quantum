@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Mirror.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Mirror::Mirror(Scene* scene): Shape(scene){
     addComponent<MirrorComponent>();

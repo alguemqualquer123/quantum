@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolObject.h"
@@ -10,16 +10,23 @@
 #include "SokolShader.h"
 #include "Engine.h"
 
-using namespace doriax;
+#include <cstring>
+#include <algorithm>
+#include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
+
+using namespace quantum;
 
 namespace {
-    sg_pipeline makePipeline(const sg_pipeline_desc& desc){
+    sg_pipeline newPipeline(const sg_pipeline_desc& desc){
         if (Engine::isAsyncThread())
             return SokolCmdQueue::add_command_make_pipeline(desc);
         return sg_make_pipeline(desc);
     }
 
-    void destroyPipeline(sg_pipeline pipeline){
+    void freePipeline(sg_pipeline pipeline){
         if (pipeline.id == SG_INVALID_ID)
             return;
         if (Engine::isAsyncThread()){
@@ -27,6 +34,262 @@ namespace {
         }else{
             sg_destroy_pipeline(pipeline);
         }
+    }
+
+    // A pipeline carries fixed-function state and the vertex layout only - the buffers come from
+    // sg_apply_bindings at draw time - so every mesh that shares a shader variant, a layout and a
+    // blend/depth state draws with the same one. Allocating per submesh instead costs six pipelines
+    // each (color, offscreen, depth, shadow depth and the two prepass variants), and sokol's pools
+    // are fixed size: 8192 slots cap a scene near 1300 meshes, after which sg_make_pipeline() fails,
+    // the mesh never reaches loaded, and RenderSystem::update() reruns the whole build every frame.
+    //
+    // The desc is folded into a plain uint32 array first: hashing or comparing the desc struct itself
+    // would read its padding.
+    struct PipelineKey {
+        uint32_t shader;
+        uint32_t primitiveType;
+        uint32_t indexType;
+        uint32_t cullMode;
+        uint32_t faceWinding;
+        uint32_t sampleCount;
+        uint32_t colorCount;
+        uint32_t compute;
+        uint32_t alphaToCoverage;
+        uint32_t blendColor[4];
+        uint32_t depth[6];
+        uint32_t stencil[12];
+        uint32_t colors[SG_MAX_COLOR_ATTACHMENTS][9];
+        uint32_t buffers[SG_MAX_VERTEXBUFFER_BINDSLOTS][3];
+        uint32_t attrs[SG_MAX_VERTEX_ATTRIBUTES][3];
+    };
+
+    uint32_t bits(float value){
+        uint32_t out = 0;
+        std::memcpy(&out, &value, sizeof(out));
+        return out;
+    }
+
+    PipelineKey makeKey(const sg_pipeline_desc& d){
+        PipelineKey k{};
+        k.shader = d.shader.id;
+        k.primitiveType = (uint32_t) d.primitive_type;
+        k.indexType = (uint32_t) d.index_type;
+        k.cullMode = (uint32_t) d.cull_mode;
+        k.faceWinding = (uint32_t) d.face_winding;
+        k.sampleCount = (uint32_t) d.sample_count;
+        k.colorCount = (uint32_t) d.color_count;
+        k.compute = d.compute ? 1u : 0u;
+        k.alphaToCoverage = d.alpha_to_coverage_enabled ? 1u : 0u;
+        k.blendColor[0] = bits(d.blend_color.r);
+        k.blendColor[1] = bits(d.blend_color.g);
+        k.blendColor[2] = bits(d.blend_color.b);
+        k.blendColor[3] = bits(d.blend_color.a);
+        k.depth[0] = (uint32_t) d.depth.pixel_format;
+        k.depth[1] = (uint32_t) d.depth.compare;
+        k.depth[2] = d.depth.write_enabled ? 1u : 0u;
+        k.depth[3] = bits(d.depth.bias);
+        k.depth[4] = bits(d.depth.bias_slope_scale);
+        k.depth[5] = bits(d.depth.bias_clamp);
+        k.stencil[0] = d.stencil.enabled ? 1u : 0u;
+        k.stencil[1] = (uint32_t) d.stencil.front.compare;
+        k.stencil[2] = (uint32_t) d.stencil.front.fail_op;
+        k.stencil[3] = (uint32_t) d.stencil.front.depth_fail_op;
+        k.stencil[4] = (uint32_t) d.stencil.front.pass_op;
+        k.stencil[5] = (uint32_t) d.stencil.back.compare;
+        k.stencil[6] = (uint32_t) d.stencil.back.fail_op;
+        k.stencil[7] = (uint32_t) d.stencil.back.depth_fail_op;
+        k.stencil[8] = (uint32_t) d.stencil.back.pass_op;
+        k.stencil[9] = d.stencil.read_mask;
+        k.stencil[10] = d.stencil.write_mask;
+        k.stencil[11] = d.stencil.ref;
+        for (int i = 0; i < SG_MAX_COLOR_ATTACHMENTS; i++){
+            const sg_color_target_state& c = d.colors[i];
+            k.colors[i][0] = (uint32_t) c.pixel_format;
+            k.colors[i][1] = (uint32_t) c.write_mask;
+            k.colors[i][2] = c.blend.enabled ? 1u : 0u;
+            k.colors[i][3] = (uint32_t) c.blend.src_factor_rgb;
+            k.colors[i][4] = (uint32_t) c.blend.dst_factor_rgb;
+            k.colors[i][5] = (uint32_t) c.blend.op_rgb;
+            k.colors[i][6] = (uint32_t) c.blend.src_factor_alpha;
+            k.colors[i][7] = (uint32_t) c.blend.dst_factor_alpha;
+            k.colors[i][8] = (uint32_t) c.blend.op_alpha;
+        }
+        for (int i = 0; i < SG_MAX_VERTEXBUFFER_BINDSLOTS; i++){
+            k.buffers[i][0] = (uint32_t) d.layout.buffers[i].stride;
+            k.buffers[i][1] = (uint32_t) d.layout.buffers[i].step_func;
+            k.buffers[i][2] = (uint32_t) d.layout.buffers[i].step_rate;
+        }
+        for (int i = 0; i < SG_MAX_VERTEX_ATTRIBUTES; i++){
+            k.attrs[i][0] = (uint32_t) d.layout.attrs[i].buffer_index;
+            k.attrs[i][1] = (uint32_t) d.layout.attrs[i].offset;
+            k.attrs[i][2] = (uint32_t) d.layout.attrs[i].format;
+        }
+        return k;
+    }
+
+    uint64_t hashKey(const PipelineKey& key){
+        const uint8_t* bytes = (const uint8_t*) &key;
+        uint64_t hash = 1469598103934665603ull;
+        for (size_t i = 0; i < sizeof(key); i++){
+            hash = (hash ^ bytes[i]) * 1099511628211ull;
+        }
+        return hash;
+    }
+
+    struct SharedPipeline {
+        PipelineKey key;
+        sg_pipeline pipeline;
+        uint64_t hash;
+        int refs;
+    };
+
+    // Loading is threaded (Engine::startAsyncThread), so the cache is reached from the update
+    // threads and the main one alike.
+    std::mutex sharedMutex;
+    std::unordered_map<uint64_t, std::vector<std::unique_ptr<SharedPipeline>>> sharedByHash;
+    std::unordered_map<uint32_t, SharedPipeline*> sharedById;
+
+    sg_pipeline acquirePipeline(const sg_pipeline_desc& desc){
+        PipelineKey key = makeKey(desc);
+        uint64_t hash = hashKey(key);
+
+        std::lock_guard<std::mutex> lock(sharedMutex);
+
+        std::vector<std::unique_ptr<SharedPipeline>>& bucket = sharedByHash[hash];
+        for (const std::unique_ptr<SharedPipeline>& entry : bucket){
+            if (std::memcmp(&entry->key, &key, sizeof(key)) == 0){
+                entry->refs++;
+                return entry->pipeline;
+            }
+        }
+
+        sg_pipeline pipeline = newPipeline(desc);
+        if (pipeline.id == SG_INVALID_ID)
+            return pipeline;
+
+        std::unique_ptr<SharedPipeline> entry(new SharedPipeline());
+        entry->key = key;
+        entry->hash = hash;
+        entry->pipeline = pipeline;
+        entry->refs = 1;
+        sharedById[pipeline.id] = entry.get();
+        bucket.push_back(std::move(entry));
+        return pipeline;
+    }
+
+    void refPipeline(sg_pipeline pipeline){
+        if (pipeline.id == SG_INVALID_ID)
+            return;
+        std::lock_guard<std::mutex> lock(sharedMutex);
+        std::unordered_map<uint32_t, SharedPipeline*>::iterator found = sharedById.find(pipeline.id);
+        if (found != sharedById.end())
+            found->second->refs++;
+    }
+
+    void releasePipeline(sg_pipeline pipeline){
+        if (pipeline.id == SG_INVALID_ID)
+            return;
+
+        bool last = false;
+        uint64_t hash = 0;
+        {
+            std::lock_guard<std::mutex> lock(sharedMutex);
+            std::unordered_map<uint32_t, SharedPipeline*>::iterator found = sharedById.find(pipeline.id);
+            if (found == sharedById.end())
+                return;
+
+            last = --found->second->refs == 0;
+            hash = found->second->hash;
+            if (last){
+                sharedById.erase(found);
+                std::unordered_map<uint64_t, std::vector<std::unique_ptr<SharedPipeline>>>::iterator bucket = sharedByHash.find(hash);
+                std::vector<std::unique_ptr<SharedPipeline>>& entries = bucket->second;
+                for (size_t i = 0; i < entries.size(); i++){
+                    if (entries[i]->pipeline.id == pipeline.id){
+                        entries.erase(entries.begin() + (long) i);
+                        break;
+                    }
+                }
+                if (entries.empty())
+                    sharedByHash.erase(bucket);
+            }
+        }
+
+        if (last)
+            freePipeline(pipeline);
+    }
+
+    // endLoad() keeps calling this name: every pipeline a mesh asks for now goes through the
+    // shared cache instead of allocating its own.
+    sg_pipeline makePipeline(const sg_pipeline_desc& desc){
+        return acquirePipeline(desc);
+    }
+
+    // The pixel format of the color attachment of the pass that is open right now, NONE for a
+    // depth-only or compute pass. Set by beginPass() below, read by matchPassFormat().
+    sg_pixel_format passColorFormat = SG_PIXELFORMAT_NONE;
+
+    struct RetargetKey {
+        uint32_t bakedId;
+        uint32_t format;
+
+        bool operator==(const RetargetKey& o) const {
+            return bakedId == o.bakedId && format == o.format;
+        }
+    };
+
+    struct RetargetKeyHash {
+        size_t operator()(const RetargetKey& k) const {
+            return std::hash<uint64_t>()(((uint64_t) k.bakedId << 32) | k.format);
+        }
+    };
+
+    struct Retargeted {
+        sg_pipeline baked;
+        sg_pipeline pip;
+    };
+
+    // One pipeline is baked for one color format, but the same mesh has to draw into the float
+    // HDR scene target and into the RGBA8 mirror, probe and camera targets, and sokol rejects an
+    // apply whose pipeline format differs from the open pass. So the alternative format is taken
+    // from the shared cache too - N objects sharing a baked pipeline share one retargeted twin.
+    // Only the render thread reaches it (beginDraw), which is also why it carries no lock.
+    std::unordered_map<RetargetKey, Retargeted, RetargetKeyHash> retargetedByFormat;
+
+    sg_pipeline matchPassFormat(sg_pipeline baked, sg_pixel_format format){
+        if (baked.id == SG_INVALID_ID || format == SG_PIXELFORMAT_NONE)
+            return baked;
+
+        RetargetKey key{baked.id, (uint32_t) format};
+        std::unordered_map<RetargetKey, Retargeted, RetargetKeyHash>::iterator found = retargetedByFormat.find(key);
+        if (found != retargetedByFormat.end())
+            return found->second.pip;
+
+        // sokol never reuses a resource id, so a baked handle that stopped being valid cannot be
+        // asked for again: drop its twin, or it would hold a pool slot for the whole session.
+        for (std::unordered_map<RetargetKey, Retargeted, RetargetKeyHash>::iterator it = retargetedByFormat.begin();
+                it != retargetedByFormat.end(); ){
+            if (sg_query_pipeline_state(it->second.baked) != SG_RESOURCESTATE_VALID){
+                releasePipeline(it->second.pip);
+                it = retargetedByFormat.erase(it);
+            }else{
+                ++it;
+            }
+        }
+
+        sg_pipeline_desc desc = sg_query_pipeline_desc(baked);
+        // multi-attachment layouts (the G-buffer) pick a format per slot on purpose, and a pass
+        // that opens with a different number of attachments has to fail loudly instead of here
+        if (desc.color_count != 1 || desc.colors[0].pixel_format == format)
+            return baked;
+
+        desc.colors[0].pixel_format = format;
+        sg_pipeline pip = acquirePipeline(desc);
+        if (pip.id == SG_INVALID_ID)
+            return baked;
+
+        retargetedByFormat.emplace(key, Retargeted{baked, pip});
+        return pip;
     }
 }
 
@@ -42,6 +305,7 @@ SokolObject::SokolObject(){
     rtt_noblend_pip.id = SG_INVALID_ID;
     zprepass_pip.id = SG_INVALID_ID;
     zprepass_rtt_pip.id = SG_INVALID_ID;
+    rttColorFormat = SG_PIXELFORMAT_RGBA8;
     bind = {};
     loadIndexBuffer.id = SG_INVALID_ID;
     loadIndexOffset = 0;
@@ -64,12 +328,23 @@ SokolObject::SokolObject(const SokolObject& rhs) {
     rtt_noblend_pip = rhs.rtt_noblend_pip;
     zprepass_pip = rhs.zprepass_pip;
     zprepass_rtt_pip = rhs.zprepass_rtt_pip;
+    rttColorFormat = rhs.rttColorFormat;
     pipeline_desc = rhs.pipeline_desc;
     bindSlotIndex = rhs.bindSlotIndex;
     bufferToBindSlot = rhs.bufferToBindSlot;
+
+    // the handles are shared, so a copy is a user of them
+    retainAll();
 }
 
 SokolObject& SokolObject::operator=(const SokolObject& rhs) {
+    if (this == &rhs)
+        return *this;
+
+    rhs.retainAll();
+    // give back whatever this object held before the copy, or those references are lost
+    destroy();
+
     bind = rhs.bind;
     loadIndexBuffer = rhs.loadIndexBuffer;
     loadIndexOffset = rhs.loadIndexOffset;
@@ -84,6 +359,7 @@ SokolObject& SokolObject::operator=(const SokolObject& rhs) {
     rtt_noblend_pip = rhs.rtt_noblend_pip;
     zprepass_pip = rhs.zprepass_pip;
     zprepass_rtt_pip = rhs.zprepass_rtt_pip;
+    rttColorFormat = rhs.rttColorFormat;
     pipeline_desc = rhs.pipeline_desc;
     bindSlotIndex = rhs.bindSlotIndex;
     bufferToBindSlot = rhs.bufferToBindSlot;
@@ -159,6 +435,10 @@ sg_face_winding SokolObject::getFaceWinding(WindingOrder windingOrder){
 }
 
 void SokolObject::beginLoad(PrimitiveType primitiveType){
+    // A retry after a failed endLoad() still holds the pipelines the previous attempt took from
+    // the cache; dropping the handles without releasing them would keep those references forever.
+    destroy();
+
     bind = {0};
     pip = {0};
     depth_pip = {0};
@@ -172,10 +452,45 @@ void SokolObject::beginLoad(PrimitiveType primitiveType){
 
     bindSlotIndex = 0;
     bufferToBindSlot.clear();
+    uniformBlockSizes.clear();
+    uniformBlockNames.clear();
+    uniformBlockScratch.clear();
 }
 
 void SokolObject::setShader(ShaderRender* shader){
     pipeline_desc.shader = shader->backend.get();
+    uniformBlockSizes.clear();
+    uniformBlockNames.clear();
+    for (const ShaderStage& stage : shader->shaderData.stages){
+        for (const ShaderUniformBlock& block : stage.uniformblocks){
+            // Uniform block slots are shared by the stages in sokol's apply
+            // call. Keep the largest reflected size when a cross-stage block
+            // is represented by more than one stage entry.
+            auto it = uniformBlockSizes.find((int)block.slot);
+            if (it == uniformBlockSizes.end()){
+                uniformBlockSizes[(int)block.slot] = block.sizeBytes;
+                uniformBlockNames[(int)block.slot] = block.name;
+            }else{
+                it->second = std::max(it->second, block.sizeBytes);
+            }
+        }
+    }
+}
+
+// Set this before beginLoad(): beginLoad() runs destroy(), which releases the pipelines but keeps
+// the declared target format, so one call covers every later reload of the same pass.
+void SokolObject::setRenderTargetColorFormat(ColorFormat format){
+    if (format == ColorFormat::RGBA16F){
+        rttColorFormat = SG_PIXELFORMAT_RGBA16F;
+    }else if (format == ColorFormat::R16F){
+        rttColorFormat = SG_PIXELFORMAT_R16F;
+    }else if (format == ColorFormat::RED16){
+        rttColorFormat = SG_PIXELFORMAT_R16;
+    }else if (format == ColorFormat::RED){
+        rttColorFormat = SG_PIXELFORMAT_R8;
+    }else{
+        rttColorFormat = SG_PIXELFORMAT_RGBA8;
+    }
 }
 
 void SokolObject::setIndex(BufferRender* buffer, AttributeDataType dataType, size_t offset){
@@ -443,7 +758,7 @@ bool SokolObject::endLoad(uint16_t pipelines, bool enableFaceCulling, bool enabl
         pip_rtt_desc.colors[0].blend.src_factor_alpha = SG_BLENDFACTOR_ONE;
         pip_rtt_desc.colors[0].blend.dst_factor_alpha = SG_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
         pip_rtt_desc.depth.pixel_format = SG_PIXELFORMAT_DEPTH;
-        pip_rtt_desc.colors[0].pixel_format = SG_PIXELFORMAT_RGBA8;
+        pip_rtt_desc.colors[0].pixel_format = rttColorFormat;
 
         // offscreen passes render with a Y-flipped projection on GL (top-left
         // origin), which reverses the triangle winding
@@ -522,11 +837,27 @@ bool SokolObject::beginDraw(PipelineType pipType){
         selectedPipeline = rtt_noblend_pip;
     }
 
+    // The open pass decides which of the two format variants this object may use: applying one
+    // baked for another format aborts the apply in the validation layer and, in a release build,
+    // draws into a mismatched framebuffer object instead.
+    selectedPipeline = matchPassFormat(selectedPipeline, passColorFormat);
+
     // Deferred resource creation can leave an allocated handle in FAILED state.
     // Never apply it: doing so would turn one creation error into a cascade of
     // invalid pipeline, uniform, binding, and draw validation failures.
     if (selectedPipeline.id == SG_INVALID_ID ||
         sg_query_pipeline_state(selectedPipeline) != SG_RESOURCESTATE_VALID){
+        // A refused apply is not silent anywhere else, and the caller reads it as "reload the
+        // mesh", so an unbuilt variant costs a whole scene rebuild every frame with nothing
+        // drawn. Name the pass that asked for it - once per pipeline type, per process.
+        static unsigned int logged = 0;
+        const unsigned int typeBit = (unsigned int)pipType;   // PipelineType is already a bit per pass
+        if ((logged & typeBit) == 0){
+            logged |= typeBit;
+            Log::error("Pipeline of type %d is not usable (id %d, state %d); the pass that asked for it has no shader variant",
+                (int)pipType, selectedPipeline.id,
+                selectedPipeline.id == SG_INVALID_ID ? -1 : (int)sg_query_pipeline_state(selectedPipeline));
+        }
         return false;
     }
 
@@ -536,7 +867,27 @@ bool SokolObject::beginDraw(PipelineType pipType){
 
 void SokolObject::applyUniformBlock(int slot, unsigned int count, void* data){
     if (slot != -1){
-        sg_apply_uniforms(slot, {data, count});
+        unsigned int reflectedSize = count;
+        auto it = uniformBlockSizes.find(slot);
+        const auto nameIt = uniformBlockNames.find(slot);
+        const bool customBlock = nameIt != uniformBlockNames.end() &&
+            nameIt->second.find("customParams") != std::string::npos;
+        if (!customBlock && it != uniformBlockSizes.end() && it->second > 0)
+            reflectedSize = it->second;
+
+        if (reflectedSize != count){
+            // GLSL std140 reflection includes trailing alignment that is not
+            // necessarily present in the C++ struct. Sokol validates the
+            // complete reflected block size, so provide deterministic zeroed
+            // padding while preserving the caller's authored bytes.
+            uniformBlockScratch.assign(reflectedSize, 0);
+            if (data && count > 0)
+                std::memcpy(uniformBlockScratch.data(), data,
+                            std::min((size_t)count, uniformBlockScratch.size()));
+            sg_apply_uniforms(slot, {uniformBlockScratch.data(), reflectedSize});
+        }else{
+            sg_apply_uniforms(slot, {data, count});
+        }
     }
 }
 
@@ -547,19 +898,33 @@ void SokolObject::draw(unsigned int baseElement, unsigned int vertexCount, unsig
     sg_draw(baseElement, vertexCount, instanceCount);
 }
 
+void SokolObject::retainAll() const {
+    refPipeline(pip);
+    refPipeline(depth_pip);
+    refPipeline(shadow_depth_pip);
+    refPipeline(rtt_pip);
+    refPipeline(rtt_invert_pip);
+    refPipeline(gbuffer_pip);
+    refPipeline(nodepth_pip);
+    refPipeline(rtt_nodepth_pip);
+    refPipeline(rtt_noblend_pip);
+    refPipeline(zprepass_pip);
+    refPipeline(zprepass_rtt_pip);
+}
+
 void SokolObject::destroy(){
     if (sg_isvalid()){
-        destroyPipeline(pip);
-        destroyPipeline(depth_pip);
-        destroyPipeline(shadow_depth_pip);
-        destroyPipeline(rtt_pip);
-        destroyPipeline(rtt_invert_pip);
-        destroyPipeline(gbuffer_pip);
-        destroyPipeline(nodepth_pip);
-        destroyPipeline(rtt_nodepth_pip);
-        destroyPipeline(rtt_noblend_pip);
-        destroyPipeline(zprepass_pip);
-        destroyPipeline(zprepass_rtt_pip);
+        releasePipeline(pip);
+        releasePipeline(depth_pip);
+        releasePipeline(shadow_depth_pip);
+        releasePipeline(rtt_pip);
+        releasePipeline(rtt_invert_pip);
+        releasePipeline(gbuffer_pip);
+        releasePipeline(nodepth_pip);
+        releasePipeline(rtt_nodepth_pip);
+        releasePipeline(rtt_noblend_pip);
+        releasePipeline(zprepass_pip);
+        releasePipeline(zprepass_rtt_pip);
     }
 
     pip.id = SG_INVALID_ID;
@@ -576,4 +941,32 @@ void SokolObject::destroy(){
     bind = {};
     pipeline_desc = {};
     bindSlotIndex = 0;
+}
+
+// The graphics context is going away, so the handles left in the cache are simply forgotten:
+// a new sg_setup() reuses the ids, and a stale entry would hand one of them out as a pipeline.
+void SokolObject::clearPipelineCache(){
+    std::lock_guard<std::mutex> lock(sharedMutex);
+    sharedById.clear();
+    sharedByHash.clear();
+    retargetedByFormat.clear();
+}
+
+void SokolObject::beginPass(const sg_pass& pass){
+    sg_pixel_format format = SG_PIXELFORMAT_NONE;
+    if (pass.attachments.colors[0].id != SG_INVALID_ID){
+        sg_view_desc view = sg_query_view_desc(pass.attachments.colors[0]);
+        if (view.color_attachment.image.id != SG_INVALID_ID)
+            format = sg_query_image_desc(view.color_attachment.image).pixel_format;
+    }else if (!pass.compute && !pass.swapchain.invalid){
+        // a swapchain pass: sokol fills an unset color_format from the sg_setup() defaults
+        format = pass.swapchain.color_format;
+        if (format == _SG_PIXELFORMAT_DEFAULT)
+            format = sg_query_desc().environment.defaults.color_format;
+    }
+
+    // NONE (depth-only, compute) and anything unresolved leave the baked pipelines alone
+    passColorFormat = format > SG_PIXELFORMAT_NONE ? format : SG_PIXELFORMAT_NONE;
+
+    sg_begin_pass(pass);
 }

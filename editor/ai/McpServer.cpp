@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "McpServer.h"
@@ -23,7 +23,7 @@
 #include <iterator>
 #include <random>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 namespace {
 
@@ -116,7 +116,7 @@ bool authorize(const httplib::Request& req, httplib::Response& res) {
     if (token.empty() || !constantTimeEquals(httplib::get_bearer_token_auth(req), token)) {
         res.set_header("WWW-Authenticate", "Bearer");
         reply(res, 401, errorResponse(nullptr, kInvalidRequest,
-            "Missing or wrong token. Copy the connection command from Editor Settings > AI > MCP Server in the Doriax editor."));
+            "Missing or wrong token. Copy the connection command from Editor Settings > AI > MCP Server in the Quantum editor."));
         return false;
     }
     return true;
@@ -154,7 +154,7 @@ void checkModernHeaders(const httplib::Request& req, const std::string& method, 
 
 const std::string& instructions() {
     static const std::string text =
-        "You are connected to the Doriax game editor the user has open. These tools work on the open project "
+        "You are connected to the Quantum game editor the user has open. These tools work on the open project "
         "through the editor, so changes show up there right away and scene edits go through its undo history.\n"
         "The editor keeps open scenes and project.yaml in memory and writes them back when it saves, so change "
         "scenes, entities, components and project settings only through these tools, never by editing those files on disk.\n"
@@ -165,7 +165,7 @@ const std::string& instructions() {
 }
 
 Json serverInfo() {
-    return {{"name", "doriax-editor"}, {"title", "Doriax Editor"}, {"version", DORIAX_EDITOR_VERSION}};
+    return {{"name", "quantum-editor"}, {"title", "Quantum Editor"}, {"version", QUANTUM_EDITOR_VERSION}};
 }
 
 Json initializeResult(const Json& params) {
@@ -202,7 +202,7 @@ Json toolList(bool allowChanges) {
 }
 
 ActionResult changesTurnedOff() {
-    return {false, "Changes are turned off for MCP in the Doriax editor (Editor Settings > AI > MCP Server), "
+    return {false, "Changes are turned off for MCP in the Quantum editor (Editor Settings > AI > MCP Server), "
                    "so only read-only tools can run."};
 }
 
@@ -525,4 +525,4 @@ void McpServer::cancelCall(const Json& requestId) {
     }
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

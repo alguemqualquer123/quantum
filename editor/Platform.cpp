@@ -1,12 +1,13 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Platform.h"
 #include "Out.h"
 #include "Backend.h"
 #include "EditorHost.h"
+#include "util/GraphicUtils.h"
 
-using namespace doriax;
+using namespace quantum;
 
 int editor::Platform::width = 0;
 int editor::Platform::height = 0;
@@ -73,6 +74,13 @@ sg_swapchain editor::Platform::getSokolSwapchain(){
 
 bool editor::Platform::isTouchDevice(){
     return project->isSimulateTouch();
+}
+
+// The engine's only implementation lives on SystemWin, and the editor's System is this class, so
+// without the override FrameCapture gets the base "no framebuffer read path" and a --screenshot run
+// silently produces nothing.
+bool editor::Platform::readBackFramebuffer(unsigned char* out, int width, int height){
+    return editor::GraphicUtils::readBackFrame(out, width, height);
 }
 
 void editor::Platform::setMouseMode(MouseMode mode){

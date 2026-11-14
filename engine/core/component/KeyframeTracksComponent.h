@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef KEYFRAMETRACKS_COMPONENT_H
@@ -7,9 +7,9 @@
 #include "Engine.h"
 #include "action/Ease.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API KeyframeTracksComponent{
+    struct QUANTUM_API KeyframeTracksComponent{
         std::vector<float> times;
         // Per-segment easing: easings[i] shapes the interpolation from key i to
         // key i+1. Empty or shorter than the segment count means linear there.

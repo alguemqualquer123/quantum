@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "KeyframeTracks.h"
 
 #include "component/KeyframeTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 KeyframeTracks::KeyframeTracks(Scene* scene): Action(scene){
     addComponent<KeyframeTracksComponent>();

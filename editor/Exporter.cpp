@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Exporter.h"
@@ -8,13 +8,16 @@
 #include "Out.h"
 #include "Stream.h"
 #include "cli/ResourceCompilerCli.h"
+#include "graph/GraphCompiler.h"
+#include "graph/GraphSchema.h"
+#include "graph/GraphSerializerYaml.h"
 #include "util/Base64.h"
 #include "util/FbxImporter.h"
 #include "util/FileUtils.h"
 #include "util/MsBuildProgress.h"
 #include "util/ShaderHeaderBuilder.h"
 #include "pool/ShaderPool.h"
-#include "resources/icons/doriax-favicon_png.h"
+#include "resources/icons/quantum-favicon_png.h"
 
 #include "stb_image.h"
 #include "stb_image_resize2.h"
@@ -28,10 +31,11 @@
 #include <cstring>
 #include <fstream>
 #include <future>
+#include <iterator>
 #include <map>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     constexpr float BUILD_PROGRESS_START = 0.6f;
@@ -823,7 +827,7 @@ fs::path editor::Exporter::getAssetsSourceDir() const {
 
 std::string editor::Exporter::getAppName() const {
     if (project->getName().empty()) {
-        return "doriax-project";
+        return "quantum-project";
     }
     return Factory::toIdentifier(project->getName());
 }
@@ -991,7 +995,7 @@ bool editor::Exporter::configureBuild() {
     kitId += "\n" + config.targetDir.lexically_normal().generic_string();
 
     std::error_code ec;
-    const fs::path kitMarker = buildDir / ".doriax_export_kit";
+    const fs::path kitMarker = buildDir / ".quantum_export_kit";
     if (fs::exists(buildDir, ec)) {
         std::string prevKit;
         {
@@ -1170,7 +1174,7 @@ bool editor::Exporter::collectDesktopArtifacts() {
         } else if (fs::exists(buildDir / (getAppName() + ".app"), ec)
                    || fs::exists(buildDir / config.buildType / (getAppName() + ".app"), ec)) {
             // A stale Xcode-configured cache can slip past the generator guard.
-            setError("The build produced an app bundle, which Desktop export does not support. Delete the project's .doriax/export/desktop folder and export again with the default toolchain.");
+            setError("The build produced an app bundle, which Desktop export does not support. Delete the project's .quantum/export/desktop folder and export again with the default toolchain.");
             return false;
         } else {
             setError("Built executable not found at: " + exePath.string() + " or " + configExePath.string());
@@ -1533,8 +1537,8 @@ bool editor::Exporter::copyGenerated() {
         // Remove the entry point (the exported build compiles the engine's own
         // platform main.cpp, which already defines main()). Generator brackets
         // it with markers because the block is preprocessor-conditional.
-        const std::string entryBegin = "// DORIAX_ENTRY_POINT_BEGIN\n";
-        const std::string entryEnd = "// DORIAX_ENTRY_POINT_END\n";
+        const std::string entryBegin = "// QUANTUM_ENTRY_POINT_BEGIN\n";
+        const std::string entryEnd = "// QUANTUM_ENTRY_POINT_END\n";
         size_t pos = content.find(entryBegin);
         if (pos != std::string::npos) {
             size_t endPos = content.find(entryEnd, pos);
@@ -1580,7 +1584,7 @@ bool editor::Exporter::copyGenerated() {
         }
 
         std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-        const std::string editorOnlyComment = "// Doriax API headers for this project are provided by .doriax/engine-api; see generated CMakeLists.txt for local and upstream source references.\n";
+        const std::string editorOnlyComment = "// Quantum API headers for this project are provided by .quantum/engine-api; see generated CMakeLists.txt for local and upstream source references.\n";
         const std::string exportComment = "// This file binds scene script metadata to compiled C++ and Lua scripts for the current build configuration.\n";
         size_t commentPos = content.find(editorOnlyComment);
         if (commentPos != std::string::npos) {
@@ -1684,6 +1688,51 @@ bool editor::Exporter::copyAssets() {
         fs::path destPath = assetsDst / relPath;
         fs::create_directories(destPath.parent_path(), ec);
         fs::copy_file(entry.path(), destPath, fs::copy_options::overwrite_existing, ec);
+        if (ec) {
+            setError("Failed to copy asset " + relPath.generic_string() + ": " + ec.message());
+            return false;
+        }
+
+        // The authoring YAML is useful for source exports, but the runtime only
+        // understands the deterministic DGR1 blob. Compile it as part of export
+        // so a project remains runnable even when the editor has not previously
+        // pressed Graph > Compile for this source file.
+        std::string extension = entry.path().extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        if (extension == ".graph") {
+            graph::GraphAsset graphAsset;
+            std::string graphError;
+            if (!GraphSerializerYaml::loadFile(entry.path().string(), graphAsset, graphError)) {
+                setError("Failed to read graph source " + relPath.generic_string() + ": " + graphError);
+                return false;
+            }
+
+            std::vector<graph::GraphDiagnostic> diagnostics;
+            graph::GraphSchema::validate(graphAsset, diagnostics);
+            if (graph::GraphSchema::hasErrors(diagnostics)) {
+                setError("Graph source " + relPath.generic_string() + " is invalid: "
+                    + graph::GraphSchema::format(diagnostics));
+                return false;
+            }
+
+            std::ifstream sourceFile(entry.path(), std::ios::binary);
+            if (!sourceFile) {
+                setError("Failed to read graph source bytes: " + relPath.generic_string());
+                return false;
+            }
+            const std::string source((std::istreambuf_iterator<char>(sourceFile)),
+                                     std::istreambuf_iterator<char>());
+            const uint64_t sourceHash = graph::graphSourceHash(source.data(), source.size());
+            fs::path blobPath = assetsDst / relPath;
+            blobPath.replace_extension(".gdat");
+            if (!graph::GraphCompiler::writeFile(blobPath.string(), graphAsset, sourceHash, graphError)) {
+                setError("Failed to compile graph " + relPath.generic_string() + ": " + graphError);
+                return false;
+            }
+            Out::info("Compiled graph asset %s -> %s", relPath.generic_string().c_str(),
+                      fs::relative(blobPath, assetsDst).generic_string().c_str());
+        }
     }
 
     return true;
@@ -2023,7 +2072,7 @@ bool editor::Exporter::copyEngine() {
     }
 
     if (sdkRoot.empty()) {
-        setError("Doriax SDK root not found near executable");
+        setError("Quantum SDK root not found near executable");
         return false;
     }
 
@@ -2051,14 +2100,14 @@ bool editor::Exporter::copyEngine() {
     if (!copyDir("renders", true)) return false;
     if (!copyDir("workspaces", true)) return false;
     if (config.mode == ExportMode::SourceCode) {
-        fs::copy_file(sdkRoot / "doriax.py", config.targetDir / "doriax.py", fs::copy_options::overwrite_existing, ec);
+        fs::copy_file(sdkRoot / "quantum.py", config.targetDir / "quantum.py", fs::copy_options::overwrite_existing, ec);
         if (ec) {
-            setError("Failed to copy doriax.py: " + ec.message());
+            setError("Failed to copy quantum.py: " + ec.message());
             return false;
         }
 #ifndef _WIN32
         // The editor's release zips lose file modes
-        for (const fs::path& script : {config.targetDir / "doriax.py", config.targetDir / "workspaces" / "androidstudio" / "gradlew"}) {
+        for (const fs::path& script : {config.targetDir / "quantum.py", config.targetDir / "workspaces" / "androidstudio" / "gradlew"}) {
             fs::permissions(script, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add, ec);
             if (ec) Out::warning("Could not make %s executable: %s", script.string().c_str(), ec.message().c_str());
         }
@@ -2116,7 +2165,7 @@ bool editor::Exporter::copyEngine() {
     cmakeIfs.close();
     normalizeNewlines(cmakeContent);
 
-    const std::string defaultAppName = "set(APP_NAME doriax-project)";
+    const std::string defaultAppName = "set(APP_NAME quantum-project)";
     const std::string patchedAppName = "set(APP_NAME " + appName + ")";
     const size_t appNamePos = cmakeContent.find(defaultAppName);
     if (appNamePos == std::string::npos) {
@@ -2126,7 +2175,7 @@ bool editor::Exporter::copyEngine() {
     cmakeContent.replace(appNamePos, defaultAppName.size(), patchedAppName);
 
     // Generate the embedded window/executable icon before the settings marker
-    // so DORIAX_WINDOW_ICON is only switched on when the files exist. A bad
+    // so QUANTUM_WINDOW_ICON is only switched on when the files exist. A bad
     // icon degrades to an iconless export (warned), never a failed one.
     bool iconGenerated = false;
     if (!project->getWindowIcon().empty()) {
@@ -2142,7 +2191,7 @@ bool editor::Exporter::copyEngine() {
         return false;
     }
 
-    const std::string projectSettingsMarker = "# @DORIAX_PROJECT_SETTINGS@";
+    const std::string projectSettingsMarker = "# @QUANTUM_PROJECT_SETTINGS@";
     const size_t projectSettingsPos = cmakeContent.find(projectSettingsMarker);
     if (projectSettingsPos != std::string::npos) {
         const WindowSettings window = project->getWindowSettings();
@@ -2153,27 +2202,27 @@ bool editor::Exporter::copyEngine() {
         // First line reuses the marker's existing indentation; subsequent lines
         // match the surrounding standalone setup block (4 spaces).
         const std::string indent = "\n    ";
-        std::string projectSettings = std::string("set(DORIAX_VSYNC_ENABLED ")
+        std::string projectSettings = std::string("set(QUANTUM_VSYNC_ENABLED ")
             + (project->isVSyncEnabled() ? "ON" : "OFF") + ")";
-        projectSettings += indent + "set(DORIAX_WINDOW_WIDTH " + std::to_string(window.width) + ")";
-        projectSettings += indent + "set(DORIAX_WINDOW_HEIGHT " + std::to_string(window.height) + ")";
-        projectSettings += indent + "set(DORIAX_WINDOW_MODE " + std::to_string(static_cast<int>(window.mode)) + ")";
-        projectSettings += indent + std::string("set(DORIAX_WINDOW_RESIZABLE ") + (window.resizable ? "ON" : "OFF") + ")";
-        projectSettings += indent + "set(DORIAX_WINDOW_TITLE \"" + cmakeTitle + "\")";
+        projectSettings += indent + "set(QUANTUM_WINDOW_WIDTH " + std::to_string(window.width) + ")";
+        projectSettings += indent + "set(QUANTUM_WINDOW_HEIGHT " + std::to_string(window.height) + ")";
+        projectSettings += indent + "set(QUANTUM_WINDOW_MODE " + std::to_string(static_cast<int>(window.mode)) + ")";
+        projectSettings += indent + std::string("set(QUANTUM_WINDOW_RESIZABLE ") + (window.resizable ? "ON" : "OFF") + ")";
+        projectSettings += indent + "set(QUANTUM_WINDOW_TITLE \"" + cmakeTitle + "\")";
         // Web saves use the identifier, unless it is the default every project shares
         const std::string identifier = project->getApplicationIdentifier();
         const std::string storageId = (identifier != ApplicationSettings{}.identifier) ? identifier : project->getName();
-        projectSettings += indent + "set(DORIAX_STORAGE_ID \"" + toStorageId(storageId) + "\")";
+        projectSettings += indent + "set(QUANTUM_STORAGE_ID \"" + toStorageId(storageId) + "\")";
         if (iconGenerated) {
-            projectSettings += indent + "set(DORIAX_WINDOW_ICON ON)";
+            projectSettings += indent + "set(QUANTUM_WINDOW_ICON ON)";
         }
-        projectSettings += indent + "set(DORIAX_CXX_STANDARD " + std::to_string(project->getCxxStandard()) + ")";
-        projectSettings += indent + std::string("set(DORIAX_PHYSICS_2D ") + (project->isPhysics2DEnabled() ? "ON" : "OFF") + ")";
-        projectSettings += indent + std::string("set(DORIAX_PHYSICS_3D ") + (project->isPhysics3DEnabled() ? "ON" : "OFF") + ")";
-        projectSettings += indent + std::string("set(DORIAX_ADMOB ") + (project->getIOSProjectSettings().admobEnabled ? "ON" : "OFF") + ")";
-        projectSettings += indent + std::string("set(DORIAX_STOREKIT ") + (project->getIOSProjectSettings().storeKitEnabled ? "ON" : "OFF") + ")";
-        projectSettings += indent + "set(DORIAX_WEB_PORTAL " + Stream::webPortalTypeToString(project->getWebProjectSettings().portal) + ")";
-        projectSettings += indent + "set(DORIAX_WEB_PORTAL_GAME_ID \"" + escapeCMakeCString(project->getWebProjectSettings().portalGameId) + "\")";
+        projectSettings += indent + "set(QUANTUM_CXX_STANDARD " + std::to_string(project->getCxxStandard()) + ")";
+        projectSettings += indent + std::string("set(QUANTUM_PHYSICS_2D ") + (project->isPhysics2DEnabled() ? "ON" : "OFF") + ")";
+        projectSettings += indent + std::string("set(QUANTUM_PHYSICS_3D ") + (project->isPhysics3DEnabled() ? "ON" : "OFF") + ")";
+        projectSettings += indent + std::string("set(QUANTUM_ADMOB ") + (project->getIOSProjectSettings().admobEnabled ? "ON" : "OFF") + ")";
+        projectSettings += indent + std::string("set(QUANTUM_STOREKIT ") + (project->getIOSProjectSettings().storeKitEnabled ? "ON" : "OFF") + ")";
+        projectSettings += indent + "set(QUANTUM_WEB_PORTAL " + Stream::webPortalTypeToString(project->getWebProjectSettings().portal) + ")";
+        projectSettings += indent + "set(QUANTUM_WEB_PORTAL_GAME_ID \"" + escapeCMakeCString(project->getWebProjectSettings().portalGameId) + "\")";
         cmakeContent.replace(projectSettingsPos, projectSettingsMarker.size(), projectSettings);
     } else {
         Out::warning("Exported CMakeLists.txt is missing the project settings marker; using platform defaults");
@@ -2181,7 +2230,7 @@ bool editor::Exporter::copyEngine() {
 
     // Script roots reach the export as include directories; their sources come in
     // through the recursive glob once copyCppScripts() has copied them.
-    const std::string scriptDirsMarker = "# @DORIAX_SCRIPT_DIRS@";
+    const std::string scriptDirsMarker = "# @QUANTUM_SCRIPT_DIRS@";
     const size_t scriptDirsPos = cmakeContent.find(scriptDirsMarker);
     if (scriptDirsPos != std::string::npos) {
         cmakeContent.replace(scriptDirsPos, scriptDirsMarker.size(), buildScriptDirIncludes());
@@ -2191,7 +2240,7 @@ bool editor::Exporter::copyEngine() {
     // fixed-capacity arrays to the larger of what the project actually uses and the
     // engine defaults in core/Engine.h (big models grow past the defaults). Missing
     // marker is non-fatal: the build simply falls back to those defaults.
-    const std::string maxValuesMarker = "# @DORIAX_SCENE_MAX_VALUES@";
+    const std::string maxValuesMarker = "# @QUANTUM_SCENE_MAX_VALUES@";
     const size_t maxValuesPos = cmakeContent.find(maxValuesMarker);
     if (maxValuesPos != std::string::npos) {
         cmakeContent.replace(maxValuesPos, maxValuesMarker.size(), buildSceneMaxValuesDefinitions());
@@ -2227,8 +2276,8 @@ bool editor::Exporter::writeExportSettingsScript(std::string& cmakeContent) {
     };
     if (config.mode != ExportMode::Desktop) {
         if (web.favicon.empty()) {
-            // The Doriax icon, or browsers get a 404 for /favicon.ico
-            const std::string favicon(reinterpret_cast<const char*>(doriax_favicon_png), doriax_favicon_png_len);
+            // The Quantum icon, or browsers get a 404 for /favicon.ico
+            const std::string favicon(reinterpret_cast<const char*>(quantum_favicon_png), quantum_favicon_png_len);
             if (!FileUtils::writeIfChanged(settingsDir / "favicon.png", favicon)) {
                 setError("Cannot prepare export setting file: favicon.png");
                 return false;
@@ -2262,11 +2311,11 @@ if(WEB)
     file(READ "${APP_FILE}" html)
     if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/shell.html")
         file(READ "${CMAKE_CURRENT_LIST_DIR}/shell.html" shell)
-        string(FIND "${shell}" "{{DORIAX_DEFAULT_HTML}}" marker)
+        string(FIND "${shell}" "{{QUANTUM_DEFAULT_HTML}}" marker)
         if(marker EQUAL -1)
-            message(FATAL_ERROR "Custom web HTML shell must contain {{DORIAX_DEFAULT_HTML}}")
+            message(FATAL_ERROR "Custom web HTML shell must contain {{QUANTUM_DEFAULT_HTML}}")
         endif()
-        string(REPLACE "{{DORIAX_DEFAULT_HTML}}" "${html}" html "${shell}")
+        string(REPLACE "{{QUANTUM_DEFAULT_HTML}}" "${html}" html "${shell}")
     endif()
     string(FIND "${html}" "<title>" first)
     string(FIND "${html}" "</title>" last)
@@ -2290,12 +2339,12 @@ if(WEB)
         # Keep nodes alive: the SDK's status/print callbacks reference them.
         string(APPEND extra "<style>#emscripten_logo, .emscripten_logo, #status, #progress, #spinner, .spinner, #controls, #output, body > a[href='http://emscripten.org'], body > a[href='https://emscripten.org'] { display: none !important; } .emscripten_border { border: 0 !important; } body > hr { display: none; }</style>\n")
     endif()
-    string(REPLACE "{{DORIAX_TITLE}}" "${title}" html "${html}")
-    string(FIND "${html}" "{{DORIAX_HEAD_INCLUDE}}" marker)
+    string(REPLACE "{{QUANTUM_TITLE}}" "${title}" html "${html}")
+    string(FIND "${html}" "{{QUANTUM_HEAD_INCLUDE}}" marker)
     if(marker EQUAL -1)
         string(REPLACE "</head>" "${extra}</head>" html "${html}")
     else()
-        string(REPLACE "{{DORIAX_HEAD_INCLUDE}}" "${extra}" html "${html}")
+        string(REPLACE "{{QUANTUM_HEAD_INCLUDE}}" "${extra}" html "${html}")
     endif()
     file(WRITE "${output}/${app}.export.html" "${html}")
     # Opened when the folder is served, unless the app itself is named index
@@ -2321,7 +2370,7 @@ endif()
     FileUtils::writeIfChanged(settingsDir / "apply.cmake", script);
     cmakeContent += R"cmake(
 if(TARGET ${APP_NAME} AND (EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
-    add_custom_target(doriax-export-settings ALL
+    add_custom_target(quantum-export-settings ALL
         COMMAND "${CMAKE_COMMAND}" "-DAPP_FILE=$<TARGET_FILE:${APP_NAME}>" "-DWEB=${EMSCRIPTEN}"
             -P "${PROJECT_ROOT}/export-settings/apply.cmake"
         DEPENDS ${APP_NAME}
@@ -2329,13 +2378,13 @@ if(TARGET ${APP_NAME} AND (EMSCRIPTEN OR CMAKE_SYSTEM_NAME STREQUAL "Linux"))
 endif()
 )cmake";
     // CMake and the hand-maintained Xcode project must use the same IDs.
-    replaceAll(cmakeContent, "set(APP_BUNDLE_IDENTIFIER \"org.doriax.doriaxengine\")",
+    replaceAll(cmakeContent, "set(APP_BUNDLE_IDENTIFIER \"org.quantum.quantumengine\")",
         "if(CMAKE_SYSTEM_NAME STREQUAL \"iOS\")\nset(APP_BUNDLE_IDENTIFIER "
         + literal(project->getApplicationIdentifier(project->getIOSProjectSettings().bundleIdentifier))
         + ")\nelse()\nset(APP_BUNDLE_IDENTIFIER "
         + literal(project->getApplicationIdentifier(project->getMacOSProjectSettings().bundleIdentifier)) + ")\nendif()");
-    replaceAll(cmakeContent, "MACOSX_BUNDLE_INFO_PLIST \"${DORIAX_ROOT}/workspaces/xcode/macos/Info.plist\"",
-        "MACOSX_BUNDLE_INFO_PLIST \"${DORIAX_ROOT}/workspaces/xcode/macos/Info.plist\"\n"
+    replaceAll(cmakeContent, "MACOSX_BUNDLE_INFO_PLIST \"${QUANTUM_ROOT}/workspaces/xcode/macos/Info.plist\"",
+        "MACOSX_BUNDLE_INFO_PLIST \"${QUANTUM_ROOT}/workspaces/xcode/macos/Info.plist\"\n"
         "                XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${APP_BUNDLE_IDENTIFIER}");
     return true;
 }
@@ -2460,14 +2509,14 @@ bool editor::Exporter::writeAndroidProjectSettings() {
     const fs::path stylesPath = androidAppDir / "src" / "main" / "res" / "values" / "styles.xml";
     const fs::path drawableDir = androidAppDir / "src" / "main" / "res" / "drawable";
     const fs::path adaptiveIconDir = androidAppDir / "src" / "main" / "res" / "mipmap-anydpi-v26";
-    const fs::path mainActivityPath = config.targetDir / "platform" / "android" / "java" / "org" / "doriaxengine" / "doriax" / "MainActivity.java";
+    const fs::path mainActivityPath = config.targetDir / "platform" / "android" / "java" / "org" / "srvinix" / "quantum" / "MainActivity.java";
 
     const std::string appName = project->getApplicationName(android.applicationName);
 
     std::string gradle;
     if (!readText(buildGradlePath, gradle)) return false;
     for (const char* marker : {"compileSdk 36", "applicationId \"com.yourcompany.project\"",
-            "minSdkVersion 24", "targetSdkVersion 36", "versionCode 1", "versionName \"1.0\"",
+            "minSdkVersion 24", "targetSdkVersion 36",
             "                abiFilters \"arm64-v8a\"\n"
             "                abiFilters \"x86\"\n"
             "                abiFilters \"armeabi-v7a\"\n"
@@ -2476,6 +2525,24 @@ bool editor::Exporter::writeAndroidProjectSettings() {
             setError("Incompatible Android Gradle export template: missing " + std::string(marker));
             return false;
         }
+    }
+
+    const std::string legacyVersionCode = "versionCode 1";
+    const std::string propertyVersionCode =
+        "versionCode (project.findProperty(\"QUANTUM_VERSION_CODE\") ?: \"1\") as int";
+    if (gradle.find(legacyVersionCode) == std::string::npos
+            && gradle.find(propertyVersionCode) == std::string::npos) {
+        setError("Incompatible Android Gradle export template: missing versionCode assignment");
+        return false;
+    }
+
+    const std::string legacyVersionName = "versionName \"1.0\"";
+    const std::string propertyVersionName =
+        "versionName (project.findProperty(\"QUANTUM_VERSION\") ?: \"0.0.0\")";
+    if (gradle.find(legacyVersionName) == std::string::npos
+            && gradle.find(propertyVersionName) == std::string::npos) {
+        setError("Incompatible Android Gradle export template: missing versionName assignment");
+        return false;
     }
 
     // The optional services set their own floor
@@ -2497,9 +2564,14 @@ bool editor::Exporter::writeAndroidProjectSettings() {
         "applicationId \"" + escapeGradleString(project->getApplicationIdentifier(android.packageName)) + "\"");
     replaceAll(gradle, "minSdkVersion 24", "minSdkVersion " + std::to_string(minSdk));
     replaceAll(gradle, "targetSdkVersion 36", "targetSdkVersion " + std::to_string(targetSdk));
-    replaceAll(gradle, "versionCode 1", "versionCode " + std::to_string(project->getApplicationVersionCode(android.versionCode)));
-    replaceAll(gradle, "versionName \"1.0\"",
-        "versionName \"" + escapeGradleString(project->getApplicationVersion(android.versionName)) + "\"");
+    const std::string versionCode = "versionCode "
+        + std::to_string(project->getApplicationVersionCode(android.versionCode));
+    replaceAll(gradle, legacyVersionCode, versionCode);
+    replaceAll(gradle, propertyVersionCode, versionCode);
+    const std::string versionName = "versionName \""
+        + escapeGradleString(project->getApplicationVersion(android.versionName)) + "\"";
+    replaceAll(gradle, legacyVersionName, versionName);
+    replaceAll(gradle, propertyVersionName, versionName);
 
     std::vector<std::string> abis;
     if (android.abiArm64V8a) abis.push_back("\"arm64-v8a\"");
@@ -2619,7 +2691,7 @@ bool editor::Exporter::writeAndroidProjectSettings() {
         manifest += "            android:screenOrientation=\"" + orientation + "\"\n";
     }
     manifest += "            android:exported=\"true\">\n";
-    manifest += "            <meta-data android:name=\"android.app.lib_name\" android:value=\"doriax-android\" />\n";
+    manifest += "            <meta-data android:name=\"android.app.lib_name\" android:value=\"quantum-android\" />\n";
     manifest += "            <intent-filter>\n";
     manifest += "                <action android:name=\"android.intent.action.MAIN\" />\n";
     manifest += "                <category android:name=\"android.intent.category.LAUNCHER\" />\n";
@@ -2749,7 +2821,7 @@ bool editor::Exporter::writeAppleProjectSettings() {
 
     const IOSProjectSettings& ios = project->getIOSProjectSettings();
     // Keep signing/build settings consistent with the generated Info.plist.
-    const fs::path projectFile = xcodeDir / "Doriax.xcodeproj" / "project.pbxproj";
+    const fs::path projectFile = xcodeDir / "Quantum.xcodeproj" / "project.pbxproj";
     std::string xcodeProject;
     if (!readText(projectFile, xcodeProject)) return false;
 
@@ -2866,14 +2938,14 @@ bool editor::Exporter::writeAppleProjectSettings() {
 
     std::vector<std::string> excludedPhysicsSources;
     if (!project->isPhysics2DEnabled()) {
-        removeProjectLinesContaining("DORIAX_PHYSICS_2D,");
+        removeProjectLinesContaining("QUANTUM_PHYSICS_2D,");
         excludedPhysicsSources.insert(excludedPhysicsSources.end(), {
             "Body2D.cpp", "Contact2D.cpp", "Joint2D.cpp", "Manifold2D.cpp"
         });
         if (!unlinkBackend("box2d")) return false;
     }
     if (!project->isPhysics3DEnabled()) {
-        removeProjectLinesContaining("DORIAX_PHYSICS_3D,");
+        removeProjectLinesContaining("QUANTUM_PHYSICS_3D,");
         excludedPhysicsSources.insert(excludedPhysicsSources.end(), {
             "Body3D.cpp", "CollideShapeResult3D.cpp", "Contact3D.cpp", "Joint3D.cpp"
         });
@@ -2893,7 +2965,7 @@ bool editor::Exporter::writeAppleProjectSettings() {
 
     // Without AdMob the iOS app neither links Google Mobile Ads nor compiles its adapter
     if (!ios.admobEnabled) {
-        removeProjectLinesContaining("DORIAX_ADMOB,");
+        removeProjectLinesContaining("QUANTUM_ADMOB,");
         for (const char* buildFile : {"GoogleMobileAds.xcframework in Frameworks",
                 "UserMessagingPlatform.xcframework in Frameworks", "GoogleMobileAdsPlaceholder.swift in Sources"}) {
             if (!removeBuildFile(buildFile)) return false;
@@ -2901,7 +2973,7 @@ bool editor::Exporter::writeAppleProjectSettings() {
     }
     // Without App Store purchases it compiles no StoreKit adapter, nor its bridging header
     if (!ios.storeKitEnabled) {
-        removeProjectLinesContaining("DORIAX_STOREKIT,");
+        removeProjectLinesContaining("QUANTUM_STOREKIT,");
         removeProjectLinesContaining("SWIFT_OBJC_BRIDGING_HEADER = ");
         if (!removeBuildFile("StoreKitAdapter.swift in Sources")) return false;
     }
@@ -3077,7 +3149,7 @@ bool editor::Exporter::addXcodeProjectSources(std::string& xcodeProject) {
         std::vector<std::string> configurationIds;
         std::vector<std::string> sources;
     };
-    std::vector<AppTarget> targets = {{"Doriax iOS"}, {"Doriax macOS"}};
+    std::vector<AppTarget> targets = {{"Quantum iOS"}, {"Quantum macOS"}};
     for (AppTarget& target : targets) {
         if (!findXcodeTarget(xcodeProject, target.name, target.sourcesPhaseId, target.configurationIds)) {
             setError("Apple export template has no \"" + target.name + "\" target");
@@ -3213,7 +3285,9 @@ bool editor::Exporter::writeXcodeBuildSettings(std::string& xcodeProject) {
     // Like CMake, the engine library and the apps use the project's C++ standard
     const std::string standardKey = "\t\t\t\tCLANG_CXX_LANGUAGE_STANDARD = ";
     const std::string standard = "\"c++" + std::to_string(project->getCxxStandard()) + "\"";
-    for (const std::string name : {"doriax-ios", "doriax-macos", "Doriax iOS", "Doriax macOS"}) {
+    // The scheme names come from the checked-in Apple template, so they stay upstream
+    // until that project is renamed.
+    for (const std::string name : {"quantum-ios", "quantum-macos", "Quantum iOS", "Quantum macOS"}) {
         std::string sourcesPhaseId;
         std::vector<std::string> configurationIds;
         if (!findXcodeTarget(xcodeProject, name, sourcesPhaseId, configurationIds)) {
@@ -3360,12 +3434,12 @@ bool editor::Exporter::writeAppIcon() {
     // --- app_icon.h: RGBA images the window backends set at startup ---
     const std::vector<int> runtimeSizes = filterSizes({16, 32, 64, 128});
     std::string header;
-    header += "// Generated by the Doriax editor export from the project icon. Do not edit.\n";
-    header += "#ifndef DORIAX_APP_ICON_H\n#define DORIAX_APP_ICON_H\n\n";
-    header += "typedef struct DoriaxAppIconImage { int width; int height; const unsigned char* pixels; } DoriaxAppIconImage;\n\n";
+    header += "// Generated by the Quantum editor export from the project icon. Do not edit.\n";
+    header += "#ifndef QUANTUM_APP_ICON_H\n#define QUANTUM_APP_ICON_H\n\n";
+    header += "typedef struct QuantumAppIconImage { int width; int height; const unsigned char* pixels; } QuantumAppIconImage;\n\n";
     for (int size : runtimeSizes) {
         std::vector<unsigned char> pixels = makeSize(size);
-        header += "static const unsigned char doriax_app_icon_" + std::to_string(size) + "[] = {";
+        header += "static const unsigned char quantum_app_icon_" + std::to_string(size) + "[] = {";
         char buf[8];
         for (size_t i = 0; i < pixels.size(); i++) {
             if (i % 32 == 0) header += "\n";
@@ -3374,14 +3448,14 @@ bool editor::Exporter::writeAppIcon() {
         }
         header += "\n};\n\n";
     }
-    header += "static const DoriaxAppIconImage DORIAX_APP_ICON_IMAGES[] = {\n";
+    header += "static const QuantumAppIconImage QUANTUM_APP_ICON_IMAGES[] = {\n";
     for (int size : runtimeSizes) {
         std::string s = std::to_string(size);
-        header += "    {" + s + ", " + s + ", doriax_app_icon_" + s + "},\n";
+        header += "    {" + s + ", " + s + ", quantum_app_icon_" + s + "},\n";
     }
     header += "};\n\n";
-    header += "#define DORIAX_APP_ICON_COUNT " + std::to_string(runtimeSizes.size()) + "\n\n";
-    header += "#endif // DORIAX_APP_ICON_H\n";
+    header += "#define QUANTUM_APP_ICON_COUNT " + std::to_string(runtimeSizes.size()) + "\n\n";
+    header += "#endif // QUANTUM_APP_ICON_H\n";
 
     // --- app_icon.ico: PNG-compressed entries, embedded into the Windows exe ---
     const std::vector<int> icoSizes = filterSizes({16, 32, 48, 256});
@@ -3649,7 +3723,7 @@ std::string editor::Exporter::getShaderDisplayName(ShaderType type, uint32_t pro
     return name;
 }
 
-std::string editor::Exporter::getCMakeGraphicBackend(::doriax::ShaderBackend backend) {
+std::string editor::Exporter::getCMakeGraphicBackend(::quantum::ShaderBackend backend) {
     switch (backend) {
         case ShaderBackend::GLES3:      return "gles3";
         case ShaderBackend::D3D11:      return "d3d11";

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/controls/Label.h"
@@ -8,8 +8,8 @@
 #include "ui/render/FontAtlas.h"
 #include "ui/render/PaintList.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 Label::Label() :
     fontSize(18),

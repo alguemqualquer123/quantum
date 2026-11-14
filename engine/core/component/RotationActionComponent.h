@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ROTATIONACTION_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "math/Quaternion.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API RotationActionComponent{
+    struct QUANTUM_API RotationActionComponent{
         Quaternion endRotation;
         Quaternion startRotation;
 

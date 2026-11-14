@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ThreadPoolManager.h"
 
-using namespace doriax;
+using namespace quantum;
 
 std::unique_ptr<ThreadPoolManager> ThreadPoolManager::instance = nullptr;
 std::mutex ThreadPoolManager::instanceMutex;

@@ -1,34 +1,38 @@
 #version 450
 
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 fragColor;
+// One step of the bloom upsample chain: a tent filter over the smaller (already
+// accumulated) level plus the level of its own resolution, which is what keeps the
+// tight core of the glow while the wider levels add the halo. The accumulation is done
+// here instead of with a blend because no offscreen additive pipeline exists.
 
-layout(set = 0, binding = 0) uniform sampler2D u_bloomTexture;
+in vec2 v_texcoord;
+out vec4 frag_color;
 
-layout(set = 1, binding = 0) uniform fs_bloom_upsample_params {
-    vec4 texelSize; // 1.0/textureSize in .xy
-} u_fs_bloom_upsample;
+uniform texture2D u_bloomTexture0;
+uniform sampler u_bloom0_smp;
+uniform texture2D u_bloomTexture1;
+uniform sampler u_bloom1_smp;
 
-// 9-tap tent filter for upsample
+uniform u_fs_bloomUpsampleParams {
+    vec4 texelSize; // xy = 1 / source (smaller) size, z = weight of the same-size level
+} bloomUpsample;
+
 void main(){
-    vec2 texelSize = u_fs_bloom_upsample.texelSize.xy;
-    vec3 color = vec3(0.0);
+    vec2 ts = bloomUpsample.texelSize.xy;
+    vec3 wide = texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord).rgb * 4.0;
 
-    // Center
-    color += texture(u_bloomTexture, uv).rgb * 4.0;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0, 0.0) * ts).rgb * 2.0;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0, 0.0) * ts).rgb * 2.0;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 0.0,-1.0) * ts).rgb * 2.0;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 0.0, 1.0) * ts).rgb * 2.0;
 
-    // Edge midpoints
-    color += texture(u_bloomTexture, uv + vec2(-1.0, 0.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 1.0, 0.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 0.0,-1.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 0.0, 1.0) * texelSize).rgb * 2.0;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0,-1.0) * ts).rgb;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0,-1.0) * ts).rgb;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0, 1.0) * ts).rgb;
+    wide += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0, 1.0) * ts).rgb;
 
-    // Corners
-    color += texture(u_bloomTexture, uv + vec2(-1.0,-1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2( 1.0,-1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2(-1.0, 1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2( 1.0, 1.0) * texelSize).rgb;
+    // 4 + 2*4 + 1*4 = 16
+    vec3 detail = texture(sampler2D(u_bloomTexture1, u_bloom1_smp), v_texcoord).rgb;
 
-    // Normalize: 4 + 2*4 + 1*4 = 16
-    fragColor = vec4(color / 16.0, 1.0);
+    frag_color = vec4(wide / 16.0 + detail * bloomUpsample.texelSize.z, 1.0);
 }

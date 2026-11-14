@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class CommandLine {
     public:
@@ -17,7 +17,13 @@ namespace doriax::editor {
         // Runs the standalone shader generation subcommand.
         static int runShadersCommand(int argc, char** argv, const char* executableName);
 
+        static int runScriptCommand(int argc, char** argv, const char* executableName);
+
         static int runBenchmarkHelp(int argc, char** argv, const char* executableName);
+
+        // Runs the project file type subcommand: it reports, installs or removes the
+        // shell association that opens a project from its marker file.
+        static int runProjectFileCommand(int argc, char** argv, const char* executableName);
 
         // Prints the top level usage, or reports an unrecognized argument.
         static int runHelpCommand(int argc, char** argv, const char* executableName);

@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AnchorGizmo.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::AnchorGizmo::AnchorGizmo(Scene* scene): Object(scene){
     area = Rect(0.0f, 0.0f, 0.0f, 0.0f);

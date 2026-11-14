@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateEntityBundleCmd.h"
 #include "editor/Out.h"
 #include "Stream.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::CreateEntityBundleCmd::CreateEntityBundleCmd(Project* project, uint32_t sceneId, const fs::path& filepath, const YAML::Node& bundleNode){
     this->project = project;

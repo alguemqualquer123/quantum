@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,6 +6,8 @@
 #include "yaml-cpp/yaml.h"
 #include "Scene.h"
 #include "ecs/Entity.h"
+#include "component/AutoColliderComponent.h"
+#include "component/AnimatorControllerComponent.h"
 #include "Project.h"
 #include "action/Ease.h"
 #include "math/Vector3.h"
@@ -16,7 +18,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace doriax::editor {
+namespace quantum::editor {
     class Workspace;
 
     class Stream {
@@ -213,7 +215,7 @@ namespace doriax::editor {
         static std::string textureAlphaBorderToString(TextureAlphaBorder alphaBorder);
         static TextureAlphaBorder stringToTextureAlphaBorder(const std::string& str);
 
-        // Also the DORIAX_WEB_PORTAL values of the engine CMake
+        // Also the QUANTUM_WEB_PORTAL values of the engine CMake
         static std::string webPortalTypeToString(WebPortalType type);
         static WebPortalType stringToWebPortalType(const std::string& str);
 
@@ -222,7 +224,7 @@ namespace doriax::editor {
         // viewport toggles); project.yaml no longer carries it. See Workspace.h.
         static void decodeProject(Project* project, const YAML::Node& node, const Workspace& workspace);
 
-        // Per-user state, written to .doriax/user/workspace.yaml. Kept here so the
+        // Per-user state, written to .quantum/user/workspace.yaml. Kept here so the
         // reader that still accepts them from an old project.yaml and the writer
         // that produces the workspace file share one schema.
         static YAML::Node encodeTerrainEditorSettings(const TerrainEditorSettings& settings);
@@ -260,7 +262,8 @@ namespace doriax::editor {
         static Material decodeMaterial(const YAML::Node& node, const Material* oldMaterial = nullptr);
 
         static YAML::Node encodeComponents(const Entity entity, const EntityRegistry* registry, Signature signature);
-        static void decodeComponents(Entity entity, Entity parent, EntityRegistry* registry, const YAML::Node& compNode);
+        static void decodeComponents(Entity entity, Entity parent, EntityRegistry* registry, const YAML::Node& compNode,
+                                     const Project* project = nullptr);
 
         static YAML::Node encodeTransform(const Transform& transform);
         static Transform decodeTransform(const YAML::Node& node, const Transform* oldTransform = nullptr);
@@ -329,6 +332,9 @@ namespace doriax::editor {
         static YAML::Node encodeReflectionProbeComponent(const ReflectionProbeComponent& probe);
         static ReflectionProbeComponent decodeReflectionProbeComponent(const YAML::Node& node, const ReflectionProbeComponent* oldProbe = nullptr);
 
+        static YAML::Node encodeDecalComponent(const DecalComponent& decal);
+        static DecalComponent decodeDecalComponent(const YAML::Node& node, const DecalComponent* oldDecal = nullptr);
+
         static YAML::Node encodeCameraComponent(const CameraComponent& camera);
         static CameraComponent decodeCameraComponent(const YAML::Node& node, const CameraComponent* oldCamera = nullptr);
 
@@ -336,7 +342,8 @@ namespace doriax::editor {
         static SoundComponent decodeSoundComponent(const YAML::Node& node, const SoundComponent* oldAudio = nullptr);
 
         static YAML::Node encodeScriptComponent(const ScriptComponent& script);
-        static ScriptComponent decodeScriptComponent(const YAML::Node& node, const ScriptComponent* oldScript = nullptr);
+        static ScriptComponent decodeScriptComponent(const YAML::Node& node, const ScriptComponent* oldScript = nullptr,
+                                                     const Project* project = nullptr);
 
         static YAML::Node encodeSkyComponent(const SkyComponent& sky);
         static SkyComponent decodeSkyComponent(const YAML::Node& node, const SkyComponent* oldSky = nullptr);
@@ -346,6 +353,9 @@ namespace doriax::editor {
 
         static YAML::Node encodeWaterExclusionComponent(const WaterExclusionComponent& exclusion);
         static WaterExclusionComponent decodeWaterExclusionComponent(const YAML::Node& node, const WaterExclusionComponent* oldExclusion = nullptr);
+
+        static YAML::Node encodeNetworkComponent(const NetworkComponent& network);
+        static NetworkComponent decodeNetworkComponent(const YAML::Node& node, const NetworkComponent* oldNetwork = nullptr);
 
         static YAML::Node encodeModelComponent(const ModelComponent& model, bool onlyFile = false);
         static ModelComponent decodeModelComponent(const YAML::Node& node, const ModelComponent* oldModel = nullptr);
@@ -365,6 +375,9 @@ namespace doriax::editor {
         static std::string shape3DTypeToString(Shape3DType type);
         static Shape3DType stringToShape3DType(const std::string& str);
 
+        static std::string autoColliderTypeToString(AutoColliderType type);
+        static AutoColliderType stringToAutoColliderType(const std::string& str);
+
         static std::string joint2DTypeToString(Joint2DType type);
         static Joint2DType stringToJoint2DType(const std::string& str);
 
@@ -376,6 +389,9 @@ namespace doriax::editor {
 
         static YAML::Node encodeBody3DComponent(const Body3DComponent& body);
         static Body3DComponent decodeBody3DComponent(const YAML::Node& node, const Body3DComponent* oldBody = nullptr, const Vector3& bodyScale = Vector3::UNIT_SCALE);
+
+        static YAML::Node encodeAutoColliderComponent(const AutoColliderComponent& collider);
+        static AutoColliderComponent decodeAutoColliderComponent(const YAML::Node& node, const AutoColliderComponent* oldCollider = nullptr);
 
         static YAML::Node encodeJoint2DComponent(const Joint2DComponent& joint);
         static Joint2DComponent decodeJoint2DComponent(const YAML::Node& node, const Joint2DComponent* oldJoint = nullptr);
@@ -412,6 +428,9 @@ namespace doriax::editor {
 
         static YAML::Node encodeAnimationComponent(const AnimationComponent& animation);
         static AnimationComponent decodeAnimationComponent(const YAML::Node& node, const AnimationComponent* oldAnimation = nullptr);
+
+        static YAML::Node encodeAnimatorControllerComponent(const AnimatorControllerComponent& controller);
+        static AnimatorControllerComponent decodeAnimatorControllerComponent(const YAML::Node& node, const AnimatorControllerComponent* oldController = nullptr);
 
         static YAML::Node encodeBoneComponent(const BoneComponent& bone);
         static BoneComponent decodeBoneComponent(const YAML::Node& node, const BoneComponent* oldBone = nullptr);

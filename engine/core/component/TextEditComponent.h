@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXTEDIT_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "util/FunctionSubscribe.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API TextEditComponent{
+    struct QUANTUM_API TextEditComponent{
         Entity text = NULL_ENTITY;
         Entity selection = NULL_ENTITY;
         Entity cursor = NULL_ENTITY;

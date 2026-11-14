@@ -1,16 +1,37 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SystemLinux.h"
 
 #include "LinuxInputRouter.h"
 #include "WindowLinux.h"
+#include "Log.h"
 
 #if defined(SOKOL_VULKAN)
 #include "VulkanContext.h"
+#elif defined(SOKOL_GLCORE)
+#include <GL/glx.h>
 #endif
 
-using namespace doriax;
+#include <cstring>
+#include <vector>
+
+using namespace quantum;
+
+#if defined(SOKOL_GLCORE)
+namespace {
+
+using ReadPixelsProc = void (*)(int, int, int, int, unsigned int, unsigned int, void*);
+using PixelStoreiProc = void (*)(unsigned int, int);
+using GetIntegervProc = void (*)(unsigned int, int*);
+
+void* glEntry(const char* name) {
+    return reinterpret_cast<void*>(glXGetProcAddressARB(
+        reinterpret_cast<const GLubyte*>(name)));
+}
+
+}
+#endif
 
 SystemLinux::SystemLinux(LinuxInputRouter* router) : router(router) {
 }
@@ -25,6 +46,47 @@ int SystemLinux::getScreenHeight() {
 
 int SystemLinux::getSampleCount() {
     return 1;
+}
+
+bool SystemLinux::readBackFramebuffer(unsigned char* out, int width, int height) {
+#if defined(SOKOL_GLCORE)
+    if (!out || width <= 0 || height <= 0) return false;
+    const auto readPixels = reinterpret_cast<ReadPixelsProc>(glEntry("glReadPixels"));
+    const auto pixelStorei = reinterpret_cast<PixelStoreiProc>(glEntry("glPixelStorei"));
+    const auto getIntegerv = reinterpret_cast<GetIntegervProc>(glEntry("glGetIntegerv"));
+    if (!readPixels || !pixelStorei || !getIntegerv) {
+        Log::error("readBackFramebuffer: OpenGL readback entry points are unavailable\n");
+        return false;
+    }
+    int previousAlignment = 4;
+    getIntegerv(0x0D05u, &previousAlignment); // GL_PACK_ALIGNMENT
+    pixelStorei(0x0D05u, 1u);
+    readPixels(0, 0, width, height, 0x1908u, 0x1401u, out); // GL_RGBA / GL_UNSIGNED_BYTE
+    pixelStorei(0x0D05u, previousAlignment);
+
+    const size_t rowBytes = static_cast<size_t>(width) * 4u;
+    std::vector<unsigned char> row(rowBytes);
+    for (int y = 0; y < height / 2; ++y) {
+        unsigned char* top = out + static_cast<size_t>(y) * rowBytes;
+        unsigned char* bottom = out + static_cast<size_t>(height - 1 - y) * rowBytes;
+        std::memcpy(row.data(), top, rowBytes);
+        std::memcpy(top, bottom, rowBytes);
+        std::memcpy(bottom, row.data(), rowBytes);
+    }
+    return true;
+#elif defined(SOKOL_VULKAN)
+    if (!VulkanContext::readBackFramebuffer(out, width, height)) {
+        Log::error("readBackFramebuffer: Vulkan swapchain readback failed\n");
+        return false;
+    }
+    return true;
+#else
+    (void)out;
+    (void)width;
+    (void)height;
+    Log::error("readBackFramebuffer: only the OpenGL backend can read the window back\n");
+    return false;
+#endif
 }
 
 #if defined(SOKOL_VULKAN)
@@ -101,8 +163,8 @@ void SystemLinux::setMousePosition(float x, float y) {
 // assets in the project directory instead, so the editor bakes absolute paths
 // in through these macros (see Generator::getPlatformCMakeConfig).
 std::string SystemLinux::getAssetPath() {
-#ifdef DORIAX_ASSET_PATH
-    return DORIAX_ASSET_PATH;
+#ifdef QUANTUM_ASSET_PATH
+    return QUANTUM_ASSET_PATH;
 #else
     return "assets";
 #endif
@@ -113,16 +175,16 @@ std::string SystemLinux::getUserDataPath() {
 }
 
 std::string SystemLinux::getLuaPath() {
-#ifdef DORIAX_LUA_PATH
-    return DORIAX_LUA_PATH;
+#ifdef QUANTUM_LUA_PATH
+    return QUANTUM_LUA_PATH;
 #else
     return "lua";
 #endif
 }
 
 std::string SystemLinux::getShaderPath() {
-#ifdef DORIAX_SHADER_PATH
-    return DORIAX_SHADER_PATH;
+#ifdef QUANTUM_SHADER_PATH
+    return QUANTUM_SHADER_PATH;
 #else
     return System::getShaderPath();
 #endif

@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BODY2D_H
 #define BODY2D_H
 
-#ifndef DORIAX_PHYSICS_2D
+#ifndef QUANTUM_PHYSICS_2D
 #error "Body2D needs 2D Physics, enabled in Project Settings > Build"
 #endif
 
@@ -13,12 +13,12 @@
 #include "component/Body2DComponent.h"
 
 
-namespace doriax{
+namespace quantum{
 
     class Contact2D;
     class Object;
 
-    class DORIAX_API Body2D: public EntityHandle{
+    class QUANTUM_API Body2D: public EntityHandle{
     protected:
         void checkBody(const Body2DComponent& body) const;
 

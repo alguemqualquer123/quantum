@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef engine_h
@@ -12,6 +12,24 @@
 
 #ifndef MAX_LIGHTS
 #define MAX_LIGHTS 6
+#endif
+
+// Forward lighting keeps a compact compatibility limit for projected spot masks, but
+// clustered/tiled shading can address a larger set of ordinary punctual lights.
+#ifndef MAX_FORWARD_LIGHTS
+#define MAX_FORWARD_LIGHTS 64
+#endif
+
+#ifndef CLUSTER_TILE_SIZE
+#define CLUSTER_TILE_SIZE 16
+#endif
+
+#ifndef MAX_CLUSTER_LIGHTS_PER_TILE
+#define MAX_CLUSTER_LIGHTS_PER_TILE 32
+#endif
+
+#ifndef CLUSTER_Z_SLICES
+#define CLUSTER_Z_SLICES 24
 #endif
 
 // 2D lights (Light2DComponent). Also the row count of the 1D polar shadow atlas:
@@ -40,6 +58,20 @@
 
 #ifndef MAX_SHADOW_ATLAS_SLOTS
 #define MAX_SHADOW_ATLAS_SLOTS (SHADOW_ATLAS_COLS * SHADOW_ATLAS_ROWS)
+#endif
+
+// Each projective shadow map is split into a small virtual page grid. The physical
+// atlas remains capped at MAX_SHADOW_ATLAS_SLOTS, so residency can evict distant tiles.
+#ifndef SHADOW_VIRTUAL_PAGE_GRID
+#define SHADOW_VIRTUAL_PAGE_GRID 2
+#endif
+
+#ifndef SHADOW_VIRTUAL_PAGES_PER_MAP
+#define SHADOW_VIRTUAL_PAGES_PER_MAP (SHADOW_VIRTUAL_PAGE_GRID * SHADOW_VIRTUAL_PAGE_GRID)
+#endif
+
+#ifndef MAX_SHADOW_VIRTUAL_PAGES
+#define MAX_SHADOW_VIRTUAL_PAGES (MAX_SHADOW_ATLAS_SLOTS * SHADOW_VIRTUAL_PAGES_PER_MAP)
 #endif
 
 // Point shadow atlas (omnidirectional). Each shadow-casting point light consumes
@@ -101,6 +133,11 @@
 #define SSAO_KERNEL_SIZE 32
 #endif
 
+// one bloom target per level, and TextureShaderType only carries BLOOMTEXTURE0..4
+#ifndef MAX_BLOOM_LEVELS
+#define MAX_BLOOM_LEVELS 5
+#endif
+
 #ifndef MAX_EXTERNAL_BUFFERS
 #define MAX_EXTERNAL_BUFFERS 20
 #endif
@@ -139,20 +176,20 @@
 #include <mutex>
 #include <unordered_set>
 
-#define DORIAX_INIT \
+#define QUANTUM_INIT \
     void init(); \
     namespace { \
         struct InitRegistrar { \
             InitRegistrar() { \
-                doriax::Engine::getOnInit().add("user_init", &init); \
+                quantum::Engine::getOnInit().add("user_init", &init); \
             } \
         }; \
-        static InitRegistrar _doriax_init_registrar; \
+        static InitRegistrar _quantum_init_registrar; \
     }
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Scene;
+    class QUANTUM_API Scene;
     //class Rect;
 
     enum class Scaling{
@@ -203,17 +240,63 @@ namespace doriax {
         Failed
     };
 
-    class DORIAX_API Engine {
+    class QUANTUM_API Engine {
     public:
-        // draw calls, instances and triangles submitted by the last systemDraw
+        // draw calls, instances and triangles submitted by the last full frame, plus the
+        // wall-clock cost of each loop phase and of every subsystem that ran in it.
         struct FrameStats{
+            // Subsystems are timed by name and the table is a fixed array: no allocation
+            // and no container growth inside the frame loop.
+            static const int MAX_TIMED_SYSTEMS = 32;
+            static const int SYSTEM_NAME_LENGTH = 28;
+            static const int MAX_SCRIPT_FUNCTIONS = 64;
+            static const int SCRIPT_NAME_LENGTH = 96;
+
+            struct SystemTime{
+                char name[SYSTEM_NAME_LENGTH] = {0};
+                double fixedMs = 0.0;
+                double updateMs = 0.0;
+                double drawMs = 0.0;
+            };
+
+            struct ScriptTime{
+                char name[SCRIPT_NAME_LENGTH] = {0};
+                double milliseconds = 0.0;
+                uint64_t calls = 0;
+                uint64_t errors = 0;
+            };
+
             uint32_t drawCalls = 0;
             uint32_t instances = 0;
             uint64_t triangles = 0;
+
+            // GPU mesh objects built and destroyed by this frame. A load count that tracks the
+            // mesh count every frame means the scene rebuilds its meshes instead of loading
+            // them once, which is the cost a big scene pays before anything is drawn.
+            uint32_t meshLoads = 0;
+            uint32_t meshDrops = 0;
+
+            double fixedUpdateMs = 0.0;
+            double updateMs = 0.0;
+            double drawSceneMs = 0.0;
+            double drawCommitMs = 0.0;
+            double frameMs = 0.0;
+            double scriptMs = 0.0;
+            uint64_t scriptCalls = 0;
+            uint64_t scriptErrors = 0;
+
+            int timedSystemCount = 0;
+            SystemTime timedSystems[MAX_TIMED_SYSTEMS];
+            int scriptFunctionCount = 0;
+            ScriptTime scriptFunctions[MAX_SCRIPT_FUNCTIONS];
+
+            // Highest-cost entries first, so a reader can print the top N without sorting.
+            void sortSystems();
+            void sortScriptFunctions();
         };
 
     private:
-        //-----Doriax config-----
+        //-----Quantum config-----
         static std::vector<Scene*> scenes;
         static std::unordered_set<Scene*> oneTimeScenes;
 
@@ -249,6 +332,7 @@ namespace doriax {
         static float framerate;
         static FrameStats frameStats;
         static FrameStats currentFrameStats;
+        static uint64_t frameStatsStart;
         
         static double updateTime;
 
@@ -297,7 +381,7 @@ namespace doriax {
         //Engine();
         //virtual ~Engine();
         
-        //-----Doriax config-----
+        //-----Quantum config-----
         static void setScene(Scene* scene);
         static Scene* getScene();
         static void addSceneLayer(Scene* scene);
@@ -363,15 +447,36 @@ namespace doriax {
         static void setMouseMode(MouseMode mode);
         static MouseMode getMouseMode();
         static void setMousePosition(float x, float y);
+        // Whether the game window is the window the desktop is sending input to. A mouse-look
+        // game re-centres the pointer every frame and has to know when it no longer owns it.
+        static bool hasFocus();
         
         static Platform getPlatform();
         static GraphicBackend getGraphicBackend();
         static bool isOpenGL();
         static float getFramerate();
         static float getDeltatime();
+        // Overrides the delta exposed to gameplay until the next frame runs.
+        // Headless tools use it to drive deterministic updates.
+        static void setDeltatime(double deltatime);
+
+        // Write the window's colour buffer to a PNG: screenshot() takes the next frame that
+        // finishes, screenshotAfter() the one `frames` later (enough for a load or an exposure to
+        // settle). Both return immediately - the read happens at the one point in the loop where
+        // the frame is submitted but not yet swapped, and a platform without a read path logs it.
+        static void screenshot(const std::string& path);
+        static void screenshotAfter(const std::string& path, int frames);
 
         static void beginFrameStats();
         static void addDrawStats(uint32_t instances, uint64_t triangles);
+        // One subsystem's slice of the current frame. phase is 0 fixedUpdate, 1 update, 2 draw.
+        static void addSystemStats(const char* name, double milliseconds, int phase);
+        static void addFramePhaseStats(int phase, double milliseconds);
+        static void addScriptStats(double milliseconds, bool error, const char* functionName = nullptr);
+        // One mesh GPU object built (loadMesh) or destroyed (destroyMesh) this frame.
+        static void addMeshLoadStats();
+        static void addMeshDropStats();
+        static void endFrameStats();
         static const FrameStats& getFrameStats();
 
         // Upper bound (in seconds) for the value returned by getDeltatime() and used by the update loop. Default 0.25.
@@ -407,7 +512,7 @@ namespace doriax {
         static void clearComponentSubscriptions(Scene* scene);
         static void removeSubscriptionsByTag(const std::string& substring);
 
-        //-----Doriax API functions-----
+        //-----Quantum API functions-----
         static void systemInit(int argc, char* argv[], System* system);
         static void systemViewLoaded();
         static void systemViewChanged();
@@ -438,6 +543,9 @@ namespace doriax {
         static void systemKeyUp(int key, bool repeat, int mods);
 
         static void systemCharInput(wchar_t codepoint);
+        // UTF-8 text composition from an IME. committed=false carries the
+        // current pre-edit string; committed=true carries finalized text.
+        static void systemTextComposition(const std::string& text, int cursor, bool committed);
 
         static void systemGamepadConnect(int gamepad, const std::string& name);
         static void systemGamepadDisconnect(int gamepad);
@@ -445,7 +553,7 @@ namespace doriax {
         static void systemGamepadButtonUp(int gamepad, int button);
         static void systemGamepadAxisMove(int gamepad, int axis, float value);
 
-        //-----Doriax user events-----
+        //-----Quantum user events-----
         // Safe accessor for the Init event
         static FunctionSubscribe<void()>& getOnInit();
 
@@ -479,6 +587,7 @@ namespace doriax {
         static FunctionSubscribe<void(int,bool,int)> onKeyDown;
         static FunctionSubscribe<void(int,bool,int)> onKeyUp;
         static FunctionSubscribe<void(wchar_t)> onCharInput;
+        static FunctionSubscribe<void(const std::string&, int, bool)> onTextComposition;
         static FunctionSubscribe<void(int)> onGamepadConnect;
         static FunctionSubscribe<void(int)> onGamepadDisconnect;
         static FunctionSubscribe<void(int,int)> onGamepadButtonDown;

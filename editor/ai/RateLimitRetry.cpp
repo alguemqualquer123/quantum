@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RateLimitRetry.h"
@@ -10,7 +10,7 @@
 #include <initializer_list>
 #include <string_view>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 namespace {
 
@@ -216,4 +216,4 @@ std::chrono::milliseconds rateLimitRetryDelay(
     return retryDelay;
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

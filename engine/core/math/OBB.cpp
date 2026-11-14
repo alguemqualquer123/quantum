@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "OBB.h"
@@ -11,7 +11,7 @@
 #include <cmath>
 #include <limits>
 
-using namespace doriax;
+using namespace quantum;
 
 const OBB OBB::ZERO(OBB::BOXTYPE_FINITE);
 

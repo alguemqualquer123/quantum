@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TextureRender.h"
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 TextureRender::TextureRender(){
  }
@@ -50,9 +50,10 @@ bool TextureRender::createFramebufferTexture(
         return false;
 }
 
-bool TextureRender::createDynamicTexture(const std::string& label, int width, int height){
+bool TextureRender::createDynamicTexture(const std::string& label, int width, int height,
+                TextureFilter minFilter, TextureFilter magFilter){
     return Engine::isViewLoaded() && !isCreated() &&
-        backend.createDynamicTexture(label, width, height);
+        backend.createDynamicTexture(label, width, height, minFilter, magFilter);
 }
 
 void TextureRender::updateTexture(const void* data, size_t size){

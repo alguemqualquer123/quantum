@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BODY2D_COMPONENT_H
@@ -9,11 +9,11 @@
 #include "math/Vector3.h"
 #include "math/Quaternion.h"
 #include "util/HybridArray.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "box2d/box2d.h"
 #endif
 
-namespace doriax{
+namespace quantum{
 
     enum class Shape2DType{
         POLYGON,
@@ -23,8 +23,8 @@ namespace doriax{
         CHAIN // chain is a different type in Box2D 3.x
     };
 
-    struct DORIAX_API Shape2D{
-#ifdef DORIAX_PHYSICS_2D
+    struct QUANTUM_API Shape2D{
+#ifdef QUANTUM_PHYSICS_2D
         b2ShapeId shape = b2_nullShapeId;
         b2ChainId chain = b2_nullChainId;
 #endif
@@ -59,7 +59,7 @@ namespace doriax{
     };
 
     struct Body2DComponent{
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
         b2BodyId body = b2_nullBodyId;
 #endif
 
@@ -73,7 +73,7 @@ namespace doriax{
         bool newBody = true;
         Vector2 loadedScale = Vector2::UNIT_SCALE;
         bool followingTransform = false; // kinematic, moving to its Transform with a velocity
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
         // pose before the last step, drawn towards the current one
         b2Transform previousTransform = b2Transform_identity;
 #endif

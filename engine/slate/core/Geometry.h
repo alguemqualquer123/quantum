@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateGeometry_h
@@ -15,7 +15,7 @@
 #include "texture/Texture.h"
 #include "slate/core/PaintList.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Layout the UI shader consumes: POSITION(3) + TEXCOORD1(2) + COLOR(4).
     struct SlateVertex {

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TIMEDACTION_H
@@ -7,8 +7,8 @@
 #include "Action.h"
 #include "Ease.h"
 
-namespace doriax{
-    class DORIAX_API TimedAction: public Action{
+namespace quantum{
+    class QUANTUM_API TimedAction: public Action{
 
     protected:
         void setAction(float duration, bool loop);

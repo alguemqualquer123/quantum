@@ -1,0 +1,7 @@
+{
+  "quantum.hello": {
+    "greeting": "Hello from a plugin",
+    "loud": false,
+    "repeat": 1
+  }
+}

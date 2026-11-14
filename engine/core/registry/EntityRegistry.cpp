@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "EntityRegistry.h"
 
-using namespace doriax;
+using namespace quantum;
 
 EntityRegistry::EntityRegistry() {
     registerComponent<MeshComponent>();
@@ -51,11 +51,11 @@ EntityRegistry::EntityRegistry() {
     registerComponent<TerrainComponent>();
     registerComponent<SoundComponent>();
     registerComponent<TilemapComponent>();
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     registerComponent<Body2DComponent>();
     registerComponent<Joint2DComponent>();
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     registerComponent<Body3DComponent>();
     registerComponent<Joint3DComponent>();
 #endif
@@ -65,6 +65,12 @@ EntityRegistry::EntityRegistry() {
     registerComponent<WaterComponent>();
     registerComponent<WaterExclusionComponent>();
     registerComponent<TagComponent>();
+    // Appended last: ids are signature bit positions, so a new type must not
+    // shift the bits of the components above it.
+    registerComponent<AnimatorControllerComponent>();
+    registerComponent<AutoColliderComponent>();
+    registerComponent<NetworkComponent>();
+    registerComponent<DecalComponent>();
 }
 
 EntityRegistry::EntityRegistry(EntityPool defaultPool) : EntityRegistry() {

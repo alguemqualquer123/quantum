@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef VisualElement_h
@@ -21,7 +21,7 @@
 //layout pass, opaque here so the element header stays dependency free
 struct YGNode;
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     class PaintList;
 
@@ -57,10 +57,10 @@ namespace doriax::ui {
         float opacity = 1.0f;      //inherited * own
     };
 
-    // Retained-mode tree node of the new UI module (doriax::ui). Coexists with
-    // the legacy scene UI (doriax::Panel, doriax::Button, ...), which it does
+    // Retained-mode tree node of the new UI module (quantum::ui). Coexists with
+    // the legacy scene UI (quantum::Panel, quantum::Button, ...), which it does
     // not replace or touch.
-    class DORIAX_API VisualElement {
+    class QUANTUM_API VisualElement {
     public:
         VisualElement();
         explicit VisualElement(std::string id);

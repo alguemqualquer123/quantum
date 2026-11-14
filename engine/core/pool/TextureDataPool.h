@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXTUREDATAPOOL_H
@@ -17,7 +17,7 @@
 #include <unordered_map>
 #include <atomic>
 
-namespace doriax{
+namespace quantum{
 
     typedef std::map< std::string, std::shared_ptr<std::array<TextureData,6>> > texturesdata_t;
 
@@ -47,7 +47,7 @@ namespace doriax{
         }
     };
 
-    class DORIAX_API TextureDataPool{
+    class QUANTUM_API TextureDataPool{
     private:
         static texturesdata_t& getMap();
 

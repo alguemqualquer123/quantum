@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UILAYOUT_H
@@ -6,8 +6,8 @@
 
 #include "Object.h"
 
-namespace doriax{
-    class DORIAX_API UILayout: public Object{
+namespace quantum{
+    class QUANTUM_API UILayout: public Object{
 
     public:
         UILayout(Scene* scene);

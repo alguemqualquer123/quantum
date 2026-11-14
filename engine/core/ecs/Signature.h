@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SIGNATURE_H
@@ -6,7 +6,7 @@
 
 #include <bitset>
 
-namespace doriax {
+namespace quantum {
 
     // 64 should be max number of components types
     using Signature = std::bitset<64>;

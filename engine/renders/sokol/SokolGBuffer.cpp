@@ -7,7 +7,7 @@
 #include "../core/component/CameraComponent.h"
 #include "../core/scene/Scene.h"
 
-namespace doriax {
+namespace quantum {
 
 SokolGBuffer::SokolGBuffer() {}
 SokolGBuffer::~SokolGBuffer() { destroy(); }

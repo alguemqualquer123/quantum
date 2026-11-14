@@ -2,7 +2,7 @@
 #include "SokolCmdQueue.h"
 #include "../core/component/LightComponent.h"
 
-namespace doriax {
+namespace quantum {
 
 SokolDeferredLighting::SokolDeferredLighting() {}
 SokolDeferredLighting::~SokolDeferredLighting() { destroy(); }

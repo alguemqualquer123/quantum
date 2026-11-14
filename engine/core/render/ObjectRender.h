@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ObjectRender_h
@@ -9,9 +9,9 @@
 
 #include "sokol/SokolObject.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API ObjectRender{
+    class QUANTUM_API ObjectRender{
 
     public:
 
@@ -28,6 +28,9 @@ namespace doriax {
 
         void beginLoad(PrimitiveType primitiveType);
         void setShader(ShaderRender* shader);
+        // the color format of the offscreen target this render writes to; RGBA8 unless a pass that
+        // renders into a float level says otherwise (the HDR chain)
+        void setRenderTargetColorFormat(ColorFormat format);
         void setIndex(BufferRender* buffer, AttributeDataType dataType, size_t offset);
         void addAttribute(int slot, BufferRender* buffer, unsigned int elements, AttributeDataType dataType, unsigned int stride, size_t offset, bool normalized, bool perInstance);
         void addStorageBuffer(int slot, ShaderStageType stage, BufferRender* buffer);

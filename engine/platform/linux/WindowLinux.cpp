@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "WindowLinux.h"
@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <cstring>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

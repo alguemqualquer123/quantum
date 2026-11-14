@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MODEL_COMPONENT_H
@@ -13,7 +13,7 @@
 
 namespace tinygltf {class Model;}
 
-namespace doriax{
+namespace quantum{
 
     struct ObjModelData;
 
@@ -23,7 +23,7 @@ namespace doriax{
         std::vector<Matrix4> inverseBindMatrices;
     };
 
-    struct DORIAX_API ModelComponent{
+    struct QUANTUM_API ModelComponent{
         std::shared_ptr<tinygltf::Model> gltfModel;
         std::shared_ptr<ObjModelData> objModel;
 

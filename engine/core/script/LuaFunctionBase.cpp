@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaFunction.h"
@@ -6,12 +6,12 @@
 #include "math/Vector2.h"
 #include "util/FunctionSubscribe.h"
 #include "util/StringUtils.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "object/physics/Body2D.h"
 #include "object/physics/Contact2D.h"
 #include "object/physics/Manifold2D.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "object/physics/Body3D.h"
 #include "object/physics/Contact3D.h"
 #include "object/physics/CollideShapeResult3D.h"
@@ -21,12 +21,15 @@
 #include "service/WebPortal.h"
 #include "LuaBinding.h"
 #include "Log.h"
+#include "Engine.h"
 
 #include "lua.hpp"
 #include "LuaBridge.h"
 #include <stdexcept>
+#include <chrono>
+#include <cstdio>
 
-using namespace doriax;
+using namespace quantum;
 
 LuaFunctionBase::LuaFunctionBase(lua_State *vm, const std::string &func): m_vm(vm) {
     // get the function
@@ -39,7 +42,8 @@ LuaFunctionBase::LuaFunctionBase(lua_State *vm): m_vm(vm) {
     store_function();
 }
 
-LuaFunctionBase::LuaFunctionBase(const LuaFunctionBase &other): m_vm(other.m_vm), m_generation(other.m_generation) {
+LuaFunctionBase::LuaFunctionBase(const LuaFunctionBase &other): m_vm(other.m_vm),
+    m_generation(other.m_generation), m_profileName(other.m_profileName) {
     // copy the registry reference
     lua_rawgeti(m_vm, LUA_REGISTRYINDEX, other.m_func);
     m_func = luaL_ref(m_vm, LUA_REGISTRYINDEX);
@@ -54,6 +58,7 @@ LuaFunctionBase& LuaFunctionBase::operator=(const LuaFunctionBase &other){
         release();
         m_vm = other.m_vm;
         m_generation = other.m_generation;
+        m_profileName = other.m_profileName;
         lua_rawgeti(m_vm, LUA_REGISTRYINDEX, other.m_func);
         m_func = luaL_ref(m_vm, LUA_REGISTRYINDEX);
     }
@@ -76,6 +81,18 @@ void LuaFunctionBase::store_function(){
         lua_pop(m_vm, 1);
         throw std::runtime_error("not a valid function");
     }
+    lua_pushvalue(m_vm, -1);
+    lua_Debug debug{};
+    if (lua_getinfo(m_vm, ">nSl", &debug)) {
+        const char* name = debug.name && debug.name[0] ? debug.name : "anonymous";
+        const char* source = debug.short_src && debug.short_src[0] ? debug.short_src : "?";
+        char label[Engine::FrameStats::SCRIPT_NAME_LENGTH];
+        std::snprintf(label, sizeof(label), "%s@%s:%d", name, source, debug.linedefined);
+        m_profileName = label;
+    } else {
+        m_profileName = "anonymous";
+    }
+
     // store it in registry for later use
     m_func = luaL_ref(m_vm, LUA_REGISTRYINDEX);
     m_generation = LuaBinding::getLuaStateGeneration();
@@ -86,12 +103,16 @@ void LuaFunctionBase::push_function(lua_State *vm, int func){
 }
 
 void LuaFunctionBase::call(int args, int results) {
+    const auto started = std::chrono::steady_clock::now();
     int status = LuaBinding::pcallWithTraceback(m_vm, args, results);
+    const double elapsedMs = std::chrono::duration<double, std::milli>(
+        std::chrono::steady_clock::now() - started).count();
+    Engine::addScriptStats(elapsedMs, status != 0, m_profileName.c_str());
     if (status) {
         std::string error = LuaBinding::getLuaStackErrorString(m_vm, -1);
         lua_pop(m_vm, 1);
 
-        #ifdef DORIAX_CRASH_GUARD
+        #ifdef QUANTUM_CRASH_GUARD
         auto& crashHandler = FunctionSubscribeGlobal::getCrashHandler();
         if (crashHandler) {
             crashHandler("Lua Script Error", error);
@@ -184,7 +205,7 @@ void LuaFunctionBase::push_value(lua_State *vm, Vector3 o){
         throw luabridge::makeErrorCode(luabridge::ErrorCode::LuaStackOverflow);
 }
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 void LuaFunctionBase::push_value(lua_State *vm, Body2D o){
     if (!luabridge::push<Body2D>(vm, o))
         throw luabridge::makeErrorCode(luabridge::ErrorCode::LuaStackOverflow);
@@ -201,7 +222,7 @@ void LuaFunctionBase::push_value(lua_State *vm, Contact2D o){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 void LuaFunctionBase::push_value(lua_State *vm, Body3D o){
     if (!luabridge::push<Body3D>(vm, o))
         throw luabridge::makeErrorCode(luabridge::ErrorCode::LuaStackOverflow);

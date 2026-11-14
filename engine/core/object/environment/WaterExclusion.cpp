@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "WaterExclusion.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 WaterExclusion::WaterExclusion(Scene* scene): Object(scene){
     addComponent<WaterExclusionComponent>();

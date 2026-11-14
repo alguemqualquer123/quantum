@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Backend.h"
@@ -19,7 +19,7 @@
 
 #include "nfd.hpp"
 
-#include "doriax_wm_icon.h"
+#include "quantum_wm_icon.h"
 #include "stb_image.h"
 
 #include <X11/Xatom.h>
@@ -54,12 +54,12 @@
 #include <unistd.h>
 #include <vector>
 
-using namespace doriax;
-using doriax::editor::PlatformMenuCallback;
-using doriax::editor::PlatformMenuCommand;
-using doriax::editor::PlatformMenuItem;
-using doriax::editor::PlatformMenuItemType;
-using doriax::editor::PlatformMenuModel;
+using namespace quantum;
+using quantum::editor::PlatformMenuCallback;
+using quantum::editor::PlatformMenuCommand;
+using quantum::editor::PlatformMenuItem;
+using quantum::editor::PlatformMenuItemType;
+using quantum::editor::PlatformMenuModel;
 
 namespace {
 
@@ -255,7 +255,7 @@ ImGuiViewport* findViewport(NativeWindow* window) {
 
 void getWindowSize(NativeWindow* window, int& width, int& height);
 
-#if defined(DORIAX_NATIVE_MENU)
+#if defined(QUANTUM_NATIVE_MENU)
 
 unsigned long allocateImGuiColor(const ImVec4& color, unsigned long fallback) {
     XColor xcolor{};
@@ -922,7 +922,7 @@ void configureXdnd(NativeWindow* window) {
 
 // _NET_WM_ICON takes width, height then ARGB per size, widened to long by format 32.
 void loadWmIcon() {
-    for (const DoriaxWmIconPng& png : doriax_wm_icon_pngs) {
+    for (const QuantumWmIconPng& png : quantum_wm_icon_pngs) {
         int width = 0;
         int height = 0;
         int channels = 0;
@@ -993,8 +993,8 @@ NativeWindow* createNativeWindow(int x, int y, int width, int height,
     configureXdnd(result);
 
     XClassHint classHint{};
-    classHint.res_name = const_cast<char*>("doriax-editor");
-    classHint.res_class = const_cast<char*>("DoriaxEditor");
+    classHint.res_name = const_cast<char*>("quantum-editor");
+    classHint.res_class = const_cast<char*>("QuantumEditor");
     XSetClassHint(backend->display, result->handle, &classHint);
 
     // Popups and utility viewports show an icon nowhere, so they skip it.
@@ -2299,7 +2299,7 @@ void createViewport(ImGuiViewport* viewport) {
     viewport->PlatformUserData = window;
     viewport->PlatformHandle = window;
     viewport->PlatformHandleRaw = reinterpret_cast<void*>(static_cast<uintptr_t>(window->handle));
-    setWindowTitle(window, "Doriax Engine");
+    setWindowTitle(window, "Quantum Engine");
 }
 
 void destroyViewport(ImGuiViewport* viewport) {
@@ -2385,7 +2385,7 @@ bool initImGuiPlatform() {
     ImGuiIO& io = ImGui::GetIO();
     IM_ASSERT(io.BackendPlatformUserData == nullptr);
     io.BackendPlatformUserData = backend;
-    io.BackendPlatformName = "imgui_impl_doriax_x11";
+    io.BackendPlatformName = "imgui_impl_quantum_x11";
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
     io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
@@ -2712,7 +2712,7 @@ bool initializeX11(editor::App& app) {
     backend->targets = atom("TARGETS");
     backend->text = atom("TEXT");
     backend->incr = atom("INCR");
-    backend->clipboardProperty = atom("DORIAX_CLIPBOARD");
+    backend->clipboardProperty = atom("QUANTUM_CLIPBOARD");
     backend->xdndAware = atom("XdndAware");
     backend->xdndEnter = atom("XdndEnter");
     backend->xdndPosition = atom("XdndPosition");
@@ -2748,7 +2748,7 @@ const int height = std::min(app->getInitialWindowHeight(uiScale), workHeight);
         return false;
     }
     backend->mainWindow->owned = false;
-    setWindowTitle(backend->mainWindow, "Doriax Engine");
+    setWindowTitle(backend->mainWindow, "Quantum Engine");
     XMapWindow(backend->display, backend->mainWindow->handle);
 
     backend->mouseCursors[ImGuiMouseCursor_Arrow] = XCreateFontCursor(backend->display, XC_left_ptr);
@@ -3012,7 +3012,7 @@ ImVec2 editor::Backend::sceneRenderScale(ImVec2 framebufferScale, float dpiScale
 
 float editor::Backend::setMainMenu(const PlatformMenuModel& model,
                                    PlatformMenuCallback callback) {
-#if !defined(DORIAX_NATIVE_MENU)
+#if !defined(QUANTUM_NATIVE_MENU)
     // App draws the menu bar with ImGui
     (void)model;
     (void)callback;

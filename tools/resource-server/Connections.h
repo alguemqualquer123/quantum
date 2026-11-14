@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// Connections.h - who is talking to doriax-resource-server.
+// Connections.h - who is talking to quantum-resource-server.
 //
 // One ConnectionRecord is kept per accepted TCP connection (the protocol is
 // request/response, so a "connection" here is one client round trip). The log
@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 struct ConnectionRecord {
     unsigned long long id = 0;
@@ -83,7 +83,7 @@ private:
 bool queryConnectionOwner(const std::string& peer, int localPort,
                           unsigned long long& pidOut, std::string& nameOut);
 
-// File name only ("doriax-editor.exe"), empty when the process is gone or is
+// File name only ("quantum-editor.exe"), empty when the process is gone or is
 // another user's (query limits are enough for the name).
 bool queryProcessName(unsigned long long pid, std::string& nameOut);
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LUA_FUNCTION_H
@@ -11,7 +11,7 @@
 
 typedef struct lua_State lua_State;
 
-namespace doriax{
+namespace quantum{
 
     // the function wrapper class
     template <typename Ret>

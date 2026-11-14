@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateContainers_h
@@ -10,12 +10,12 @@
 #include "math/Vector2.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Slate-style containers. Arrangement is driven by each child's Slot and the
     // container's own flow properties, resolved by FlexEngine (Yoga-backed).
 
-    // Single-axis flow (SBox / UMG HorizontalBox + VerticalBox + doriax HBox).
+    // Single-axis flow (SBox / UMG HorizontalBox + VerticalBox + quantum HBox).
     class Box : public Widget {
     public:
         Box();
@@ -23,6 +23,7 @@ namespace doriax::slate {
         explicit Box(std::string id);
 
         bool isContainer() const override;
+        const char* getTypeName() const override;
 
         Box& setOrientation(Orientation orientation);
         Orientation getOrientation() const;

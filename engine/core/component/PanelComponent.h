@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PANEL_COMPONENT_H
@@ -6,7 +6,7 @@
 
 #include "util/FunctionSubscribe.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class PanelEdge{
         NONE,
@@ -17,7 +17,7 @@ namespace doriax{
         LEFT
     };
 
-    struct DORIAX_API PanelComponent{
+    struct QUANTUM_API PanelComponent{
         Entity headerimage = NULL_ENTITY;
         Entity headercontainer = NULL_ENTITY;
         Entity headertext = NULL_ENTITY;

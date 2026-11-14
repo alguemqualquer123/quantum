@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// Sha1.h - streaming SHA-1 used by doriax-resource-server for content hashing.
+// Sha1.h - streaming SHA-1 used by quantum-resource-server for content hashing.
 // Self-contained (standard library only); deliberately NOT shared with the
 // editor's editor/util/SHA1.h so the server target stays standalone.
 
@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include <string>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 class Sha1 {
 public:

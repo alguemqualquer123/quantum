@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TRANSLATETRACKS_H
@@ -6,8 +6,8 @@
 
 #include "KeyframeTracks.h"
 
-namespace doriax{
-    class DORIAX_API TranslateTracks: public KeyframeTracks{
+namespace quantum{
+    class QUANTUM_API TranslateTracks: public KeyframeTracks{
 
     public:
         TranslateTracks(Scene* scene);

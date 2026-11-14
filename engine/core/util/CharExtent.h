@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef CharExtent_h
 #define CharExtent_h
 
-namespace doriax {
+namespace quantum {
 
     //where a codepoint ended up on screen. Logical and visual order differ under bidi,
     //so a caret or a selection cannot come from the pen advance alone

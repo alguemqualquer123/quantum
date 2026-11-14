@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "System.h"
@@ -7,7 +7,7 @@
 #include "Log.h"
 #include <stdlib.h>
 
-using namespace doriax;
+using namespace quantum;
 
 System* System::systemInstance = nullptr;
 
@@ -22,6 +22,10 @@ System& System::instance(){
     }
 
     return *systemInstance;
+}
+
+bool System::hasInstance(){
+    return systemInstance != nullptr;
 }
 
 void System::setSystemInstance(System* system){
@@ -51,6 +55,11 @@ sg_swapchain System::getSokolSwapchain(){
     swapchain.gl.framebuffer = 0;
 
     return swapchain;
+}
+
+bool System::readBackFramebuffer(unsigned char* out, int width, int height){
+    Log::error("readBackFramebuffer: this platform has no framebuffer read path\n");
+    return false;
 }
 
 void System::setMouseCursor(CursorType type){
@@ -119,6 +128,12 @@ void System::setWindowResizable(bool resizable){
 
 void System::setWindowTitle(const std::string& title){
 
+}
+
+// No tracking here means no gate: a backend that cannot answer honestly says it owns the
+// pointer, which is what every caller assumed before the question existed.
+bool System::hasFocus(){
+    return true;
 }
 
 void System::quit(){

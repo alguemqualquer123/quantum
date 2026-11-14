@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,11 +9,11 @@
 
 #include <memory>
 
-namespace doriax{
+namespace quantum{
     class TextureRender;
 }
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     using GLProc = void (*)();
 

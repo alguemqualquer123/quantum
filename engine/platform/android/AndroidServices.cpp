@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-// DoriaxAndroid's AdMob and Google Play Billing backends, and the natives of their Java wrappers
+// QuantumAndroid's AdMob and Google Play Billing backends, and the natives of their Java wrappers
 
 #include "AndroidServices.h"
 
-#include "DoriaxAndroid.h"
+#include "QuantumAndroid.h"
 #include "NativeEngine.h"
 #include "service/AdMob.h"
 #include "service/InAppPurchase.h"
@@ -14,7 +14,7 @@
 
 #include <cstdint>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -402,11 +402,11 @@ void releaseServicesJNI(JNIEnv* env){
     }
 }
 
-AdMobBackend* DoriaxAndroid::getAdMobBackend(){
+AdMobBackend* QuantumAndroid::getAdMobBackend(){
     return admob.wrapper ? &admob : nullptr;
 }
 
-InAppPurchaseBackend* DoriaxAndroid::getInAppPurchaseBackend(){
+InAppPurchaseBackend* QuantumAndroid::getInAppPurchaseBackend(){
     return inAppPurchase.wrapper ? &inAppPurchase : nullptr;
 }
 

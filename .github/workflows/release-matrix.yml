@@ -1,0 +1,250 @@
+name: Release portability matrix
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUILD_TYPE: Release
+  QUANTUM_BUILD_DIR: build
+
+jobs:
+  portability:
+    name: Portability checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run dependency-free checks
+        run: python3 scripts/check-portability.py
+
+  desktop:
+    name: ${{ matrix.name }}
+    needs: portability
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC
+            os: windows-latest
+            generator: Visual Studio 17 2022
+            compiler: cl
+            executable: quantum-engine.exe
+            hub_platform: windows-amd64
+          - name: Linux GCC
+            os: ubuntu-22.04
+            generator: Ninja
+            compiler: gcc
+            executable: quantum-engine
+            hub_platform: linux-x86_64
+          - name: macOS Clang
+            os: macos-14
+            generator: Ninja
+            compiler: clang
+            executable: quantum-engine
+            hub_platform: macos-arm64
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+      - name: Install Linux tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y build-essential ninja-build cmake pkg-config libx11-dev libxcursor-dev libxi-dev libxrandr-dev libgl1-mesa-dev libvulkan-dev libcurl4-openssl-dev
+      - name: Install macOS tools
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Install Windows tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ninja cmake --no-progress --yes
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+      - name: Configure
+        env:
+          CC: ${{ matrix.compiler }}
+          CXX: ${{ matrix.compiler == 'cl' && 'cl' || 'g++' }}
+        run: cmake -S . -B "$QUANTUM_BUILD_DIR" -G "${{ matrix.generator }}" -DQUANTUMEDITOR_VERSION:STRING="$QUANTUM_VERSION" -DQUANTUM_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DCMAKE_INSTALL_PREFIX:PATH="$PWD/stage"
+      - name: Build release targets
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake --build "$QUANTUM_BUILD_DIR" --config "$BUILD_TYPE" --target quantum-editor quantum-editor-cmd quantum-hub quantum-engine quantum-network-relay quantum-resource-compiler quantum-resource-server quantum-build-generator quantum-network-smoke quantum-serialization-smoke voxel_demo
+          else
+            cmake --build "$QUANTUM_BUILD_DIR" --config "$BUILD_TYPE" --target quantum-editor quantum-hub quantum-engine quantum-network-relay quantum-resource-compiler quantum-resource-server quantum-build-generator quantum-network-smoke quantum-serialization-smoke voxel_demo
+          fi
+      - name: Install and package
+        run: |
+          cmake --install "$QUANTUM_BUILD_DIR" --config "$BUILD_TYPE" --prefix "$PWD/stage" --strip
+          python3 scripts/package-hub.py --root "$PWD/stage/bin" \
+            --version "$QUANTUM_VERSION" --platform "${{ matrix.hub_platform }}" \
+            --output "$PWD/dist/quantum-hub-${QUANTUM_VERSION}-${{ matrix.hub_platform }}.zip"
+          cpack --config "$QUANTUM_BUILD_DIR/CPackConfig.cmake" --output-directory dist
+      - name: Headless release smoke
+        run: |
+          resolve_binary() {
+            local name="$1"
+            local path
+            path="$(find "$QUANTUM_BUILD_DIR" -type f \( -name "$name" -o -name "$name.exe" \) -print -quit)"
+            test -n "$path" || { echo "missing built binary: $name" >&2; exit 1; }
+            printf '%s' "$path"
+          }
+
+          "$(resolve_binary quantum-network-smoke)"
+          "$(resolve_binary quantum-serialization-smoke)"
+          "$(resolve_binary voxel_demo)"
+          executable="$(find "$PWD/stage/bin" -type f \( -name 'quantum-engine' -o -name 'quantum-engine.exe' \) | head -n 1)"
+          editor_cmd="$(find "$PWD/stage/bin" -type f \( -name 'quantum-editor-cmd' -o -name 'quantum-editor-cmd.exe' \) | head -n 1)"
+          relay_executable="$(find "$PWD/stage/bin" -type f \( -name 'quantum-network-relay' -o -name 'quantum-network-relay.exe' \) | head -n 1)"
+          resource_server="$(find "$PWD/stage/bin" -type f \( -name 'quantum-resource-server' -o -name 'quantum-resource-server.exe' \) | head -n 1)"
+          resource_compiler="$(find "$PWD/stage/bin" -type f \( -name 'quantum-resource-compiler' -o -name 'quantum-resource-compiler.exe' \) | head -n 1)"
+          build_generator="$(find "$PWD/stage/bin" -type f \( -name 'quantum-build-generator' -o -name 'quantum-build-generator.exe' \) | head -n 1)"
+          test -n "$executable"
+          test -n "$relay_executable"
+          test -n "$resource_compiler"
+          test -n "$build_generator"
+          test -n "$resource_server"
+          test -f "$PWD/stage/release-manifest.json"
+          editor_args=()
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            test -n "$editor_cmd"
+            editor_args=(--editor-cmd "$editor_cmd")
+          fi
+          "$resource_compiler" --help
+          "$build_generator" --help
+          python3 scripts/network-relay-smoke.py --root "$PWD" --config "$BUILD_TYPE" \
+            --engine-executable "$executable" --relay-executable "$relay_executable"
+          python3 scripts/network-relay-smoke.py --root "$PWD" --config "$BUILD_TYPE" \
+            --relay-executable "$relay_executable" --failover
+          python3 scripts/release-smoke.py --root "$PWD/stage" --manifest "$PWD/stage/release-manifest.json" \
+            --executable "$executable" "${editor_args[@]}" \
+            --relay-executable "$relay_executable" --resource-server "$resource_server" \
+            --resource-compiler "$resource_compiler" --build-generator "$build_generator" \
+            --runtime-project "$PWD/templates/daynight" --resource-project "$PWD/tests/scale/probe" \
+            --report "$PWD/stage/release-smoke-report.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-${{ matrix.name }}-${{ github.sha }}
+          path: |
+            dist/*
+            stage/**
+          if-no-files-found: error
+
+  android:
+    name: Android Gradle smoke
+    needs: portability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+      - name: Assemble Android release APK
+        working-directory: engine/workspaces/androidstudio
+        run: ./gradlew --no-daemon --stacktrace assembleRelease -PQUANTUM_VERSION="$QUANTUM_VERSION" -PQUANTUM_VERSION_CODE="$GITHUB_RUN_NUMBER"
+      - name: Write Android release manifest
+        run: |
+          python3 - "$QUANTUM_VERSION" "$GITHUB_RUN_NUMBER" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          output = pathlib.Path("engine/workspaces/androidstudio/release-manifest.json")
+          output.write_text(json.dumps({
+              "schema": 1,
+              "product": "Quantum",
+              "version": sys.argv[1].lstrip("v"),
+              "channel": "ci",
+              "platform": "android",
+              "architecture": "android-apk",
+              "graphicBackend": "gles3",
+              "buildType": "Release",
+              "buildNumber": int(sys.argv[2]),
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+          mapfile -t apks < <(find engine/workspaces/androidstudio/app/build/outputs/apk/release -type f -name '*.apk' | sort)
+          test "${#apks[@]}" -gt 0
+          for apk in "${apks[@]}"; do test -s "$apk"; done
+      - name: Verify Android artifact
+        run: |
+          mapfile -t apks < <(find engine/workspaces/androidstudio/app/build/outputs/apk/release -type f -name '*.apk' | sort)
+          args=(
+            --root engine/workspaces/androidstudio \
+            --manifest engine/workspaces/androidstudio/release-manifest.json \
+            --report engine/workspaces/androidstudio/release-smoke-report.json
+          )
+          for apk in "${apks[@]}"; do args+=(--artifact "$apk"); done
+          python3 scripts/release-smoke.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-android-${{ github.sha }}
+          path: |
+            engine/workspaces/androidstudio/app/build/outputs/apk/release/*.apk
+            engine/workspaces/androidstudio/release-manifest.json
+            engine/workspaces/androidstudio/release-smoke-report.json
+          if-no-files-found: error
+
+  web:
+    name: Emscripten WebGL2 smoke
+    needs: portability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build cmake
+      - uses: emscripten-core/setup-emsdk@v16
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+      - name: Configure WebGL2 runtime
+        run: emcmake cmake -S engine -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DPROJECT_ROOT="$PWD/engine/project" -DAPP_NAME=quantum-project
+      - name: Build WebGL2 runtime
+        run: cmake --build build --target quantum-project --config Release
+      - name: Write Web release manifest
+        run: |
+          python3 - "$QUANTUM_VERSION" <<'PY'
+          import json, pathlib, sys
+          pathlib.Path("build/release-manifest.json").write_text(json.dumps({
+              "schema": 1, "product": "Quantum", "version": sys.argv[1],
+              "channel": "ci", "platform": "web", "architecture": "wasm32",
+              "graphicBackend": "gles3", "buildType": "Release"
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Verify Web artifact
+        run: |
+          mapfile -t artifacts < <(find build -maxdepth 1 -type f \( -name 'quantum-project.wasm' -o -name 'quantum-project.js' -o -name 'quantum-project.html' \) | sort)
+          test "${#artifacts[@]}" -gt 0
+          args=(
+            --root build \
+            --manifest build/release-manifest.json \
+            --report build/release-smoke-report.json
+          )
+          for artifact in "${artifacts[@]}"; do args+=(--artifact "$artifact"); done
+          python3 scripts/release-smoke.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-web-${{ github.sha }}
+          path: |
+            build/quantum-project.*
+            build/release-manifest.json
+            build/release-smoke-report.json
+          if-no-files-found: error

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ROTATETRACKS_H
@@ -6,8 +6,8 @@
 
 #include "KeyframeTracks.h"
 
-namespace doriax{
-    class DORIAX_API RotateTracks: public KeyframeTracks{
+namespace quantum{
+    class QUANTUM_API RotateTracks: public KeyframeTracks{
 
     public:
         RotateTracks(Scene* scene);

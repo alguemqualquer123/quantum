@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef WATER_H
@@ -7,9 +7,9 @@
 #include "object/Object.h"
 #include "component/WaterComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Water: public Object{
+    class QUANTUM_API Water: public Object{
 
     public:
         Water(Scene* scene);
@@ -50,6 +50,20 @@ namespace doriax{
 
         void setWaveSteepness(float waveSteepness);
         float getWaveSteepness() const;
+
+        void setWindInfluence(float windInfluence);
+        float getWindInfluence() const;
+
+        // metres of open water the wind blows over before it reaches this one; 0 is its own extent
+        void setFetch(float fetch);
+        float getFetch() const;
+
+        // What the scene's wind is raising here right now, in metres, metres and metres per second.
+        // Read-only and never authored: it is weather, and a script that wants to know whether the
+        // lake has finished building its swell asks these instead of guessing from the wind speed.
+        float getSeaHeight() const;
+        float getSeaLength() const;
+        float getSeaWind() const;
 
         // an empty path restores the built-in ripples
         void setNormalTexture(const std::string& path);
@@ -116,6 +130,50 @@ namespace doriax{
         void setBuoyancyDepth(float buoyancyDepth);
         float getBuoyancyDepth() const;
 
+        // The water keeps a depth per cell of a grid over its area and runs it downhill, so
+        // rain collects in the low points and spills out of them. Turning it on or resizing
+        // the grid reloads the water.
+        void setSimulate(bool simulate);
+        bool isSimulated() const;
+
+        void setSimResolution(unsigned int cells);
+        unsigned int getSimResolution() const;
+
+        // Depth every cell starts with; 0 leaves the area dry for the rain to fill
+        void setSimDepth(float simDepth);
+        float getSimDepth() const;
+
+        // How fast volume crosses the cell walls; 0 keeps the water where it is
+        void setSimFlow(float simFlow);
+        float getSimFlow() const;
+
+        // Metres added over the area each second, and metres taken back by the air
+        void setSimRain(float simRain);
+        float getSimRain() const;
+
+        void setSimEvaporation(float simEvaporation);
+        float getSimEvaporation() const;
+
+        // Under this the cell holds no water: no surface drawn, nothing afloat
+        void setSimDryDepth(float simDryDepth);
+        float getSimDryDepth() const;
+
+        // Water reaching the border leaves the field instead of pooling against it
+        void setSimEdgeDrain(bool simEdgeDrain);
+        bool isSimEdgeDrain() const;
+
+        void setSimRipples(bool simRipples);
+        bool isSimRipples() const;
+
+        void setSimRippleSpeed(float simRippleSpeed);
+        float getSimRippleSpeed() const;
+
+        void setSimRippleDamping(float simRippleDamping);
+        float getSimRippleDamping() const;
+
+        void setSimRippleStrength(float simRippleStrength);
+        float getSimRippleStrength() const;
+
         void setCustomShader(const std::string& path);
         std::string getCustomShader() const;
 
@@ -132,6 +190,26 @@ namespace doriax{
         // surface at the world point (x, z), waves included
         float getHeight(float x, float z) const;
         Vector3 getNormal(float x, float z) const;
+
+        // Depth of the simulated column at the world point (x, z); 0 where the field is dry
+        // or outside the area, which is what keeps a body from floating over an empty puddle
+        float getSimWaterDepth(float x, float z) const;
+
+        // Metres per second the water flows at the point, for a body the current carries
+        Vector3 getSimVelocity(float x, float z) const;
+
+        // Pushes the surface down in a disc: a body hitting the water, a footstep, a bucket
+        // tipping over. The crater is what rings out over the field.
+        void addDisturbance(const Vector3& worldPosition, float radius, float strength);
+
+        // Pours cubicMetres into this field at the world point, and takes up to cubicMetres back
+        // out of it, returning how much it actually found. The heightfield cannot fall, so these
+        // are the two ends of a waterfall: drain the shelf above the lip, fill the pool below it.
+        void addWater(const Vector3& worldPosition, float radius, float cubicMetres);
+        float drainWater(const Vector3& worldPosition, float radius, float cubicMetres);
+
+        // Litres standing in the field, constant between rain and evaporation
+        double getSimVolume() const;
     };
 }
 

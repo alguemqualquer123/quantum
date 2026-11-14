@@ -1,5 +1,5 @@
 //
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Based on LihO implementation:
 // https://stackoverflow.com/questions/180947/base64-decode-snippet-in-c
@@ -7,7 +7,7 @@
 
 #include "Base64.h"
 
-using namespace doriax;
+using namespace quantum;
 
 const std::string Base64::base64_chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

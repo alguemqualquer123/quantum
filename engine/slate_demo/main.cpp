@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
-// doriax-slate-demo: gallery executable for the retained-mode Slate module
+// quantum-slate-demo: gallery executable for the retained-mode Slate module
 // (engine/slate). It mounts a single CanvasPanel tree exercising every widget
 // and container that exists today: Box (V/H), Overlay, Border, GridPanel,
 // SizeBox, ScrollBox (clip + content offset), CanvasPanel anchors (HUD corners
@@ -41,18 +41,18 @@
 #include "slate/widgets/ProgressBar.h"
 
 #if defined(_WIN32)
-    #include "DoriaxWin.h"
+    #include "QuantumWin.h"
     #include "WindowWin.h"
 #elif defined(__APPLE__)
-    #include "DoriaxMac.h"
+    #include "QuantumMac.h"
     #include "WindowMac.h"
 #else
-    #include "DoriaxLinux.h"
+    #include "QuantumLinux.h"
     #include "WindowLinux.h"
 #endif
 
-using namespace doriax;
-using namespace doriax::slate;
+using namespace quantum;
+using namespace quantum::slate;
 
 namespace {
 
@@ -245,7 +245,7 @@ namespace {
         place(*panel, 0.0f, 0.0f, 24.0f, 24.0f, 480.0f, 644.0f);
 
         Label* title = panel->addChild<Label>("title");
-        title->setText("Doriax Slate - gallery");
+        title->setText("Quantum Slate - gallery");
         title->setStyleName("Demo.Title");
 
         Label* body = panel->addChild<Label>("body");
@@ -483,7 +483,7 @@ namespace {
 
 // Registered like the runner/exported games (Engine.h:135-144); the engine
 // fires it inside Engine::systemInit.
-DORIAX_INIT void init() {
+QUANTUM_INIT void init() {
     bootScene();
 }
 
@@ -514,7 +514,7 @@ int main(int argc, char** argv) {
         }
         const double elapsedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 
-        std::printf("doriax-slate-demo (headless)\n");
+        std::printf("quantum-slate-demo (headless)\n");
         printStats(Slate::getStats(), frames, elapsedMs);
         printAnchoredRects();
 
@@ -540,17 +540,17 @@ int main(int argc, char** argv) {
     }
 
     // The platform init owns the frame loop and shuts the engine down on
-    // window close (DoriaxWin::init, engine/platform/win/DoriaxWin.cpp).
+    // window close (QuantumWin::init, engine/platform/win/QuantumWin.cpp).
 #if defined(_WIN32)
-    const int result = DoriaxWin::init(argc, argv);
+    const int result = QuantumWin::init(argc, argv);
 #elif defined(__APPLE__)
-    const int result = DoriaxMac::init(argc, argv);
+    const int result = QuantumMac::init(argc, argv);
 #else
-    const int result = DoriaxLinux::init(argc, argv);
+    const int result = QuantumLinux::init(argc, argv);
 #endif
 
     const Slate::Stats& stats = Slate::getStats();
-    std::printf("doriax-slate-demo finished (code %d): %u widgets, %u commands, %u ranges\n",
+    std::printf("quantum-slate-demo finished (code %d): %u widgets, %u commands, %u ranges\n",
                 result, stats.widgets, stats.commands, stats.ranges);
     Slate::clear();
     return result;

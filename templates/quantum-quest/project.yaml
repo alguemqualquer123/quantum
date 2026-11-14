@@ -1,0 +1,14 @@
+name: quantum-quest
+canvasWidth: 1280
+canvasHeight: 720
+scalingMode: fitwidth
+textureStrategy: none
+vsync: true
+windowMode: windowed
+windowWidth: 1280
+windowHeight: 720
+windowResizable: true
+luaDir: .
+startSceneId: 1303283928
+scenes:
+  - filepath: scenes\_bootstrap.scene

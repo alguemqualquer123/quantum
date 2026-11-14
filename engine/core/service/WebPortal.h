@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef WEBPORTAL_H
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
     // The game portal a web export targets, chosen in the project settings
     enum class WebPortalType{
@@ -38,7 +38,7 @@ namespace doriax {
 
     // What a platform with a portal SDK implements, see System::getWebPortalBackend.
     // Called from the engine thread, it answers through the WebPortal::system* callbacks.
-    class DORIAX_API WebPortalBackend {
+    class QUANTUM_API WebPortalBackend {
     public:
         virtual ~WebPortalBackend() = default;
 
@@ -57,7 +57,7 @@ namespace doriax {
 
     // Game portal SDKs of web exports, like CrazyGames and Poki. Results arrive as events
     // at the start of a frame, and the engine pauses while an ad or a portal screen shows.
-    class DORIAX_API WebPortal {
+    class QUANTUM_API WebPortal {
 
         friend class Engine;
 

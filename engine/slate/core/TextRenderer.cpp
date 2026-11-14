@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/TextRenderer.h"
@@ -18,7 +18,7 @@
 #include "util/STBText.h"
 #include "util/StringUtils.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         //(path,size) -> renderer. Failed loads stay in the map so the error is
@@ -154,7 +154,7 @@ namespace doriax::slate {
         publishedVersion(0),
         uploadedVersion(0) {
 
-        const std::string id = "doriax_slate|" + fontPath + "|" + std::to_string(fontSize);
+        const std::string id = "quantum_slate|" + fontPath + "|" + std::to_string(fontSize);
 
         font = FontPool::get(id);
         if (!font) {
@@ -204,7 +204,7 @@ namespace doriax::slate {
         if (version != publishedVersion) {
             //Versioned id: each atlas growth publishes fresh pixels into a new
             //pool entry, so texts still bound to the older texture keep working.
-            atlasTexture.setData("doriax_slate_atlas|" + fontPath + "|" +
+            atlasTexture.setData("quantum_slate_atlas|" + fontPath + "|" +
                                  std::to_string(fontSize) + "#" + std::to_string(version), *data);
             publishedVersion = version;
             uploadedVersion = 0;

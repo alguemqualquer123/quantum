@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "WebPortal.h"
@@ -6,7 +6,7 @@
 #include "Log.h"
 #include "System.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     const char* notAvailableMessage = "No game portal SDK in this build";

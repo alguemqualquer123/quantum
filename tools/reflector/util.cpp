@@ -1,4 +1,4 @@
-// doriax-reflector: file helpers + regex utilities.
+// quantum-reflector: file helpers + regex utilities.
 #include "reflector.h"
 
 #include <algorithm>

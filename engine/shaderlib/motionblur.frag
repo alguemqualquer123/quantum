@@ -49,21 +49,21 @@ void main(){
     float centerDepth = texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord).r;
     float depthFactor = smoothstep(0.0, depthThreshold, 1.0 - centerDepth);
 
-    // Apply motion blur with multiple samples
+    // Sample symmetrically around the current pixel. A one-sided blur leaves a
+    // visible bias behind moving objects and amplifies disocclusion ghosting.
+    // Bilateral taps also keep the centre of the shutter exposure anchored to
+    // the current frame instead of shifting the whole image along the velocity.
     float totalWeight = 1.0;
     vec3 accumColor = color;
-
     for (float i = 1.0; i <= maxSamples; i += 1.0){
         float t = i / maxSamples;
-        vec2 offset = motionVector * t;
-
-        // Sample along motion vector
-        vec2 sampleUV = v_texcoord + offset;
-        vec3 sampleColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), sampleUV).rgb;
-
-        // Weight decreases towards the end
-        float weight = 1.0 - t;
-        accumColor += sampleColor * weight;
+        float weight = 1.0 - 0.5 * t;
+        vec2 offset = motionVector * t * 0.5;
+        vec2 sampleUV0 = clamp(v_texcoord - offset, vec2(0.0), vec2(1.0));
+        vec2 sampleUV1 = clamp(v_texcoord + offset, vec2(0.0), vec2(1.0));
+        vec3 sampleColor0 = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), sampleUV0).rgb;
+        vec3 sampleColor1 = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), sampleUV1).rgb;
+        accumColor += (sampleColor0 + sampleColor1) * (0.5 * weight);
         totalWeight += weight;
     }
 

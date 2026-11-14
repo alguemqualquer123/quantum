@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef luabinding_h
@@ -11,11 +11,11 @@
 typedef struct lua_State lua_State;
 typedef int (*lua_CFunction) (lua_State *L);
 
-namespace doriax {
+namespace quantum {
 
     class Scene;
 
-    class DORIAX_API LuaBinding {
+    class QUANTUM_API LuaBinding {
         
         friend class Engine;
         
@@ -47,6 +47,7 @@ namespace doriax {
         static void registerObjectClasses(lua_State *L);
         static void registerUtilClasses(lua_State *L);
         static void registerThreadClasses(lua_State *L);
+        static void registerPluginClasses(lua_State *L);
 
         static void init();
 
@@ -61,6 +62,11 @@ namespace doriax {
         virtual ~LuaBinding();
         
         static lua_State* getLuaState();
+        // Visual-script reflection adapters use the same entity-handle dispatch
+        // as regular Lua property injection. Keeping this narrow public seam
+        // avoids a second C++ type registry for graph nodes.
+        static bool pushEntityHandleForGraph(lua_State* L, Scene* scene, Entity entity,
+            const std::string& ptrTypeName);
         // grows each time the state is created
         static unsigned int getLuaStateGeneration();
         
@@ -79,6 +85,12 @@ namespace doriax {
 
         // Starts only the scripts not started yet, such as a spawned bundle's
         static void initializeLuaScripts(Scene* scene);
+        // Reload active modules in place while retaining the instance table and its state.
+        static bool reloadLuaScripts(Scene* scene);
+        // Poll source mtimes and reload changed modules when development hot reload is enabled.
+        static void pollLuaScriptHotReload(Scene* scene);
+        static void setLuaHotReloadEnabled(bool enabled);
+        static bool isLuaHotReloadEnabled();
         static void cleanupLuaScripts(Scene* scene);
         static void cleanupLuaScripts(Scene* scene, Entity entity);
         static void clearLoadedProjectModules();

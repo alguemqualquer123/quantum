@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "App.h"
@@ -8,7 +8,9 @@
 #include "Platform.h"
 #include "Backend.h"
 #include "Engine.h"
+#include "PluginManager.h"
 #include "render/SystemRender.h"
+#include "util/FrameCapture.h"
 
 #include "external/IconsFontAwesome6.h"
 #include "command/CommandHandle.h"
@@ -20,20 +22,32 @@
 #include "util/FileDialogs.h"
 #include "util/FileUtils.h"
 #include "util/ProjectUtils.h"
+#include "util/ShellAssociation.h"
 #include "util/Util.h"
 #include "util/FileUtils.h"
 #include "util/SystemStats.h"
 #include "cli/LaunchOptions.h"
+#include "cli/ProjectDoctor.h"
+#include "cli/ProjectFileType.h"
 #include "cli/ResourceServerClient.h"
 
 #include "window/NotificationsWindow.h"
 #include "window/CommandPaletteWindow.h"
 #include "window/WelcomeScreenWindow.h"
 #include "window/ResourceMonitorWindow.h"
+#include "window/TerminalWindow.h"
+#include "window/ModelExportWindow.h"
+#include "window/PluginBrowserWindow.h"
+#include "window/PluginWindowHost.h"
+#include "window/WorldCreatorWindow.h"
+#include "window/MaterialBrowserWindow.h"
+#include "graph/GraphEditorWindow.h"
 
 #include "EditorVersion.h"
 #include "Out.h"
+#include "AppMenuCommand.h"
 #include "AppSettings.h"
+#include "KeyBindings.h"
 #include "Theme.h"
 #include "ai/McpServer.h"
 #include "resources/fonts/fa-solid-900_ttf.h"
@@ -44,6 +58,7 @@
 
 #include "shader/ShaderBuilder.h"
 #include "subsystem/MeshSystem.h"
+#include "subsystem/PhysicsSystem.h"
 #include "subsystem/RenderSystem.h"
 #include "subsystem/UISystem.h"
 
@@ -69,7 +84,9 @@
   #include <shlobj.h>
 #endif
 
-using namespace doriax;
+using namespace quantum;
+// The command ids live in a header now because KeyBindings has to name them too.
+using editor::AppMenuCommand;
 
 namespace {
 
@@ -108,12 +125,23 @@ bool holdsCentralNode(const ImGuiDockNode* node) {
     return holdsCentralNode(node->ChildNodes[0]) || holdsCentralNode(node->ChildNodes[1]);
 }
 
-// App.h is frozen for this change, so the four new panels are not members; a
+// App.h is frozen for these changes, so the newer panels are not members; a
 // single editor instance means these TU-local pointers are the whole lifetime.
 editor::NotificationsWindow* g_notificationsWindow = nullptr;
 editor::CommandPaletteWindow* g_commandPaletteWindow = nullptr;
 editor::WelcomeScreenWindow* g_welcomeScreenWindow = nullptr;
 editor::ResourceMonitorWindow* g_resourceMonitorWindow = nullptr;
+editor::GraphEditorWindow* g_graphEditorWindow = nullptr;
+editor::TerminalWindow* g_terminalWindow = nullptr;
+editor::ModelExportWindow* g_modelExportWindow = nullptr;
+editor::PluginBrowserWindow* g_pluginBrowserWindow = nullptr;
+editor::PluginWindowHost* g_pluginWindowHost = nullptr;
+editor::WorldCreatorWindow* g_worldCreatorWindow = nullptr;
+
+// Whether the project extension currently opens files with this build. Asking costs a
+// registry read and the menu model is rebuilt every frame, so the answer is cached and
+// refreshed when a project loads and whenever the command runs.
+bool g_projectFileTypeRegistered = false;
 
 }
 
@@ -128,10 +156,13 @@ editor::App::App(){
     structureWindow = new Structure(&project, sceneWindow);
     codeEditor = new CodeEditor(&project, &gitMonitor);
     imageViewerWindow = new ImageViewerWindow(&project);
+    modelViewerWindow = new ModelViewerWindow(&project);
+    materialBrowserWindow = new MaterialBrowserWindow(&project);
     resourcesWindow = new ResourcesWindow(&project, codeEditor, imageViewerWindow);
     loadingWindow = new LoadingWindow();
     animationWindow = new AnimationWindow(&project);
     terrainEditWindow = new TerrainEditWindow(&project);
+    animatorWindow = new AnimatorWindow(&project);
     aiChatWindow = new AiChatWindow(&project, resourcesWindow);
     mcpServer = new ai::McpServer(&project, resourcesWindow);
 
@@ -139,6 +170,13 @@ editor::App::App(){
     g_commandPaletteWindow = new CommandPaletteWindow();
     g_welcomeScreenWindow = new WelcomeScreenWindow();
     g_resourceMonitorWindow = new ResourceMonitorWindow();
+    g_graphEditorWindow = new GraphEditorWindow();
+    g_terminalWindow = new TerminalWindow(&project);
+    g_modelExportWindow = new ModelExportWindow(&project);
+    g_pluginBrowserWindow = new PluginBrowserWindow();
+    g_pluginWindowHost = new PluginWindowHost();
+    g_worldCreatorWindow = new WorldCreatorWindow(&project);
+    setGraphEditorWindow(g_graphEditorWindow);
 
     isInitialized = false;
     dockspaceNeedsRebuild = false;
@@ -256,62 +294,6 @@ void editor::App::openProjectFunc(){
 
 namespace {
 
-enum class AppMenuCommand : uint32_t {
-    NewProject = 1,
-    NewScene3D,
-    NewScene2D,
-    NewSceneUI,
-    OpenProject,
-    OpenRecentProject,
-    ClearRecentProjects,
-    SaveProject,
-    SaveProjectAs,
-    Save,
-    SaveAll,
-    ExportProject,
-    EditorSettings,
-    Exit,
-    Undo,
-    Redo,
-    DuplicateSelection,
-    DeleteSelection,
-    ToggleStructure,
-    ToggleProperties,
-    ToggleResources,
-    ToggleOutput,
-    ToggleAnimation,
-    ToggleTerrain,
-    ToggleAiChat,
-    ToggleDetachableWindows,
-    ToggleEditorVSync,
-    ResetLayout,
-    ProjectSettings,
-    ProjectScenes,
-    ProjectBundles,
-    ClearTrash,
-    ClearShaderCache,
-    RunScene,
-    PauseScene,
-    ResumeScene,
-    StopScene,
-    DetachCamera,
-    RemoveScene,
-    About,
-    Documentation,
-    KeyboardShortcuts,
-    ReportIssue,
-    ToggleNotifications,
-    ToggleResourceMonitor,
-    CommandPalette,
-    ThemeToggle,
-    AccentBlue,
-    AccentTeal,
-    AccentAmber,
-    AccentViolet,
-    NewProjectFromTemplate,
-    ToggleWelcome
-};
-
 editor::PlatformMenuItem menuCommand(AppMenuCommand command,
                                      std::string label,
                                      bool enabled = true) {
@@ -326,12 +308,16 @@ editor::PlatformMenuItem menuCommand(AppMenuCommand command,
     return item;
 }
 
+// The shortcut column is never written by hand: it mirrors the binding the dispatcher
+// actually reads, so remapping a key in Editor Settings lands in the menu, the palette
+// and the input pass at once. `binding` names a KeyBindings row, which is not always the
+// command's own (Resume Scene displays Run Scene's F5).
 editor::PlatformMenuItem menuShortcut(AppMenuCommand command,
                                       std::string label,
-                                      std::string shortcut,
+                                      const char* binding,
                                       bool enabled = true) {
     editor::PlatformMenuItem item = menuCommand(command, std::move(label), enabled);
-    item.shortcut = std::move(shortcut);
+    item.shortcut = editor::KeyBindings::primaryText(binding);
     return item;
 }
 
@@ -340,6 +326,15 @@ editor::PlatformMenuItem menuToggle(AppMenuCommand command,
                                     bool checked) {
     editor::PlatformMenuItem item = menuCommand(command, std::move(label));
     item.checked = checked;
+    return item;
+}
+
+editor::PlatformMenuItem menuToggleShortcut(AppMenuCommand command,
+                                            std::string label,
+                                            const char* binding,
+                                            bool checked) {
+    editor::PlatformMenuItem item = menuToggle(command, std::move(label), checked);
+    item.shortcut = editor::KeyBindings::primaryText(binding);
     return item;
 }
 
@@ -406,12 +401,12 @@ std::vector<editor::PlatformMenuItem> buildTemplateMenuItems() {
 
 editor::PaletteCommand paletteCmd(AppMenuCommand command,
                                   std::string label,
-                                  std::string shortcut = {},
+                                  const char* binding = nullptr,
                                   std::string description = {}) {
     editor::PaletteCommand command_;
     command_.id = std::to_string(static_cast<uint32_t>(command));
     command_.label = std::move(label);
-    command_.shortcut = std::move(shortcut);
+    command_.shortcut = binding ? editor::KeyBindings::primaryText(binding) : std::string();
     command_.description = std::move(description);
     return command_;
 }
@@ -425,35 +420,56 @@ std::vector<editor::PaletteCommand> buildPaletteCommands() {
         paletteCmd(AppMenuCommand::NewScene3D, "File: New 3D Scene"),
         paletteCmd(AppMenuCommand::NewScene2D, "File: New 2D Scene"),
         paletteCmd(AppMenuCommand::NewSceneUI, "File: New UI Scene"),
-        paletteCmd(AppMenuCommand::OpenProject, "File: Open Project...", "Ctrl+O"),
+        paletteCmd(AppMenuCommand::OpenProject, "File: Open Project...", "file.openProject"),
         paletteCmd(AppMenuCommand::SaveProject, "File: Save Project"),
         paletteCmd(AppMenuCommand::SaveProjectAs, "File: Save Project As..."),
-        paletteCmd(AppMenuCommand::Save, "File: Save", "Ctrl+S"),
-        paletteCmd(AppMenuCommand::SaveAll, "File: Save All", "Ctrl+Shift+S"),
+        paletteCmd(AppMenuCommand::Save, "File: Save", "file.save"),
+        paletteCmd(AppMenuCommand::SaveAll, "File: Save All", "file.saveAll"),
         paletteCmd(AppMenuCommand::ExportProject, "File: Export Project..."),
-        paletteCmd(AppMenuCommand::Undo, "Edit: Undo", "Ctrl+Z"),
-        paletteCmd(AppMenuCommand::Redo, "Edit: Redo", "Ctrl+Y"),
+        paletteCmd(AppMenuCommand::Undo, "Edit: Undo", "edit.undo"),
+        paletteCmd(AppMenuCommand::Redo, "Edit: Redo", "edit.redo"),
+        paletteCmd(AppMenuCommand::ToggleCodeComment, "Edit: Toggle Comment", "code.comment"),
+        paletteCmd(AppMenuCommand::ToggleCodeBlockComment, "Edit: Toggle Block Comment", "code.blockComment"),
+        paletteCmd(AppMenuCommand::FormatCodeDocument, "Edit: Format Document", "code.format"),
+        paletteCmd(AppMenuCommand::SettingsShortcutsTab, "Edit: Keyboard Shortcuts Settings", "settings.shortcuts"),
+        paletteCmd(AppMenuCommand::SettingsGraphicsTab, "Edit: Graphics Settings", "settings.graphics"),
+        paletteCmd(AppMenuCommand::SettingsEngineApiTab, "Edit: Engine API Reference", "settings.api"),
         paletteCmd(AppMenuCommand::ToggleStructure, "View: Toggle Structure"),
         paletteCmd(AppMenuCommand::ToggleProperties, "View: Toggle Properties"),
         paletteCmd(AppMenuCommand::ToggleResources, "View: Toggle Resources"),
         paletteCmd(AppMenuCommand::ToggleOutput, "View: Toggle Output"),
         paletteCmd(AppMenuCommand::ToggleAnimation, "View: Toggle Animation"),
         paletteCmd(AppMenuCommand::ToggleTerrain, "View: Toggle Terrain"),
+        paletteCmd(AppMenuCommand::ToggleAnimator, "View: Toggle Animator"),
         paletteCmd(AppMenuCommand::ToggleAiChat, "View: Toggle AI Chat"),
         paletteCmd(AppMenuCommand::ToggleNotifications, "View: Toggle Notifications"),
         paletteCmd(AppMenuCommand::ToggleResourceMonitor, "View: Toggle Resource Monitor"),
+        paletteCmd(AppMenuCommand::ToggleGraphEditor, "View: Toggle Graph Editor"),
+        paletteCmd(AppMenuCommand::ToggleTerminal, "View: Toggle Terminal", "view.terminal"),
+        paletteCmd(AppMenuCommand::ToggleMaterialBrowser, "View: Toggle Material Library"),
+        paletteCmd(AppMenuCommand::ToggleModelExport, "View: Toggle Model Export"),
+        paletteCmd(AppMenuCommand::TogglePlugins, "View: Toggle Plugins"),
+        paletteCmd(AppMenuCommand::ToggleWorldCreator, "View: Toggle World Creator"),
+        paletteCmd(AppMenuCommand::TogglePhysicsDebugDraw, "View: Toggle Physics Debug Draw"),
         paletteCmd(AppMenuCommand::ResetLayout, "View: Reset Layout"),
-        paletteCmd(AppMenuCommand::ThemeToggle, "View: Toggle Dark/Light Theme"),
+        paletteCmd(AppMenuCommand::ThemeGray, "View: Theme: Gray"),
+        paletteCmd(AppMenuCommand::ThemeLight, "View: Theme: Light"),
+        paletteCmd(AppMenuCommand::ThemeDark, "View: Theme: Dark"),
         paletteCmd(AppMenuCommand::ProjectSettings, "Project: Project Settings..."),
         paletteCmd(AppMenuCommand::ProjectScenes, "Project: Scenes..."),
         paletteCmd(AppMenuCommand::ProjectBundles, "Project: Bundles..."),
+        paletteCmd(AppMenuCommand::ValidateProject, "Project: Validate Project"),
         paletteCmd(AppMenuCommand::ClearTrash, "Project: Clear Trash"),
         paletteCmd(AppMenuCommand::ClearShaderCache, "Project: Clear Shader Cache"),
-        paletteCmd(AppMenuCommand::RunScene, "Scene: Run", "F5"),
-        paletteCmd(AppMenuCommand::PauseScene, "Scene: Pause", "F6"),
-        paletteCmd(AppMenuCommand::StopScene, "Scene: Stop", "F7"),
+        paletteCmd(AppMenuCommand::ToggleProjectFileType, "Project: Register Project File Type"),
+        paletteCmd(AppMenuCommand::RunScene, "Scene: Run", "scene.run"),
+        paletteCmd(AppMenuCommand::NetworkPlay, "Scene: Network Play..."),
+        paletteCmd(AppMenuCommand::ReloadCppScripts, "Scene: Reload C++ Scripts"),
+        paletteCmd(AppMenuCommand::ToggleScriptDebugger, "View: Toggle Script Debugger"),
+        paletteCmd(AppMenuCommand::PauseScene, "Scene: Pause", "scene.pause"),
+        paletteCmd(AppMenuCommand::StopScene, "Scene: Stop", "scene.stop"),
         paletteCmd(AppMenuCommand::RemoveScene, "Scene: Remove"),
-        paletteCmd(AppMenuCommand::About, "Help: About Doriax"),
+        paletteCmd(AppMenuCommand::About, "Help: About Quantum"),
     };
 }
 
@@ -467,6 +483,22 @@ const char* accentForCommand(AppMenuCommand command) {
     }
 }
 
+editor::Theme::Preset presetFromSetting(int setting) {
+    switch (setting) {
+        case 1: return editor::Theme::Preset::Light;
+        case 2: return editor::Theme::Preset::Dark;
+        default: return editor::Theme::Preset::Gray;
+    }
+}
+
+int settingFromPreset(editor::Theme::Preset preset) {
+    switch (preset) {
+        case editor::Theme::Preset::Light: return 1;
+        case editor::Theme::Preset::Dark: return 2;
+        default: return 0;
+    }
+}
+
 const char* imguiMenuLabel(const editor::PlatformMenuItem& item) {
     switch (static_cast<AppMenuCommand>(item.command.id)) {
         case AppMenuCommand::NewScene3D: return ICON_FA_CUBES "  3D Scene";
@@ -476,12 +508,38 @@ const char* imguiMenuLabel(const editor::PlatformMenuItem& item) {
     }
 }
 
+// Help > Keyboard Shortcuts is generated from the registry, so the list cannot disagree
+// with a remap. The scene-view keys stay hand-written: the viewport reads them itself and
+// they are not configurable.
+std::string buildShortcutHelp() {
+    std::string text = "REMAPPABLE IN EDITOR SETTINGS > SHORTCUTS\n";
+    const char* category = nullptr;
+    for (const editor::KeyBinding& binding : editor::KeyBindings::all()) {
+        if (!category || std::strcmp(category, binding.category) != 0) {
+            category = binding.category;
+            text += std::string("\n") + category + "\n";
+        }
+        // An empty chord column is a command the user unbound, which is worth showing.
+        const std::string chords = editor::KeyBindings::text(binding.id);
+        text += "    " + chords;
+        for (size_t pad = chords.size(); pad < 18; ++pad) text += ' ';
+        text += "  " + std::string(binding.label) + "\n";
+    }
+    text += "\nSCENE VIEW (NOT CONFIGURABLE)\n"
+            "    W / E / R       Move / Rotate / Scale\n"
+            "    T               Toggle local / global transforms\n"
+            "    F / Home        Frame selection / all objects (3D)\n";
+    return text;
+}
+
 } // namespace
 
 editor::PlatformMenuModel editor::App::buildMenuModel(){
     SceneProject* selectedScene = project.getSelectedScene();
     uint32_t selectedSceneId = project.getSelectedSceneId();
     bool hasSelectedScene = selectedScene != nullptr;
+    const bool physicsDebugDraw = hasSelectedScene && selectedScene->scene &&
+        selectedScene->scene->getSystem<PhysicsSystem>()->isDebugDrawEnabled();
     bool isProjectBusy = project.isAnyScenePlaying();
     bool isPlaying = hasSelectedScene && selectedScene->playState == ScenePlayState::PLAYING;
     bool isPaused = hasSelectedScene && selectedScene->playState == ScenePlayState::PAUSED;
@@ -492,6 +550,7 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
     bool canResume = hasSelectedScene && isPaused;
     bool canStop = hasSelectedScene && !isSaving && (isPlaying || isPaused || isLoading);
     bool canDetachCamera = hasSelectedScene && (isPlaying || isPaused);
+    bool canReloadCppScripts = project.canReloadActiveCppScripts();
     bool canRemove = hasSelectedScene && !isProjectBusy && project.getScenes().size() > 1;
 
     bool canSave = false;
@@ -522,6 +581,11 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
         }
     }
 
+    // The comment and format commands act on a script, so they are only live while one
+    // holds the caret
+    const bool canEditCode = lastFocusedWindow == LastFocusedWindow::Code &&
+                             codeEditor->canEditLastFocused();
+
     std::vector<PlatformMenuItem> recentItems;
     std::vector<std::filesystem::path> recentProjects = AppSettings::getRecentProjects();
     if (recentProjects.empty()) {
@@ -550,12 +614,12 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
             menuCommand(AppMenuCommand::NewSceneUI, "UI Scene")
         }, !isProjectBusy),
         menuSeparator(),
-        menuShortcut(AppMenuCommand::OpenProject, "Open Project...", "Ctrl+O",
+        menuShortcut(AppMenuCommand::OpenProject, "Open Project...", "file.openProject",
                      !isProjectBusy),
         menuSubmenu("Recent Projects", std::move(recentItems), !isProjectBusy),
         menuSeparator(),
-        menuShortcut(AppMenuCommand::Save, "Save", "Ctrl+S", canSave),
-        menuShortcut(AppMenuCommand::SaveAll, "Save All", "Ctrl+Shift+S", canSaveAll),
+        menuShortcut(AppMenuCommand::Save, "Save", "file.save", canSave),
+        menuShortcut(AppMenuCommand::SaveAll, "Save All", "file.saveAll", canSaveAll),
         menuCommand(AppMenuCommand::SaveProject, "Save Project", canSaveAll),
         menuCommand(AppMenuCommand::SaveProjectAs, "Save Project As...", canSaveAll),
         menuSeparator(),
@@ -565,13 +629,20 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
     }));
 
     menu.menus.push_back(menuSubmenu("Edit", {
-        menuShortcut(AppMenuCommand::Undo, "Undo", "Ctrl+Z", canUndo),
-        menuShortcut(AppMenuCommand::Redo, "Redo", "Ctrl+Shift+Z", canRedo),
+        menuShortcut(AppMenuCommand::Undo, "Undo", "edit.undo", canUndo),
+        menuShortcut(AppMenuCommand::Redo, "Redo", "edit.redo", canRedo),
         menuSeparator(),
-        menuShortcut(AppMenuCommand::DuplicateSelection, "Duplicate", "Ctrl+D", canEditSelection(true)),
-        menuShortcut(AppMenuCommand::DeleteSelection, "Delete", "Delete", canEditSelection(false)),
+        menuShortcut(AppMenuCommand::DuplicateSelection, "Duplicate", "edit.duplicate", canEditSelection(true)),
+        menuShortcut(AppMenuCommand::DeleteSelection, "Delete", "edit.delete", canEditSelection(false)),
         menuSeparator(),
-        menuCommand(AppMenuCommand::EditorSettings, "Editor Settings...")
+        menuShortcut(AppMenuCommand::ToggleCodeComment, "Toggle Comment", "code.comment", canEditCode),
+        menuShortcut(AppMenuCommand::ToggleCodeBlockComment, "Toggle Block Comment", "code.blockComment", canEditCode),
+        menuShortcut(AppMenuCommand::FormatCodeDocument, "Format Document", "code.format", canEditCode),
+        menuSeparator(),
+        menuCommand(AppMenuCommand::EditorSettings, "Editor Settings..."),
+        menuShortcut(AppMenuCommand::SettingsShortcutsTab, "Keyboard Shortcuts...", "settings.shortcuts"),
+        menuShortcut(AppMenuCommand::SettingsGraphicsTab, "Graphics...", "settings.graphics"),
+        menuShortcut(AppMenuCommand::SettingsEngineApiTab, "Engine API...", "settings.api")
     }));
 
     menu.menus.push_back(menuSubmenu("View", {
@@ -587,16 +658,39 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
                    animationWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleTerrain, TerrainEditWindow::WINDOW_NAME,
                    terrainEditWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleAnimator, AnimatorWindow::WINDOW_NAME,
+                   animatorWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleAiChat, AiChatWindow::WINDOW_NAME,
                    aiChatWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleNotifications, NotificationsWindow::WINDOW_NAME,
                    g_notificationsWindow->isOpen()),
         menuToggle(AppMenuCommand::ToggleResourceMonitor, ResourceMonitorWindow::WINDOW_NAME,
                    g_resourceMonitorWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleGraphEditor, GraphEditorWindow::WINDOW_NAME,
+                   g_graphEditorWindow->isOpen()),
+        menuToggleShortcut(AppMenuCommand::ToggleTerminal, TerminalWindow::WINDOW_NAME, "view.terminal",
+                           g_terminalWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleMaterialBrowser, MaterialBrowserWindow::WINDOW_NAME,
+                   materialBrowserWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleModelExport, ModelExportWindow::WINDOW_NAME,
+                   g_modelExportWindow->isOpen()),
+        menuToggle(AppMenuCommand::TogglePlugins, PluginBrowserWindow::WINDOW_NAME,
+                   g_pluginBrowserWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleWorldCreator, WorldCreatorWindow::WINDOW_NAME,
+                   g_worldCreatorWindow->isOpen()),
+        menuToggle(AppMenuCommand::ToggleScriptDebugger, ScriptDebuggerWindow::WINDOW_NAME,
+                   scriptDebuggerWindow.isOpen()),
+        menuToggle(AppMenuCommand::TogglePhysicsDebugDraw, "Physics Debug Draw", physicsDebugDraw),
         menuSeparator(),
-        menuShortcut(AppMenuCommand::CommandPalette, "Command Palette...", "Ctrl+K"),
-        menuCommand(AppMenuCommand::ThemeToggle,
-                    Theme::getPreset() == Theme::Preset::Dark ? "Light Theme" : "Dark Theme"),
+        menuShortcut(AppMenuCommand::CommandPalette, "Command Palette...", "view.commandPalette"),
+        menuSubmenu("Theme", {
+            menuToggle(AppMenuCommand::ThemeGray, "Gray",
+                       Theme::getPreset() == Theme::Preset::Gray),
+            menuToggle(AppMenuCommand::ThemeLight, "Light",
+                       Theme::getPreset() == Theme::Preset::Light),
+            menuToggle(AppMenuCommand::ThemeDark, "Dark",
+                       Theme::getPreset() == Theme::Preset::Dark)
+        }),
         menuSubmenu("Accent Color", {
             menuCommand(AppMenuCommand::AccentBlue, "Blue"),
             menuCommand(AppMenuCommand::AccentTeal, "Teal"),
@@ -612,16 +706,28 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
         menuCommand(AppMenuCommand::ResetLayout, "Reset Layout")
     }));
 
-    menu.menus.push_back(menuSubmenu("Project", {
+    std::vector<editor::PlatformMenuItem> projectMenu = {
         menuCommand(AppMenuCommand::ProjectSettings, "Project Settings..."),
         menuCommand(AppMenuCommand::ProjectScenes, "Manage Scenes...", !isProjectBusy),
         menuCommand(AppMenuCommand::ProjectBundles, "Bundles..."),
+        menuCommand(AppMenuCommand::ValidateProject, "Validate Project", !isProjectBusy && !project.getProjectPath().empty()),
         menuSeparator(),
         menuCommand(AppMenuCommand::ClearTrash, "Empty Project Trash...", !isProjectBusy),
         menuCommand(AppMenuCommand::ClearShaderCache, "Clear Shader Cache")
-    }));
+    };
+    // The label names the extension in play because it is configurable: ".dproj" is
+    // also Delphi's, and a clash is resolved by picking another one.
+    if (editor::ShellAssociation::isSupported()) {
+        projectMenu.push_back(menuSeparator());
+        projectMenu.push_back(menuToggle(AppMenuCommand::ToggleProjectFileType,
+                                         "Register " + editor::cli::ProjectFileType::resolveExtension()
+                                                   + " File Type",
+                                         g_projectFileTypeRegistered));
+    }
+    menu.menus.push_back(menuSubmenu("Project", std::move(projectMenu)));
 
-    PlatformMenuItem detachCameraItem = menuShortcut(AppMenuCommand::DetachCamera, "Detach Camera", "F8", canDetachCamera);
+    PlatformMenuItem detachCameraItem = menuShortcut(AppMenuCommand::DetachCamera, "Detach Camera",
+                                                     "scene.detachCamera", canDetachCamera);
     detachCameraItem.checked = canDetachCamera && selectedScene->sceneRender && selectedScene->sceneRender->isCameraDetached();
 
     menu.menus.push_back(menuSubmenu("Scene", {
@@ -631,23 +737,108 @@ editor::PlatformMenuModel editor::App::buildMenuModel(){
             menuCommand(AppMenuCommand::NewSceneUI, "UI Scene")
         }, !isProjectBusy),
         menuSeparator(),
-        menuShortcut(AppMenuCommand::RunScene, "Run Current Scene", "F5", canRun),
-        menuShortcut(AppMenuCommand::PauseScene, "Pause", "F6", canPause),
-        menuShortcut(AppMenuCommand::ResumeScene, "Resume", "F5", canResume),
-        menuShortcut(AppMenuCommand::StopScene, "Stop", "F7", canStop),
+        menuShortcut(AppMenuCommand::RunScene, "Run Current Scene", "scene.run", canRun),
+        menuCommand(AppMenuCommand::NetworkPlay, "Network Play...", canRun),
+        menuCommand(AppMenuCommand::ReloadCppScripts, "Reload C++ Scripts", canReloadCppScripts),
+        menuShortcut(AppMenuCommand::PauseScene, "Pause", "scene.pause", canPause),
+        menuShortcut(AppMenuCommand::ResumeScene, "Resume", "scene.run", canResume),
+        menuShortcut(AppMenuCommand::StopScene, "Stop", "scene.stop", canStop),
         detachCameraItem,
         menuSeparator(),
         menuCommand(AppMenuCommand::RemoveScene, "Remove Scene from Project", canRemove)
     }));
 
+    // Built from the live registry, so a plugin that installs, unloads or registers a window while
+    // the editor runs appears here on the next frame without a restart.
+    std::vector<PlatformMenuItem> pluginEntries = pluginMenuEntries();
+    menu.menus.push_back(menuSubmenu("Plugins", std::move(pluginEntries)));
+
     menu.menus.push_back(menuSubmenu("Help", {
-        menuShortcut(AppMenuCommand::Documentation, "Documentation", "F1"),
+        menuShortcut(AppMenuCommand::Documentation, "Documentation", "help.documentation"),
         menuCommand(AppMenuCommand::KeyboardShortcuts, "Keyboard Shortcuts"),
         menuCommand(AppMenuCommand::ReportIssue, "Report an Issue..."),
         menuSeparator(),
-        menuCommand(AppMenuCommand::About, "About Doriax")
+        menuCommand(AppMenuCommand::About, "About Quantum")
     }));
     return menu;
+}
+
+std::vector<editor::PlatformMenuItem> editor::App::pluginMenuEntries() {
+    const plugin::PluginRegistry& registry = plugin::PluginManager::instance().registry();
+
+    auto windowItem = [this](const plugin::PluginWindowInfo& window) {
+        PlatformMenuItem entry = menuPayloadCommand(AppMenuCommand::TogglePluginWindow,
+                                                   window.title, window.id);
+        entry.checked = g_pluginWindowHost && g_pluginWindowHost->isWindowOpen(window.id);
+        return entry;
+    };
+
+    auto itemEntry = [](const plugin::PluginMenuItemInfo& item) {
+        return menuPayloadCommand(AppMenuCommand::RunPluginCommand, item.label, item.command);
+    };
+
+    // Menu items and windows share one grouping key: a plugin that files both under "World" expects
+    // to find them together. An empty category is the plugin not caring, and those sit at the top of
+    // the menu rather than in a submenu of their own.
+    std::vector<std::string> categories;
+    auto noteCategory = [&categories](const std::string& category) {
+        if (category.empty()) return;
+        if (std::find(categories.begin(), categories.end(), category) == categories.end()) {
+            categories.push_back(category);
+        }
+    };
+    for (const plugin::PluginMenuItemInfo& item : registry.menuItems()) noteCategory(item.category);
+    for (const plugin::PluginWindowInfo& window : registry.windows()) noteCategory(window.category);
+
+    std::vector<PlatformMenuItem> entries;
+    for (const plugin::PluginMenuItemInfo& item : registry.menuItems()) {
+        if (!item.category.empty()) continue;
+        entries.push_back(itemEntry(item));
+    }
+    for (const plugin::PluginWindowInfo& window : registry.windows()) {
+        if (!window.category.empty()) continue;
+        entries.push_back(windowItem(window));
+    }
+
+    for (const std::string& category : categories) {
+        std::vector<PlatformMenuItem> group;
+        for (const plugin::PluginMenuItemInfo& item : registry.menuItems()) {
+            if (item.category != category) continue;
+            group.push_back(itemEntry(item));
+        }
+        for (const plugin::PluginWindowInfo& window : registry.windows()) {
+            if (window.category != category) continue;
+            group.push_back(windowItem(window));
+        }
+        entries.push_back(menuSubmenu(category, std::move(group)));
+    }
+
+    if (!registry.tools().empty()) {
+        // registerTool() names an action instead of a callback, so a tool is a command by name. One
+        // that names no registered command is shown disabled rather than hidden: the plugin's own
+        // documentation promises the button, and a missing row gives the user nothing to ask about.
+        std::vector<PlatformMenuItem> tools;
+        for (const plugin::PluginToolInfo& tool : registry.tools()) {
+            plugin::PluginCommandInfo target;
+            PlatformMenuItem entry = menuPayloadCommand(AppMenuCommand::RunPluginCommand,
+                                                        tool.label.empty() ? tool.name : tool.label,
+                                                        tool.action);
+            entry.enabled = registry.findCommand(tool.action, target);
+            tools.push_back(std::move(entry));
+        }
+        entries.push_back(menuSeparator());
+        entries.push_back(menuSubmenu("Plugin Tools", std::move(tools)));
+    }
+
+    if (entries.empty()) {
+        // A disabled row with no command behind it, which is why PlatformMenuItem is built by hand
+        // instead of through menuCommand: there is nothing to run, and 0 is not an AppMenuCommand.
+        PlatformMenuItem none;
+        none.label = "No plugin has registered anything yet";
+        none.enabled = false;
+        entries.push_back(std::move(none));
+    }
+    return entries;
 }
 
 void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
@@ -665,7 +856,7 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
     switch (action) {
         case AppMenuCommand::NewProject: {
             if (project.isAnyScenePlaying()) return;
-            std::string projectName = "MyDoriaxProject";
+            std::string projectName = "MyQuantumProject";
             auto startFreshProject = [this, projectName]() {
                 requestProjectChange([this, projectName]() {
                     if (project.createTempProject(projectName, true)) aiChatWindow->startNewChat();
@@ -833,6 +1024,8 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             aiChatWindow->setOpen(true);
             g_notificationsWindow->setOpen(true);
             g_resourceMonitorWindow->setOpen(false);
+            g_graphEditorWindow->setOpen(false);
+            g_terminalWindow->setOpen(false);
             buildDockspace(true);
             break;
         case AppMenuCommand::ProjectSettings:
@@ -841,6 +1034,15 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
         case AppMenuCommand::EditorSettings:
             editorSettingsWindow.open(&project);
             break;
+        case AppMenuCommand::SettingsShortcutsTab:
+            openEditorSettings(EditorSettingsWindow::Tab::Shortcuts);
+            break;
+        case AppMenuCommand::SettingsGraphicsTab:
+            openEditorSettings(EditorSettingsWindow::Tab::Graphics);
+            break;
+        case AppMenuCommand::SettingsEngineApiTab:
+            openEditorSettings(EditorSettingsWindow::Tab::Api);
+            break;
         case AppMenuCommand::ProjectScenes:
             if (!project.isAnyScenePlaying())
                 scenesWindow.open(&project);
@@ -848,6 +1050,63 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
         case AppMenuCommand::ProjectBundles:
             bundlesWindow.open(&project);
             break;
+        case AppMenuCommand::ValidateProject: {
+            const std::filesystem::path projectPath = project.getProjectPath();
+            if (projectPath.empty()) {
+                Out::warning("Project validation skipped: no project is open");
+                break;
+            }
+
+            const editor::cli::DoctorResult result = editor::cli::auditProject(projectPath);
+            if (!result.completed) {
+                Out::error("Project validation failed: %s", result.fatal.c_str());
+                break;
+            }
+
+            for (const editor::cli::DoctorIssue& issue : result.issues) {
+                const char* location = issue.file.c_str();
+                if (issue.line > 0) {
+                    switch (issue.severity) {
+                        case editor::cli::DoctorSeverity::Error:
+                            Out::error("Project doctor [%s:%d] %s: %s", location, issue.line,
+                                       issue.check.c_str(), issue.message.c_str());
+                            break;
+                        case editor::cli::DoctorSeverity::Warning:
+                            Out::warning("Project doctor [%s:%d] %s: %s", location, issue.line,
+                                         issue.check.c_str(), issue.message.c_str());
+                            break;
+                        case editor::cli::DoctorSeverity::Info:
+                            Out::info("Project doctor [%s:%d] %s: %s", location, issue.line,
+                                      issue.check.c_str(), issue.message.c_str());
+                            break;
+                    }
+                } else {
+                    switch (issue.severity) {
+                        case editor::cli::DoctorSeverity::Error:
+                            Out::error("Project doctor [%s] %s: %s", location,
+                                       issue.check.c_str(), issue.message.c_str());
+                            break;
+                        case editor::cli::DoctorSeverity::Warning:
+                            Out::warning("Project doctor [%s] %s: %s", location,
+                                         issue.check.c_str(), issue.message.c_str());
+                            break;
+                        case editor::cli::DoctorSeverity::Info:
+                            Out::info("Project doctor [%s] %s: %s", location,
+                                      issue.check.c_str(), issue.message.c_str());
+                            break;
+                    }
+                }
+            }
+
+            if (result.errorCount == 0 && result.warningCount == 0) {
+                Out::success("Project validation passed: %d scenes and %d entities audited",
+                             result.scenesAudited, result.entitiesAudited);
+            } else {
+                Out::warning("Project validation found %d error(s) and %d warning(s) across %d scenes",
+                             result.errorCount, result.warningCount, result.scenesAudited);
+            }
+            break;
+        }
         case AppMenuCommand::ClearTrash: {
             if (project.isAnyScenePlaying()) return;
             const auto projectPath = project.getProjectPath();
@@ -863,9 +1122,36 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             if (std::filesystem::exists(cacheDir)) std::filesystem::remove_all(cacheDir);
             break;
         }
+        case AppMenuCommand::ToggleProjectFileType: {
+            std::string error;
+            const bool wasRegistered = g_projectFileTypeRegistered;
+            const bool done = wasRegistered
+                ? editor::cli::ProjectFileType::unregisterFileType({}, error)
+                : editor::cli::ProjectFileType::registerFileType({}, error);
+            if (done) {
+                Out::success("%s. %s", wasRegistered ? "Project file type unregistered"
+                                                     : "Project file type registered",
+                             editor::cli::ProjectFileType::describe().c_str());
+            } else {
+                Out::error("Could not %s the project file type: %s",
+                           wasRegistered ? "unregister" : "register", error.c_str());
+            }
+            g_projectFileTypeRegistered = editor::cli::ProjectFileType::isRegistered();
+            break;
+        }
         case AppMenuCommand::RunScene:
             if (project.getSelectedScene() && !project.isAnyScenePlaying())
                 project.start(project.getSelectedSceneId());
+            break;
+        case AppMenuCommand::NetworkPlay:
+            if (project.getSelectedScene() && !project.isAnyScenePlaying())
+                networkPlayWindow.open(&project);
+            break;
+        case AppMenuCommand::ReloadCppScripts:
+            project.reloadActiveCppScripts();
+            break;
+        case AppMenuCommand::ToggleScriptDebugger:
+            scriptDebuggerWindow.open(&project);
             break;
         case AppMenuCommand::PauseScene:
             if (SceneProject* scene = project.getSelectedScene();
@@ -904,18 +1190,49 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
         case AppMenuCommand::ToggleResourceMonitor:
             g_resourceMonitorWindow->setOpen(!g_resourceMonitorWindow->isOpen());
             break;
+        case AppMenuCommand::ToggleGraphEditor:
+            g_graphEditorWindow->setOpen(!g_graphEditorWindow->isOpen());
+            break;
+        case AppMenuCommand::ToggleTerminal:
+            if (g_terminalWindow->isOpen())
+                g_terminalWindow->setOpen(false);
+            else
+                g_terminalWindow->focus();
+            break;
+        case AppMenuCommand::ToggleMaterialBrowser:
+            materialBrowserWindow->setOpen(!materialBrowserWindow->isOpen());
+            break;
+        case AppMenuCommand::ToggleModelExport:
+            g_modelExportWindow->setOpen(!g_modelExportWindow->isOpen());
+            break;
+        case AppMenuCommand::TogglePlugins:
+            g_pluginBrowserWindow->setOpen(!g_pluginBrowserWindow->isOpen());
+            break;
+        case AppMenuCommand::ToggleWorldCreator:
+            g_worldCreatorWindow->setOpen(!g_worldCreatorWindow->isOpen());
+            break;
+        case AppMenuCommand::TogglePhysicsDebugDraw:
+            if (SceneProject* sceneProject = project.getSelectedScene();
+                sceneProject && sceneProject->scene) {
+                auto physics = sceneProject->scene->getSystem<PhysicsSystem>();
+                physics->setDebugDrawEnabled(!physics->isDebugDrawEnabled());
+                sceneProject->needUpdateRender = true;
+            }
+            break;
         case AppMenuCommand::CommandPalette:
             g_commandPaletteWindow->toggle();
             break;
         case AppMenuCommand::ToggleWelcome:
             g_welcomeScreenWindow->setOpen(!g_welcomeScreenWindow->isOpen());
             break;
-        case AppMenuCommand::ThemeToggle: {
-            const Theme::Preset next = Theme::getPreset() == Theme::Preset::Dark
-                ? Theme::Preset::Light : Theme::Preset::Dark;
-            Theme::setPreset(next);
+        case AppMenuCommand::ThemeGray:
+        case AppMenuCommand::ThemeLight:
+        case AppMenuCommand::ThemeDark: {
+            const Theme::Preset preset = action == AppMenuCommand::ThemeGray ? Theme::Preset::Gray
+                : action == AppMenuCommand::ThemeLight ? Theme::Preset::Light : Theme::Preset::Dark;
+            Theme::setPreset(preset);
             Theme::apply();
-            AppSettings::setThemePreset(next == Theme::Preset::Light ? 1 : 0);
+            AppSettings::setThemePreset(settingFromPreset(preset));
             break;
         }
         case AppMenuCommand::AccentBlue:
@@ -937,10 +1254,20 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
         case AppMenuCommand::DeleteSelection:
             deleteSelection();
             break;
+        case AppMenuCommand::ToggleCodeComment:
+            codeEditor->toggleCommentLastFocused();
+            break;
+        case AppMenuCommand::ToggleCodeBlockComment:
+            codeEditor->toggleBlockCommentLastFocused();
+            break;
+        case AppMenuCommand::FormatCodeDocument:
+            codeEditor->formatDocumentLastFocused();
+            break;
         case AppMenuCommand::Documentation:
         case AppMenuCommand::ReportIssue: {
             const char* url = action == AppMenuCommand::Documentation
-                ? "https://docs.doriax.org/" : "https://github.com/doriaxengine/doriax/issues";
+                ? "https://alguemqualquer123.github.io/quantum-docs/"
+                : "https://github.com/alguemqualquer123/quantum/issues";
             auto openInShell = ImGui::GetPlatformIO().Platform_OpenInShellFn;
             if (!openInShell || !openInShell(ImGui::GetCurrentContext(), url)) {
                 registerAlert("Open in Browser", std::string("Could not open your browser. Visit:\n") + url);
@@ -948,27 +1275,27 @@ void editor::App::executeMenuCommand(const PlatformMenuCommand& command){
             break;
         }
         case AppMenuCommand::KeyboardShortcuts:
-            registerAlert("Keyboard Shortcuts",
-                "PROJECT AND EDITING\n"
-                "Ctrl+O    Open project\n"
-                "Ctrl+S    Save current scene or script\n"
-                "Ctrl+Shift+S    Save all scenes, scripts, and project\n"
-                "Ctrl+Z    Undo\n"
-                "Ctrl+Shift+Z    Redo\n"
-                "Ctrl+D    Duplicate selection\n"
-                "Delete / Backspace    Delete selection\n"
-                "F2    Rename selection\n\n"
-                "PLAYBACK\n"
-                "F5    Run current scene / Resume\n"
-                "F6    Pause\n"
-                "F7    Stop\n"
-                "F8    Detach / attach camera\n\n"
-                "SCENE VIEW\n"
-                "W / E / R    Move / Rotate / Scale\n"
-                "T    Toggle local / global transforms\n"
-                "F / Home    Frame selection / all objects (3D)\n\n"
-                "F1    Documentation",
+            registerAlert("Keyboard Shortcuts", buildShortcutHelp(),
                 "On macOS, menu shortcuts use Command instead of Ctrl.");
+            break;
+        case AppMenuCommand::RunPluginCommand: {
+            // A plugin's own command, fired by its menu item or by a registered tool. No arguments:
+            // a menu row cannot type them, and `plugins run <command> key=value` is where that does.
+            const std::string commandName = command.payload;
+            plugin::UiValue result;
+            std::string error;
+            if (!plugin::PluginManager::instance().executeCommand(commandName,
+                                                                  plugin::UiValueMap(),
+                                                                  result, error)) {
+                Out::error("plugin command \"%s\": %s", commandName.c_str(), error.c_str());
+                break;
+            }
+            Out::info("plugin command \"%s\" -> %s", commandName.c_str(),
+                      result.toString("-").c_str());
+            break;
+        }
+        case AppMenuCommand::TogglePluginWindow:
+            g_pluginWindowHost->toggleWindow(command.payload);
             break;
     }
 }
@@ -1024,7 +1351,7 @@ void editor::App::showMenu(){
         ImGui::End();
         return;
     }
-    // The library owns the bar; doriax owns its items.
+    // The library owns the bar; quantum owns its items.
     if (uilabHost)
         uilabHost->drawMenuBar(menu);
     else
@@ -1521,8 +1848,8 @@ void editor::App::scaleDockChildren(ImGuiDockNode* node, float ratio){
 // sizes they describe. Inis from older versions fall back to settings.yaml.
 void editor::App::registerLayoutSettings(){
     ImGuiSettingsHandler handler;
-    handler.TypeName = "DoriaxLayout";
-    handler.TypeHash = ImHashStr("DoriaxLayout");
+    handler.TypeName = "QuantumLayout";
+    handler.TypeHash = ImHashStr("QuantumLayout");
     handler.UserData = this;
     handler.ReadOpenFn = [](ImGuiContext*, ImGuiSettingsHandler*, const char*) -> void* {
         return reinterpret_cast<void*>(1);
@@ -1616,6 +1943,12 @@ void editor::App::buildDefaultLayout(){
     ImGui::DockBuilderDockWindow(OutputWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(AnimationWindow::WINDOW_NAME, dock_id_middle_bottom);
     ImGui::DockBuilderDockWindow(ResourceMonitorWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(TerminalWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(MaterialBrowserWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(ModelExportWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(PluginBrowserWindow::WINDOW_NAME, dock_id_middle_bottom);
+    ImGui::DockBuilderDockWindow(WorldCreatorWindow::WINDOW_NAME, dock_id_middle_top);
+    ImGui::DockBuilderDockWindow(GraphEditorWindow::WINDOW_NAME, dock_id_middle_top);
     // The library's console reads the same lines Out mirrors, so it joins the strip
     // as a sibling tab while Output still draws its own list.
     if (uilabHost)
@@ -1665,6 +1998,17 @@ void editor::App::dockProjectTabs(){
         }
     };
 
+    auto dockModelTab = [&](const TabEntry& tab) {
+        fs::path fullPath = project.getProjectPath() / tab.filepath;
+        if (fs::exists(fullPath)) {
+            if (!modelViewerWindow->isFileOpen(tab.filepath)) {
+                modelViewerWindow->openFile(tab.filepath, false);
+            } else {
+                dockTabWindow(ModelViewerWindow::getWindowId(tab.filepath));
+            }
+        }
+    };
+
     auto dockOrphanScenes = [&]() {
         for (auto& sceneProject : project.getScenes()) {
             if (!sceneProject.opened) continue;
@@ -1675,7 +2019,7 @@ void editor::App::dockProjectTabs(){
     };
 
     if (forceDockTabs) {
-        // Reset layout: scenes first, then code and image documents.
+        // Reset layout: scenes first, then code, image and model documents.
         for (const auto& tab : tabs) {
             if (tab.type == TabType::SCENE) dockSceneTab(tab);
         }
@@ -1686,11 +2030,15 @@ void editor::App::dockProjectTabs(){
         for (const auto& tab : tabs) {
             if (tab.type == TabType::IMAGE_VIEWER) dockImageTab(tab);
         }
+        for (const auto& tab : tabs) {
+            if (tab.type == TabType::MODEL_VIEWER) dockModelTab(tab);
+        }
     } else {
         for (const auto& tab : tabs) {
             if (tab.type == TabType::SCENE) dockSceneTab(tab);
             else if (tab.type == TabType::CODE_EDITOR) dockCodeTab(tab);
             else if (tab.type == TabType::IMAGE_VIEWER) dockImageTab(tab);
+            else if (tab.type == TabType::MODEL_VIEWER) dockModelTab(tab);
         }
         dockOrphanScenes();
     }
@@ -1732,6 +2080,9 @@ void editor::App::dockProjectTabs(){
         for (const auto& tab : tabs) {
             if (tab.type == TabType::IMAGE_VIEWER) stampDockOrder(tabWindowName(tab));
         }
+        for (const auto& tab : tabs) {
+            if (tab.type == TabType::MODEL_VIEWER) stampDockOrder(tabWindowName(tab));
+        }
     } else {
         for (const auto& tab : tabs) {
             stampDockOrder(tabWindowName(tab));
@@ -1750,6 +2101,9 @@ std::string editor::App::tabWindowName(const TabEntry& tab) const {
     }
     if (tab.type == TabType::IMAGE_VIEWER) {
         return ImageViewerWindow::getWindowId(tab.filepath);
+    }
+    if (tab.type == TabType::MODEL_VIEWER) {
+        return ModelViewerWindow::getWindowId(tab.filepath);
     }
     // CodeEditor docks its windows as "###<relative-filepath>" (see getWindowTitle()).
     return "###" + tab.filepath;
@@ -1875,7 +2229,11 @@ void editor::App::setup() {
     // path, so it survives restarts regardless of the working directory or
     // build type. (initializeSettings() above has already set the config dir.)
     layoutIniPath = (AppSettings::getConfigDirectory() / "editor_layout.ini").string();
-    io.IniFilename = layoutIniPath.c_str();
+    // ImGui parses this file before the first frame. After a crash, leave the
+    // file untouched and build a fresh layout so malformed dock state cannot
+    // abort boot; the original remains available for manual recovery.
+    io.IniFilename = (safeMode || editor::LaunchOptions::get().resetLayout)
+        ? nullptr : layoutIniPath.c_str();
     registerLayoutSettings();
 
     // Separate from the window scale: the layout keeps the scale it was built at,
@@ -1945,8 +2303,7 @@ void editor::App::setup() {
 
     //ImGui::StyleColorsDark();
     // Setters only store state, so they run before apply() for the first paint.
-    Theme::setPreset(AppSettings::getThemePreset() == 1 ? Theme::Preset::Light
-                                                        : Theme::Preset::Dark);
+    Theme::setPreset(presetFromSetting(AppSettings::getThemePreset()));
     Theme::setAccentColor(AppSettings::getAccentColor().c_str());
     Theme::apply();
 
@@ -2001,7 +2358,7 @@ void editor::App::setup() {
     welcomeCallbacks.openDocumentation = []() {
         ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
         if (platform_io.Platform_OpenInShellFn) {
-            platform_io.Platform_OpenInShellFn(ImGui::GetCurrentContext(), "https://doriaxengine.org");
+            platform_io.Platform_OpenInShellFn(ImGui::GetCurrentContext(), "https://quantumengine.org");
         }
     };
     g_welcomeScreenWindow->setCallbacks(welcomeCallbacks);
@@ -2172,29 +2529,37 @@ void editor::App::show(){
         }
     }
 
-    ImGuiIO& io = ImGui::GetIO();
-    bool isUndo = !io.WantTextInput && (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z) && !io.KeyShift);
-    bool isRedo = !io.WantTextInput && ((io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Y)) || (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z) && io.KeyShift));
+    // Every chord below is read through the registry, so what Editor Settings > Shortcuts
+    // shows is what fires. Undo and Redo are computed once and consumed by the two panels
+    // further down, which is also why they are not tested where they are used:
+    // IsKeyPressed() is an edge, and only the first reader of a frame sees it.
+    bool isUndo = editor::KeyBindings::pressed("edit.undo");
+    bool isRedo = editor::KeyBindings::pressed("edit.redo");
 
     const bool popupOpen = ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel);
     if (!popupOpen) {
-        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S)) {
-            if (ImGui::GetIO().KeyShift) {
-                // Save scenes, scripts, and project configuration together.
-                saveAllFunc();
-            } else {
-                saveFunc();
-            }
+        // Exact modifiers make Save and Save All disjoint chords, so the order here does
+        // not matter; the old code tested Ctrl+S once and branched on Shift.
+        if (editor::KeyBindings::pressed("file.saveAll")) {
+            // Save scenes, scripts, and project configuration together.
+            saveAllFunc();
+        } else if (editor::KeyBindings::pressed("file.save")) {
+            saveFunc();
         }
 
-        if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_O)) {
+        if (editor::KeyBindings::pressed("file.openProject")) {
             // CTRL+O opens a project
             openProjectFunc();
         }
 
-        // CTRL+K opens/closes the command palette. Ctrl+P is left free for future use.
-        if (io.KeyCtrl && !io.KeyShift && !io.KeyAlt && ImGui::IsKeyPressed(ImGuiKey_K)) {
+        // The palette stays live while a text field has the caret, so it can be opened
+        // from the search box itself.
+        if (editor::KeyBindings::pressed("view.commandPalette")) {
             g_commandPaletteWindow->toggle();
+        }
+
+        if (editor::KeyBindings::pressed("view.terminal")) {
+            executeMenuCommand({ static_cast<uint32_t>(AppMenuCommand::ToggleTerminal), {} });
         }
 
         // Play/Pause/Stop shortcuts
@@ -2206,28 +2571,41 @@ void editor::App::show(){
             bool isPaused = hasSelectedScene && selectedScene->playState == ScenePlayState::PAUSED;
             bool isLoading = hasSelectedScene && selectedScene->playState == ScenePlayState::LOADING;
 
-            if (ImGui::IsKeyPressed(ImGuiKey_F5)) {
+            if (editor::KeyBindings::pressed("scene.run")) {
                 if (hasSelectedScene && !project.isAnyScenePlaying()) {
                     project.start(selectedSceneId);
                 } else if (isPaused) {
                     project.resume(selectedSceneId);
                 }
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_F6)) {
+            if (editor::KeyBindings::pressed("scene.pause")) {
                 if (isPlaying) {
                     project.pause(selectedSceneId);
                 }
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_F7)) {
+            if (editor::KeyBindings::pressed("scene.stop")) {
                 if (isPlaying || isPaused || isLoading) {
                     project.stop(selectedSceneId);
                 }
             }
-            if (ImGui::IsKeyPressed(ImGuiKey_F8, false)) {
+            if (editor::KeyBindings::pressed("scene.detachCamera")) {
                 project.toggleCameraDetached(selectedSceneId);
             }
         }
-        if (ImGui::IsKeyPressed(ImGuiKey_F1)) executeMenuCommand({static_cast<uint32_t>(AppMenuCommand::Documentation), {}});
+        if (editor::KeyBindings::pressed("help.documentation")) {
+            executeMenuCommand({static_cast<uint32_t>(AppMenuCommand::Documentation), {}});
+        }
+        // The three settings tabs ship unbound; a chord assigned in Editor Settings >
+        // Shortcuts makes them fire with no other change here.
+        if (editor::KeyBindings::pressed("settings.shortcuts")) {
+            executeMenuCommand({static_cast<uint32_t>(AppMenuCommand::SettingsShortcutsTab), {}});
+        }
+        if (editor::KeyBindings::pressed("settings.graphics")) {
+            executeMenuCommand({static_cast<uint32_t>(AppMenuCommand::SettingsGraphicsTab), {}});
+        }
+        if (editor::KeyBindings::pressed("settings.api")) {
+            executeMenuCommand({static_cast<uint32_t>(AppMenuCommand::SettingsEngineApiTab), {}});
+        }
     }
 
     if (isDroppedExternalPaths) {
@@ -2254,11 +2632,11 @@ void editor::App::show(){
             CommandHandle::get(sceneId)->redo();
         }
 
-        if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace)) deleteSelection();
+        if (editor::KeyBindings::pressed("edit.delete")) deleteSelection();
 
-        if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_D)) duplicateSelection();
+        if (editor::KeyBindings::pressed("edit.duplicate")) duplicateSelection();
 
-        if (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_F2, false)) propertiesWindow->focusNameInput();
+        if (editor::KeyBindings::pressed("inspector.rename")) propertiesWindow->focusNameInput();
     }
 
     if (!popupOpen && resourcesWindow->isFocused()) {
@@ -2318,6 +2696,8 @@ void editor::App::show(){
     projectSettingsWindow.show();
     bundlesWindow.show();
     scenesWindow.show();
+    networkPlayWindow.show();
+    scriptDebuggerWindow.show();
 
     if (!saveDialogInProgress && !sceneSaveDialog.isOpen() && !projectSaveDialog.isOpen() && !saveDialogQueue.empty()) {
         processNextSaveDialog();
@@ -2326,6 +2706,8 @@ void editor::App::show(){
     structureWindow->show();
     resourcesWindow->show();
     imageViewerWindow->show();
+    modelViewerWindow->show();
+    materialBrowserWindow->show();
     outputWindow->show();
     if (uilabHost)
         uilabHost->drawConsole();
@@ -2357,6 +2739,13 @@ void editor::App::show(){
     }
 
     g_resourceMonitorWindow->show();
+    g_graphEditorWindow->show();
+    g_terminalWindow->show();
+    g_modelExportWindow->show();
+    g_pluginBrowserWindow->show();
+    // The plugin windows a loaded plugin registered, described fresh each frame by the plugin itself.
+    g_pluginWindowHost->show();
+    g_worldCreatorWindow->show();
     g_notificationsWindow->show();
 
     loadingWindow->show();
@@ -2372,6 +2761,15 @@ void editor::App::show(){
     // Closing a panel through its title-bar button changes the same state as the
     // View menu, so mirror the live state after all panels have rendered.
     persistPanelVisibilitySettings();
+
+    // The panels above are a fixed set of names, so their state is a struct field. A plugin's windows
+    // are not, so their open list is read back from the host - and only when it actually changed,
+    // because this is the frame path. The prime is repeated here because buildMenuModel() can return
+    // before it reaches the Plugins menu, and this is the only place guaranteed to run.
+    g_pluginWindowHost->restoreWantedWindows(AppSettings::getOpenPluginWindows());
+    if (g_pluginWindowHost->takeVisibilityChange()) {
+        AppSettings::setOpenPluginWindows(g_pluginWindowHost->wantedWindowIds());
+    }
 
     uiPassActive = false;
 }
@@ -2426,6 +2824,8 @@ void editor::App::parseBenchmarkArgs(int argc, char** argv) {
         return;
 
     benchmarkEnabled = true;
+    bool sawFrames = false;
+    bool sawWarmup = false;
     auto requireValue = [&](int& index, const char* name) -> const char* {
         if (index + 1 >= argc) {
             failBenchmark(std::string("missing value for ") + name);
@@ -2443,11 +2843,18 @@ void editor::App::parseBenchmarkArgs(int argc, char** argv) {
             if (const char* value = requireValue(i, "--scene"))
                 benchmarkScene = value;
         } else if (arg == "--frames") {
-            if (const char* value = requireValue(i, "--frames"))
+            if (const char* value = requireValue(i, "--frames")) {
                 benchmarkMeasureFrames = std::max(1, std::atoi(value));
+                sawFrames = true;
+            }
         } else if (arg == "--warmup") {
-            if (const char* value = requireValue(i, "--warmup"))
+            if (const char* value = requireValue(i, "--warmup")) {
                 benchmarkWarmupFrames = std::max(0, std::atoi(value));
+                sawWarmup = true;
+            }
+        } else if (arg == "--screenshot") {
+            if (const char* value = requireValue(i, "--screenshot"))
+                benchmarkScreenshot = std::filesystem::path(value);
         } else if (arg == "--mesh-lod") {
             if (const char* value = requireValue(i, "--mesh-lod"))
                 benchmarkMeshLod = (std::strcmp(value, "off") != 0 && std::strcmp(value, "0") != 0) ? 1 : 0;
@@ -2470,6 +2877,23 @@ void editor::App::parseBenchmarkArgs(int argc, char** argv) {
 
     if (benchmarkProject.empty()) {
         failBenchmark("--project is required");
+    }
+
+    if (!benchmarkScreenshot.empty()) {
+        // Parsed before the engine starts, so the working directory is still the shell the command
+        // was typed in - the same rule the standalone runner applies to --screenshot. The error-code
+        // form because a throw here has no handler in a _HAS_EXCEPTIONS=0 build.
+        std::error_code cwdError;
+        const fs::path cwd = fs::current_path(cwdError);
+        if (benchmarkScreenshot.is_relative() && !cwdError)
+            benchmarkScreenshot = cwd / benchmarkScreenshot;
+        benchmarkScreenshot = benchmarkScreenshot.lexically_normal();
+        // The picture is served on the frame after the request, so a capture run needs two measured
+        // frames; the long FPS sample it would otherwise inherit is pointless here.
+        if (!sawFrames)
+            benchmarkMeasureFrames = 2;
+        if (!sawWarmup)
+            benchmarkWarmupFrames = 30;
     }
 }
 
@@ -2516,6 +2940,7 @@ bool editor::App::consumeBenchmarkExit() {
 }
 
 void editor::App::engineInit(int argc, char** argv) {
+    CrashHandler::setLastPhase("editor.engine-init");
     parseBenchmarkArgs(argc, argv);
     reportLoadingProgress("Initializing engine...");
     Engine::systemInit(argc, argv, new editor::Platform(&project));
@@ -2524,7 +2949,7 @@ void editor::App::engineInit(int argc, char** argv) {
     // editor processes; it never loads a project itself.
     if (editor::LaunchOptions::get().hub) {
         hubMode = true;
-        Backend::updateWindowTitle("Doriax Hub");
+        Backend::updateWindowTitle("Quantum Hub");
         Engine::pauseGameEvents(true);
         Engine::setAsyncLoading(true);
         return;
@@ -2543,8 +2968,8 @@ void editor::App::engineInit(int argc, char** argv) {
         }
     };
 
-    ShaderPool::setShaderBuilder([this](doriax::ShaderKey shaderKey) -> doriax::ShaderBuildResult {
-        static doriax::editor::ShaderBuilder builder;  // Make static to reuse
+    ShaderPool::setShaderBuilder([this](quantum::ShaderKey shaderKey) -> quantum::ShaderBuildResult {
+        static quantum::editor::ShaderBuilder builder;  // Make static to reuse
         return builder.buildShader(shaderKey, &project);
     });
 
@@ -2557,6 +2982,7 @@ void editor::App::engineViewLoaded(){
 }
 
 void editor::App::loadStartupProject() {
+    CrashHandler::setLastPhase("editor.project-loading");
     lastLoadingFrame = {};
     reportLoadingProgress("Loading project...");
 
@@ -2604,7 +3030,7 @@ void editor::App::loadStartupProject() {
         if (std::filesystem::exists(launch.projectPath / "project.yaml", ec)) {
             if (!project.loadProject(launch.projectPath)) {
                 Out::error("Failed to open project: \"%s\"", launch.projectPath.string().c_str());
-                project.createTempProject("MyDoriaxProject");
+                project.createTempProject("MyQuantumProject");
             }
         } else if (launch.create) {
             const std::string projectName = launch.projectPath.filename().string();
@@ -2613,13 +3039,13 @@ void editor::App::loadStartupProject() {
                 : project.createFromTemplateAt(launch.projectPath, launch.templateName);
             if (!created) {
                 Out::error("Failed to create project: \"%s\"", launch.projectPath.string().c_str());
-                project.createTempProject("MyDoriaxProject");
+                project.createTempProject("MyQuantumProject");
             }
         } else {
-            Out::error("Not a Doriax project: \"%s\" (no project.yaml)", launch.projectPath.string().c_str());
-            project.createTempProject("MyDoriaxProject");
+            Out::error("Not a Quantum project: \"%s\" (no project.yaml)", launch.projectPath.string().c_str());
+            project.createTempProject("MyQuantumProject");
         }
-    } else {
+    } else if (!safeMode) {
         // Check if there's a last opened project
         std::filesystem::path lastProjectPath = AppSettings::getLastProjectPath();
 
@@ -2629,15 +3055,22 @@ void editor::App::loadStartupProject() {
                 Out::info("Loaded last opened project: \"%s\"", lastProjectPath.string().c_str());
             } else {
                 // If loading fails, create a new temp project
-                project.createTempProject("MyDoriaxProject");
+                project.createTempProject("MyQuantumProject");
             }
         } else {
             // No last project, create a new temp project
-            project.createTempProject("MyDoriaxProject");
+            project.createTempProject("MyQuantumProject");
         }
+    } else {
+        Out::warning("Recovery mode skipped the last opened project");
+        project.createTempProject("Recovery Project");
     }
 
     projectLoading = false;
+    CrashHandler::setLastPhase("editor.project-ready");
+    // The Project menu shows the association as a checked item, so its state is read
+    // once here rather than on every menu rebuild.
+    g_projectFileTypeRegistered = editor::cli::ProjectFileType::isRegistered();
     requestRedraw();
 }
 
@@ -2764,6 +3197,14 @@ void editor::App::engineRender(){
 
             SceneRender* sceneRender = sceneProject.sceneRender;
 
+            // The viewport render distance is the editor's own view: it lives in settings.yaml,
+            // so it is pushed onto the live scene each frame rather than authored into it, and
+            // Play drops it so what you see while running is what the game really draws.
+            const float viewportRenderDistance =
+                sceneProject.playState == ScenePlayState::PLAYING
+                    ? 0.0f : AppSettings::getViewportRenderDistance();
+            sceneProject.scene->setRenderDistanceOverride(viewportRenderDistance);
+
             bool sceneChanged = false;
 
             // Collect loaded child scene layers (skip if playing — runtime manages its own layers)
@@ -2828,6 +3269,7 @@ void editor::App::engineRender(){
                     uint32_t childId = childSceneRef.id;
                     SceneProject* childScene = project.getScene(childId);
                     if (childScene && childScene->expandedInline && childScene->scene) {
+                        childScene->scene->setRenderDistanceOverride(viewportRenderDistance);
                         if (childScene->sceneRender) {
                             childScene->sceneRender->hideAllGizmos();
                         }
@@ -2855,6 +3297,7 @@ void editor::App::engineRender(){
 
                 resourcesWindow->processMaterialThumbnails();
                 resourcesWindow->processModelThumbnails();
+                materialBrowserWindow->processPendingPreviews();
 
                 // Only a real draw counts as activity, or the loop never idles.
                 renderedSceneThisFrame = true;
@@ -2947,7 +3390,14 @@ void editor::App::tickBenchmark() {
             benchmarkDraws.clear();
             benchmarkInstances.clear();
             benchmarkTris.clear();
+            benchmarkFixedMs = benchmarkUpdateMs = benchmarkDrawMs = benchmarkCommitMs = benchmarkFrameMs = 0.0;
+            benchmarkSystemMs.clear();
             benchmarkMeasureStart = std::chrono::steady_clock::now();
+            if (!benchmarkScreenshot.empty()) {
+                std::error_code made;
+                fs::create_directories(benchmarkScreenshot.parent_path(), made);
+                FrameCapture::request(benchmarkScreenshot.generic_string(), 0);
+            }
         }
         return;
     }
@@ -2958,6 +3408,15 @@ void editor::App::tickBenchmark() {
         benchmarkDraws.push_back(stats.drawCalls);
         benchmarkInstances.push_back(stats.instances);
         benchmarkTris.push_back(stats.triangles);
+        benchmarkFixedMs += stats.fixedUpdateMs;
+        benchmarkUpdateMs += stats.updateMs;
+        benchmarkDrawMs += stats.drawSceneMs;
+        benchmarkCommitMs += stats.drawCommitMs;
+        benchmarkFrameMs += stats.frameMs;
+        for (int i = 0; i < stats.timedSystemCount; i++) {
+            const Engine::FrameStats::SystemTime& timed = stats.timedSystems[i];
+            benchmarkSystemMs[timed.name] += timed.fixedMs + timed.updateMs + timed.drawMs;
+        }
         if (static_cast<int>(benchmarkFps.size()) >= benchmarkMeasureFrames)
             finishBenchmark();
     }
@@ -2993,9 +3452,20 @@ void editor::App::finishBenchmark() {
 
     const double wallFps = (elapsed > 0.0 && n > 0) ? static_cast<double>(n) / elapsed : 0.0;
 
+    const double frames = n > 0 ? static_cast<double>(n) : 1.0;
+    std::vector<std::pair<std::string, double>> slowest;
+    slowest.reserve(benchmarkSystemMs.size());
+    for (const auto& entry : benchmarkSystemMs)
+        slowest.push_back({entry.first, entry.second / frames});
+    std::sort(slowest.begin(), slowest.end(),
+              [](const std::pair<std::string, double>& a, const std::pair<std::string, double>& b) {
+                  return a.second > b.second;
+              });
+
     SceneProject* selected = project.getScene(benchmarkSceneId);
     const int width = selected && sceneWindow ? sceneWindow->getWidth(selected->id) : 0;
     const int height = selected && sceneWindow ? sceneWindow->getHeight(selected->id) : 0;
+    const size_t entities = selected && selected->scene ? selected->scene->getEntityList().size() : 0;
 
     std::ostringstream json;
     json << std::fixed;
@@ -3006,6 +3476,7 @@ void editor::App::finishBenchmark() {
          << "  \"meshLod\": " << ((selected && selected->scene && selected->scene->isMeshLodEnabled()) ? "true" : "false") << ",\n"
          << "  \"depthPrepass\": " << ((selected && selected->scene && selected->scene->isDepthPrepassEnabled()) ? "true" : "false") << ",\n"
          << "  \"viewport\": [" << width << ", " << height << "],\n"
+         << "  \"entities\": " << entities << ",\n"
          << "  \"frames\": " << n << ",\n"
          << "  \"warmupFrames\": " << benchmarkWarmupFrames << ",\n"
          << "  \"elapsedSeconds\": " << elapsed << ",\n"
@@ -3014,9 +3485,22 @@ void editor::App::finishBenchmark() {
          << "  \"minFps\": " << minFps << ",\n"
          << "  \"maxFps\": " << maxFps << ",\n"
          << "  \"avgMs\": " << (wallFps > 0.0 ? 1000.0 / wallFps : 0.0) << ",\n"
+         << "  \"fixedUpdateMs\": " << benchmarkFixedMs / frames << ",\n"
+         << "  \"updateMs\": " << benchmarkUpdateMs / frames << ",\n"
+         << "  \"drawSceneMs\": " << benchmarkDrawMs / frames << ",\n"
+         << "  \"commitMs\": " << benchmarkCommitMs / frames << ",\n"
+         << "  \"engineFrameMs\": " << benchmarkFrameMs / frames << ",\n"
+         // What the editor itself spends outside the engine loop, per measured frame.
+         << "  \"editorMs\": " << (wallFps > 0.0 ? 1000.0 / wallFps - benchmarkFrameMs / frames : 0.0) << ",\n"
          << "  \"avgDrawCalls\": " << avgDraws << ",\n"
          << "  \"avgInstances\": " << avgInstances << ",\n"
-         << "  \"avgTriangles\": " << avgTris << "\n"
+         << "  \"avgTriangles\": " << avgTris << ",\n"
+         << "  \"slowestSystems\": [";
+    for (size_t i = 0; i < slowest.size() && i < 8; i++) {
+        json << (i ? ", " : "") << "{\"name\": \"" << jsonEscape(slowest[i].first)
+             << "\", \"ms\": " << slowest[i].second << "}";
+    }
+    json << "]\n"
          << "}\n";
 
     const std::string text = json.str();
@@ -3130,6 +3614,7 @@ void editor::App::shutdownBackgroundWork() {
 
 void editor::App::engineViewDestroyed(){
     imageViewerWindow->closeAll();
+    modelViewerWindow->closeAll();
     // Closing during project loading can leave uploads committed before any scene frame
     // consumes them. Drain that batch before shutdown waits to flush the queue.
     SystemRender::executeQueue();
@@ -3171,6 +3656,7 @@ void editor::App::clearSceneWindowState(uint32_t sceneId) {
 void editor::App::prepareForProjectSwitch() {
     stopResourceServer();
     imageViewerWindow->closeAll();
+    modelViewerWindow->closeAll();
     resourcesWindow->cancelThumbnailWork();
     // Thumbnail cancellation prevents new preview loads from being queued;
     // now quiesce any remaining scene/model jobs before pool cleanup.
@@ -3207,6 +3693,12 @@ void editor::App::addNewCodeWindowToDock(fs::path path, bool force){
 void editor::App::addImageViewerWindowToDock(fs::path path, bool force){
     if (isInitialized && !projectLoading){
         dockTabWindow(ImageViewerWindow::getWindowId(path), force);
+    }
+}
+
+void editor::App::addModelViewerWindowToDock(fs::path path, bool force){
+    if (isInitialized && !projectLoading){
+        dockTabWindow(ModelViewerWindow::getWindowId(path), force);
     }
 }
 
@@ -3250,6 +3742,7 @@ void editor::App::updateResourcesPath(){
 
     if (projectPathChanged) {
         updateResourceServer(currentProjectPath);
+        updateProjectPluginSearch(currentProjectPath);
     }
 
     // Initial project loading happens before the Resources window is initialized,
@@ -3258,6 +3751,24 @@ void editor::App::updateResourcesPath(){
 
     lastResourcesProjectPath = currentProjectPath;
     resourcesWindow->cleanupThumbnails();
+}
+
+void editor::App::updateProjectPluginSearch(const std::filesystem::path& projectPath) {
+    // Unreal keeps engine plugins and project plugins in one extension list; the engine already does
+    // the same, so a project only has to offer its folder. Both spellings are scanned because a
+    // project authored on Windows and checked out on a case-sensitive filesystem reads differently.
+    if (projectPath.empty()) return;
+
+    plugin::PluginManager& plugins = plugin::PluginManager::instance();
+    const size_t before = plugins.searchDirectories().size();
+    plugins.addSearchDirectory((projectPath / "Plugins").generic_string());
+    plugins.addSearchDirectory((projectPath / "plugins").generic_string());
+    if (plugins.searchDirectories().size() == before) return;
+
+    // Not loaded here: the engine maps DLLs at start-up, and mapping one in the middle of a frame
+    // would run a third party's initialize() against a live scene.
+    Out::info("Project plugins found in %s - they load on the next editor start",
+              (projectPath / "Plugins").string().c_str());
 }
 
 void editor::App::updateResourceServer(const std::filesystem::path& projectPath) {
@@ -3291,7 +3802,7 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             resourceServerPid = recordedPid;
             if (g_resourceMonitorWindow) {
                 g_resourceMonitorWindow->addChildProcess(recordedPid,
-                    "doriax-resource-server:" + std::to_string(recordedPort));
+                    "quantum-resource-server:" + std::to_string(recordedPort));
             }
             Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
                       recordedPort);
@@ -3364,7 +3875,7 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             if (adoptedBooting) {
                 if (g_resourceMonitorWindow) {
                     g_resourceMonitorWindow->addChildProcess(pid,
-                        "doriax-resource-server:" + std::to_string(port));
+                        "quantum-resource-server:" + std::to_string(port));
                 }
                 Out::info("Resource server: using the instance already listening on 127.0.0.1:%d",
                           port);
@@ -3377,7 +3888,7 @@ void editor::App::updateResourceServer(const std::filesystem::path& projectPath)
             }
             if (g_resourceMonitorWindow) {
                 g_resourceMonitorWindow->addChildProcess(pid,
-                    "doriax-resource-server:" + std::to_string(port));
+                    "quantum-resource-server:" + std::to_string(port));
             }
             Out::info("Resource server listening on 127.0.0.1:%d", port);
         });
@@ -3394,7 +3905,7 @@ std::filesystem::path editor::App::resourceServerRecordFile(const std::filesyste
     }
     char name[32];
     std::snprintf(name, sizeof(name), "%016llx.record", static_cast<unsigned long long>(hash));
-    return App::getUserCacheBaseDir() / "doriax" / "resource-server" / name;
+    return App::getUserCacheBaseDir() / "quantum" / "resource-server" / name;
 }
 
 void editor::App::stopResourceServer() {
@@ -3577,8 +4088,11 @@ std::filesystem::path editor::App::getUserCacheBaseDir() {
 }
 
 std::filesystem::path editor::App::getUserShaderCacheDir(){
-    // Bump this version on any shader source change to invalidate stale cached
-    // .sdat (the cache is keyed by shaderType+properties, not source content).
+    // Every cached .sdat also carries the SHA1 of the source graph it was compiled from
+    // (ShaderBuilder::isCacheStale), so editing engine/shaderlib invalidates exactly the
+    // variants built from that text and nothing else. Bump this directory only for what a
+    // source hash cannot see: a change to the .sdat format, or to a #define the C++ side
+    // feeds the compiler (setupShaderArgs constants, MAX_LIGHTS, SSR_MAX_STEPS).
     // v4: mirror (USE_MIRROR) variants changed the u_fs_mirror block guard.
     // v5: SSAO (mesh.frag USE_SSAO + viewportInfo, new ssao/ssao_blur shaders).
     // v6: SSR (G-buffer geometry pass + ssr/ssr_blur/composite fullscreen shaders;
@@ -3634,7 +4148,18 @@ std::filesystem::path editor::App::getUserShaderCacheDir(){
     // v33: pbr.glsl reads u_fs_texCoordSets.set1 in every UV-set variant.
     // v34: shadow projection in the fragment shader, directional-only variant.
     // v35: the directional-only variant declares no point or spot bindings.
-    return App::getUserCacheBaseDir() / "doriax" / "shaders" / "v35";
+    // v36: water simulation variant (USE_WATER_SIM) fetches the depth field in the vertex stage.
+    // v37: exposure.frag is a 1x1 eye-adaptation meter with history, and tonemap.frag gained the
+    //      exposure sampler plus the grade/grade2 colour-grading terms.
+    // v38: bloom_composite.frag multiplies the glow by a procedural lens-dirt mask (params.z).
+    // v39: fxaa.frag is wired as the last pass of the frame; it samples with the combined
+    //      sampler pair, and params.z/w are the blend and the source-Y flip.
+    // v40: parallax occlusion mapping (HAS_HEIGHT) — every map UV in pbr.glsl now passes
+    //      through heightOffset(), which is the identity for a variant without a height
+    //      map but a different function call, so the cached ones cannot be reused.
+    // v41: tone mapping carries a real texture2DArray color-grading LUT uniform block.
+    // v42: fullscreen velocity reconstruction plus TAA and motion-blur pass uniforms.
+    return App::getUserCacheBaseDir() / "quantum" / "shaders" / "v42";
 }
 
 void editor::App::pushTabNotificationStyle(){
@@ -3667,6 +4192,18 @@ editor::ImageViewerWindow* editor::App::getImageViewerWindow() const{
     return imageViewerWindow;
 }
 
+editor::ModelViewerWindow* editor::App::getModelViewerWindow() const{
+    return modelViewerWindow;
+}
+
+editor::ModelExportWindow* editor::App::getModelExportWindow() const{
+    return g_modelExportWindow;
+}
+
+editor::MaterialBrowserWindow* editor::App::getMaterialBrowserWindow() const{
+    return materialBrowserWindow;
+}
+
 editor::ResourcesWindow* editor::App::getResourcesWindow() const{
     return resourcesWindow;
 }
@@ -3687,6 +4224,10 @@ editor::AnimationWindow* editor::App::getAnimationWindow() const{
 
 editor::TerrainEditWindow* editor::App::getTerrainEditWindow() const{
     return terrainEditWindow;
+}
+
+editor::AnimatorWindow* editor::App::getAnimatorWindow() const{
+    return animatorWindow;
 }
 
 editor::Structure* editor::App::getStructureWindow() const{
@@ -3875,10 +4416,18 @@ bool editor::App::isMainThread() const {
 void editor::App::initializeSettings() {
     AppSettings::initialize();
 
+    const editor::LaunchOptions& launch = editor::LaunchOptions::get();
+    const bool previousSessionUnclean = AppSettings::wasPreviousSessionUnclean();
+    safeMode = launch.safeMode || previousSessionUnclean;
+
     // Next to settings.yaml, where a user can find it to report a crash.
     const std::filesystem::path logFile = AppSettings::getConfigDirectory() / "editor.log";
     Out::setLogFile(logFile);
     CrashHandler::install(logFile);
+    AppSettings::beginSession();
+    if (safeMode && previousSessionUnclean) {
+        Out::warning("Previous editor session ended unexpectedly; starting in recovery mode (last project and layout are preserved)");
+    }
 
     applyPanelVisibilitySettings();
 }
@@ -3894,6 +4443,15 @@ void editor::App::applyPanelVisibilitySettings() {
     aiChatWindow->setOpen(visibility.aiChat);
     g_notificationsWindow->setOpen(visibility.notifications);
     g_resourceMonitorWindow->setOpen(visibility.resourceMonitor);
+    g_graphEditorWindow->setOpen(visibility.graphEditor);
+    g_terminalWindow->setOpen(visibility.terminal);
+    materialBrowserWindow->setOpen(visibility.materialBrowser);
+    g_modelExportWindow->setOpen(visibility.modelExport);
+    g_pluginBrowserWindow->setOpen(visibility.pluginBrowser);
+    g_worldCreatorWindow->setOpen(visibility.worldCreator);
+    // Plugin windows are not a field of that struct: their names belong to whichever plugins loaded,
+    // so the list of ids is what comes back out of the settings file.
+    g_pluginWindowHost->restoreWantedWindows(AppSettings::getOpenPluginWindows());
 }
 
 void editor::App::persistPanelVisibilitySettings() {
@@ -3907,6 +4465,12 @@ void editor::App::persistPanelVisibilitySettings() {
     visibility.aiChat = aiChatWindow->isOpen();
     visibility.notifications = g_notificationsWindow->isOpen();
     visibility.resourceMonitor = g_resourceMonitorWindow->isOpen();
+    visibility.graphEditor = g_graphEditorWindow->isOpen();
+    visibility.terminal = g_terminalWindow->isOpen();
+    visibility.materialBrowser = materialBrowserWindow->isOpen();
+    visibility.modelExport = g_modelExportWindow->isOpen();
+    visibility.pluginBrowser = g_pluginBrowserWindow->isOpen();
+    visibility.worldCreator = g_worldCreatorWindow->isOpen();
 
     if (visibility != AppSettings::getPanelVisibility()) {
         AppSettings::setPanelVisibility(visibility);
@@ -4018,5 +4582,6 @@ void editor::App::closeWindow(){
     project.clearTrash();
 
     editor::ShaderBuilder::requestShutdown();
+    AppSettings::endSession();
     Backend::closeWindow();
 }

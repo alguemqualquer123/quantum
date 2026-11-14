@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef INDEXBUFFER_H
@@ -7,9 +7,9 @@
 #include "buffer/Buffer.h"
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API IndexBuffer: public Buffer {
+    class QUANTUM_API IndexBuffer: public Buffer {
 
     private:
         std::vector<unsigned char> vectorBuffer;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SelectableTextView.h"
@@ -10,7 +10,7 @@
 #include <cmath>
 #include <functional>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 void SelectableTextView::rebuild(const std::vector<Paragraph>& paragraphs, float wrapWidth) {
     buf.clear();
@@ -632,4 +632,4 @@ void SelectableTextView::draw(const char* id, const ImVec2& size,
     ImGui::EndChild();
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

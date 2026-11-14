@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef WATER_EXCLUSION_H
@@ -7,9 +7,9 @@
 #include "object/Object.h"
 #include "component/WaterExclusionComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API WaterExclusion: public Object{
+    class QUANTUM_API WaterExclusion: public Object{
 
     public:
         WaterExclusion(Scene* scene);

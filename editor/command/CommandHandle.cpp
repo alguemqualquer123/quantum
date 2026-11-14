@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CommandHandle.h"
 
-using namespace doriax;
+using namespace quantum;
 
 std::map<size_t, editor::CommandHistory*>  editor::CommandHandle::historys;
 

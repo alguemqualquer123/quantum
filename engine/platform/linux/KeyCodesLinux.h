@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // X11 -> engine key translation. The engine's key constants are GLFW's (see
 // core/Input.h). Letters come from the first layout's unshifted keysym, so
@@ -16,7 +16,7 @@
 
 #include <cstring>
 
-namespace doriax {
+namespace quantum {
 
     inline int linuxKeyFromSym(KeySym key) {
         // Letters and digits share the ASCII range with the engine constants

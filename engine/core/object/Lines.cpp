@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Lines.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Lines::Lines(Scene* scene): Object(scene){
     addComponent<LinesComponent>();

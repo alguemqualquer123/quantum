@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RotationAction.h"
 
 #include "util/Angle.h"
 
-using namespace doriax;
+using namespace quantum;
 
 RotationAction::RotationAction(Scene* scene): TimedAction(scene){
     addComponent<RotationActionComponent>();

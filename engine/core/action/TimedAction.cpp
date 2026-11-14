@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TimedAction.h"
 
-using namespace doriax;
+using namespace quantum;
 
 TimedAction::TimedAction(Scene* scene): Action(scene){
     addComponent<TimedActionComponent>();

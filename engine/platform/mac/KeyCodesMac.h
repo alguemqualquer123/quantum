@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // macOS virtual keycode -> engine key translation. The engine's key constants
 // are GLFW's (see core/Input.h). Virtual keycodes are positional, so W/A/S/D
@@ -11,7 +11,7 @@
 
 #include "Input.h"
 
-namespace doriax {
+namespace quantum {
 
     inline const short* macKeycodeTable() {
         static short keys[256];

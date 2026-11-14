@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BUTTON_H
@@ -7,8 +7,8 @@
 #include "Image.h"
 #include "Text.h"
 
-namespace doriax{
-    class DORIAX_API Button: public Image{
+namespace quantum{
+    class QUANTUM_API Button: public Image{
     private:
         void ensureLabel();
 

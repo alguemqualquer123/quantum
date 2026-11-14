@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef CAMERA_COMPONENT_H
@@ -15,7 +15,7 @@
 #define DEFAULT_PERSPECTIVE_NEAR    0.2
 #define DEFAULT_PERSPECTIVE_FAR     200
 
-namespace doriax{
+namespace quantum{
 
     enum class CameraType{
         CAMERA_UI,
@@ -32,7 +32,7 @@ namespace doriax{
         FRUSTUM_PLANE_BOTTOM = 5
     };
 
-    struct DORIAX_API CameraComponent{
+    struct QUANTUM_API CameraComponent{
 
         CameraType type = CameraType::CAMERA_UI;
         
@@ -61,6 +61,11 @@ namespace doriax{
 
         float nearClip = DEFAULT_ORTHO_NEAR;
         float farClip = DEFAULT_ORTHO_FAR;
+
+        // The far actually used to cull this frame: farClip with the scene's render distance
+        // applied to it. updateCamera writes it with the projection, so it is exactly as fresh
+        // as frustumPlanes - the distance tests that read it are pre-filters of those planes.
+        float effectiveFarClip = DEFAULT_ORTHO_FAR;
 
         Plane frustumPlanes[6];
 

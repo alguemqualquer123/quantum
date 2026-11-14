@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef INAPPPURCHASE_H
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
     // Sent to the platform as integers, so keep the order
     enum class ProductType{
@@ -124,7 +124,7 @@ namespace doriax {
 
     // What a platform with an app store implements, see System::getInAppPurchaseBackend.
     // Called from the engine thread, it answers through the InAppPurchase::system* callbacks.
-    class DORIAX_API InAppPurchaseBackend {
+    class QUANTUM_API InAppPurchaseBackend {
     public:
         virtual ~InAppPurchaseBackend() = default;
 
@@ -142,7 +142,7 @@ namespace doriax {
 
     // Google Play Billing on Android and StoreKit 2 on iOS. Results arrive as events at the start of a frame.
     // Acknowledge or consume a purchase within three days, or Google Play refunds it.
-    class DORIAX_API InAppPurchase {
+    class QUANTUM_API InAppPurchase {
 
         friend class Engine;
 

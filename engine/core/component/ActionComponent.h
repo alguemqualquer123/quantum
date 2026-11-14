@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ACTION_COMPONENT_H
@@ -6,7 +6,7 @@
 
 #include "Engine.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class ActionState{
         Running,
@@ -14,7 +14,7 @@ namespace doriax{
         Stopped
     };
 
-    struct DORIAX_API ActionComponent{
+    struct QUANTUM_API ActionComponent{
         ActionState state = ActionState::Stopped;
         float timecount = 0;
 
@@ -37,6 +37,9 @@ namespace doriax{
         // with other actions on the same target. Propagated from the owning
         // AnimationComponent during crossfades. Runtime-only (not serialized).
         float weight = 1;
+        uint32_t blendLayer = 0;
+        float blendLayerWeight = 1.0f;
+        bool blendLayerAdditive = false;
 
         FunctionSubscribe<void()> onStart;
         FunctionSubscribe<void()> onPause;

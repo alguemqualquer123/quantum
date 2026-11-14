@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderForkDialog.h"
@@ -10,7 +10,7 @@
 
 #include <cstring>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 int ShaderForkDialog::shaderNameCharFilter(ImGuiInputTextCallbackData* data) {
     ImWchar c = data->EventChar;
@@ -219,4 +219,4 @@ void ShaderForkDialog::show() {
     ImGui::EndPopup();
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

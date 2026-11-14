@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import "AdMobAdapter.h"
 
-#ifdef DORIAX_ADMOB
+#ifdef QUANTUM_ADMOB
 
 #import <UIKit/UIKit.h>
 
@@ -12,7 +12,7 @@
 @import GoogleMobileAds;
 @import UserMessagingPlatform;
 
-// doriax::AdMobFormat
+// quantum::AdMobFormat
 enum {
     FormatBanner,
     FormatInterstitial,
@@ -22,7 +22,7 @@ enum {
     FormatCount
 };
 
-// doriax::AdMobBannerSize
+// quantum::AdMobBannerSize
 enum {
     SizeAdaptive,
     SizeBanner,
@@ -32,7 +32,7 @@ enum {
     SizeLeaderboard
 };
 
-// doriax::AdMobBannerPosition
+// quantum::AdMobBannerPosition
 enum {
     PositionTop,
     PositionBottom,
@@ -43,7 +43,7 @@ enum {
     PositionCenter
 };
 
-// doriax::AdMob error codes
+// quantum::AdMob error codes
 static const int ErrorNotAvailable = -1;
 static const int ErrorNotLoaded = -2;
 
@@ -62,9 +62,9 @@ static const char *errorMessage(NSError *error) {
 
 static void notifyConsent(NSError *error) {
     if (error) {
-        DoriaxAdMobConsentUpdated((int)error.code, errorMessage(error));
+        QuantumAdMobConsentUpdated((int)error.code, errorMessage(error));
     } else {
-        DoriaxAdMobConsentUpdated(0, "");
+        QuantumAdMobConsentUpdated(0, "");
     }
 }
 
@@ -79,7 +79,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             case GADAdValuePrecisionPrecise: precision = 3; break;
             default: precision = 0; break;
         }
-        DoriaxAdMobAdPaid(format, micros, currencyCode ? currencyCode : "", precision);
+        QuantumAdMobAdPaid(format, micros, currencyCode ? currencyCode : "", precision);
     };
 }
 
@@ -144,7 +144,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
 - (GADRequest *)buildRequest {
     GADRequest *request = [GADRequest request];
     // Google asks wrapping libraries to name themselves
-    request.requestAgent = @"doriax";
+    request.requestAgent = @"quantum";
     return request;
 }
 
@@ -160,7 +160,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 self->_initialized = YES;
                 [self applyAudio];
-                DoriaxAdMobInitialized();
+                QuantumAdMobInitialized();
             });
         }];
     });
@@ -223,7 +223,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
     });
 }
 
-// doriax::AdMobConsentStatus
+// quantum::AdMobConsentStatus
 - (int)consentStatus {
     switch (UMPConsentInformation.sharedInstance.consentStatus) {
         case UMPConsentStatusRequired: return 1;
@@ -295,7 +295,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             if (!strongSelf || generation != strongSelf->_loadGenerations[format]) return;
 
             if (error || !ad) {
-                DoriaxAdMobAdFailedToLoad(format, generation, (int)error.code, errorMessage(error));
+                QuantumAdMobAdFailedToLoad(format, generation, (int)error.code, errorMessage(error));
                 return;
             }
 
@@ -303,7 +303,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             presentingAd.fullScreenContentDelegate = strongSelf;
             [ad setPaidEventHandler:paidEventHandler(format)];
             [strongSelf setFullScreenAd:ad format:format];
-            DoriaxAdMobAdLoaded(format, generation, 0, 0);
+            QuantumAdMobAdLoaded(format, generation, 0, 0);
         };
 
         GADRequest *request = [self buildRequest];
@@ -350,7 +350,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
     runOnMainThread(^{
         id ad = [self fullScreenAdForFormat:format];
         if (!ad) {
-            DoriaxAdMobAdFailedToShow(format, ErrorNotLoaded, "The ad is not loaded");
+            QuantumAdMobAdFailedToShow(format, ErrorNotLoaded, "The ad is not loaded");
             return;
         }
         // shown once
@@ -364,7 +364,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             [rewarded presentFromRootViewController:controller userDidEarnRewardHandler:^{
                 GADAdReward *reward = weakRewarded.adReward;
                 const char *type = reward.type.UTF8String;
-                DoriaxAdMobUserEarnedReward(format, type ? type : "", reward.amount.intValue);
+                QuantumAdMobUserEarnedReward(format, type ? type : "", reward.amount.intValue);
             }];
         } else if ([ad isKindOfClass:GADRewardedInterstitialAd.class]) {
             GADRewardedInterstitialAd *rewarded = ad;
@@ -373,7 +373,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
             [rewarded presentFromRootViewController:controller userDidEarnRewardHandler:^{
                 GADAdReward *reward = weakRewarded.adReward;
                 const char *type = reward.type.UTF8String;
-                DoriaxAdMobUserEarnedReward(format, type ? type : "", reward.amount.intValue);
+                QuantumAdMobUserEarnedReward(format, type ? type : "", reward.amount.intValue);
             }];
         } else if ([ad isKindOfClass:GADInterstitialAd.class]) {
             [(GADInterstitialAd *)ad presentFromRootViewController:controller];
@@ -467,7 +467,7 @@ static GADPaidEventHandler paidEventHandler(int format) {
         UIViewController *controller = [self rootViewController];
         UIView *parent = controller.view;
         if (!parent) {
-            DoriaxAdMobAdFailedToLoad(FormatBanner, generation, ErrorNotAvailable, "No view to show the banner in");
+            QuantumAdMobAdFailedToLoad(FormatBanner, generation, ErrorNotAvailable, "No view to show the banner in");
             return;
         }
 
@@ -531,9 +531,9 @@ static GADPaidEventHandler paidEventHandler(int format) {
     runOnMainThread(^{
         [GADMobileAds.sharedInstance presentAdInspectorFromViewController:[self rootViewController] completionHandler:^(NSError *error) {
             if (error) {
-                DoriaxAdMobAdInspectorClosed((int)error.code, errorMessage(error));
+                QuantumAdMobAdInspectorClosed((int)error.code, errorMessage(error));
             } else {
-                DoriaxAdMobAdInspectorClosed(0, "");
+                QuantumAdMobAdInspectorClosed(0, "");
             }
         }];
     });
@@ -543,25 +543,25 @@ static GADPaidEventHandler paidEventHandler(int format) {
 
 - (void)adWillPresentFullScreenContent:(id<GADFullScreenPresentingAd>)ad {
     [self pauseForAd];
-    DoriaxAdMobAdShown([self formatOfAd:ad]);
+    QuantumAdMobAdShown([self formatOfAd:ad]);
 }
 
 - (void)ad:(id<GADFullScreenPresentingAd>)ad didFailToPresentFullScreenContentWithError:(NSError *)error {
     [self resumeAfterAd];
-    DoriaxAdMobAdFailedToShow([self formatOfAd:ad], (int)error.code, errorMessage(error));
+    QuantumAdMobAdFailedToShow([self formatOfAd:ad], (int)error.code, errorMessage(error));
 }
 
 - (void)adDidDismissFullScreenContent:(id<GADFullScreenPresentingAd>)ad {
     [self resumeAfterAd];
-    DoriaxAdMobAdDismissed([self formatOfAd:ad]);
+    QuantumAdMobAdDismissed([self formatOfAd:ad]);
 }
 
 - (void)adDidRecordImpression:(id<GADFullScreenPresentingAd>)ad {
-    DoriaxAdMobAdImpression([self formatOfAd:ad]);
+    QuantumAdMobAdImpression([self formatOfAd:ad]);
 }
 
 - (void)adDidRecordClick:(id<GADFullScreenPresentingAd>)ad {
-    DoriaxAdMobAdClicked([self formatOfAd:ad]);
+    QuantumAdMobAdClicked([self formatOfAd:ad]);
 }
 
 #pragma mark - GADBannerViewDelegate
@@ -571,32 +571,32 @@ static GADPaidEventHandler paidEventHandler(int format) {
     // pixels, like the engine's screen size
     CGFloat scale = Renderer.view ? Renderer.view.contentScaleFactor : UIScreen.mainScreen.scale;
     CGSize size = CGSizeFromGADAdSize(bannerView.adSize);
-    DoriaxAdMobAdLoaded(FormatBanner, _loadGenerations[FormatBanner], (int)lround(size.width * scale), (int)lround(size.height * scale));
+    QuantumAdMobAdLoaded(FormatBanner, _loadGenerations[FormatBanner], (int)lround(size.width * scale), (int)lround(size.height * scale));
 }
 
 - (void)bannerView:(GADBannerView *)bannerView didFailToReceiveAdWithError:(NSError *)error {
     if (bannerView != self.bannerView) return;
-    DoriaxAdMobAdFailedToLoad(FormatBanner, _loadGenerations[FormatBanner], (int)error.code, errorMessage(error));
+    QuantumAdMobAdFailedToLoad(FormatBanner, _loadGenerations[FormatBanner], (int)error.code, errorMessage(error));
 }
 
 - (void)bannerViewDidRecordImpression:(GADBannerView *)bannerView {
-    DoriaxAdMobAdImpression(FormatBanner);
+    QuantumAdMobAdImpression(FormatBanner);
 }
 
 - (void)bannerViewDidRecordClick:(GADBannerView *)bannerView {
-    DoriaxAdMobAdClicked(FormatBanner);
+    QuantumAdMobAdClicked(FormatBanner);
 }
 
 - (void)bannerViewWillPresentScreen:(GADBannerView *)bannerView {
     [self pauseForAd];
-    DoriaxAdMobAdShown(FormatBanner);
+    QuantumAdMobAdShown(FormatBanner);
 }
 
 - (void)bannerViewDidDismissScreen:(GADBannerView *)bannerView {
     [self resumeAfterAd];
-    DoriaxAdMobAdDismissed(FormatBanner);
+    QuantumAdMobAdDismissed(FormatBanner);
 }
 
 @end
 
-#endif // DORIAX_ADMOB
+#endif // QUANTUM_ADMOB

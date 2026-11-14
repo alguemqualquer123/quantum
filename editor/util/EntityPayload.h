@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "ecs/Entity.h"
 
-namespace doriax {
+namespace quantum {
 
     struct EntityPayload {
         Entity entity;

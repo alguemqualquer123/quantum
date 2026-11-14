@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
-// GPU-free unit tests for the doriax::slate layout layer (engine/slate/layout/
+// GPU-free unit tests for the quantum::slate layout layer (engine/slate/layout/
 // FlexEngine.cpp and Containers.cpp). FlexEngine::layout is called directly on
 // the widget tree: no Slate runtime, no window, no GL context, and the widget
 // leaves here are plain Widgets sized through their slot, so no text backend
@@ -9,7 +9,7 @@
 //
 // NOTE ON THE DOCTEST MAIN: the task brief said slate_paint_tests.cpp does not
 // define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN, but it does (see the top of that
-// file). Defining it again here would give the doriax-slate-tests link two
+// file). Defining it again here would give the quantum-slate-tests link two
 // `main`s, so this TU deliberately includes doctest.h as a plain consumer. If
 // the paint tests ever drop their main define, move it here.
 
@@ -24,8 +24,8 @@
 #include "slate/layout/Containers.h"
 #include "slate/layout/FlexEngine.h"
 
-using namespace doriax;
-using namespace doriax::slate;
+using namespace quantum;
+using namespace quantum::slate;
 
 namespace {
 
@@ -55,7 +55,7 @@ TEST_SUITE("slate/layout") {
         Widget* child = addLeaf(root, 50.0f, 50.0f);
 
         //a widget that was never solved still holds the default Rect, which in
-        //doriax is the 1x1 unit rect rather than a zero rect
+        //quantum is the 1x1 unit rect rather than a zero rect
         const Rect before = child->getLayoutRect();
 
         CHECK_FALSE(FlexEngine::layout(root, 0.0f, 100.0f));

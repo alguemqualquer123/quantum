@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BUTTON_COMPONENT_H
@@ -7,9 +7,9 @@
 #include "util/FunctionSubscribe.h"
 #include "texture/Texture.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API ButtonComponent{
+    struct QUANTUM_API ButtonComponent{
         Entity label = NULL_ENTITY;
 
         Texture textureNormal;

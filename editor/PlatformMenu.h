@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 enum class PlatformMenuItemType {
     Command,
@@ -56,4 +56,4 @@ struct PlatformMenuModel {
 
 using PlatformMenuCallback = std::function<void(const PlatformMenuCommand&)>;
 
-} // namespace doriax::editor
+} // namespace quantum::editor

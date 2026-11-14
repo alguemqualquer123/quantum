@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef WinInputRouter_h
@@ -14,7 +14,7 @@
 
 #include "Input.h"
 
-namespace doriax {
+namespace quantum {
 
     // Win32 input-message translation. The editor and a game cannot share a
     // WNDPROC -- the editor's hands messages to ImGui and keeps a virtual

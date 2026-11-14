@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SHADERPOOL_H
@@ -12,13 +12,13 @@
 #include <functional>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     typedef std::map<ShaderKey, std::shared_ptr<ShaderRender>> shaders_t;
 
     using ShaderBuilderFn = std::function<ShaderBuildResult(ShaderKey)>;
 
-    class DORIAX_API ShaderPool{
+    class QUANTUM_API ShaderPool{
     private:
         static shaders_t& getMap();
 
@@ -112,13 +112,14 @@ namespace doriax{
                         bool terrain, bool instanced, bool ibl, bool mirror, bool ssao = false,
                         bool light2d = false, bool shadows2d = false,
                         bool alphaMask = false, bool alphaOpaque = false, bool instanceFade = false,
-                        bool terrainPBR = false);
+                        bool terrainPBR = false, bool height = false,
+                        bool materialExtensions = false);
         static uint32_t getDepthMeshProperties(bool texture, bool skinning, bool morphTarget, bool morphNormal, bool morphTangent, bool terrain, bool instanced, bool alphaMask = false, bool instanceFade = false);
         static uint32_t getGBufferMeshProperties(bool baseColorTexture, bool normals, bool skinning, bool morphTarget, bool morphNormal, bool morphTangent, bool terrain, bool instanced, bool metallicRoughnessTexture, bool terrainPBR = false);
         static uint32_t getUIProperties(bool texture, bool fontAtlasTexture, bool vertexColorVec3, bool vertexColorVec4);
-        static uint32_t getPointsProperties(bool texture, bool vertexColorVec3, bool vertexColorVec4, bool textureRect);
+        static uint32_t getPointsProperties(bool texture, bool vertexColorVec3, bool vertexColorVec4, bool textureRect, bool gpuParticles = false);
         static uint32_t getLinesProperties(bool vertexColorVec3, bool vertexColorVec4);
-        static uint32_t getWaterProperties(bool fog, bool sceneDepth, bool planarReflection, bool shadows, bool refraction);
+        static uint32_t getWaterProperties(bool fog, bool sceneDepth, bool planarReflection, bool shadows, bool refraction, bool waterSim);
 
 		// necessary for engine shutdown
 		static void clear();

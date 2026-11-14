@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TerrainEditWindow.h"
@@ -46,8 +46,8 @@
 #include <utility>
 #include <vector>
 
-using namespace doriax;
-using namespace doriax::editor;
+using namespace quantum;
+using namespace quantum::editor;
 
 
 bool editor::TerrainEditWindow::loadTerrainTextureDataFromPath(Project* project, const std::string& path, TextureData& data){
@@ -480,7 +480,7 @@ static bool collectTerrainMapDiskReferences(const fs::path& projectPath, std::un
         const fs::directory_entry& entry = *it;
 
         if (entry.is_directory(ec)){
-            // Dot-directories hold caches and VCS data (.doriax export copies, .git);
+            // Dot-directories hold caches and VCS data (.quantum export copies, .git);
             // nothing in them defines a live reference.
             if (entry.path().filename().string().rfind(".", 0) == 0){
                 it.disable_recursion_pending();
@@ -1017,6 +1017,13 @@ editor::TerrainEditWindow::TerrainEditWindow(Project* project){
     flattenHeight = 0.5f;
     terraceSteps  = 8;
     noiseSize     = 4.0f;
+    generateOpen  = false;
+    generateMode  = 3;
+    generateSeed  = 1234;
+    generateOctaves = 5;
+    generateFrequency = 8.0f;
+    generateBaseHeight = 0.5f;
+    generateAmplitude = 0.5f;
     brushMaskWidth = 0;
     brushMaskHeight = 0;
     heightMapResolution = 512;
@@ -1561,6 +1568,7 @@ bool editor::TerrainEditWindow::applyBrush(SceneProject* sceneProject, Entity en
 
     const float stampDelta = deltaTime / static_cast<float>(stampCount);
     bool applied = false;
+    stroke.stampRegion = TerrainMapRegion();
     for (int i = 1; i <= stampCount; i++){
         const float t = static_cast<float>(i) / static_cast<float>(stampCount);
         const Vector3 point(startPoint.x + (localPoint.x - startPoint.x) * t, 0.0f,
@@ -1573,7 +1581,7 @@ bool editor::TerrainEditWindow::applyBrush(SceneProject* sceneProject, Entity en
     stroke.lastStampTime = now;
 
     if (applied){
-        TerrainMapUtils::refresh(sceneProject, entity, ref);
+        TerrainMapUtils::refresh(sceneProject, entity, ref, stroke.stampRegion);
     }
     return applied;
 }
@@ -1860,6 +1868,7 @@ bool editor::TerrainEditWindow::stampBrush(TerrainComponent& terrain, TextureDat
     }
 
     stroke.dirtyRegion.merge(minX, minY, maxX, maxY);
+    stroke.stampRegion.merge(minX, minY, maxX, maxY);
 
     // Quantize the touched rect from the float working buffer back into the stored
     // pixel data.
@@ -2147,7 +2156,7 @@ void editor::TerrainEditWindow::clearStroke(){
     stroke = ActiveStroke();
 }
 
-bool editor::TerrainEditWindow::createMapForTarget(const TerrainMapRef& ref, int width, int height){
+bool editor::TerrainEditWindow::createMapForTarget(const TerrainMapRef& ref, int width, int height, const std::vector<unsigned char>* initialPixels){
     SceneProject* sceneProject = getTargetSceneProject();
     if (!hasValidTarget(sceneProject)){
         return false;
@@ -2175,6 +2184,9 @@ bool editor::TerrainEditWindow::createMapForTarget(const TerrainMapRef& ref, int
     after.width = std::max(2, width);
     after.height = std::max(2, height);
     after.pixels = makeInitialMapPixels(ref.target, after.width, after.height);
+    if (initialPixels && initialPixels->size() == after.pixels.size()){
+        after.pixels = *initialPixels;
+    }
 
     if (snapshotsEqual(before, after)){
         return false;
@@ -2206,6 +2218,91 @@ bool editor::TerrainEditWindow::deleteMapForTarget(const TerrainMapRef& ref){
 
     CommandHandle::get(sceneProject->id)->addCommandNoMerge(new TerrainTextureEditCmd(this, project, sceneProject->id, selectedEntity, ref, before, after));
     return true;
+}
+
+// Height texels straight from the shared value/fractal noise, quantized to the
+// stored bit depth the same way a fresh middle-height map is.
+std::vector<unsigned char> editor::TerrainEditWindow::makeProceduralHeightPixels(int width, int height){
+    const int channels = expectedChannels(TerrainMapTarget::HeightMap);
+    const int bytesPerTexel = expectedBytesPerTexel(TerrainMapTarget::HeightMap);
+    const int bytesPerChannel = bytesPerTexel / channels;
+    const size_t texelCount = static_cast<size_t>(width) * static_cast<size_t>(height);
+    std::vector<unsigned char> pixels(texelCount * static_cast<size_t>(bytesPerTexel), 0);
+
+    const uint32_t seed = static_cast<uint32_t>(generateSeed);
+    const float invW = width > 1 ? 1.0f / static_cast<float>(width - 1) : 0.0f;
+    const float invH = height > 1 ? 1.0f / static_cast<float>(height - 1) : 0.0f;
+
+    for (int y = 0; y < height; y++){
+        for (int x = 0; x < width; x++){
+            float h;
+            if (generateMode == 0){
+                h = generateBaseHeight;
+            }else if (generateMode == 1){
+                h = 0.5f;
+            }else{
+                const float nx = static_cast<float>(x) * invW * generateFrequency;
+                const float ny = static_cast<float>(y) * invH * generateFrequency;
+                const float n = generateMode == 2
+                    ? TerrainNoise::value(nx, ny, seed) * 2.0f - 1.0f
+                    : TerrainNoise::fractal(nx, ny, seed, generateOctaves);
+                h = std::clamp(generateBaseHeight + n * generateAmplitude, 0.0f, 1.0f);
+            }
+            encodeHeightTexel(pixels.data(), static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x), bytesPerChannel, h);
+        }
+    }
+    return pixels;
+}
+
+void editor::TerrainEditWindow::drawGenerateMapPopup(const TerrainMapRef& ref, bool mapPresent, int mapWidth, int mapHeight, int& resolution){
+    if (!ImGui::BeginPopupModal("Generate Heightmap", nullptr, ImGuiWindowFlags_AlwaysAutoResize)){
+        return;
+    }
+
+    static const char* modeNames[] = {"Flat", "Middle", "Value noise", "Fractal noise"};
+    ImGui::Combo("Mode", &generateMode, modeNames, IM_ARRAYSIZE(modeNames));
+
+    const bool noise = generateMode >= 2;
+    if (noise){
+        ImGui::InputInt("Seed", &generateSeed);
+        ImGui::DragFloat("Frequency", &generateFrequency, 0.1f, 0.5f, 512.0f, "%.1f");
+        if (ImGui::IsItemHovered()){
+            ImGui::SetItemTooltip("Noise cells stretched across the whole map.");
+        }
+        if (generateMode == 3){
+            ImGui::SliderInt("Octaves", &generateOctaves, 1, 8);
+        }
+    }
+    ImGui::SliderFloat("Base height", &generateBaseHeight, 0.0f, 1.0f, "%.2f");
+    if (noise){
+        ImGui::SliderFloat("Amplitude", &generateAmplitude, 0.0f, 1.0f, "%.2f");
+        if (ImGui::IsItemHovered()){
+            ImGui::SetItemTooltip("Height deviation around the base, as a fraction of the full range.");
+        }
+    }
+
+    if (mapPresent){
+        ImGui::TextDisabled("Size: %d x %d (replaces the current map)", mapWidth, mapHeight);
+    }else{
+        resolution = std::clamp(resolution, 2, 8192);
+        ImGui::DragInt("Resolution", &resolution, 1.0f, 2, 8192, "%d px", ImGuiSliderFlags_AlwaysClamp);
+    }
+
+    if (ImGui::Button("Generate")){
+        const int width = mapPresent ? mapWidth : resolution;
+        const int height = mapPresent ? mapHeight : resolution;
+        std::vector<unsigned char> pixels = makeProceduralHeightPixels(width, height);
+        createMapForTarget(ref, width, height, &pixels);
+        generateOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel")){
+        generateOpen = false;
+        ImGui::CloseCurrentPopup();
+    }
+
+    ImGui::EndPopup();
 }
 
 bool editor::TerrainEditWindow::setFoliageLayers(const std::vector<TerrainFoliageLayer>& layers){
@@ -2280,7 +2377,7 @@ void editor::TerrainEditWindow::drawMapSettings(const TerrainMapRef& ref, const 
     const bool heightMap = ref.target == TerrainMapTarget::HeightMap;
     const ImVec2 buttonSize(ImGui::GetFrameHeight(), ImGui::GetFrameHeight());
     const float spacing = ImGui::GetStyle().ItemSpacing.x;
-    const int actionCount = (info.present ? 2 : 1) + (heightMap ? 1 : 0);
+    const int actionCount = (info.present ? 2 : 1) + (heightMap ? 2 : 0);
 
     ImGui::PushID(label);
     terrainPropertyRow(label, info.present ? "Recreate or remove this map. Map changes can be undone." : "Choose a resolution, then create a map to enable painting.");
@@ -2306,6 +2403,15 @@ void editor::TerrainEditWindow::drawMapSettings(const TerrainMapRef& ref, const 
         if (iconButton(ICON_FA_CIRCLE_HALF_STROKE, "middle", "Start new heightmaps at middle height", heightMapStartAtMiddle, buttonSize)){
             heightMapStartAtMiddle = !heightMapStartAtMiddle;
         }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(info.present && !info.sizeKnown);
+        if (iconButton(ICON_FA_WAND_MAGIC, "generate", "Generate a procedural heightmap", false, buttonSize)){
+            endStroke();
+            generateRef = ref;
+            generateOpen = true;
+            ImGui::OpenPopup("Generate Heightmap");
+        }
+        ImGui::EndDisabled();
     }
     ImGui::SameLine();
     if (info.present){
@@ -2323,6 +2429,9 @@ void editor::TerrainEditWindow::drawMapSettings(const TerrainMapRef& ref, const 
     }else if (iconButton(ICON_FA_PLUS, "create", "Create map", false, buttonSize)){
         endStroke();
         createMapForTarget(ref, resolution, resolution);
+    }
+    if (generateOpen && generateRef == ref){
+        drawGenerateMapPopup(ref, info.present && info.sizeKnown, info.width, info.height, resolution);
     }
     ImGui::PopID();
 }

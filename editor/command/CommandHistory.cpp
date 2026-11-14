@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CommandHistory.h"
 #include <stdio.h>
 
-using namespace doriax;
+using namespace quantum;
 
 std::function<void(size_t, bool)> editor::CommandHistory::onSceneModified = nullptr;
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MODELPOOL_H
@@ -11,14 +11,14 @@
 
 namespace tinygltf { class Model; }
 
-namespace doriax{
+namespace quantum{
 
     struct ObjModelData;
 
     typedef std::map< std::string, std::shared_ptr<tinygltf::Model> > models_t;
     typedef std::map< std::string, std::shared_ptr<ObjModelData> > obj_models_t;
 
-    class DORIAX_API ModelPool{
+    class QUANTUM_API ModelPool{
     private:
         static models_t& getMap();
         static obj_models_t& getObjMap();

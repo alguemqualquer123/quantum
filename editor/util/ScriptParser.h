@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,13 +9,13 @@
 #include <vector>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class ScriptParser {
     private:
-        static doriax::ScriptPropertyType inferTypeFromCppType(const std::string& cppType, std::string& ptrTypeName);
+        static quantum::ScriptPropertyType inferTypeFromCppType(const std::string& cppType, std::string& ptrTypeName);
         // nullopt falls back to the inferred C++ type
-        static std::optional<doriax::ScriptPropertyType> parseExplicitType(const std::string& typeStr, const std::string& cppType);
+        static std::optional<quantum::ScriptPropertyType> parseExplicitType(const std::string& typeStr, const std::string& cppType);
         static std::string removeComments(const std::string& content);
 
     public:
@@ -27,8 +27,8 @@ namespace doriax::editor {
         // Ambiguous headers do not produce a class name.
         static std::optional<std::string> findScriptClassName(const std::filesystem::path& scriptPath);
         static std::optional<std::string> findScriptClassNameFromString(const std::string& content);
-        static std::vector<doriax::ScriptProperty> parseScriptProperties(const std::filesystem::path& scriptPath);
-        static std::vector<doriax::ScriptProperty> parseScriptPropertiesFromString(const std::string& content, const std::string& sourceName = "memory");
+        static std::vector<quantum::ScriptProperty> parseScriptProperties(const std::filesystem::path& scriptPath);
+        static std::vector<quantum::ScriptProperty> parseScriptPropertiesFromString(const std::string& content, const std::string& sourceName = "memory");
     };
 
 }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef OCCLUDER2D_H
@@ -6,9 +6,9 @@
 
 #include "Object.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Occluder2D: public Object{
+    class QUANTUM_API Occluder2D: public Object{
     public:
         Occluder2D(Scene* scene);
         Occluder2D(Scene* scene, Entity entity);

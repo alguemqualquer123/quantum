@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SkyBox.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 SkyBox::SkyBox(Scene* scene): EntityHandle(scene){
     addComponent<SkyComponent>();

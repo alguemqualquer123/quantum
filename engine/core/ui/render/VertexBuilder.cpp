@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/render/VertexBuilder.h"
@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <cmath>
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 namespace {
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderUniforms.h"
@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-using namespace doriax;
+using namespace quantum;
 
 bool ShaderUniforms::isReserved(const std::string& name){
     return name == "time" || name == "resolution";

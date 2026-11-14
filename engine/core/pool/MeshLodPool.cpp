@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MeshLodPool.h"
@@ -13,7 +13,7 @@
 #include <cstring>
 #include <mutex>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace{
     // share of the source triangles each level keeps

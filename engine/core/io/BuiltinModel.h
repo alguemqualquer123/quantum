@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // Models the engine carries inside its own binary. A ModelComponent::filename
@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API BuiltinModels {
+    class QUANTUM_API BuiltinModels {
     public:
         // "builtin://" - the scheme that keeps these paths out of the filesystem.
         static const char* pathPrefix();

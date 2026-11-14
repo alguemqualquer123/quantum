@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace quantum::editor {
     struct WelcomeCallbacks {
         std::function<void(const std::filesystem::path& templateName)> createFromTemplate;
         std::function<void()> createEmptyProject;

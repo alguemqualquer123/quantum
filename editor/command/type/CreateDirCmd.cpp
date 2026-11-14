@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateDirCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::CreateDirCmd::CreateDirCmd(std::string dirName, std::string dirPath){
     this->directory = fs::path(dirPath) / fs::path(dirName);

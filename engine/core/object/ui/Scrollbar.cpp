@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Scrollbar.h"
@@ -6,7 +6,7 @@
 #include "component/ImageComponent.h"
 #include "subsystem/UISystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Scrollbar::Scrollbar(Scene* scene): Image(scene){
     addComponent<ScrollbarComponent>();

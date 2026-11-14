@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "WelcomeScreenWindow.h"
@@ -10,7 +10,7 @@
 
 #include "imgui.h"
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 static void CenterText(const char* text, float areaX, float areaWidth) {
     const ImVec2 size = ImGui::CalcTextSize(text);
@@ -186,14 +186,14 @@ void WelcomeScreenWindow::drawLogo() {
     const float iconSize = ImGui::GetFontSize() * 2.0f;
     const char* icon = ICON_FA_CUBES_STACKED;
     const float iconWidth = iconSize * 0.7f + ImGui::CalcTextSize(icon).x;
-    const float titleWidth = ImGui::CalcTextSize("doriax").x;
+    const float titleWidth = ImGui::CalcTextSize("quantum").x;
     ImGui::SetCursorPosX(blockX + (blockWidth - (iconWidth + titleWidth + 12.0f)) * 0.5f);
     ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_Text));
     ImGui::TextUnformatted(icon);
     ImGui::SameLine();
     ImGui::SetCursorPosX(blockX + (blockWidth - (iconWidth + titleWidth + 12.0f)) * 0.5f + iconWidth + 12.0f);
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + iconSize * 0.32f);
-    ImGui::TextUnformatted("doriax");
+    ImGui::TextUnformatted("quantum");
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPosX(blockX + (blockWidth - ImGui::CalcTextSize("Game Engine Editor").x) * 0.5f);

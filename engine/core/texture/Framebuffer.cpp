@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Framebuffer.h"
@@ -6,7 +6,7 @@
 #include "Engine.h"
 #include "Log.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Framebuffer::Framebuffer(){
     this->width = 512;
@@ -58,7 +58,11 @@ Framebuffer& Framebuffer::operator=(const Framebuffer& rhs){
 }
 
 void Framebuffer::create(){
-    if (numColorAttachments > 1){
+    // One attachment still has to go through the MRT path to keep its pixel format:
+    // createFramebuffer() takes no format and hardcodes RGBA8, so the HDR chain's
+    // setColorAttachments(1, &RGBA16F) targets were being built as 8-bit and clamping every
+    // value above 1.0 - which is the one thing an HDR target must not do.
+    if (numColorAttachments > 1 || colorFormats[0] != ColorFormat::RGBA){
         render.createFramebufferMRT(width, height, minFilter, magFilter, wrapU, wrapV, numColorAttachments, colorFormats);
     }else{
         render.createFramebuffer(TextureType::TEXTURE_2D, width, height, minFilter, magFilter, wrapU, wrapV, false);

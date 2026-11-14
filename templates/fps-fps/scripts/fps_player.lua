@@ -6,9 +6,9 @@ function FpsPlayer:init()
     self.gravity = -20.0
 end
 
-function FpsPlayer:update()
+function FpsPlayer:update(dt)
     local body = Body3D(self.scene, self.entity)
-    local dt = Engine.deltatime
+    -- local dt = Engine.deltatime
 
     if Input.isKeyPressed(Input.KEY_SPACE) and self.isGrounded then
         self.velocityY = self.jumpForce

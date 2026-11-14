@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "FontPool.h"
@@ -8,7 +8,7 @@
 
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 fonts_t& FontPool::getMap(){
     //To prevent similar problem of static init fiasco but on deinitialization

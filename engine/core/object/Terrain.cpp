@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Terrain.h"
@@ -7,7 +7,7 @@
 #include "subsystem/MeshSystem.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Terrain::Terrain(Scene* scene): Mesh(scene){
     addComponent<TerrainComponent>();
@@ -270,4 +270,109 @@ int Terrain::getLevels() const{
     TerrainComponent& terrain = getComponent<TerrainComponent>();
 
     return (int)terrain.levels;
+}
+unsigned int Terrain::addFoliageLayer(const std::string& meshPath, const std::string& densityMapPath){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    TerrainFoliageLayer layer;
+    layer.meshPath = meshPath;
+    layer.densityMap.setPath(densityMapPath);
+    terrain.foliageLayers.push_back(layer);
+
+    // A layer list change moves instances anywhere, so it takes the catch-all path rather than
+    // the painted-rect one a brush stroke uses.
+    terrain.needUpdateFoliage = true;
+
+    return (unsigned int)terrain.foliageLayers.size() - 1;
+}
+
+void Terrain::removeFoliageLayer(unsigned int index){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    if (index >= terrain.foliageLayers.size()){
+        Log::error("Terrain has no foliage layer %u", index);
+        return;
+    }
+    terrain.foliageLayers.erase(terrain.foliageLayers.begin() + index);
+
+    terrain.needUpdateFoliage = true;
+}
+
+unsigned int Terrain::getNumFoliageLayers() const{
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    return (unsigned int)terrain.foliageLayers.size();
+}
+
+void Terrain::setFoliageDensity(unsigned int index, float density){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    if (index >= terrain.foliageLayers.size()){
+        Log::error("Terrain has no foliage layer %u", index);
+        return;
+    }
+    TerrainFoliageLayer& layer = terrain.foliageLayers[index];
+
+    const float clamped = std::max(0.0f, density);
+    if (layer.density != clamped){
+        layer.density = clamped;
+        terrain.needUpdateFoliage = true;
+    }
+}
+
+void Terrain::setFoliageDrawDistance(unsigned int index, float distance){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    if (index >= terrain.foliageLayers.size()){
+        Log::error("Terrain has no foliage layer %u", index);
+        return;
+    }
+    TerrainFoliageLayer& layer = terrain.foliageLayers[index];
+
+    const float clamped = std::max(0.0f, distance);
+    if (layer.drawDistance != clamped){
+        layer.drawDistance = clamped;
+        terrain.needUpdateFoliage = true;
+    }
+}
+
+void Terrain::setFoliageCastsShadows(unsigned int index, bool castShadows){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    if (index >= terrain.foliageLayers.size()){
+        Log::error("Terrain has no foliage layer %u", index);
+        return;
+    }
+    TerrainFoliageLayer& layer = terrain.foliageLayers[index];
+
+    if (layer.castShadows != castShadows){
+        layer.castShadows = castShadows;
+    }
+}
+
+void Terrain::markHeightmapDirty(int minX, int minY, int maxX, int maxY){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    TerrainMapRegion region;
+    region.merge(minX, minY, maxX, maxY);
+
+    terrain.needUpdateTexture = true;
+    // Instances sit on the surface, so an elevation change moves every one of them.
+    terrain.needUpdateFoliage = true;
+
+    if (region.empty() || !terrain.heightMapLoaded){
+        terrain.heightMapLoaded = false;
+        terrain.needUpdateTerrain = true;
+    }else{
+        markTerrainHeightmapDirty(terrain, region);
+    }
+}
+
+void Terrain::markFoliageDensityDirty(int layer, int minX, int minY, int maxX, int maxY){
+    TerrainComponent& terrain = getComponent<TerrainComponent>();
+
+    TerrainMapRegion region;
+    region.merge(minX, minY, maxX, maxY);
+
+    markTerrainFoliageDensityDirty(terrain, layer, region);
 }

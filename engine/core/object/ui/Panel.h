@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PANEL_H
@@ -8,8 +8,8 @@
 #include "Text.h"
 #include "Container.h"
 
-namespace doriax{
-    class DORIAX_API Panel: public Image{
+namespace quantum{
+    class QUANTUM_API Panel: public Image{
     private:
         void ensureHeader();
         bool hasHeaderImage() const;

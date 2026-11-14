@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "util/FbxImporter.h"
@@ -24,13 +24,13 @@
 namespace fs = std::filesystem;
 using Json = nlohmann::json;
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
 // Bump when the output changes, to redo existing imports
 constexpr int IMPORTER_VERSION = 1;
-constexpr const char* IMPORT_EXTRAS_KEY = "doriaxFbxImport";
+constexpr const char* IMPORT_EXTRAS_KEY = "quantumFbxImport";
 
 constexpr size_t MAX_UFBX_WARNINGS = 10;
 

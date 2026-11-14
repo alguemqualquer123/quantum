@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SUBSYSTEM_H
@@ -10,11 +10,11 @@
 #include "ComponentManager.h"
 #include <set>
 
-namespace doriax{
+namespace quantum{
 
     class Scene;
 
-    class DORIAX_API SubSystem {
+    class QUANTUM_API SubSystem {
 
         protected:
         Signature signature;

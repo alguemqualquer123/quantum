@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,7 +11,7 @@
 #include "Entity.h"
 #include "Scene.h"
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
 namespace fs = std::filesystem;
@@ -87,4 +87,4 @@ public:
 };
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

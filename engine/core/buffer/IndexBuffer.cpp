@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "IndexBuffer.h"
 #include "Log.h"
 #include "render/ObjectRender.h"
 
-using namespace doriax;
+using namespace quantum;
 
 IndexBuffer::IndexBuffer(): Buffer(){
     createIndexAttribute();

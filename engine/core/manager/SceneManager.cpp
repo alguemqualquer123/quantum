@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneManager.h"
@@ -14,11 +14,12 @@
 #include "thread/ResourceProgress.h"
 
 #include <algorithm>
-#if defined(DORIAX_LINUX) && defined(__GLIBC__)
+#include <chrono>
+#if defined(QUANTUM_LINUX) && defined(__GLIBC__)
 #include <malloc.h>
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 std::vector<SceneManager::SceneEntry> SceneManager::entries;
 uint32_t SceneManager::currentId = 0;
@@ -38,6 +39,16 @@ float SceneManager::loadingProgress = 0.0f;
 int SceneManager::loadingHolds = 0;
 
 std::vector<SceneManager::Preload> SceneManager::preloads;
+
+namespace {
+
+double sceneManagerTime() {
+    using Clock = std::chrono::steady_clock;
+    static const Clock::time_point start = Clock::now();
+    return std::chrono::duration<double>(Clock::now() - start).count();
+}
+
+}
 
 std::vector<uint32_t> SceneManager::buildSceneStackIds(uint32_t id, const std::vector<uint32_t>& sceneIds) {
     std::vector<uint32_t> result;
@@ -153,6 +164,14 @@ bool SceneManager::loadScene(uint32_t id) {
     return true;
 }
 
+bool SceneManager::reloadCurrentScene() {
+    if (currentId == 0 || !findEntry(currentId)) {
+        Log::warn("SceneManager: cannot reload without a registered current scene");
+        return false;
+    }
+    return loadScene(currentId);
+}
+
 bool SceneManager::isLoadPending() {
     return pendingId.has_value();
 }
@@ -167,14 +186,14 @@ void SceneManager::applyPendingLoad() {
         loadingSceneShown = true;
         loadingSceneReady = false;
         loadingState = LoadingState::Covering;
-        loadingStateTime = Engine::getSystemTime();
+        loadingStateTime = sceneManagerTime();
         resetLoadProgress();
         return;
     }
 
     if (loadingState == LoadingState::Covering) {
         // the switch freezes on the last presented frame, which must show the loading scene
-        if (!loadingSceneReady || Engine::getSystemTime() - loadingStateTime < loadingDelay) {
+        if (!loadingSceneReady || sceneManagerTime() - loadingStateTime < loadingDelay) {
             return;
         }
     }
@@ -230,7 +249,7 @@ void SceneManager::startLoading(uint32_t id) {
 
 void SceneManager::resetLoadProgress() {
     loadingCount = 0;
-    loadingProgressTime = Engine::getSystemTime();
+    loadingProgressTime = sceneManagerTime();
     loadingProgress = 0.0f;
 }
 
@@ -538,7 +557,7 @@ void SceneManager::updateLoading() {
 
     if (loadingState == LoadingState::None) return;
 
-    double now = Engine::getSystemTime();
+    double now = sceneManagerTime();
 
     if (loadingState == LoadingState::Covering) {
         if (!loadingSceneReady) {
@@ -581,7 +600,7 @@ void SceneManager::updateLoading() {
 
     // the new scenes hold their own files now
     cancelPreload(currentId);
-#if defined(DORIAX_LINUX) && defined(__GLIBC__)
+#if defined(QUANTUM_LINUX) && defined(__GLIBC__)
     // give back the free pages decoders and replaced scenes left in malloc arenas
     malloc_trim(0);
 #endif

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ViewportGizmo.h"
@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <limits>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ViewportGizmo::ViewportGizmo(){
     scene = new Scene(EntityPool::System);

@@ -1,12 +1,12 @@
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Color.h"
 
 #include <math.h>
 
-using namespace doriax;
+using namespace quantum;
 
 float Color::GAMMA = 2.2;
 float Color::INV_GAMMA = 1.0 / GAMMA;

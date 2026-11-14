@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -15,11 +15,17 @@
 #include "window/SceneWindow.h"
 #include "window/ResourcesWindow.h"
 #include "window/ImageViewerWindow.h"
+#include "window/ModelViewerWindow.h"
+#include "window/ModelExportWindow.h"
+#include "window/MaterialBrowserWindow.h"
 #include "window/CodeEditor.h"
 #include "window/AnimationWindow.h"
 #include "window/TerrainEditWindow.h"
+#include "window/AnimatorWindow.h"
 #include "window/AiChatWindow.h"
 #include "window/HubWindow.h"
+#include "window/NetworkPlayWindow.h"
+#include "window/ScriptDebuggerWindow.h"
 
 #include "window/LoadingWindow.h"
 
@@ -47,7 +53,7 @@
 
 struct ImGuiDockNode;
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     namespace ai { class McpServer; }
     class UILabHost;
@@ -134,6 +140,9 @@ namespace doriax::editor{
         std::string benchmarkScene;
         std::string benchmarkName;
         std::filesystem::path benchmarkOut;
+        // PNG of the measured frame: the scene is only ever rendered inside the editor's own
+        // window, so this is the one headless picture a scene edit can be argued from.
+        std::filesystem::path benchmarkScreenshot;
         int benchmarkWarmupFrames = 90;
         int benchmarkMeasureFrames = 180;
         // scene setting overrides: -1 keeps the scene's value
@@ -145,6 +154,14 @@ namespace doriax::editor{
         std::vector<uint32_t> benchmarkDraws;
         std::vector<uint32_t> benchmarkInstances;
         std::vector<uint64_t> benchmarkTris;
+        // Engine::FrameStats phases, averaged over the measured frames. The gap between
+        // frameMs and the wall-clock ms is editor chrome (ImGui, outliner, gizmos), not engine.
+        double benchmarkFixedMs = 0.0;
+        double benchmarkUpdateMs = 0.0;
+        double benchmarkDrawMs = 0.0;
+        double benchmarkCommitMs = 0.0;
+        double benchmarkFrameMs = 0.0;
+        std::map<std::string, double> benchmarkSystemMs;
         std::chrono::steady_clock::time_point benchmarkWaitStart{};
         std::chrono::steady_clock::time_point benchmarkMeasureStart{};
 
@@ -162,8 +179,11 @@ namespace doriax::editor{
         CodeEditor* codeEditor;
         ResourcesWindow* resourcesWindow;
         ImageViewerWindow* imageViewerWindow;
+        ModelViewerWindow* modelViewerWindow;
+        MaterialBrowserWindow* materialBrowserWindow;
         AnimationWindow* animationWindow;
         TerrainEditWindow* terrainEditWindow;
+        AnimatorWindow* animatorWindow;
         AiChatWindow* aiChatWindow;
         ai::McpServer* mcpServer;
 
@@ -175,6 +195,10 @@ namespace doriax::editor{
         // Hub mode (`--hub`): the launcher UI replaces the editor and no
         // project is loaded.
         bool hubMode = false;
+
+        // Recovery mode never restores the last project after an abnormal
+        // previous session. It can also be requested with --safe-mode.
+        bool safeMode = false;
 
         // True only during an explicit "Reset Layout": forces tabs back to their
         // default dock slot even when the ini has a saved position for them.
@@ -211,12 +235,14 @@ namespace doriax::editor{
         AboutWindow aboutWindow;
         ScenesWindow scenesWindow;
         HubWindow hubWindow;
+        NetworkPlayWindow networkPlayWindow;
+        ScriptDebuggerWindow scriptDebuggerWindow;
 
         std::queue<SaveDialogQueueItem> saveDialogQueue;
         bool saveDialogInProgress = false;
         std::filesystem::path lastResourcesProjectPath;
 
-        // doriax-resource-server (tools/resource-server): the local asset index
+        // quantum-resource-server (tools/resource-server): the local asset index
         // service. One server runs per opened project, so a project switch stops
         // the old one before spawning the next. Closing the editor instead leaves
         // it alive in the Windows notification area, which is what the record
@@ -229,6 +255,7 @@ namespace doriax::editor{
         int resourceServerPort = 0;
         std::filesystem::path resourceServerRecord;
         void updateResourceServer(const std::filesystem::path& projectPath);
+        void updateProjectPluginSearch(const std::filesystem::path& projectPath);
         void stopResourceServer();
         void detachResourceServer();
         static std::filesystem::path resourceServerRecordFile(const std::filesystem::path& projectPath);
@@ -257,6 +284,9 @@ namespace doriax::editor{
         void duplicateSelection();
 
         PlatformMenuModel buildMenuModel();
+        // The "Plugins" menu, built from the live registry every frame: the items and windows each
+        // loaded plugin registered, in the category it filed them under, plus the registered tools.
+        std::vector<PlatformMenuItem> pluginMenuEntries();
         void executeMenuCommand(const PlatformMenuCommand& command);
         void showImGuiMenuItems(const std::vector<PlatformMenuItem>& items);
         void showImGuiMenu(const PlatformMenuModel& menu);
@@ -324,6 +354,7 @@ namespace doriax::editor{
         void addNewSceneToDock(uint32_t sceneId) override;
         void addNewCodeWindowToDock(fs::path path, bool force = false);
         void addImageViewerWindowToDock(fs::path path, bool force = false);
+        void addModelViewerWindowToDock(fs::path path, bool force = false);
         void clearSceneWindowState(uint32_t sceneId) override;
         void prepareForProjectSwitch() override;
 
@@ -400,10 +431,14 @@ namespace doriax::editor{
         Properties* getPropertiesWindow() const override;
         CodeEditor* getCodeEditor() const override;
         ImageViewerWindow* getImageViewerWindow() const override;
+        ModelViewerWindow* getModelViewerWindow() const;
+        ModelExportWindow* getModelExportWindow() const;
+        MaterialBrowserWindow* getMaterialBrowserWindow() const;
         ResourcesWindow* getResourcesWindow() const;
         AnimationWindow* getAnimationWindow() const;
         Structure* getStructureWindow() const;
         TerrainEditWindow* getTerrainEditWindow() const;
+        AnimatorWindow* getAnimatorWindow() const;
         AiChatWindow* getAiChatWindow() const;
         ai::McpServer* getMcpServer() const;
         void openEditorSettings(EditorSettingsWindow::Tab tab, bool expandAiChat = false);

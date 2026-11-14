@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCROLLBAR_COMPONENT_H
@@ -7,14 +7,14 @@
 #include "util/FunctionSubscribe.h"
 #include "ecs/Entity.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class ScrollbarType{
         VERTICAL,
         HORIZONTAL
     };
 
-    struct DORIAX_API ScrollbarComponent{
+    struct QUANTUM_API ScrollbarComponent{
         Entity bar = NULL_ENTITY;
         ScrollbarType type = ScrollbarType::VERTICAL;
 

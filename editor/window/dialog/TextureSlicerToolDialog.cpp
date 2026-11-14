@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TextureSlicerToolDialog.h"
@@ -11,7 +11,7 @@
 #include <cmath>
 #include <climits>
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
 void TextureSlicerToolDialog::open(const Texture& previewTexture,
@@ -437,4 +437,4 @@ void TextureSlicerToolDialog::show() {
 }
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

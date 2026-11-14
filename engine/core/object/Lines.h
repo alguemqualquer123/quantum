@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LINES_H
@@ -6,9 +6,9 @@
 
 #include "Object.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Lines: public Object{
+    class QUANTUM_API Lines: public Object{
     public:
         Lines(Scene* scene);
         Lines(Scene* scene, Entity entity);

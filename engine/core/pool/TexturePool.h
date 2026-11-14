@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXTUREPOOL_H
@@ -11,11 +11,11 @@
 #include <array>
 #include <set>
 
-namespace doriax{
+namespace quantum{
 
     typedef std::map< std::string, std::shared_ptr<TextureRender> > textures_t;
 
-    class DORIAX_API TexturePool{
+    class QUANTUM_API TexturePool{
     private:
         static textures_t& getMap();
         static std::set<std::string>& getInvalidated();

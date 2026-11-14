@@ -22,25 +22,38 @@ vec4 getVertexColor(){
 // Per-texture UV set selection (glTF texCoord). When a second UV set is present
 // the renderer supplies u_fs_texCoordSets telling each texture which set to sample
 // (0 = v_uv1, 1 = v_uv2). Without a second set everything samples v_uv1.
+// A parallaxed material slides every map by the same amount: the offset is computed
+// once from the height field and added here, so base color, roughness, occlusion,
+// emissive and the normal map all stay registered against each other instead of
+// drifting apart as the view angle changes.
+#ifdef HAS_HEIGHT
+    vec2 heightOffset(vec2 uv)        { return uv + heightUVOffset; }
+#else
+    vec2 heightOffset(vec2 uv)        { return uv; }
+#endif
+
 #ifdef HAS_UV_SET2
     uniform u_fs_texCoordSets {
         ivec4 set0; // x=baseColor, y=metallicRoughness, z=occlusion, w=emissive
-        ivec4 set1; // x=normal
+        ivec4 set1; // x=normal, y=height
     } texCoordSets;
 
     // set1.w is always 0; reading it keeps set1 active when no normal map uses it
     vec2 selectUV(int set)        { return (set + texCoordSets.set1.w == 1) ? v_uv2 : v_uv1; }
-    vec2 getBaseColorUV()         { return selectUV(texCoordSets.set0.x); }
-    vec2 getMetallicRoughnessUV() { return selectUV(texCoordSets.set0.y); }
-    vec2 getOcclusionUV()         { return selectUV(texCoordSets.set0.z); }
-    vec2 getEmissiveUV()          { return selectUV(texCoordSets.set0.w); }
-    vec2 getNormalUV()            { return selectUV(texCoordSets.set1.x); }
+    vec2 getBaseColorUV()         { return heightOffset(selectUV(texCoordSets.set0.x)); }
+    vec2 getMetallicRoughnessUV() { return heightOffset(selectUV(texCoordSets.set0.y)); }
+    vec2 getOcclusionUV()         { return heightOffset(selectUV(texCoordSets.set0.z)); }
+    vec2 getEmissiveUV()          { return heightOffset(selectUV(texCoordSets.set0.w)); }
+    vec2 getNormalUV()            { return heightOffset(selectUV(texCoordSets.set1.x)); }
+    // the height field itself is read un-offset: it is what the offset is derived from
+    vec2 getHeightUV()            { return selectUV(texCoordSets.set1.y); }
 #elif defined(HAS_UV_SET1)
-    vec2 getBaseColorUV()         { return v_uv1; }
-    vec2 getMetallicRoughnessUV() { return v_uv1; }
-    vec2 getOcclusionUV()         { return v_uv1; }
-    vec2 getEmissiveUV()          { return v_uv1; }
-    vec2 getNormalUV()            { return v_uv1; }
+    vec2 getBaseColorUV()         { return heightOffset(v_uv1); }
+    vec2 getMetallicRoughnessUV() { return heightOffset(v_uv1); }
+    vec2 getOcclusionUV()         { return heightOffset(v_uv1); }
+    vec2 getEmissiveUV()          { return heightOffset(v_uv1); }
+    vec2 getNormalUV()            { return heightOffset(v_uv1); }
+    vec2 getHeightUV()            { return v_uv1; }
 #endif
 
 vec4 getBaseColor(){
@@ -80,9 +93,11 @@ vec4 getBaseColor(){
 #endif
 
 #ifndef MATERIAL_UNLIT
-// Get normal, tangent and bitangent vectors.
-NormalInfo getNormalInfo(){
-    vec3 n, t, b, ng;
+// Get the un-perturbed frame. A backface reports a flipped basis, because that is how
+// the old single flip reached the shading normal too - and a parallax ray has to march
+// into the surface it is looking at, not out of it.
+TangentBasis getTangentBasis(){
+    vec3 t, b, ng;
     // Compute geometrical TBN:
     #ifdef HAS_TANGENTS
         // Trivial TBN computation, present as vertex attribute.
@@ -98,6 +113,8 @@ NormalInfo getNormalInfo(){
             ng = normalize(cross(dFdx(v_position), dFdy(v_position)));
         #endif
         #if defined(HAS_UV_SET1) || defined(HAS_UV_SET2)
+            // getNormalUV carries the parallax offset, so the derivatives of the frame
+            // are taken from the same UV the shading will sample
             vec2 normalUV = getNormalUV();
             vec3 uv_dx = dFdx(vec3(normalUV, 0.0));
             vec3 uv_dy = dFdy(vec3(normalUV, 0.0));
@@ -109,27 +126,43 @@ NormalInfo getNormalInfo(){
         #endif
     #endif
 
-    // Compute pertubed normals:
-    #ifdef HAS_NORMAL_MAP
-        n = texture(sampler2D(u_normalTexture, u_normal_smp), getNormalUV()).rgb * 2.0 - vec3(1.0);
-        n *= vec3(normalScale, normalScale, 1.0);
-        n = mat3(t, b, ng) * normalize(n);
-    #else
-        n = ng;
-    #endif
-    // Double-sided glTF materials shade the reverse side with reversed normals.
-    // Face culling already removes backfaces for single-sided materials.
     if (!gl_FrontFacing) {
-        n = -n;
         ng = -ng;
         t = -t;
         b = -b;
     }
+
+    TangentBasis basis;
+    basis.ng = ng;
+    basis.t = t;
+    basis.b = b;
+    return basis;
+}
+
+// Get normal, tangent and bitangent vectors.
+NormalInfo getNormalInfo(){
+    TangentBasis basis = getTangentBasis();
+    vec3 n;
+
+    // Compute pertubed normals:
+    #ifdef HAS_NORMAL_MAP
+        n = texture(sampler2D(u_normalTexture, u_normal_smp), getNormalUV()).rgb * 2.0 - vec3(1.0);
+        n *= vec3(normalScale, normalScale, 1.0);
+        n = mat3(basis.t, basis.b, basis.ng) * normalize(n);
+        // Double-sided glTF materials shade the reverse side with reversed normals.
+        // Face culling already removes backfaces for single-sided materials.
+        if (!gl_FrontFacing) {
+            n = -n;
+        }
+    #else
+        n = basis.ng;
+    #endif
+
     n = normalize(n);
     NormalInfo info;
-    info.ng = ng;
-    info.t = t;
-    info.b = b;
+    info.ng = basis.ng;
+    info.t = basis.t;
+    info.b = basis.b;
     info.n = n;
     return info;
 }

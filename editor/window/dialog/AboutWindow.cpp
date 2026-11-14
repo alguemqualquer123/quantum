@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AboutWindow.h"
@@ -6,11 +6,11 @@
 #include "Backend.h"
 #include "EditorVersion.h"
 #include "Theme.h"
-#include "resources/icons/doriax-logo_png.h"
+#include "resources/icons/quantum-logo_png.h"
 
 #include <algorithm>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
     static constexpr float dialogWidth = 440.0f;
@@ -29,7 +29,7 @@ void AboutWindow::open() {
 
     if (!m_logoLoaded) {
         TextureData data;
-        data.loadTextureFromMemory(doriax_logo_png, doriax_logo_png_len);
+        data.loadTextureFromMemory(quantum_logo_png, quantum_logo_png_len);
         m_logo.setData("editor:about:logo", data);
         m_logo.load();
         m_logoLoaded = true;
@@ -39,7 +39,7 @@ void AboutWindow::open() {
 void AboutWindow::show() {
     if (!m_isOpen) return;
 
-    ImGui::OpenPopup("About Doriax##AboutModal");
+    ImGui::OpenPopup("About Quantum##AboutModal");
 
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(viewport->GetWorkCenter(), ImGuiCond_Always, ImVec2(0.5f, 0.5f));
@@ -50,7 +50,7 @@ void AboutWindow::show() {
                              ImGuiWindowFlags_NoSavedSettings |
                              ImGuiWindowFlags_Modal;
 
-    if (ImGui::BeginPopupModal("About Doriax##AboutModal", &m_isOpen, flags)) {
+    if (ImGui::BeginPopupModal("About Quantum##AboutModal", &m_isOpen, flags)) {
         if (!m_isOpen) {
             ImGui::CloseCurrentPopup();
         } else {
@@ -70,8 +70,9 @@ void AboutWindow::drawAbout() {
         ImGui::Spacing();
     }
 
-    centeredText("Version: " DORIAX_EDITOR_VERSION);
-    centeredText("Developed by Eduardo Doria and contributors");
+    centeredText("Version: " QUANTUM_EDITOR_VERSION);
+    centeredText("Developed by SR VINIX");
+    centeredText("Fork of Quantum Engine, (c) SR VINIX and contributors (MIT)");
 
     ImGui::Separator();
 

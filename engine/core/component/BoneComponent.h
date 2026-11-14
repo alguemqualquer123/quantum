@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BONE_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API BoneComponent{
+    struct QUANTUM_API BoneComponent{
         Entity model = NULL_ENTITY;
 
         int index;

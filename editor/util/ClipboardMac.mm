@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "util/Clipboard.h"
 
 #import <AppKit/AppKit.h>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 // Declared in Clipboard.cpp; composed into readClipboardContent() on __APPLE__.
 
@@ -60,4 +60,4 @@ std::vector<std::string> readClipboardFilePathsMac() {
     return paths;
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

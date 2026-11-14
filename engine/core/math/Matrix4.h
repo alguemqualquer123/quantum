@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef matrix4_h
@@ -8,14 +8,14 @@
 #include "math/Matrix3.h"
 #include "math/Vector4.h"
 
-namespace doriax {
+namespace quantum {
 
     class Quaternion;
     class AABB;
     class OBB;
     class Plane;
 
-    class DORIAX_API Matrix4{
+    class QUANTUM_API Matrix4{
 
     private:
 

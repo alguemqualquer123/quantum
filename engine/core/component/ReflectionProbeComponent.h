@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef REFLECTION_PROBE_COMPONENT_H
@@ -7,7 +7,7 @@
 #include "math/Vector3.h"
 #include "texture/Texture.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class ReflectionProbeMode{
         STATIC,
@@ -26,7 +26,7 @@ namespace doriax{
     // probes capture according to their update mode. The forward renderer picks
     // one probe per renderable (using its world-bounds center), not per fragment.
     // GPU state is owned by RenderSystem rather than serialized here.
-    struct DORIAX_API ReflectionProbeComponent{
+    struct QUANTUM_API ReflectionProbeComponent{
         ReflectionProbeMode mode = ReflectionProbeMode::STATIC;
         ReflectionProbeUpdateMode updateMode = ReflectionProbeUpdateMode::ON_LOAD;
 

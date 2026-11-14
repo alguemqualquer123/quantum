@@ -1,22 +1,49 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Ray.h"
 
 #include "Scene.h"
 #include "component/MeshComponent.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "object/physics/Body2D.h"
 #include "util/Box2DAux.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "object/physics/Body3D.h"
 #include "util/JoltPhysicsAux.h"
+#include "Jolt/Physics/Collision/CollisionCollectorImpl.h"
+#include "Jolt/Physics/Collision/ShapeCast.h"
+#include "Jolt/Physics/Collision/Shape/SphereShape.h"
 #endif
 #include <algorithm>
 #include <stdlib.h>
 
-using namespace doriax;
+using namespace quantum;
+
+namespace {
+
+#ifdef QUANTUM_PHYSICS_2D
+    struct Box2DOverlapContext {
+        std::vector<Entity>* entities;
+        bool onlyStatic;
+    };
+
+    bool box2DOverlapCallback(b2ShapeId shapeId, void* userContext) {
+        auto* context = static_cast<Box2DOverlapContext*>(userContext);
+        const b2BodyId bodyId = b2Shape_GetBody(shapeId);
+        if (context->onlyStatic && b2Body_GetType(bodyId) != b2_staticBody) {
+            return true;
+        }
+        const Entity entity = static_cast<Entity>(reinterpret_cast<uintptr_t>(b2Body_GetUserData(bodyId)));
+        if (entity != NULL_ENTITY && std::find(context->entities->begin(), context->entities->end(), entity) == context->entities->end()) {
+            context->entities->push_back(entity);
+        }
+        return true;
+    }
+#endif
+
+}
 
 
 const RayReturn Ray::NO_HIT( {false, -1, Vector3::ZERO, Vector3::ZERO, NULL_ENTITY, 0} );
@@ -322,7 +349,7 @@ RayReturn Ray::intersects(const Sphere& sphere) const{
     return NO_HIT;
 }
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 RayReturn Ray::intersects(const Body2D& body) const{
     Body2DComponent& bodycomp = body.getComponent<Body2DComponent>();
 
@@ -391,7 +418,7 @@ RayReturn Ray::intersects(const Body2D& body, size_t shape) const{
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 RayReturn Ray::intersects(const Body3D& body) const{
     Body3DComponent& bodycomp = body.getComponent<Body3DComponent>();
     std::shared_ptr<PhysicsSystem> physicsSystem = body.getScene()->getSystem<PhysicsSystem>();
@@ -490,7 +517,7 @@ RayReturn Ray::intersects(Scene* scene, RayFilter raytest, bool onlyStatic, uint
         return closest;
     }
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     if (raytest == RayFilter::BODY_2D){
 
         b2WorldId world = scene->getSystem<PhysicsSystem>()->getWorld2D();
@@ -543,7 +570,7 @@ RayReturn Ray::intersects(Scene* scene, RayFilter raytest, bool onlyStatic, uint
     }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     if (raytest == RayFilter::BODY_3D){
 
         std::shared_ptr<PhysicsSystem> physicsSystem = scene->getSystem<PhysicsSystem>();
@@ -577,7 +604,136 @@ RayReturn Ray::intersects(Scene* scene, RayFilter raytest, bool onlyStatic, uint
     return NO_HIT;
 }
 
-#ifdef DORIAX_PHYSICS_3D
+RayReturn Ray::cast(Scene* scene, RayFilter raytest, float radius) const {
+    if (!scene || radius < 0.0f) {
+        return NO_HIT;
+    }
+
+#ifdef QUANTUM_PHYSICS_2D
+    if (raytest == RayFilter::BODY_2D) {
+        b2WorldId world = scene->getSystem<PhysicsSystem>()->getWorld2D();
+        if (!b2World_IsValid(world)) {
+            return NO_HIT;
+        }
+
+        const float pointsToMeter = scene->getSystem<PhysicsSystem>()->getPointsToMeterScale2D();
+        const b2Vec2 start = {origin.x / pointsToMeter, origin.y / pointsToMeter};
+        const b2Vec2 translation = {direction.x / pointsToMeter, direction.y / pointsToMeter};
+        const b2Circle circle = {{0.0f, 0.0f}, radius / pointsToMeter};
+        std::vector<Box2DWorldRayCastOutput> outputs;
+        Box2DWorldRayCastContext context = {&outputs, false, nullptr};
+        b2World_CastCircle(world, &circle, {start, b2Rot_identity}, translation,
+                           {static_cast<uint64_t>(~0u), static_cast<uint64_t>(~0u)},
+                           Box2DAux::CastCallback, &context);
+
+        float closest = FLT_MAX;
+        Box2DWorldRayCastOutput* result = nullptr;
+        for (auto& output : outputs) {
+            if (output.fraction < closest) {
+                closest = output.fraction;
+                result = &output;
+            }
+        }
+        if (result) {
+            const Entity entity = static_cast<Entity>(reinterpret_cast<uintptr_t>(b2Body_GetUserData(result->bodyId)));
+            const size_t shapeIndex = reinterpret_cast<size_t>(b2Shape_GetUserData(result->shapeId));
+            return {true, closest,
+                    Vector3(result->point.x * pointsToMeter, result->point.y * pointsToMeter, 0.0f),
+                    Vector3(result->normal.x, result->normal.y, 0.0f), entity, shapeIndex};
+        }
+        return NO_HIT;
+    }
+#endif
+
+#ifdef QUANTUM_PHYSICS_3D
+    if (raytest == RayFilter::BODY_3D) {
+        auto physicsSystem = scene->getSystem<PhysicsSystem>();
+        JPH::SphereShape sphere(radius);
+        const JPH::RShapeCast shapeCast(&sphere, JPH::Vec3::sReplicate(1.0f),
+                                        JPH::RMat44::sTranslation(JPH::RVec3(origin.x, origin.y, origin.z)),
+                                        JPH::Vec3(direction.x, direction.y, direction.z));
+        JPH::ShapeCastSettings settings;
+        JPH::ClosestHitCollisionCollector<JPH::CastShapeCollector> collector;
+        const JPH::ObjectLayer objectLayer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(0xFFFFu, 0xFFFFu);
+        physicsSystem->getNarrowPhaseQuery3D().CastShape(
+            shapeCast, settings, shapeCast.mCenterOfMassStart.GetTranslation(), collector, {},
+            JPH::DefaultObjectLayerFilter(JPH::ObjectLayerPairFilterMask(), objectLayer),
+            OnlyStaticBodyFilter(false));
+
+        if (collector.HadHit()) {
+            const JPH::ShapeCastResult& hit = collector.mHit;
+            Entity entity = NULL_ENTITY;
+            size_t shapeIndex = 0;
+            JPH::BodyLockRead lock(physicsSystem->getBodyLockInterface3D(), hit.mBodyID2);
+            if (lock.Succeeded()) {
+                const JPH::Body& body = lock.GetBody();
+                entity = static_cast<Entity>(body.GetUserData());
+                shapeIndex = body.GetShape()->GetSubShapeUserData(hit.mSubShapeID2);
+            }
+            const JPH::Vec3 normal = hit.mPenetrationAxis.IsNearZero()
+                ? JPH::Vec3::sZero()
+                : hit.mPenetrationAxis.Normalized();
+            return {true, hit.mFraction,
+                    Vector3(hit.mContactPointOn1.GetX(), hit.mContactPointOn1.GetY(), hit.mContactPointOn1.GetZ()),
+                    Vector3(normal.GetX(), normal.GetY(), normal.GetZ()), entity, shapeIndex};
+        }
+    }
+#endif
+
+    return NO_HIT;
+}
+
+std::vector<Entity> Ray::overlaps(Scene* scene, RayFilter raytest, float radius) const {
+    std::vector<Entity> entities;
+    if (!scene || radius < 0.0f) {
+        return entities;
+    }
+
+#ifdef QUANTUM_PHYSICS_2D
+    if (raytest == RayFilter::BODY_2D) {
+        b2WorldId world = scene->getSystem<PhysicsSystem>()->getWorld2D();
+        if (!b2World_IsValid(world)) {
+            return entities;
+        }
+        const float pointsToMeter = scene->getSystem<PhysicsSystem>()->getPointsToMeterScale2D();
+        const b2Circle circle = {{origin.x / pointsToMeter, origin.y / pointsToMeter}, radius / pointsToMeter};
+        Box2DOverlapContext context = {&entities, false};
+        b2World_OverlapCircle(world, &circle, b2Transform_identity,
+                              {static_cast<uint64_t>(~0u), static_cast<uint64_t>(~0u)},
+                              box2DOverlapCallback, &context);
+        return entities;
+    }
+#endif
+
+#ifdef QUANTUM_PHYSICS_3D
+    if (raytest == RayFilter::BODY_3D) {
+        auto physicsSystem = scene->getSystem<PhysicsSystem>();
+        JPH::SphereShape sphere(radius);
+        JPH::CollideShapeSettings settings;
+        JPH::AllHitCollisionCollector<JPH::CollideShapeCollector> collector;
+        const JPH::ObjectLayer objectLayer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(0xFFFFu, 0xFFFFu);
+        physicsSystem->getNarrowPhaseQuery3D().CollideShape(
+            &sphere, JPH::Vec3::sReplicate(1.0f),
+            JPH::RMat44::sTranslation(JPH::RVec3(origin.x, origin.y, origin.z)), settings,
+            JPH::RVec3(origin.x, origin.y, origin.z), collector, {},
+            JPH::DefaultObjectLayerFilter(JPH::ObjectLayerPairFilterMask(), objectLayer),
+            OnlyStaticBodyFilter(false));
+        for (const JPH::CollideShapeResult& hit : collector.mHits) {
+            JPH::BodyLockRead lock(physicsSystem->getBodyLockInterface3D(), hit.mBodyID2);
+            if (lock.Succeeded()) {
+                const Entity entity = static_cast<Entity>(lock.GetBody().GetUserData());
+                if (entity != NULL_ENTITY && std::find(entities.begin(), entities.end(), entity) == entities.end()) {
+                    entities.push_back(entity);
+                }
+            }
+        }
+    }
+#endif
+
+    return entities;
+}
+
+#ifdef QUANTUM_PHYSICS_3D
 RayReturn Ray::intersects(Scene* scene, uint8_t broadPhaseLayer3D) const{
     return intersects(scene, broadPhaseLayer3D, (uint16_t)~0u, (uint16_t)~0u);
 }

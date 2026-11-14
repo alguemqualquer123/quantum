@@ -1,15 +1,17 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "PhysicsSystem.h"
 #include "Scene.h"
+#include "object/Lines.h"
 #include "subsystem/RenderSystem.h"
+#include "subsystem/WaterSystem.h"
 #include "util/Angle.h"
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "util/Box2DAux.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "util/JoltPhysicsAux.h"
 #include "Jolt/Geometry/ConvexHullBuilder.h"
 #endif
@@ -17,6 +19,7 @@
 #include <algorithm>
 #include <climits>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <map>
@@ -24,9 +27,49 @@
 #include <tuple>
 
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
+
+    constexpr int DEBUG_CIRCLE_SEGMENTS = 16;
+    const Vector4 DEBUG_STATIC_COLOR(0.20f, 0.65f, 1.0f, 1.0f);
+    const Vector4 DEBUG_DYNAMIC_COLOR(0.20f, 1.0f, 0.35f, 1.0f);
+    const Vector4 DEBUG_SENSOR_COLOR(1.0f, 0.75f, 0.15f, 1.0f);
+
+    Vector4 debugBodyColor(BodyType type, bool sensor){
+        if (sensor) return DEBUG_SENSOR_COLOR;
+        return type == BodyType::STATIC ? DEBUG_STATIC_COLOR : DEBUG_DYNAMIC_COLOR;
+    }
+
+    void addDebugCircle(Lines& lines, const Vector3& center, const Vector3& axisA,
+                        const Vector3& axisB, float radius, const Vector4& color){
+        if (radius <= 0.0f) return;
+        Vector3 previous = center + axisA * radius;
+        for (int i = 1; i <= DEBUG_CIRCLE_SEGMENTS; ++i){
+            const float angle = 6.28318530718f * static_cast<float>(i) / DEBUG_CIRCLE_SEGMENTS;
+            const Vector3 next = center + (axisA * std::cos(angle) + axisB * std::sin(angle)) * radius;
+            lines.addLine(previous, next, color);
+            previous = next;
+        }
+    }
+
+    void addDebugBox(Lines& lines, const Vector3& center, const Quaternion& rotation,
+                     const Vector3& halfExtent, const Vector4& color){
+        const Vector3 axes[3] = {
+            rotation * Vector3(halfExtent.x, 0.0f, 0.0f),
+            rotation * Vector3(0.0f, halfExtent.y, 0.0f),
+            rotation * Vector3(0.0f, 0.0f, halfExtent.z)
+        };
+        const Vector3 corners[8] = {
+            center - axes[0] - axes[1] - axes[2], center + axes[0] - axes[1] - axes[2],
+            center + axes[0] + axes[1] - axes[2], center - axes[0] + axes[1] - axes[2],
+            center - axes[0] - axes[1] + axes[2], center + axes[0] - axes[1] + axes[2],
+            center + axes[0] + axes[1] + axes[2], center - axes[0] + axes[1] + axes[2]
+        };
+        const int edges[24] = {0,1, 1,2, 2,3, 3,0, 4,5, 5,6, 6,7, 7,4, 0,4, 1,5, 2,6, 3,7};
+        for (int i = 0; i < 24; i += 2)
+            lines.addLine(corners[edges[i]], corners[edges[i + 1]], color);
+    }
 
     // Transform::worldScale is the entity's accumulated scale, resolved by
     // RenderSystem::updateTransform. Identity when there is no Transform, matching an
@@ -87,7 +130,7 @@ namespace {
         }
     }
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     // Jolt's global allocator/factory/type registration is process-wide; run once
     // (the old per-constructor path re-created and leaked a Factory per scene).
     void ensureJoltGlobalInit(){
@@ -143,9 +186,14 @@ namespace {
         if (!mesh) return views;
 
         std::map<std::string, Buffer*> buffers;
-        if (mesh->buffer.getSize() > 0) buffers["vertices"] = &mesh->buffer;
-        if (mesh->indices.getSize() > 0) buffers["indices"] = &mesh->indices;
-        for (int i = 0; i < mesh->numExternalBuffers; i++) buffers[mesh->eBuffers[i].getName()] = &mesh->eBuffers[i];
+        // A shape is cooked from the CPU copy of the geometry, so a buffer that has a size but no
+        // data (a mesh whose model is still being built) is not a source yet - reading it would run
+        // past a null pointer.
+        auto cpuBacked = [](Buffer* buffer){ return buffer && buffer->getSize() > 0 && buffer->getData(); };
+        if (cpuBacked(&mesh->buffer)) buffers["vertices"] = &mesh->buffer;
+        if (cpuBacked(&mesh->indices)) buffers["indices"] = &mesh->indices;
+        for (int i = 0; i < mesh->numExternalBuffers; i++)
+            if (cpuBacked(&mesh->eBuffers[i])) buffers[mesh->eBuffers[i].getName()] = &mesh->eBuffers[i];
 
         MeshSourceView view;
         for (auto const& buf : buffers){
@@ -241,7 +289,7 @@ namespace {
         return matrix;
     }
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     // inside a volume keeping the water out that is not the body's own, like cargo in a boat
     bool isKeptDry(Scene* scene, Entity body, const Vector3& point){
         auto exclusions = scene->getComponentArray<WaterExclusionComponent>();
@@ -306,7 +354,7 @@ bool PhysicsSystem::getMeshConvexHull(Scene* scene, Entity entity, std::vector<V
     planes.clear();
     points.clear();
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     JPH::Array<JPH::Vec3> vertices;
     AABB bounds;
     for (Entity source : meshSourceEntities(scene, entity)){
@@ -362,13 +410,13 @@ bool PhysicsSystem::getMeshConvexHull(Scene* scene, Entity entity, std::vector<V
 #endif
 }
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 Vector3 PhysicsSystem::absScale(const Vector3& scale){
     return Vector3(std::fabs(scale.x), std::fabs(scale.y), std::fabs(scale.z));
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 Vector2 PhysicsSystem::absScale2D(const Vector2& scale){
     return Vector2(std::fabs(scale.x), std::fabs(scale.y));
 }
@@ -378,7 +426,7 @@ float PhysicsSystem::maxScaleXY(const Vector2& scale){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 float PhysicsSystem::maxScaleXZ(const Vector3& scale){
     return std::max(scale.x, scale.z);
 }
@@ -454,7 +502,7 @@ JPH::EMotionQuality PhysicsSystem::getBody3DMotionQualityToJolt(Body3DMotionQual
 #endif
 
 PhysicsSystem::PhysicsSystem(Scene* scene): SubSystem(scene){
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 	signature.set(scene->getComponentId<Body2DComponent>());
 #endif
 
@@ -466,7 +514,7 @@ PhysicsSystem::PhysicsSystem(Scene* scene): SubSystem(scene){
     SceneSettings settingsDefaults;
     this->gravity2D = settingsDefaults.gravity2D;
     this->gravity3D = settingsDefaults.gravity3D;
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     this->pointsToMeterScale2D = 64.0;
 
     // The Box2D world is created lazily (see ensureWorld2D): Box2D's global b2_worlds[] pool is
@@ -475,7 +523,7 @@ PhysicsSystem::PhysicsSystem(Scene* scene): SubSystem(scene){
     world2D = b2_nullWorldId;
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     // https://github.com/jrouwe/JoltPhysics/issues/244
     // Jolt globals are initialized once per process (see helper).
     ensureJoltGlobalInit();
@@ -507,7 +555,7 @@ PhysicsSystem::PhysicsSystem(Scene* scene): SubSystem(scene){
 #endif
 }
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 void PhysicsSystem::ensureWorld2D(){
     if (b2World_IsValid(world2D)){
         return;
@@ -529,17 +577,20 @@ void PhysicsSystem::ensureWorld2D(){
 #endif
 
 PhysicsSystem::~PhysicsSystem(){
-#ifdef DORIAX_PHYSICS_3D
+    // The overlay owns an ECS entity; release it while this subsystem is still registered,
+    // so component-removal callbacks never target a partially destroyed subsystem.
+    debugLines.reset();
+#ifdef QUANTUM_PHYSICS_3D
     flushPendingDestroys3D();
 #endif
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     if (b2World_IsValid(world2D)){
         b2DestroyWorld(world2D);
     }
     world2D = b2_nullWorldId;
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     delete activationListener3D;
     delete contactListener3D;
 
@@ -561,7 +612,7 @@ Vector2 PhysicsSystem::getGravity2D() const{
 void PhysicsSystem::setGravity2D(Vector2 gravity){
     if (this->gravity2D != gravity){
         this->gravity2D = gravity;
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
         if (b2World_IsValid(world2D)){
             b2World_SetGravity(world2D, {gravity.x, gravity.y});
         }
@@ -580,7 +631,7 @@ Vector3 PhysicsSystem::getGravity3D() const{
 void PhysicsSystem::setGravity3D(Vector3 gravity){
     if (this->gravity3D != gravity){
         this->gravity3D = gravity;
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
         world3D.SetGravity(JPH::Vec3(gravity.x, gravity.y, gravity.z));
 #endif
     }
@@ -608,7 +659,7 @@ void PhysicsSystem::setGravity(float x, float y, float z){
 }
 
 void PhysicsSystem::clearSubscriptions(){
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     beginContact2D.clear();
     endContact2D.clear();
     beginSensorContact2D.clear();
@@ -617,7 +668,7 @@ void PhysicsSystem::clearSubscriptions(){
     preSolve2D.clear();
     shouldCollide2D.clear();
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     onBodyActivated3D.clear();
     onBodyDeactivated3D.clear();
     onContactAdded3D.clear();
@@ -628,7 +679,7 @@ void PhysicsSystem::clearSubscriptions(){
 }
 
 void PhysicsSystem::removeSubscriptionsByTag(const std::string& substring){
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     beginContact2D.removeByTagSubstring(substring);
     endContact2D.removeByTagSubstring(substring);
     beginSensorContact2D.removeByTagSubstring(substring);
@@ -637,7 +688,7 @@ void PhysicsSystem::removeSubscriptionsByTag(const std::string& substring){
     preSolve2D.removeByTagSubstring(substring);
     shouldCollide2D.removeByTagSubstring(substring);
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     onBodyActivated3D.removeByTagSubstring(substring);
     onBodyDeactivated3D.removeByTagSubstring(substring);
     onContactAdded3D.removeByTagSubstring(substring);
@@ -655,7 +706,112 @@ bool PhysicsSystem::isInterpolation() const{
     return interpolation;
 }
 
-#ifdef DORIAX_PHYSICS_2D
+void PhysicsSystem::setDebugDrawEnabled(bool enabled){
+    if (debugDrawEnabled == enabled) return;
+    debugDrawEnabled = enabled;
+    if (debugDrawEnabled){
+        debugLines = std::make_unique<Lines>(scene);
+        debugLines->setName("__quantum_physics_debug__");
+        debugLines->setMaxLines(4096);
+    }else{
+        debugLines.reset();
+    }
+}
+
+bool PhysicsSystem::isDebugDrawEnabled() const{
+    return debugDrawEnabled;
+}
+
+size_t PhysicsSystem::getDebugLineCount() const{
+    return debugLines ? debugLines->getNumLines() : 0;
+}
+
+void PhysicsSystem::addDebugLine(const Vector3& pointA, const Vector3& pointB, const Vector4& color){
+    if (debugLines) debugLines->addLine(pointA, pointB, color);
+}
+
+void PhysicsSystem::updateDebugDraw(){
+    if (!debugDrawEnabled || !debugLines) return;
+
+    debugLines->clearLines();
+
+#ifdef QUANTUM_PHYSICS_2D
+    auto bodies2d = scene->getComponentArray<Body2DComponent>();
+    for (int i = 0; i < bodies2d->size(); ++i){
+        const Entity entity = bodies2d->getEntity(i);
+        Transform* transform = scene->findComponent<Transform>(entity);
+        if (!transform) continue;
+        resolveWorldPose(scene, entity);
+        const Body2DComponent& body = bodies2d->getComponentFromIndex(i);
+        const Vector3 origin = transform->worldPosition;
+        const Quaternion rotation = transform->worldRotation;
+        const Vector3 scale(transform->worldScale.x, transform->worldScale.y, 1.0f);
+        for (size_t shapeIndex = 0; shapeIndex < body.numShapes; ++shapeIndex){
+            const Shape2D& shape = body.shapes[shapeIndex];
+            const Vector4 color = debugBodyColor(body.type, shape.sensor);
+            const auto worldPoint = [&](const Vector2& point){
+                return origin + rotation * Vector3(point.x * scale.x, point.y * scale.y, 0.0f);
+            };
+            if (shape.type == Shape2DType::CIRCLE){
+                addDebugCircle(*debugLines, worldPoint(shape.pointA), rotation * Vector3(scale.x, 0.0f, 0.0f),
+                    rotation * Vector3(0.0f, scale.y, 0.0f), shape.radius, color);
+            }else if (shape.numVertices >= 2){
+                for (size_t p = 0; p + 1 < shape.numVertices; ++p)
+                    addDebugLine(worldPoint(shape.vertices[p]), worldPoint(shape.vertices[p + 1]), color);
+                if (shape.loop || shape.type == Shape2DType::POLYGON)
+                    addDebugLine(worldPoint(shape.vertices[shape.numVertices - 1]), worldPoint(shape.vertices[0]), color);
+            }else{
+                addDebugLine(worldPoint(shape.pointA), worldPoint(shape.pointB), color);
+            }
+        }
+    }
+#endif
+
+#ifdef QUANTUM_PHYSICS_3D
+    auto bodies3d = scene->getComponentArray<Body3DComponent>();
+    for (int i = 0; i < bodies3d->size(); ++i){
+        const Entity entity = bodies3d->getEntity(i);
+        Transform* transform = scene->findComponent<Transform>(entity);
+        if (!transform) continue;
+        resolveWorldPose(scene, entity);
+        const Body3DComponent& body = bodies3d->getComponentFromIndex(i);
+        const Vector4 color = debugBodyColor(body.type, body.sensor);
+        const Vector3 origin = transform->worldPosition;
+        const Vector3 scale = transform->worldScale;
+        for (size_t shapeIndex = 0; shapeIndex < body.numShapes; ++shapeIndex){
+            const Shape3D& shape = body.shapes[shapeIndex];
+            const Vector3 scaledPosition = shape.position * scale;
+            const Quaternion rotation = transform->worldRotation * shape.rotation;
+            const Vector3 center = origin + transform->worldRotation * scaledPosition;
+            const Vector3 absScale(std::abs(scale.x), std::abs(scale.y), std::abs(scale.z));
+            if (shape.type == Shape3DType::SPHERE){
+                const float radius = shape.radius * std::max(absScale.x, std::max(absScale.y, absScale.z));
+                addDebugCircle(*debugLines, center, rotation * Vector3::UNIT_X, rotation * Vector3::UNIT_Y, radius, color);
+                addDebugCircle(*debugLines, center, rotation * Vector3::UNIT_X, rotation * Vector3::UNIT_Z, radius, color);
+                addDebugCircle(*debugLines, center, rotation * Vector3::UNIT_Y, rotation * Vector3::UNIT_Z, radius, color);
+            }else if (shape.type == Shape3DType::CAPSULE || shape.type == Shape3DType::CYLINDER){
+                const float radius = shape.radius * std::max(absScale.x, absScale.z);
+                const float halfHeight = shape.halfHeight * absScale.y;
+                const Vector3 axis = rotation * Vector3::UNIT_Y;
+                addDebugCircle(*debugLines, center - axis * halfHeight, rotation * Vector3::UNIT_X,
+                    rotation * Vector3::UNIT_Z, radius, color);
+                addDebugCircle(*debugLines, center + axis * halfHeight, rotation * Vector3::UNIT_X,
+                    rotation * Vector3::UNIT_Z, radius, color);
+                for (int side = 0; side < 4; ++side){
+                    const float angle = 1.57079632679f * static_cast<float>(side);
+                    const Vector3 radial = (rotation * Vector3(std::cos(angle), 0.0f, std::sin(angle))) * radius;
+                    addDebugLine(center - axis * halfHeight + radial, center + axis * halfHeight + radial, color);
+                }
+            }else{
+                addDebugBox(*debugLines, center, rotation,
+                    Vector3(shape.width * absScale.x, shape.height * absScale.y, shape.depth * absScale.z) * 0.5f, color);
+            }
+        }
+    }
+#endif
+}
+
+#ifdef QUANTUM_PHYSICS_2D
 float PhysicsSystem::getPointsToMeterScale2D() const{
     return pointsToMeterScale2D;
 }
@@ -665,7 +821,7 @@ void PhysicsSystem::setPointsToMeterScale2D(float pointsToMeterScale2D){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 void PhysicsSystem::setLock3DBodies(bool lock3DBodies){
     this->lock3DBodies = lock3DBodies;
 }
@@ -714,7 +870,7 @@ void PhysicsSystem::flushPendingDestroys3D(){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 void PhysicsSystem::updateTransformFromBody2D(Entity entity, Body2DComponent& body, float alpha){
     Transform* transform = scene->findComponent<Transform>(entity);
     if (!transform || !b2Body_IsValid(body.body)){
@@ -740,7 +896,7 @@ void PhysicsSystem::updateTransformFromBody2D(Entity entity, Body2DComponent& bo
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 void PhysicsSystem::updateTransformFromBody3D(Entity entity, Body3DComponent& body, float alpha){
     Transform* transform = scene->findComponent<Transform>(entity);
     if (!transform || body.body.IsInvalid()){
@@ -769,7 +925,7 @@ void PhysicsSystem::updateTransformFromBody3D(Entity entity, Body3DComponent& bo
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 void PhysicsSystem::updateBody2DPosition(Signature signature, Entity entity, Body2DComponent& body, float stepTime){
     if (signature.test(scene->getComponentId<Transform>())){
         Transform& transform = scene->getComponent<Transform>(entity);
@@ -812,7 +968,7 @@ void PhysicsSystem::updateBody2DPosition(Signature signature, Entity entity, Bod
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 void PhysicsSystem::updateBody3DPosition(Signature signature, Entity entity, Body3DComponent& body, float stepTime){
     if (signature.test(scene->getComponentId<Transform>())){
         Transform& transform = scene->getComponent<Transform>(entity);
@@ -904,14 +1060,22 @@ void PhysicsSystem::applyBuoyancy3D(float dt){
             continue;
 
         Vector3 normal;
-        const float height = foundLevel + RenderSystem::getWaterSurfaceOffset(*found, x, z, &normal).y;
+        float depth = 0.0f;
+        const float height = foundLevel + RenderSystem::getWaterSurfaceOffset(*found, x, z, &normal, &depth).y;
+        if (depth <= 0.0f)
+            continue; // the field ran dry here, so there is nothing under the body to float it
+
+        // running water carries the body it floats along with it
+        Vector3 current(0.0f, 0.0f, 0.0f);
+        WaterSystem::getSimFlow(*found, x, z, current);
+
         body_interface.ApplyBuoyancyImpulse(body.body, JPH::RVec3(x, height, z), JPH::Vec3(normal.x, normal.y, normal.z),
-            body.buoyancy, body.waterDrag, body.waterAngularDrag, JPH::Vec3::sZero(), world3D.GetGravity(), dt);
+            body.buoyancy, body.waterDrag, body.waterAngularDrag, JPH::Vec3(current.x, current.y, current.z), world3D.GetGravity(), dt);
     }
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 bool PhysicsSystem::loadJoint2D(Entity entity, Joint2DComponent& joint){
     ensureWorld2D();
     if (!b2World_IsValid(world2D)){
@@ -954,7 +1118,7 @@ bool PhysicsSystem::loadJoint2D(Entity entity, Joint2DComponent& joint){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 bool PhysicsSystem::loadJoint3D(Entity entity, Joint3DComponent& joint){
     // The step holds the constraint list; the update loop retries any joint without one.
     if (steppingWorld3D){
@@ -1073,7 +1237,7 @@ bool PhysicsSystem::loadJoint3D(Entity entity, Joint3DComponent& joint){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 bool PhysicsSystem::syncBody2DShapes(Entity entity, Body2DComponent& body){
     if (!b2Body_IsValid(body.body)){
         return false;
@@ -1246,7 +1410,7 @@ bool PhysicsSystem::syncBody2DShapes(Entity entity, Body2DComponent& body){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 bool PhysicsSystem::createShape3DForIndex(Entity entity, Body3DComponent& body, size_t index){
     Shape3D& shapeData = body.shapes[index];
     shapeData.shape = NULL;
@@ -1254,7 +1418,14 @@ bool PhysicsSystem::createShape3DForIndex(Entity entity, Body3DComponent& body, 
     const Vector3 absEntityScale = absScale(entityScale);
 
     if (shapeData.type == Shape3DType::BOX){
-        JPH::BoxShapeSettings shape_settings(JPH::Vec3(shapeData.width * absEntityScale.x / 2.0f, shapeData.height * absEntityScale.y / 2.0f, shapeData.depth * absEntityScale.z / 2.0f));
+        const JPH::Vec3 halfExtent(shapeData.width * absEntityScale.x / 2.0f, shapeData.height * absEntityScale.y / 2.0f, shapeData.depth * absEntityScale.z / 2.0f);
+        JPH::BoxShapeSettings shape_settings(halfExtent);
+        // Jolt refuses a box whose smallest half extent is at or below its convex radius, so
+        // a thin wall, door pane or floor slab would silently get no collider at all (the
+        // default radius is 0.05 m and a 10 cm wall is under it). Shrink the radius to fit.
+        const float smallest = halfExtent.ReduceMin();
+        if (smallest <= shape_settings.mConvexRadius)
+            shape_settings.mConvexRadius = smallest * 0.5f;
         JPH::ShapeSettings::ShapeResult shape_result = shape_settings.Create();
         if (!shape_result.IsValid()) return false;
         shapeData.shape = shape_result.Get();
@@ -1506,6 +1677,24 @@ bool PhysicsSystem::createShape3DForIndex(Entity entity, Body3DComponent& body, 
     return true;
 }
 
+// A hull or mesh cooked from an entity needs at least one source entity whose vertex buffer still
+// holds a CPU copy. needUpdateModel going false does not guarantee it: the model's child nodes are
+// filled in after the component lands, so the geometry itself is the honest readiness test.
+bool shapeGeometryReady(Scene* scene, Entity meshEntity){
+    for (Entity sourceEntity : meshSourceEntities(scene, meshEntity)){
+        MeshComponent* mesh = scene->findComponent<MeshComponent>(sourceEntity);
+        for (MeshSourceView& view : collectMeshSourceViews(mesh)){
+            // A MeshComponent can expose its attribute descriptors before the CPU data upload has
+            // populated them. Treat descriptors with no vertices/triangles as still loading so a
+            // streamed collider waits quietly instead of attempting to cook an empty Jolt mesh.
+            const int vertexCount = int(view.vertexAttr.getCount());
+            if (vertexCount < 3) continue;
+            if (!view.indexBuffer || view.indexAttr.getCount() >= 3) return true;
+        }
+    }
+    return false;
+}
+
 // Hull, mesh and heightfield shapes read their geometry from an entity, and that geometry
 // can land several frames after Scene::load: models are parsed on a worker thread and
 // terrains wait on their heightmap. The parent walk covers multi-node models, whose child
@@ -1533,6 +1722,12 @@ bool PhysicsSystem::isShapeSourceLoading(Entity entity, const Shape3D& shapeData
 
         Transform* transform = scene->findComponent<Transform>(current);
         current = transform ? transform->parent : NULL_ENTITY;
+    }
+
+    if ((shapeData.type == Shape3DType::CONVEX_HULL || shapeData.type == Shape3DType::MESH) &&
+        shapeData.source == Shape3DSource::ENTITY_MESH &&
+        !shapeGeometryReady(scene, shapeData.sourceEntity == NULL_ENTITY ? entity : shapeData.sourceEntity)){
+        return true;
     }
 
     return false;
@@ -1608,15 +1803,15 @@ static_assert((uint8_t)JPH::EAllowedDOFs::Plane2D == (Body3DAllowedDOF_Translati
     && (uint8_t)JPH::EAllowedDOFs::All == Body3DAllowedDOF_All, "Body3DAllowedDOFFlags must keep Jolt's bits");
 
 bool PhysicsSystem::createGenericJoltBody(Entity entity, Body3DComponent& body, const JPH::ShapeRefC shape){
-    JPH::ObjectLayer layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(1);
+    JPH::ObjectLayer layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(body.categoryBits, body.maskBits);
     JPH::EMotionType joltType = JPH::EMotionType::Static;
     JPH::EActivation activation = JPH::EActivation::DontActivate;
     if (body.type == BodyType::DYNAMIC){
-        layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(1);
+        layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(body.categoryBits, body.maskBits);
         joltType = JPH::EMotionType::Dynamic;
         activation = JPH::EActivation::Activate;
     }else if (body.type == BodyType::KINEMATIC){
-        layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(1);
+        layer = JPH::ObjectLayerPairFilterMask::sGetObjectLayer(body.categoryBits, body.maskBits);
         joltType = JPH::EMotionType::Kinematic;
         activation = JPH::EActivation::Activate;
     }
@@ -1634,6 +1829,8 @@ bool PhysicsSystem::createGenericJoltBody(Entity entity, Body3DComponent& body, 
     settings.mMotionQuality = getBody3DMotionQualityToJolt(body.motionQuality);
     settings.mIsSensor = body.sensor;
     settings.mGravityFactor = body.gravityFactor;
+    settings.mLinearDamping = body.linearDamping;
+    settings.mAngularDamping = body.angularDamping;
     settings.mAllowedDOFs = static_cast<JPH::EAllowedDOFs>(body.allowedDOFs);
 
     JPH::BodyInterface &body_interface = getBodyInterface3D();
@@ -1661,7 +1858,7 @@ bool PhysicsSystem::createGenericJoltBody(Entity entity, Body3DComponent& body, 
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 void PhysicsSystem::createBody2D(Entity entity){
     Signature signature = scene->getSignature(entity);
 
@@ -1681,7 +1878,7 @@ void PhysicsSystem::removeBody2D(Entity entity){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 void PhysicsSystem::createBody3D(Entity entity){
     Signature signature = scene->getSignature(entity);
 
@@ -1701,19 +1898,19 @@ void PhysicsSystem::removeBody3D(Entity entity){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 b2WorldId PhysicsSystem::getWorld2D() const{
      return world2D;
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 JPH::PhysicsSystem* PhysicsSystem::getWorld3D(){
     return &world3D;
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 b2BodyId PhysicsSystem::getBody(Entity entity){
     Body2DComponent* body = scene->findComponent<Body2DComponent>(entity);
 
@@ -1788,7 +1985,7 @@ void PhysicsSystem::destroyBody2D(Body2DComponent& body){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 bool PhysicsSystem::loadBody3D(Entity entity){
     // The step holds the broad phase; the update loop retries any body without a handle.
     if (steppingWorld3D){
@@ -1834,7 +2031,7 @@ void PhysicsSystem::destroyBody3D(Body3DComponent& body){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 int PhysicsSystem::loadShape2D(Body2DComponent& body, void* shape, Shape2DType type){
     if (!b2Shape_IsValid(body.shapes[body.numShapes].shape)){
         b2ShapeDef shapeDef = b2DefaultShapeDef();
@@ -1882,7 +2079,7 @@ void PhysicsSystem::destroyShape2D(Body2DComponent& body, size_t index){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 int PhysicsSystem::loadShape3D(Body3DComponent& body, const Vector3& position, const Quaternion& rotation, JPH::ShapeSettings* shapeSettings){
     JPH::ShapeSettings::ShapeResult shape_result = shapeSettings->Create();
     if (shape_result.IsValid()){
@@ -1909,7 +2106,7 @@ void PhysicsSystem::destroyShape3D(Body3DComponent& body, size_t index){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 bool PhysicsSystem::loadDistanceJoint2D(Entity entity, Joint2DComponent& joint, Entity bodyA, Entity bodyB, Vector2 anchorA, Vector2 anchorB, bool autoAnchors, bool rope){
     Signature signatureA = scene->getSignature(bodyA);
     Signature signatureB = scene->getSignature(bodyB);
@@ -2195,7 +2392,7 @@ void PhysicsSystem::destroyJoint2D(Joint2DComponent& joint){
 }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 bool PhysicsSystem::loadFixedJoint3D(Joint3DComponent& joint, Entity bodyA, Entity bodyB){
     Signature signatureA = scene->getSignature(bodyA);
     Signature signatureB = scene->getSignature(bodyB);
@@ -2965,7 +3162,7 @@ void PhysicsSystem::load(){
     // the fixed-step accumulator has enough time for its first physics update.
     // Materialize physics objects now so Body2D/Body3D APIs are valid from the
     // first gameplay callback, but do not advance either physics world here.
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     auto bodies2d = scene->getComponentArray<Body2DComponent>();
     for (size_t i = 0; i < bodies2d->size(); i++){
         Body2DComponent& body = bodies2d->getComponentFromIndex(i);
@@ -2986,7 +3183,7 @@ void PhysicsSystem::load(){
     }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     auto bodies3d = scene->getComponentArray<Body3DComponent>();
     for (size_t i = 0; i < bodies3d->size(); i++){
         Body3DComponent& body = bodies3d->getComponentFromIndex(i);
@@ -3016,6 +3213,7 @@ void PhysicsSystem::update(double dt){
     // Variable-timestep update: physics intentionally does no work here.
     // All deterministic stepping happens in fixedUpdate(), driven by Engine's accumulator.
     (void)dt;
+    updateDebugDraw();
 }
 
 void PhysicsSystem::fixedUpdate(double dt){
@@ -3025,7 +3223,7 @@ void PhysicsSystem::fixedUpdate(double dt){
 
     const float fixedStep = (float)dt;
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 	auto bodies2d = scene->getComponentArray<Body2DComponent>();
 
 	for (int i = 0; i < bodies2d->size(); i++){
@@ -3087,7 +3285,7 @@ void PhysicsSystem::fixedUpdate(double dt){
     }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     auto bodies3d = scene->getComponentArray<Body3DComponent>();
 
 	for (int i = 0; i < bodies3d->size(); i++){
@@ -3150,6 +3348,8 @@ void PhysicsSystem::fixedUpdate(double dt){
         updateTransformFromBody3D(entity, body, 1.0f);
     }
 #endif
+
+    updateDebugDraw();
 }
 
 void PhysicsSystem::interpolate(double alpha){
@@ -3157,7 +3357,7 @@ void PhysicsSystem::interpolate(double alpha){
         return;
     }
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     auto bodies2d = scene->getComponentArray<Body2DComponent>();
     for (size_t i = 0; i < bodies2d->size(); i++){
         Body2DComponent& body = bodies2d->getComponentFromIndex(i);
@@ -3170,7 +3370,7 @@ void PhysicsSystem::interpolate(double alpha){
     }
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     auto bodies3d = scene->getComponentArray<Body3DComponent>();
     for (size_t i = 0; i < bodies3d->size(); i++){
         Body3DComponent& body = bodies3d->getComponentFromIndex(i);
@@ -3189,11 +3389,85 @@ void PhysicsSystem::draw(){
 }
 
 void PhysicsSystem::onComponentAdded(Entity entity, ComponentId componentId) {
+#ifdef QUANTUM_PHYSICS_3D
+	if (componentId == scene->getComponentId<AutoColliderComponent>()) {
+		AutoColliderComponent& collider = scene->getComponent<AutoColliderComponent>(entity);
+		if (!collider.needUpdate) {
+			return;
+		}
 
+		// Ensure the entity has a 3D body to host the auto-generated shape(s).
+		if (!scene->findComponent<Body3DComponent>(entity)) {
+			scene->addComponent<Body3DComponent>(entity);
+		}
+		Body3DComponent& body = scene->getComponent<Body3DComponent>(entity);
+
+		// Replace any previously generated shape with a single fresh one.
+		body.numShapes = 0;
+		body.needUpdateShapes = true;
+
+		if (body.numShapes >= MAX_SHAPES_3D) {
+			collider.needUpdate = false;
+			return;
+		}
+
+		size_t index = body.numShapes;
+		body.shapes[index] = Shape3D();
+		body.numShapes++;
+		Shape3D& shape = body.shapes[index];
+
+		shape.position = collider.center;
+		shape.rotation = Quaternion::IDENTITY;
+		shape.density = collider.density;
+
+		switch (collider.type) {
+		case AutoColliderType::SPHERE:
+			shape.type = Shape3DType::SPHERE;
+			shape.radius = collider.radius;
+			break;
+		case AutoColliderType::BOX:
+			shape.type = Shape3DType::BOX;
+			shape.width = collider.width;
+			shape.height = collider.height;
+			shape.depth = collider.depth;
+			break;
+		case AutoColliderType::PLANE: {
+			shape.type = Shape3DType::BOX;
+			shape.width = collider.width;
+			shape.height = collider.height;
+			shape.depth = collider.depth > 0.0f ? collider.depth : 0.01f;
+			break;
+		}
+		case AutoColliderType::CAPSULE:
+			shape.type = Shape3DType::CAPSULE;
+			shape.radius = collider.radius;
+			shape.halfHeight = collider.halfHeight;
+			break;
+		case AutoColliderType::CYLINDER:
+			shape.type = Shape3DType::CYLINDER;
+			shape.radius = collider.radius;
+			shape.halfHeight = collider.halfHeight;
+			break;
+		case AutoColliderType::CONVEX_HULL:
+		case AutoColliderType::MESH_AUTO:
+			shape.type = (collider.type == AutoColliderType::CONVEX_HULL)
+				? Shape3DType::CONVEX_HULL : Shape3DType::MESH;
+			shape.source = Shape3DSource::ENTITY_MESH;
+			shape.sourceEntity = collider.sourceEntity == NULL_ENTITY ? entity : collider.sourceEntity;
+			break;
+		default:
+			shape.type = Shape3DType::SPHERE;
+			shape.radius = collider.radius;
+			break;
+		}
+
+		collider.needUpdate = false;
+	}
+#endif
 }
 
 void PhysicsSystem::onComponentRemoved(Entity entity, ComponentId componentId) {
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 	if (componentId == scene->getComponentId<Body2DComponent>()) {
 		Body2DComponent& body2d = scene->getComponent<Body2DComponent>(entity);
 		destroyBody2D(body2d);
@@ -3202,7 +3476,7 @@ void PhysicsSystem::onComponentRemoved(Entity entity, ComponentId componentId) {
 		destroyJoint2D(joint2d);
 	}
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 	if (componentId == scene->getComponentId<Body3DComponent>()) {
 		Body3DComponent& body3d = scene->getComponent<Body3DComponent>(entity);
 		destroyBody3D(body3d);

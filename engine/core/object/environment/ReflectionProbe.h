@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef REFLECTIONPROBE_H
@@ -7,9 +7,9 @@
 #include "object/Object.h"
 #include "component/ReflectionProbeComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API ReflectionProbe: public Object{
+    class QUANTUM_API ReflectionProbe: public Object{
 
     private:
         // capture-affecting change: restart any in-flight six-face job so no

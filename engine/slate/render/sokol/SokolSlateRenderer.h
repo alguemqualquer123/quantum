@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SokolSlateRenderer_h
@@ -18,7 +18,7 @@
 #include "render/ShaderRender.h"
 #include "slate/render/SlateRenderer.h"
 
-namespace doriax {
+namespace quantum {
 
     // Sokol backend of the Slate renderer. Draws the built SlateMesh with the
     // three UI shader variants (solid / texture / font atlas) shared with the

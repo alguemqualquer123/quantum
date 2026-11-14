@@ -1,33 +1,14 @@
-name: "Third Person Template"
+name: Third Person Template
 canvasWidth: 1280
 canvasHeight: 720
-scalingMode: "fitwidth"
-textureStrategy: "resize"
+scalingMode: fitwidth
+textureStrategy: resize
 vsync: true
-windowMode: "windowed"
+windowMode: windowed
 windowWidth: 1280
 windowHeight: 720
 windowResizable: true
+luaDir: .
 startSceneId: 1
 scenes:
-  - filepath: "scenes/main.scene"
-    showAllJoints: false
-    showAllBones: false
-    showAllBodies: false
-    hideCameraView: false
-    hideLightIcons: false
-    hideSoundIcons: false
-    hideContainerGuides: false
-    showOrigin: true
-    showGrid3D: true
-    hideSelectionOutline: false
-    disableFaceCulling: false
-    editorCamera:
-      type: "camera_perspective"
-      target: [0.0, 0.0, 0.0]
-      up: [0.0, 1.0, 0.0]
-      yfov: 45.0
-      aspect: 1.778
-      nearClip: 0.1
-      farClip: 1000.0
-      position: [5.0, 5.0, 10.0]
+  - filepath: scenes\main.scene

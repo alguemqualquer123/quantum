@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 #include "Scene.h"     // Entity, EntityRegistry, NULL_ENTITY
 #include "Catalog.h"   // ComponentType
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 class EntityBundle {
 public:
@@ -58,5 +58,5 @@ public:
 
 };
 
-} // namespace doriax::editor
+} // namespace quantum::editor
 

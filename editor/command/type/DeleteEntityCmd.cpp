@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "DeleteEntityCmd.h"
@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <utility>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

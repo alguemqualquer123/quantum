@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef KEYFRAMETRACKS_H
@@ -7,8 +7,8 @@
 #include "action/Action.h"
 #include "action/Ease.h"
 
-namespace doriax{
-    class DORIAX_API KeyframeTracks: public Action{
+namespace quantum{
+    class QUANTUM_API KeyframeTracks: public Action{
 
     public:
         KeyframeTracks(Scene* scene);

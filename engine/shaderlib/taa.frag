@@ -19,8 +19,8 @@ uniform texture2D u_prevSceneColorTexture; // previous frame
 uniform sampler u_prevSceneColor_smp;
 
 uniform u_fs_taaParams {
-    vec4 params0; // x = blendFactor, y = velocityScale, z = viewWidth, w = viewHeight
-    vec4 params1; // x = currentJitterX, y = currentJitterY, z = prevJitterX, w = prevJitterY
+    vec4 params0; // x = blendFactor, y = velocityScale, z = outputWidth, w = outputHeight
+    vec4 params1; // x = inputWidth, y = inputHeight, z = currentJitterX, w = currentJitterY
 } taaParams;
 
 // Decode motion vector from [0,1] to [-1,1]
@@ -58,36 +58,23 @@ vec3 varianceClamp(vec3 history, vec3 minColor, vec3 maxColor, float varianceCli
     return clamp(history, avg - r, avg + r);
 }
 
-// Sample 3x3 neighborhood
-vec3 sampleNeighborhood(sampler2D tex, vec2 uv, vec2 texelSize){
-    vec3 samples[9];
-
-    samples[0] = texture(sampler2D(tex, uv), uv).rgb;
-    samples[1] = texture(sampler2D(tex, uv), uv + vec2(-texelSize.x, 0.0)).rgb;
-    samples[2] = texture(sampler2D(tex, uv), uv + vec2(texelSize.x, 0.0)).rgb;
-    samples[3] = texture(sampler2D(tex, uv), uv + vec2(0.0, -texelSize.y)).rgb;
-    samples[4] = texture(sampler2D(tex, uv), uv + vec2(0.0, texelSize.y)).rgb;
-    samples[5] = texture(sampler2D(tex, uv), uv + vec2(-texelSize.x, -texelSize.y)).rgb;
-    samples[6] = texture(sampler2D(tex, uv), uv + vec2(texelSize.x, -texelSize.y)).rgb;
-    samples[7] = texture(sampler2D(tex, uv), uv + vec2(-texelSize.x, texelSize.y)).rgb;
-    samples[8] = texture(sampler2D(tex, uv), uv + vec2(texelSize.x, texelSize.y)).rgb;
-
-    return samples;
-}
-
 void main(){
-    vec2 viewSize = taaParams.params0.zw;
-    vec2 texelSize = 1.0 / viewSize;
+    vec2 inputSize = max(taaParams.params1.xy, vec2(1.0));
+    vec2 texelSize = 1.0 / inputSize;
     float blendFactor = taaParams.params0.x;
+    vec2 inputUV = clamp(v_texcoord, vec2(0.0), vec2(1.0));
 
-    // Current frame sample
-    vec3 currentColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord).rgb;
+    // The current frame, depth and velocity are sampled on the lower-resolution input grid;
+    // the history target is the native output grid. This is the TAAU path when the two sizes
+    // differ, and the same equations reduce to regular TAA when they match.
+    vec3 currentColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), inputUV).rgb;
+    float currentDepth = texture(sampler2D(u_depthTexture, u_depth_smp), inputUV).r;
 
     // Motion vector
-    vec2 motionVector = decodeMotion(texture(sampler2D(u_velocityTexture, u_velocity_smp), v_texcoord).rg);
+    vec2 motionVector = decodeMotion(texture(sampler2D(u_velocityTexture, u_velocity_smp), inputUV).rg);
 
     // Re-project to previous frame UV
-    vec2 prevUV = v_texcoord - motionVector;
+    vec2 prevUV = clamp(v_texcoord - motionVector * taaParams.params0.y, vec2(0.0), vec2(1.0));
 
     // Sample previous frame
     vec3 prevColor = texture(sampler2D(u_prevSceneColorTexture, u_prevSceneColor_smp), prevUV).rgb;
@@ -95,14 +82,14 @@ void main(){
     // Neighborhood clamping to reduce ghosting
     vec3 samples[9];
     samples[0] = currentColor;
-    samples[1] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(-texelSize.x, 0.0)).rgb;
-    samples[2] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(texelSize.x, 0.0)).rgb;
-    samples[3] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(0.0, -texelSize.y)).rgb;
-    samples[4] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(0.0, texelSize.y)).rgb;
-    samples[5] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(-texelSize.x, -texelSize.y)).rgb;
-    samples[6] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(texelSize.x, -texelSize.y)).rgb;
-    samples[7] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(-texelSize.x, texelSize.y)).rgb;
-    samples[8] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord + vec2(texelSize.x, texelSize.y)).rgb;
+    samples[1] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(-texelSize.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+    samples[2] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(texelSize.x, 0.0), vec2(0.0), vec2(1.0))).rgb;
+    samples[3] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(0.0, -texelSize.y), vec2(0.0), vec2(1.0))).rgb;
+    samples[4] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(0.0, texelSize.y), vec2(0.0), vec2(1.0))).rgb;
+    samples[5] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(-texelSize.x, -texelSize.y), vec2(0.0), vec2(1.0))).rgb;
+    samples[6] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(texelSize.x, -texelSize.y), vec2(0.0), vec2(1.0))).rgb;
+    samples[7] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(-texelSize.x, texelSize.y), vec2(0.0), vec2(1.0))).rgb;
+    samples[8] = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), clamp(inputUV + vec2(texelSize.x, texelSize.y), vec2(0.0), vec2(1.0))).rgb;
 
     vec3 minColor, maxColor, avgColor;
     getNeighborhoodClamp(samples, minColor, maxColor, avgColor);
@@ -112,11 +99,13 @@ void main(){
     prevColor = varianceClamp(prevColor, minColor, maxColor, varianceClipScale);
 
     // Adaptive blend factor based on motion and luminance
-    float motionLength = length(motionVector * viewSize);
+    float motionLength = length(motionVector * inputSize);
     float motionAdaptive = 1.0 - min(motionLength / 10.0, 1.0);
 
     // Use the blend factor with motion adaptation
     float finalBlend = mix(blendFactor, 1.0, motionAdaptive);
+    if (currentDepth >= 0.999999)
+        finalBlend = 0.0;
 
     // Blend current and history
     vec3 result = mix(currentColor, prevColor, finalBlend);

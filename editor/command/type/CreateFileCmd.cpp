@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateFileCmd.h"
 
 #include <fstream>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::CreateFileCmd::CreateFileCmd(Project* project, const fs::path& file, const std::string& content)
     : file(file), content(content), deleteCmd(project, {file}, project->getProjectPath()){

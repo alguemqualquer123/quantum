@@ -1,9 +1,9 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
 // GPU-free unit tests of the retained-mode UI module (engine/core/ui/).
 // Covers the element tree, the paint list, the mesh builder and the runtime
-// walker; the Sokol renderer itself is verified visually with doriax-ui-demo.
+// walker; the Sokol renderer itself is verified visually with quantum-ui-demo.
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
@@ -18,8 +18,8 @@
 #include "ui/render/PaintList.h"
 #include "ui/render/VertexBuilder.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 TEST_CASE("ui::VisualElement hierarchy") {
     VisualElement root("root");
@@ -224,7 +224,7 @@ TEST_CASE("ui::VertexBuilder merges ranges by shared state") {
 TEST_CASE("ui::VertexBuilder stretches and nine-slices textures") {
     TextureData textureData(32, 32, 0u, ColorFormat::RGBA, 4, nullptr);
     Texture texture;
-    texture.setData("doriax_ui_tests_nineslice", textureData);
+    texture.setData("quantum_ui_tests_nineslice", textureData);
     REQUIRE(texture.getWidth() == 32u);
     REQUIRE(texture.getHeight() == 32u);
 

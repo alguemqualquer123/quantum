@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneWindow.h"
@@ -20,6 +20,7 @@
 #include "render/SceneRender2D.h"
 #include "render/SceneRender3D.h"
 #include "subsystem/MeshSystem.h"
+#include "subsystem/RenderSystem.h"
 #include "Stream.h"
 #include "Out.h"
 #include "App.h"
@@ -32,7 +33,7 @@
 #include <algorithm>
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -2216,6 +2217,34 @@ void editor::SceneWindow::show() {
                         drawSettingRow(ICON_FA_SMOG " Disable fog", sceneProject.displaySettings.disableFog, notStopped);
                         if (sceneProject.sceneType == SceneType::SCENE_3D) {
                             drawSettingRow(ICON_FA_WATER " Disable underwater", sceneProject.displaySettings.disableUnderwater, notStopped);
+                            drawSettingRow(ICON_FA_LAYER_GROUP " Show clustered light grid", sceneProject.displaySettings.showClusteredLightGrid, notStopped);
+                            if (sceneProject.displaySettings.showClusteredLightGrid && !notStopped && sceneProject.scene) {
+                                auto renderSystem = sceneProject.scene->getSystem<RenderSystem>();
+                                if (renderSystem->isClusteredLightGridReady()) {
+                                    ImGui::TableNextRow();
+                                    ImGui::TableSetColumnIndex(0);
+                                    ImGui::Text("%s Cluster telemetry", ICON_FA_CHART_COLUMN);
+                                    ImGui::TableSetColumnIndex(1);
+                                    ImGui::Text("%u x %u x %u | %u lights",
+                                        renderSystem->getClusteredLightGridWidth(),
+                                        renderSystem->getClusteredLightGridHeight(),
+                                        renderSystem->getClusteredLightGridDepthSlices(),
+                                        renderSystem->getClusteredLightCount());
+                                }
+                            }
+                            if (!notStopped && sceneProject.scene) {
+                                auto renderSystem = sceneProject.scene->getSystem<RenderSystem>();
+                                if (renderSystem->isShadowAtlasReady()) {
+                                    ImGui::TableNextRow();
+                                    ImGui::TableSetColumnIndex(0);
+                                    ImGui::Text("%s Shadow atlas", ICON_FA_SUN);
+                                    ImGui::TableSetColumnIndex(1);
+                                    ImGui::Text("%d slots x %u px | %s",
+                                        renderSystem->getShadowAtlasUsedSlots(),
+                                        renderSystem->getShadowAtlasSlotResolution(),
+                                        renderSystem->isShadowAtlasContentDirty() ? "pending update" : "resident");
+                                }
+                            }
                         }
 
                         ImGui::EndTable();

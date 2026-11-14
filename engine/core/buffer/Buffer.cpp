@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Buffer.h"
@@ -6,7 +6,7 @@
 #include "Log.h"
 #include <string.h>
 
-using namespace doriax;
+using namespace quantum;
 
 Buffer::Buffer(){
     attributes.clear();
@@ -281,11 +281,11 @@ Vector4 Buffer::getVector4(AttributeType attribute, unsigned int index){
 }
 
 uint16_t Buffer::getUInt16(Attribute* attribute, unsigned int index, int elementIndex){
-    uint16_t ret;
+    uint16_t ret = 0;
 
     if (elementIndex >= 0 && elementIndex < attribute->elements) {
         unsigned pos = (index * stride) + attribute->offset + (elementIndex * sizeof(uint16_t));
-        if ((pos+sizeof(uint16_t)) <= size){
+        if (data && (pos+sizeof(uint16_t)) <= size){
             memcpy(&ret, &data[pos], sizeof(uint16_t));
         }else{
             Log::error("Attribute index is bigger than buffer");
@@ -298,11 +298,11 @@ uint16_t Buffer::getUInt16(Attribute* attribute, unsigned int index, int element
 }
 
 uint32_t Buffer::getUInt32(Attribute* attribute, unsigned int index, int elementIndex){
-    uint32_t ret;
+    uint32_t ret = 0;
 
     if (elementIndex >= 0 && elementIndex < attribute->elements) {
         unsigned pos = (index * stride) + attribute->offset + (elementIndex * sizeof(uint32_t));
-        if ((pos+sizeof(uint32_t)) <= size){
+        if (data && (pos+sizeof(uint32_t)) <= size){
             memcpy(&ret, &data[pos], sizeof(uint32_t));
         }else{
             Log::error("Attribute index is bigger than buffer");
@@ -315,11 +315,11 @@ uint32_t Buffer::getUInt32(Attribute* attribute, unsigned int index, int element
 }
 
 float Buffer::getFloat(Attribute* attribute, unsigned int index, int elementIndex){
-    float ret;
+    float ret = 0.0f;
 
     if (elementIndex >= 0 && elementIndex < attribute->elements) {
         unsigned pos = (index * stride) + attribute->offset + (elementIndex * sizeof(float));
-        if ((pos+sizeof(float)) <= size){
+        if (data && (pos+sizeof(float)) <= size){
             memcpy(&ret, &data[pos], sizeof(float));
         }else{
             Log::error("Attribute index is bigger than buffer");
@@ -335,7 +335,7 @@ Vector2 Buffer::getVector2(Attribute* attribute, unsigned int index){
     Vector2 ret;
 
     unsigned pos = (index * stride) + attribute->offset;
-    if ((pos + 2*sizeof(float)) <= size){
+    if (data && (pos + 2*sizeof(float)) <= size){
         float tmp[2];
         memcpy(tmp, &data[pos], sizeof(float) * 2);
         ret.x = tmp[0];
@@ -351,7 +351,9 @@ Vector3 Buffer::getVector3(Attribute* attribute, unsigned int index){
     Vector3 ret;
 
     unsigned pos = (index * stride) + attribute->offset;
-    if ((pos + 3*sizeof(float)) <= size){
+    // The size bound says nothing about data: a buffer that carries no CPU copy has data == NULL,
+    // so the read has to check both or memcpy runs against address 0.
+    if (data && (pos + 3*sizeof(float)) <= size){
         float tmp[3];
         memcpy(tmp, &data[pos], sizeof(float) * 3);
         ret.x = tmp[0];
@@ -368,7 +370,7 @@ Vector4 Buffer::getVector4(Attribute* attribute, unsigned int index){
     Vector4 ret;
 
     unsigned pos = (index * stride) + attribute->offset;
-    if ((pos + 4*sizeof(float)) <= size){
+    if (data && (pos + 4*sizeof(float)) <= size){
         float tmp[4];
         memcpy(tmp, &data[pos], sizeof(float) * 4);
         ret.x = tmp[0];

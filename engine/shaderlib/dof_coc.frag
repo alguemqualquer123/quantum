@@ -1,66 +1,57 @@
 #version 450
 
-// DOF Circle of Confusion: calculates blur amount based on depth
-// Physical camera model: aperture, focal length, focus distance
+// DOF circle of confusion: one tap of the shared depth pre-pass becomes a normalized
+// blur radius, written in R (G holds the eye distance for debugging). The value is in
+// [0,1] of screen height, so the blur pass converts it to texels with its own size.
+//
+// Orientation: this pass writes in scene-color space, while the depth target keeps the
+// pre-pass's native orientation, so on GL the depth lookup needs the Y flip (params1.x),
+// exactly like ssr.frag's misc.z.
+//
+// Distance: the pre-pass packs 0.5*z/w + 0.5 taken before the API clip-space fixup, so
+// [-1,1] always matches invProjection. The eye position is recovered from that, and the
+// radial length is what the focus plane compares against (a flat z would blur the corners
+// of a wall unevenly).
 
 in vec2 v_texcoord;
 out vec4 frag_color;
-
-uniform texture2D u_sceneColorTexture;
-uniform sampler u_sceneColor_smp;
 
 uniform texture2D u_depthTexture;
 uniform sampler u_depth_smp;
 
 uniform u_fs_dofCocParams {
-    vec4 params0; // x = focusDistance, y = aperture, z = focalLength, w = maxBlurSize
-    vec4 params1; // x = nearStart, y = nearEnd, z = farStart, w = farEnd
-} dofCocParams;
+    mat4 invProjection;
+    vec4 params0; // x = focusDistance, y = aperture, z = focusRange, w = maxBlur
+    vec4 params1; // x = flip depth<->color Y, yz = unused, w = unused
+} dofCoc;
 
-// Linearize depth from packed format
-float linearizeDepth(float depth){
-    // Assuming reversed-Z (near=1, far=0) or standard projection
-    float near = 0.1;
-    float far = 1000.0;
-    return (2.0 * near * far) / (far + near - depth * (far - near));
-}
+#include "includes/depth_util.glsl"
 
 void main(){
-    float focusDistance = dofCocParams.params0.x;
-    float aperture = dofCocParams.params0.y;
-    float focalLength = dofCocParams.params0.z;
-    float maxBlurSize = dofCocParams.params0.w;
+    vec2 duv = vec2(v_texcoord.x, dofCoc.params1.x > 0.5 ? 1.0 - v_texcoord.y : v_texcoord.y);
+    float depth01 = decodeDepth(textureLod(sampler2D(u_depthTexture, u_depth_smp), duv, 0.0));
 
-    float nearStart = dofCocParams.params1.x;
-    float nearEnd = dofCocParams.params1.y;
-    float farStart = dofCocParams.params1.z;
-    float farEnd = dofCocParams.params1.w;
+    vec3 ndc = vec3(duv.x * 2.0 - 1.0, depthUVToNDCY(duv.y), depth01 * 2.0 - 1.0);
+    vec4 view = dofCoc.invProjection * vec4(ndc, 1.0);
 
-    // Sample depth
-    float depth = texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord).r;
-    float linearDepth = linearizeDepth(depth);
-
-    // Calculate CoC (Circle of Confusion)
-    // Physical formula: CoC = abs(A * f * (S - D)) / (S * (D - f))
-    // Simplified for real-time: CoC = abs(D - focus) * scale
-    float distFromFocus = abs(linearDepth - focusDistance);
-
-    // Determine if in front of or behind focus
-    float coc;
-    if (linearDepth < focusDistance){
-        // Near field blur (stronger than far field for artistic effect)
-        coc = smoothstep(nearStart, nearEnd, linearDepth);
-    } else {
-        // Far field blur
-        coc = smoothstep(farStart, farEnd, linearDepth);
+    // Nothing in front of the near plane: leave it sharp instead of dividing by a zero w.
+    if (view.w <= 0.0) {
+        frag_color = vec4(0.0, 0.0, 0.0, 1.0);
+        return;
     }
 
-    // Scale by focus distance falloff
-    coc *= distFromFocus / (focusDistance + 0.001);
+    float eyeDistance = length(view.xyz / view.w);
 
-    // Clamp to max blur size
-    coc = min(coc, maxBlurSize);
+    float focusDistance = max(dofCoc.params0.x, 0.001);
+    float aperture = dofCoc.params0.y;
+    float focusRange = max(dofCoc.params0.z, 0.0);
+    float maxBlur = clamp(dofCoc.params0.w, 0.0, 1.0);
 
-    // Output: x = CoC value, y = depth for debugging
-    frag_color = vec4(coc, linearDepth / 100.0, 0.0, 1.0);
+    // Out-of-focus amount grows with the distance from the in-focus band, measured against
+    // the focus distance itself so the same setting behaves at 2 m and at 200 m. An
+    // aperture of 1 is the neutral reference; larger apertures reach maxBlur sooner.
+    float spread = max(abs(eyeDistance - focusDistance) - focusRange, 0.0);
+    float coc = clamp((spread / focusDistance) * (aperture * 0.5), 0.0, 1.0) * maxBlur;
+
+    frag_color = vec4(coc, eyeDistance * 0.01, 0.0, 1.0);
 }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,7 +11,7 @@ namespace tinygltf {
     class Model;
 }
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     // Converts an FBX into a .glb, which the engine loads in its place
     class FbxImporter {

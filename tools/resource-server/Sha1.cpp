@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "Sha1.h"
@@ -7,7 +7,7 @@
 #include <cstring>
 #include <vector>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 namespace {
     inline uint32_t rol(uint32_t value, uint32_t bits) {

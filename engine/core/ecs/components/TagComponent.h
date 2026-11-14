@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
 // Lightweight tag component for fast entity filtering and categorization.
 // Uses a 64-bit bitmask for O(1) category checks, plus an optional string

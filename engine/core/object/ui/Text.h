@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXT_H
@@ -6,10 +6,10 @@
 
 #include "UILayout.h"
 
-namespace doriax{
-    class DORIAX_API STBText;
+namespace quantum{
+    class QUANTUM_API STBText;
 
-    class DORIAX_API Text: public UILayout{
+    class QUANTUM_API Text: public UILayout{
 
     public:
         Text(Scene* scene);

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "GraphicUtils.h"
@@ -69,7 +69,7 @@
     #include <vulkan/vulkan.h>
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 Vector2 editor::GraphicUtils::getUILayoutCenter(Scene* scene, Entity entity, const UILayoutComponent& layout) {
     Vector2 center = Vector2(0, 0);
@@ -406,8 +406,8 @@ bool editor::GraphicUtils::saveFramebufferImage(Framebuffer* framebuffer, fs::pa
     return true;
 }
 
-bool editor::GraphicUtils::captureEditorFrame(const fs::path& path, int width, int height) {
-    if (width <= 0 || height <= 0) {
+bool editor::GraphicUtils::readBackFrame(unsigned char* out, int width, int height) {
+    if (out == nullptr || width <= 0 || height <= 0) {
         Out::error("Frame capture: invalid size %dx%d", width, height);
         return false;
     }
@@ -417,12 +417,28 @@ bool editor::GraphicUtils::captureEditorFrame(const fs::path& path, int width, i
     std::vector<uint8_t> rows(static_cast<size_t>(height) * rowBytes);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, rows.data());
 
-    // glReadPixels gives bottom-up rows and stb writes top-down.
-    std::vector<uint8_t> pixels(static_cast<size_t>(height) * rowBytes);
+    // glReadPixels gives bottom-up rows; the callers hand back (and PNG encodes) top-down.
     for (int y = 0; y < height; ++y) {
-        std::memcpy(&pixels[static_cast<size_t>(y) * rowBytes],
+        std::memcpy(out + static_cast<size_t>(y) * rowBytes,
                     &rows[static_cast<size_t>(height - 1 - y) * rowBytes], rowBytes);
     }
+    return true;
+#else
+    Out::error("Frame capture: only the OpenGL backend can read the backbuffer");
+    return false;
+#endif
+}
+
+bool editor::GraphicUtils::captureEditorFrame(const fs::path& path, int width, int height) {
+    if (width <= 0 || height <= 0) {
+        Out::error("Frame capture: invalid size %dx%d", width, height);
+        return false;
+    }
+
+    const size_t rowBytes = static_cast<size_t>(width) * 4;
+    std::vector<uint8_t> pixels(static_cast<size_t>(height) * rowBytes);
+    if (!readBackFrame(pixels.data(), width, height))
+        return false;
 
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
@@ -433,8 +449,4 @@ bool editor::GraphicUtils::captureEditorFrame(const fs::path& path, int width, i
     }
     Out::success("Frame capture: %s", path.string().c_str());
     return true;
-#else
-    Out::error("Frame capture: only the OpenGL backend can read the backbuffer");
-    return false;
-#endif
 }

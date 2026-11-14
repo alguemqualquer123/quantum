@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,7 +13,7 @@ namespace uilab {
 class AppContext;
 }
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 class App;
 class Structure;
@@ -22,7 +22,7 @@ class ResourcesWindow;
 
 // The editor's UILab host. The library owns the chrome - the dockspace, the main menu
 // bar, the panel windows - and this class owns the AppContext they read and the hooks
-// that feed them doriax's data.
+// that feed them quantum's data.
 class UILabHost {
 public:
     UILabHost(App& owner, Structure* structure, Properties* properties, ResourcesWindow* resources);
@@ -33,14 +33,14 @@ public:
 
     uilab::AppContext& context();
 
-    // The dockspace root node id: doriax's own windows and tabs dock into it.
+    // The dockspace root node id: quantum's own windows and tabs dock into it.
     ImGuiID dockSpaceId() const;
 
     // The dockspace host window. Call after the node tree is built and before the
     // panels draw.
     void beginFrame();
 
-    // The main menu bar, drawing doriax's own menu model inside the library's bar.
+    // The main menu bar, drawing quantum's own menu model inside the library's bar.
     void drawMenuBar(const PlatformMenuModel& menu);
 
     // The library's console panel, reading the ring buffer Out mirrors into.
@@ -48,8 +48,8 @@ public:
     const char* consoleTitle() const;
     void drawConsole();
 
-    // The library's data panels, showing doriax's outliner, property editor and
-    // content browser. Their windows keep doriax's names, so the saved dock layout,
+    // The library's data panels, showing quantum's outliner, property editor and
+    // content browser. Their windows keep quantum's names, so the saved dock layout,
     // the menus and the close button address the same windows as before.
     void drawDataPanels();
 

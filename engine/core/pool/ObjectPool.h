@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef OBJECTPOOL_H
@@ -11,7 +11,7 @@
 #include <cassert>
 #include "Export.h"
 
-namespace doriax {
+namespace quantum {
 
     // Generic object pool with free-list recycling.
     // Objects are pre-allocated and reused to avoid runtime allocations.

@@ -6,3 +6,4 @@ add_executable(voxel_demo main.cpp)
 target_link_libraries(voxel_demo PRIVATE voxel)
 
 target_include_directories(voxel_demo PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../voxel)
+set_target_properties(voxel_demo PROPERTIES CXX_STANDARD 17 CXX_STANDARD_REQUIRED ON)

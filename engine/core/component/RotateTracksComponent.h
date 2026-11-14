@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ROTATETRACKS_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "Engine.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API RotateTracksComponent{
+    struct QUANTUM_API RotateTracksComponent{
         std::vector<Quaternion> values;
         // Per-key Hermite tangents (GLTF CUBICSPLINE); empty on linear tracks.
         // Cubic interpolation runs only while both stay sized to values — any

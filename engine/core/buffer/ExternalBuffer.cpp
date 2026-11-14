@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ExternalBuffer.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ExternalBuffer::ExternalBuffer(): Buffer(){
     name = "";

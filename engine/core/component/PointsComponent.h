@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef POINTS_COMPONENT_H
@@ -15,7 +15,7 @@
 #include "Engine.h"
 #include <string>
 
-namespace doriax{
+namespace quantum{
 
     struct PointData{
         Vector3 position = Vector3(0.0, 0.0, 0.0);
@@ -24,6 +24,14 @@ namespace doriax{
         float rotation = 0;
         Rect textureRect = Rect(0.0, 0.0, 1.0, 1.0);
         bool visible = true;
+
+        // Runtime-only ballistic data used by the GPU particle point variant. These
+        // fields are deliberately omitted from the scene stream; authored points keep
+        // the same serialized shape as before.
+        Vector3 particleVelocity = Vector3(0.0, 0.0, 0.0);
+        Vector3 particleAcceleration = Vector3(0.0, 0.0, 0.0);
+        float particleSpawnTime = 0.0f;
+        float particleLife = 0.0f;
     };
 
     struct PointRenderData{
@@ -32,9 +40,13 @@ namespace doriax{
         float size;
         float rotation;
         Rect textureRect;
+        Vector3 particleVelocity;
+        Vector3 particleAcceleration;
+        float particleSpawnTime;
+        float particleLife;
     };
 
-    struct DORIAX_API PointsComponent{
+    struct QUANTUM_API PointsComponent{
         bool loaded = false;
         bool loadCalled = false;
 
@@ -71,6 +83,10 @@ namespace doriax{
         bool pipelineTransparent = false; // transparent when the pipeline was built
 
         bool hasTextureRect = false;
+        // Enabled by ParticlesComponent::gpuSimulation for the compatible ballistic
+        // path. Collision/trail modes intentionally keep the CPU simulation path.
+        bool gpuSimulation = false;
+        float gpuSimulationTime = 0.0f; // runtime clock for the owning particle action
 
         bool needUpdate = true;
         bool needUpdateBuffer = false;

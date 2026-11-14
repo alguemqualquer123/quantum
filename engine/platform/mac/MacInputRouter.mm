@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MacInputRouter.h"
@@ -6,7 +6,7 @@
 
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 @implementation MacInputRouter {
     // The view owns the router, so a strong reference here would be a cycle

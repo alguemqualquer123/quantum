@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "util/ProcessLaunch.h"
@@ -14,7 +14,7 @@
     #include <unistd.h>
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -37,9 +37,12 @@ std::string quoteArgument(const std::string& argument) {
 
 } // namespace
 
-bool editor::ProcessLaunch::detached(const std::filesystem::path& executable,
-                                     const std::vector<std::string>& arguments,
-                                     const std::filesystem::path& workingDir) {
+namespace {
+
+bool launchDetached(const std::filesystem::path& executable,
+                    const std::vector<std::string>& arguments,
+                    const std::filesystem::path& workingDir,
+                    bool visibleWindow) {
 #ifdef _WIN32
     std::string command = quoteArgument(executable.string());
     for (const std::string& argument : arguments) {
@@ -57,11 +60,13 @@ bool editor::ProcessLaunch::detached(const std::filesystem::path& executable,
     const std::string workingDirString = workingDir.string();
     const char* workingDirPointer = workingDirString.empty() ? nullptr : workingDirString.c_str();
 
+    const DWORD creationFlags = CREATE_NEW_PROCESS_GROUP |
+        (visibleWindow ? 0 : CREATE_NO_WINDOW);
     const BOOL created = CreateProcessA(nullptr, mutableCommand.data(), nullptr, nullptr, FALSE,
-                                        CREATE_NO_WINDOW, nullptr, workingDirPointer, &startupInfo,
+                                        creationFlags, nullptr, workingDirPointer, &startupInfo,
                                         &processInfo);
     if (!created) {
-        Out::error("Failed to launch \"%s\" (error %lu).", executable.string().c_str(),
+        quantum::editor::Out::error("Failed to launch \"%s\" (error %lu).", executable.string().c_str(),
                    static_cast<unsigned long>(GetLastError()));
         return false;
     }
@@ -72,7 +77,7 @@ bool editor::ProcessLaunch::detached(const std::filesystem::path& executable,
 #else
     const pid_t pid = fork();
     if (pid < 0) {
-        Out::error("Failed to launch \"%s\": fork failed.", executable.string().c_str());
+        quantum::editor::Out::error("Failed to launch \"%s\": fork failed.", executable.string().c_str());
         return false;
     }
 
@@ -109,6 +114,20 @@ bool editor::ProcessLaunch::detached(const std::filesystem::path& executable,
 
     return true;
 #endif
+}
+
+} // namespace
+
+bool editor::ProcessLaunch::detached(const std::filesystem::path& executable,
+                                     const std::vector<std::string>& arguments,
+                                     const std::filesystem::path& workingDir) {
+    return launchDetached(executable, arguments, workingDir, false);
+}
+
+bool editor::ProcessLaunch::detachedVisible(const std::filesystem::path& executable,
+                                            const std::vector<std::string>& arguments,
+                                            const std::filesystem::path& workingDir) {
+    return launchDetached(executable, arguments, workingDir, true);
 }
 
 bool editor::ProcessLaunch::revealFolder(const std::filesystem::path& folder) {

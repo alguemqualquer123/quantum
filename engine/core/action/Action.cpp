@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Action.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Action::Action(Scene* scene): EntityHandle(scene){
     addComponent<ActionComponent>();

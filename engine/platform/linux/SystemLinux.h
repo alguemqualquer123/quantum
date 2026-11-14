@@ -1,6 +1,6 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
-// doriax::System over WindowLinux. It keeps no state of its own, so the editor
+// quantum::System over WindowLinux. It keeps no state of its own, so the editor
 // driving WindowLinux directly and a game going through here stay in agreement.
 
 #ifndef SystemLinux_h
@@ -8,7 +8,7 @@
 
 #include "System.h"
 
-namespace doriax {
+namespace quantum {
 
     class LinuxInputRouter;
 
@@ -23,6 +23,8 @@ namespace doriax {
         int getScreenHeight() override;
 
         int getSampleCount() override;
+
+        bool readBackFramebuffer(unsigned char* out, int width, int height) override;
 
 #if defined(SOKOL_VULKAN)
         // The GL backend renders into the default framebuffer, which the base

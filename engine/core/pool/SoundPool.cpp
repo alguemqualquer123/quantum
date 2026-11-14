@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SoundPool.h"
@@ -15,7 +15,7 @@
 #include <filesystem>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 std::unordered_map<std::string, std::future<SoundBuildResult>> SoundPool::pendingBuilds;
 std::unordered_set<std::string> SoundPool::failedBuilds;

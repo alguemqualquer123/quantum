@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESHPOLYGON_H
@@ -6,8 +6,8 @@
 
 #include "Mesh.h"
 
-namespace doriax{
-    class DORIAX_API MeshPolygon: public Mesh{
+namespace quantum{
+    class QUANTUM_API MeshPolygon: public Mesh{
 
     public:
         MeshPolygon(Scene* scene);

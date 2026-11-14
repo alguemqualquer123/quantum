@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXTURE_H
@@ -12,9 +12,9 @@
 #include <string>
 #include <memory>
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Texture{
+    class QUANTUM_API Texture{
         private:
             static bool hasTexturePixels(const std::shared_ptr<std::array<TextureData,6>>& data, size_t numFaces);
             static std::string buildCubeTextureId(const std::string paths[6]);

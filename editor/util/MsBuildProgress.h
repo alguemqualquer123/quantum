@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,7 +9,7 @@
 #endif
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     // Estimates Visual Studio/MSBuild compile progress from generated projects,
     // compiler tracking logs, and the source filenames streamed by MSBuild.

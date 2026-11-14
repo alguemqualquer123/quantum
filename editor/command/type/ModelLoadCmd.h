@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -16,7 +16,7 @@
 #include <memory>
 #include <unordered_map>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class ModelLoadCmd: public Command{
 

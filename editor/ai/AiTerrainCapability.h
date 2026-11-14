@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,11 +10,11 @@
 #include <filesystem>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 class Project;
 }
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 struct TerrainHeightmapRequest {
     int resolution = 512;
@@ -60,4 +60,4 @@ public:
                                                 const TerrainBlendmapRequest& request);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESH_COMPONENT_H
@@ -25,7 +25,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     // Submesh fields a model load rewrites from its source file, so an edit to one only survives
     // the load while it is flagged in Submesh::overrideFields.
@@ -46,6 +46,10 @@ namespace doriax{
         SubmeshOverride_TextureShadow            = 1 << 13,
         SubmeshOverride_PrimitiveType            = 1 << 14,
         SubmeshOverride_FoliageTransmission      = 1 << 15,
+        SubmeshOverride_HeightTexture            = 1 << 16,
+        SubmeshOverride_HeightScale              = 1 << 17,
+        SubmeshOverride_HeightMinLayers          = 1 << 18,
+        SubmeshOverride_HeightMaxLayers          = 1 << 19,
 
         SubmeshOverride_Material = SubmeshOverride_BaseColorFactor | SubmeshOverride_MetallicFactor |
                                    SubmeshOverride_RoughnessFactor | SubmeshOverride_AlphaCutoff |
@@ -53,10 +57,12 @@ namespace doriax{
                                    SubmeshOverride_MaterialName | SubmeshOverride_BaseColorTexture |
                                    SubmeshOverride_EmissiveTexture | SubmeshOverride_MetallicRoughnessTexture |
                                    SubmeshOverride_OcclusionTexture | SubmeshOverride_NormalTexture |
-                                   SubmeshOverride_FoliageTransmission
+                                   SubmeshOverride_FoliageTransmission | SubmeshOverride_HeightTexture |
+                                   SubmeshOverride_HeightScale | SubmeshOverride_HeightMinLayers |
+                                   SubmeshOverride_HeightMaxLayers
     };
 
-    struct DORIAX_API Submesh{
+    struct QUANTUM_API Submesh{
         Material material;
         std::map<AttributeType, Attribute> attributes;
 
@@ -79,7 +85,10 @@ namespace doriax{
 
         int slotVSParams = -1;
         int slotFSParams = -1;
+        int slotFSMaterialExtensions = -1;
         int slotFSTexCoordSets = -1;
+        // u_fs_heightParams, present only in a HAS_HEIGHT ('Hgt') variant
+        int slotFSHeight = -1;
         int slotVSFade = -1;
         int slotFSLighting = -1;
         int slotFSReflectionProbe = -1;
@@ -228,6 +237,12 @@ namespace doriax{
         bool needUpdateAABB = false;
         bool needUpdateBuffer = false;
         bool needReload = false;
+
+        // A GPU allocation failure (an exhausted sokol pool) is not fixed by the next frame, and
+        // retrying it every frame reruns the whole mesh build. loadRetries counts the attempts in a
+        // row and loadRetryDelay paces them once a mesh is clearly stuck; both reset on a success.
+        unsigned int loadRetries = 0;
+        unsigned int loadRetryDelay = 0;
     };
     
 }

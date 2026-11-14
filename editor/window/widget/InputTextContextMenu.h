@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <cstddef>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 class InputTextContextMenu {
 public:
@@ -26,4 +26,4 @@ public:
                                 const Options& options);
 };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

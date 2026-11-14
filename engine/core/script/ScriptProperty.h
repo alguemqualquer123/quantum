@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -23,7 +23,7 @@ public: /* @DPROPERTY_TYPE: Type */
 #define GET_DPROPERTY_MACRO(_1, _2, NAME, ...) NAME
 #define DPROPERTY(...) GET_DPROPERTY_MACRO(__VA_ARGS__, DPROPERTY_2, DPROPERTY_1)(__VA_ARGS__)
 
-namespace doriax {
+namespace quantum {
 
     class Scene;
 
@@ -57,7 +57,7 @@ namespace doriax {
         EntityReference
     >;
 
-    struct DORIAX_API ScriptProperty {
+    struct QUANTUM_API ScriptProperty {
         std::string name;
         std::string displayName;
         ScriptPropertyType type = ScriptPropertyType::Bool;

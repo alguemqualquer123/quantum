@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Contact3D.h"
@@ -7,7 +7,10 @@
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Collision/ContactListener.h"
 
-using namespace doriax;
+#include <algorithm>
+#include <cmath>
+
+using namespace quantum;
 
 Contact3D::Contact3D(Scene* scene, const JPH::Body* body1, const JPH::Body* body2, const JPH::ContactManifold* contactManifold, JPH::ContactSettings* contactSettings){
     this->scene = scene;
@@ -99,5 +102,36 @@ bool Contact3D::isSensor() const{
 
 void Contact3D::setIsSensor(bool sensor){
     contactSettings->mIsSensor = sensor;
+}
+
+void Contact3D::applyShapeMaterials(){
+    if (!scene || !body1 || !body2 || !contactSettings) return;
+
+    const Entity entity1 = static_cast<Entity>(body1->GetUserData());
+    const Entity entity2 = static_cast<Entity>(body2->GetUserData());
+    const Body3DComponent* component1 = scene->findComponent<Body3DComponent>(entity1);
+    const Body3DComponent* component2 = scene->findComponent<Body3DComponent>(entity2);
+    if (!component1 || !component2) return;
+
+    const size_t index1 = getShapeIndex1();
+    const size_t index2 = getShapeIndex2();
+    if (index1 >= component1->numShapes || index2 >= component2->numShapes) return;
+
+    const Shape3D& shape1 = component1->shapes[index1];
+    const Shape3D& shape2 = component2->shapes[index2];
+    // Keep the long-standing Body3D::setFriction/setRestitution contract when both shapes use
+    // the defaults. A non-default shape value opts this contact into per-shape material mixing.
+    const bool customMaterial = std::abs(shape1.friction - 0.6f) > 0.0001f
+        || std::abs(shape2.friction - 0.6f) > 0.0001f
+        || std::abs(shape1.restitution) > 0.0001f
+        || std::abs(shape2.restitution) > 0.0001f;
+    if (!customMaterial) return;
+
+    const float friction1 = std::max(0.0f, std::min(1.0f, shape1.friction));
+    const float friction2 = std::max(0.0f, std::min(1.0f, shape2.friction));
+    const float restitution1 = std::max(0.0f, std::min(1.0f, shape1.restitution));
+    const float restitution2 = std::max(0.0f, std::min(1.0f, shape2.restitution));
+    contactSettings->mCombinedFriction = std::sqrt(friction1 * friction2);
+    contactSettings->mCombinedRestitution = std::max(restitution1, restitution2);
 }
 

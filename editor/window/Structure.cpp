@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Structure.h"
@@ -33,6 +33,7 @@
 #include "util/UIUtils.h"
 #include "util/Util.h"
 #include "util/ProjectUtils.h"
+#include "util/ReadyMadeComponents.h"
 #include "Out.h"
 #include "Stream.h"
 #include <algorithm>
@@ -41,7 +42,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 static bool hasScripts(Scene* scene, Entity entity) {
     ScriptComponent* scriptComponent = scene->findComponent<ScriptComponent>(entity);
@@ -462,6 +463,16 @@ void editor::Structure::showNewEntityMenu(bool isScene, Entity parent, bool addT
 
     if (ImGui::MenuItem(ICON_FA_SITEMAP"  Empty object")){
         CommandHandle::get(project->getSelectedSceneId())->addCommandNoMerge(new CreateEntityCmd(project, project->getSelectedSceneId(), "Object", EntityCreationType::OBJECT, parent, addToBundle));
+        openParent = parent;
+    }
+
+    if (ImGui::MenuItem(ICON_FA_PERSON_RUNNING"  Player (BananaMan)")){
+        CreateEntityCmd* playerCommand = new CreateEntityCmd(project, project->getSelectedSceneId(),
+            "Player", EntityCreationType::PLAYER, parent, addToBundle);
+        if (CommandHandle::get(project->getSelectedSceneId())->addCommandNoMerge(playerCommand)){
+            attachLibraryComponent(project, project->getSelectedScene(),
+                {playerCommand->getEntity()}, "PlayerController");
+        }
         openParent = parent;
     }
 
@@ -1912,6 +1923,23 @@ void editor::Structure::showTreeNode(editor::TreeNode& node) {
         ImGui::TextUnformatted(ICON_FA_FILE_CODE);
         ImGui::SetWindowFontScale(1.0f);
         ImGui::PopStyleColor();
+
+        if (node.hasScript && nodeSceneProject && nodeSceneProject->scene) {
+            ScriptComponent* scriptComponent = nodeSceneProject->scene->findComponent<ScriptComponent>(node.id);
+            std::string graphNames;
+            int graphCount = 0;
+            if (scriptComponent) {
+                for (const ScriptEntry& entry : scriptComponent->scripts) {
+                    if (entry.type != ScriptType::GRAPH) continue;
+                    if (!graphNames.empty()) graphNames += "\n";
+                    graphNames += std::filesystem::path(entry.path).stem().string();
+                    ++graphCount;
+                }
+            }
+            if (graphCount > 0) {
+                ImGui::SetItemTooltip("Graph instance%s:\n%s", graphCount > 1 ? "s" : "", graphNames.c_str());
+            }
+        }
     }
 
     if (instanceCount > 0) {

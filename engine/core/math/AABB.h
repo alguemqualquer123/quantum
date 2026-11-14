@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef AABB_h
@@ -8,12 +8,12 @@
 #include "Matrix4.h"
 #include "Sphere.h"
 
-namespace doriax{
+namespace quantum{
 
     class Plane;
     class OBB;
     
-    class DORIAX_API AABB{
+    class QUANTUM_API AABB{
 
     public:
 

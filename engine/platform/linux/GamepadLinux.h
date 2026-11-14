@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef GamepadLinux_h
@@ -11,7 +11,7 @@
 #include <array>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
     // Linux joystick (/dev/input/js*) polling for exported games. Device
     // layouts disagree on which axes are the right stick and which are the

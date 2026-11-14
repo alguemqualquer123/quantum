@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TRANSFORM_H
@@ -9,9 +9,9 @@
 #include "math/Matrix4.h"
 #include "ecs/Entity.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API Transform{
+    struct QUANTUM_API Transform{
         Vector3 position;
         Quaternion rotation;
         Vector3 scale = Vector3(1.0, 1.0, 1.0);

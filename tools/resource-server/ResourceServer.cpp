@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ResourceServer.h"
@@ -18,7 +18,7 @@
 
 #ifdef _WIN32
     // winsock2.h MUST come before windows.h; the target also defines
-    // WIN32_LEAN_AND_MEAN (see doriax_resource_server.cmake) so windows.h
+    // WIN32_LEAN_AND_MEAN (see quantum_resource_server.cmake) so windows.h
     // does not pull winsock.h and redefine sockaddr.
     #include <winsock2.h>
     #include <ws2tcpip.h>
@@ -36,7 +36,7 @@
     #include <unistd.h>
 #endif
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 namespace {
 
@@ -113,6 +113,19 @@ std::string entryObject(const std::string& path, const IndexEntry& e) {
     jsonPutNumber(body, "size", static_cast<double>(e.size));
     jsonPutNumber(body, "mtime", static_cast<double>(e.mtimeRaw));
     jsonPutString(body, "sha1", e.sha1);
+    if (!e.metadata.empty()) {
+        if (!body.empty()) body += ',';
+        body += "\"metadata\":{";
+        size_t index = 0;
+        for (const auto& metadata : e.metadata) {
+            if (index++) body += ',';
+            body += "\"" + jsonEscape(metadata.first) + "\":\"" +
+                    jsonEscape(metadata.second) + "\"";
+        }
+        body += '}';
+    }
+    jsonPutArray(body, "dependencies", e.dependencies);
+    jsonPutArray(body, "missing", e.missingDependencies);
     return "{" + body + "}";
 }
 
@@ -180,10 +193,15 @@ std::string handleRequestLine(const std::string& requestLine, ResourceIndex& ind
 
     if (cmd == "status") {
         std::string body;
-        jsonPutString(body, "server", "doriax-resource-server");
+        jsonPutString(body, "server", "quantum-resource-server");
         jsonPutString(body, "project", index.projectDir().generic_u8string());
         jsonPutNumber(body, "scanId", static_cast<double>(index.scanId()));
         jsonPutNumber(body, "watchedFiles", static_cast<double>(index.fileCount()));
+        size_t broken = 0;
+        for (const auto& item : index.snapshot()) {
+            if (item.second.broken()) ++broken;
+        }
+        jsonPutNumber(body, "brokenAssets", static_cast<double>(broken));
         jsonPutNumber(body, "lastScanUnix", static_cast<double>(index.lastScanUnix()));
         long long now = static_cast<long long>(std::time(nullptr));
         jsonPutNumber(body, "uptimeSeconds", double(std::max<long long>(0, now - startUnix)));
@@ -509,18 +527,30 @@ WindowSnapshot makeWindowSnapshot(const ServerOptions& options, const ResourceIn
 
 int runOnceSummary(const ServerOptions& options) {
     ResourceIndex index(options.projectDir);
+    std::string cacheError;
+    const bool cacheLoaded = index.loadPersisted(cacheError);
+    if (!cacheLoaded && !cacheError.empty()) {
+        std::fprintf(stderr, "quantum-resource-server: ignoring persisted index: %s\n",
+                     cacheError.c_str());
+    }
     ResourceIndex::ChangeSet changes;
     index.scanOnce(&changes);
-    std::printf("doriax-resource-server: project %s\n",
+    if (!index.savePersisted(cacheError) && !cacheError.empty()) {
+        std::fprintf(stderr, "quantum-resource-server: could not persist index: %s\n",
+                     cacheError.c_str());
+    }
+    std::printf("quantum-resource-server: project %s\n",
                 index.projectDir().generic_u8string().c_str());
-    std::printf("doriax-resource-server: roots:");
+    std::printf("quantum-resource-server: roots:");
     if (index.foundRoots().empty()) std::printf(" (none found)");
     for (const auto& r : index.foundRoots()) std::printf(" %s", r.c_str());
     std::printf("\n");
-    std::printf("doriax-resource-server: %zu files indexed, scanId=%llu\n",
+    std::printf("quantum-resource-server: %zu files indexed, scanId=%llu\n",
                 index.fileCount(), static_cast<unsigned long long>(index.scanId()));
-    std::printf("doriax-resource-server: manifest %s\n", index.manifestSha1().c_str());
-    std::printf("doriax-resource-server: added=%zu removed=%zu modified=%zu\n",
+    std::printf("quantum-resource-server: persisted-cache=%s\n",
+                cacheLoaded ? "loaded" : "rebuilt");
+    std::printf("quantum-resource-server: manifest %s\n", index.manifestSha1().c_str());
+    std::printf("quantum-resource-server: added=%zu removed=%zu modified=%zu\n",
                 changes.added.size(), changes.removed.size(), changes.modified.size());
     return 0;
 }
@@ -531,7 +561,7 @@ int runResourceServer(const ServerOptions& options) {
 #ifdef _WIN32
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        std::fprintf(stderr, "doriax-resource-server: WSAStartup failed\n");
+        std::fprintf(stderr, "quantum-resource-server: WSAStartup failed\n");
         return 2;
     }
     SetConsoleCtrlHandler(ctrlHandler, TRUE);
@@ -543,11 +573,21 @@ int runResourceServer(const ServerOptions& options) {
 
     long long startUnix = static_cast<long long>(std::time(nullptr));
     ResourceIndex index(options.projectDir);
+    std::string cacheError;
+    const bool cacheLoaded = index.loadPersisted(cacheError);
+    if (!cacheLoaded && !cacheError.empty()) {
+        std::fprintf(stderr, "quantum-resource-server: ignoring persisted index: %s\n",
+                     cacheError.c_str());
+    }
     index.scanOnce();  // initial index before the first request can arrive
+    if (!index.savePersisted(cacheError) && options.verbose && !cacheError.empty()) {
+        std::fprintf(stderr, "quantum-resource-server: could not persist index: %s\n",
+                     cacheError.c_str());
+    }
 
     SocketHandle listenSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSock == kInvalidSocket) {
-        std::fprintf(stderr, "doriax-resource-server: socket() failed (%d)\n", lastErrorValue());
+        std::fprintf(stderr, "quantum-resource-server: socket() failed (%d)\n", lastErrorValue());
 #ifdef _WIN32
         WSACleanup();
 #endif
@@ -561,7 +601,7 @@ int runResourceServer(const ServerOptions& options) {
 
     if (bind(listenSock, reinterpret_cast<const sockaddr*>(&addr), sizeof(addr)) != 0 ||
         listen(listenSock, 16) != 0) {
-        std::fprintf(stderr, "doriax-resource-server: bind/listen failed (%d)\n", lastErrorValue());
+        std::fprintf(stderr, "quantum-resource-server: bind/listen failed (%d)\n", lastErrorValue());
         closeSocket(listenSock);
 #ifdef _WIN32
         WSACleanup();
@@ -580,13 +620,15 @@ int runResourceServer(const ServerOptions& options) {
     int actualPort = options.port;
     if (getsockname(listenSock, reinterpret_cast<sockaddr*>(&bound), &boundLen) == 0)
         actualPort = ntohs(bound.sin_port);
-    std::printf("doriax-resource-server: listening on 127.0.0.1:%d\n", actualPort);
+    std::printf("quantum-resource-server: listening on 127.0.0.1:%d\n", actualPort);
     std::fflush(stdout);
 
     if (options.verbose) {
-        std::fprintf(stderr, "doriax-resource-server: watching %s (%zu files, scanId %llu)\n",
+        std::fprintf(stderr, "quantum-resource-server: watching %s (%zu files, scanId %llu)\n",
                      index.projectDir().generic_u8string().c_str(), index.fileCount(),
                      static_cast<unsigned long long>(index.scanId()));
+        std::fprintf(stderr, "quantum-resource-server: persisted-cache=%s\n",
+                     cacheLoaded ? "loaded" : "rebuilt");
     }
 
     // The server outlives the editor on purpose, so the notification-area icon
@@ -596,7 +638,7 @@ int runResourceServer(const ServerOptions& options) {
     bool editorRunning = options.parentPid != 0 && processIsRunning(options.parentPid);
     TraySnapshot traySnapshot = makeTraySnapshot(options, index, actualPort, editorRunning);
     if (!tray.create(traySnapshot) && options.verbose) {
-        std::fprintf(stderr, "doriax-resource-server: no tray icon (system tray unavailable)\n");
+        std::fprintf(stderr, "quantum-resource-server: no tray icon (system tray unavailable)\n");
     }
 
     // Connections: the log is what both the window and the "connections"
@@ -609,8 +651,8 @@ int runResourceServer(const ServerOptions& options) {
     ServerWindow window;
     const bool wantWindow = !options.noWindow && (options.wantWindow || options.parentPid == 0);
     if (wantWindow) {
-        if (!window.create("doriax-resource-server - connections") && options.verbose) {
-            std::fprintf(stderr, "doriax-resource-server: no window (headless)\n");
+        if (!window.create("quantum-resource-server - connections") && options.verbose) {
+            std::fprintf(stderr, "quantum-resource-server: no window (headless)\n");
         }
     }
 
@@ -622,6 +664,10 @@ int runResourceServer(const ServerOptions& options) {
         if (msToScan <= 0) {
             ResourceIndex::ChangeSet changes;
             if (index.scanOnce(&changes)) {
+                if (!index.savePersisted(cacheError) && options.verbose && !cacheError.empty()) {
+                    std::fprintf(stderr, "quantum-resource-server: could not persist index: %s\n",
+                                 cacheError.c_str());
+                }
                 if (options.verbose) {
                     std::fprintf(stderr,
                         "scan %llu: +%zu -%zu ~%zu (files %zu)\n",
@@ -688,7 +734,7 @@ int runResourceServer(const ServerOptions& options) {
             // has open and gets to ask about unsaved work first.
             if (options.parentPid != 0 && requestProcessCloseWindow(options.parentPid) &&
                 options.verbose) {
-                std::fprintf(stderr, "doriax-resource-server: asked editor %llu to close\n",
+                std::fprintf(stderr, "quantum-resource-server: asked editor %llu to close\n",
                              options.parentPid);
             }
             break;

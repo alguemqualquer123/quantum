@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CameraTextureLink.h"
@@ -6,7 +6,7 @@
 #include "Catalog.h"
 #include "component/CameraComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     const std::string ID_PREFIX = "camera|";

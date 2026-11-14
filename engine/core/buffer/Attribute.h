@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ATTRIBUTE_H
@@ -9,9 +9,9 @@
 #include "render/Render.h"
 #include "Export.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Attribute {
+    class QUANTUM_API Attribute {
 
         friend class Buffer;
 

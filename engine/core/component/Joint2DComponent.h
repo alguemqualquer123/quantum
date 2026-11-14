@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef JOINT2D_COMPONENT_H
@@ -7,11 +7,11 @@
 #include "Engine.h"
 #include "ecs/Entity.h"
 #include "math/Vector2.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "box2d/box2d.h"
 #endif
 
-namespace doriax{
+namespace quantum{
 
     enum class Joint2DType{
         DISTANCE,
@@ -25,8 +25,8 @@ namespace doriax{
         MOTOR
     };
 
-    struct DORIAX_API Joint2DComponent{
-#ifdef DORIAX_PHYSICS_2D
+    struct QUANTUM_API Joint2DComponent{
+#ifdef QUANTUM_PHYSICS_2D
         b2JointId joint = b2_nullJointId;
 #endif
         Joint2DType type = Joint2DType::DISTANCE;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SHAPE_H
@@ -6,9 +6,9 @@
 
 #include "Mesh.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Shape: public Mesh{
+    class QUANTUM_API Shape: public Mesh{
     public:
         Shape(Scene* scene);
         Shape(Scene* scene, Entity entity);

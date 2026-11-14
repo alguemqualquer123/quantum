@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AddChildSceneCmd.h"
 #include "Out.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::AddChildSceneCmd::AddChildSceneCmd(Project* project, uint32_t sceneId, uint32_t childSceneId){
     this->project = project;

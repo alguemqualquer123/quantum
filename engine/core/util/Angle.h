@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef angle_h
@@ -6,9 +6,9 @@
 
 #include "Export.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Angle {
+    class QUANTUM_API Angle {
     public:
         static float radToDefault(float radians);
         static float degToDefault(float degrees);

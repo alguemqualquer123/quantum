@@ -1,5 +1,5 @@
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef Box2DAux_h
@@ -8,7 +8,7 @@
 #include "box2d/box2d.h"
 #include "subsystem/PhysicsSystem.h"
 
-namespace doriax{
+namespace quantum{
 
     struct Box2DWorldRayCastOutput{
         b2BodyId bodyId;

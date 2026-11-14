@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 
 #include <memory>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class Provider {
 public:
@@ -28,4 +28,4 @@ public:
 
 std::unique_ptr<Provider> createProvider(ProviderId provider);
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

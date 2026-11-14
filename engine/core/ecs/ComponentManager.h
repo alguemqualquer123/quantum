@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef COMPONENTMANAGER_H
@@ -11,17 +11,54 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <string>
+#include <cstring>
 #include "ComponentArray.h"
 #include "Log.h"
 
-namespace doriax {
+namespace quantum {
 
 	using ComponentId = unsigned char;
+
+	struct ComponentDescriptor {
+		std::string name;
+		ComponentId id = 0;
+	};
+
+	namespace detail {
+
+		template<typename T>
+		std::string componentTypeName() {
+#if defined(_MSC_VER)
+			std::string signature = __FUNCSIG__;
+			const std::string marker = "componentTypeName<";
+			const size_t begin = signature.find(marker);
+			const size_t end = begin == std::string::npos ? std::string::npos
+				: signature.find(">", begin + marker.size());
+			std::string name = begin == std::string::npos || end == std::string::npos
+				? typeid(T).name() : signature.substr(begin + marker.size(), end - begin - marker.size());
+#else
+			std::string signature = __PRETTY_FUNCTION__;
+			const std::string marker = "T = ";
+			const size_t begin = signature.find(marker);
+			const size_t end = begin == std::string::npos ? std::string::npos
+				: signature.find_first_of("];", begin + marker.size());
+			std::string name = begin == std::string::npos || end == std::string::npos
+				? typeid(T).name() : signature.substr(begin + marker.size(), end - begin - marker.size());
+#endif
+			while (name.rfind("class ", 0) == 0) name.erase(0, 6);
+			while (name.rfind("struct ", 0) == 0) name.erase(0, 7);
+			const size_t namespaceSeparator = name.rfind("::");
+			if (namespaceSeparator != std::string::npos) name.erase(0, namespaceSeparator + 2);
+			return name;
+		}
+
+	}
 
 
 	// Dense index per component type, so an array lookup is a vector subscript instead
 	// of hashing typeid().name() on every call.
-	class DORIAX_API ComponentTypeRegistry {
+	class QUANTUM_API ComponentTypeRegistry {
 	public:
 		static size_t indexOf(const char* mangledName);
 	};
@@ -34,11 +71,12 @@ namespace doriax {
 	}
 
 
-	class DORIAX_API ComponentManager {
+	class QUANTUM_API ComponentManager {
 	private:
 		struct ComponentEntry {
 			std::shared_ptr<ComponentArrayBase> array;
 			ComponentId id = 0;
+			std::string name;
 		};
 
 		// Indexed by componentTypeIndex<T>(); unregistered types keep an empty slot.
@@ -69,6 +107,7 @@ namespace doriax {
 			// Ids stay sequential: they are signature bit positions.
 			entries[index].array = std::make_shared<ComponentArray<T>>();
 			entries[index].id = nextComponentIdId;
+			entries[index].name = detail::componentTypeName<T>();
 
 			++nextComponentIdId;
 		}
@@ -143,6 +182,38 @@ namespace doriax {
 					entry.array->entityDestroyed(entity);
 				}
 			}
+		}
+
+		size_t getComponentInstanceCount() const {
+			size_t count = 0;
+			for (const ComponentEntry& entry : entries) {
+				if (entry.array) {
+					count += entry.array->size();
+				}
+			}
+			return count;
+		}
+
+		size_t getRegisteredComponentCount() const {
+			size_t count = 0;
+			for (const ComponentEntry& entry : entries) {
+				if (entry.array) {
+					++count;
+				}
+			}
+			return count;
+		}
+
+		size_t getRegistrySlotCount() const { return entries.size(); }
+		size_t getRegistryCapacity() const { return entries.capacity(); }
+
+		std::vector<ComponentDescriptor> getRegisteredComponentCatalog() const {
+			std::vector<ComponentDescriptor> result;
+			result.reserve(nextComponentIdId);
+			for (const ComponentEntry& entry : entries) {
+				if (entry.array) result.push_back({entry.name, entry.id});
+			}
+			return result;
 		}
 	};
 

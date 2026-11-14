@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/widgets/ProgressBar.h"
@@ -10,7 +10,7 @@
 
 #include "slate/core/TextRenderer.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         //See Label.cpp: an empty path selects the Roboto face compiled into the

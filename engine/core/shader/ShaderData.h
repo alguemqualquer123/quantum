@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SHADERDATA_H
@@ -9,7 +9,7 @@
 #include <cstdint>
 #include "render/Render.h"
 
-namespace doriax {
+namespace quantum {
 
     struct ShaderAttr{
         std::string name;
@@ -94,7 +94,7 @@ namespace doriax {
         std::vector<ShaderTextureSamplerPair> textureSamplerPairs;
     };
 
-    class DORIAX_API ShaderData {
+    class QUANTUM_API ShaderData {
     public:
         ShaderLang lang;
         unsigned int version;

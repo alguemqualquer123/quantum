@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UnlinkMaterialCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::UnlinkMaterialCmd::UnlinkMaterialCmd(Project* project, uint32_t sceneId, ComponentType componentType,
                                               std::string propertyName, unsigned int submeshIndex,

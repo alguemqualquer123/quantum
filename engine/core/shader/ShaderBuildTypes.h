@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SHADERBUILDTYPES_H
@@ -8,7 +8,7 @@
 #include "Engine.h"
 #include "ShaderData.h"
 
-namespace doriax{
+namespace quantum{
 
     typedef uint64_t ShaderKey;
 

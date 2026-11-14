@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MoveEntityOrderCmd.h"
@@ -6,7 +6,7 @@
 #include "Out.h"
 #include "util/ProjectUtils.h"
 
-using namespace doriax;        
+using namespace quantum;        
         
 editor::MoveEntityOrderCmd::MoveEntityOrderCmd(Project* project, uint32_t sceneId, Entity source, Entity target, InsertionType type){
     this->project = project;

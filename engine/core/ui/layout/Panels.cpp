@@ -1,12 +1,12 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/layout/Panels.h"
 
 #include <utility>
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 HBox::HBox() {
     setFlexDirection(FlexDirection::Row);

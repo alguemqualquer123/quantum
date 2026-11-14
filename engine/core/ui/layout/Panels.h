@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef Panels_h
@@ -9,28 +9,28 @@
 #include "Export.h"
 #include "ui/core/VisualElement.h"
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // UMG-style layout containers over the flexbox engine. Each one is a thin
     // convenience: it prepares element styles and the YogaLayout pass does the
     // actual work, so the same containers answer to USS (the CSS phase) later.
 
     //Children on a row (main axis horizontal).
-    class DORIAX_API HBox : public VisualElement {
+    class QUANTUM_API HBox : public VisualElement {
     public:
         HBox();
         explicit HBox(std::string id);
     };
 
     //Children on a column (main axis vertical).
-    class DORIAX_API VBox : public VisualElement {
+    class QUANTUM_API VBox : public VisualElement {
     public:
         VBox();
         explicit VBox(std::string id);
     };
 
     //Row that wraps the children into new lines when the width runs out.
-    class DORIAX_API WrapBox : public VisualElement {
+    class QUANTUM_API WrapBox : public VisualElement {
     public:
         WrapBox();
         explicit WrapBox(std::string id);
@@ -39,7 +39,7 @@ namespace doriax::ui {
     //Uniform grid: the width is divided into `columns` equal cells and the
     //children fill them in order, wrapping row by row. Cells always take the
     //cell width; use margins/padding inside the child for spacing.
-    class DORIAX_API GridPanel : public VisualElement {
+    class QUANTUM_API GridPanel : public VisualElement {
     public:
         GridPanel();
         explicit GridPanel(std::string id);
@@ -57,7 +57,7 @@ namespace doriax::ui {
     //Clipped viewport with a single content child (the first child). The offset
     //translates the content inside the viewport; wheel/gamepad scrolling and
     //the scrollbar arrive with the events phase.
-    class DORIAX_API ScrollBox : public VisualElement {
+    class QUANTUM_API ScrollBox : public VisualElement {
     public:
         ScrollBox();
         explicit ScrollBox(std::string id);
@@ -74,7 +74,7 @@ namespace doriax::ui {
 
     //Constrain box: the content fills the box on the axes it does not size
     //itself (a child with its own width/height keeps it).
-    class DORIAX_API SizeBox : public VisualElement {
+    class QUANTUM_API SizeBox : public VisualElement {
     public:
         SizeBox();
         explicit SizeBox(std::string id);

@@ -1,6 +1,4 @@
 name: FPS Template
-nextSceneId: 3
-selectedScene: 1
 canvasWidth: 1280
 canvasHeight: 720
 scalingMode: fitwidth
@@ -11,48 +9,10 @@ windowWidth: 1280
 windowHeight: 720
 windowResizable: true
 luaDir: .
+export:
+  desktop:
+    graphicBackend: vulkan
 startSceneId: 1
-terrainEditor:
-  brushMode: Raise
-  brushShape: Circle
-  brushFalloff: Smooth
-  brushSize: 4
-  brushStrength: 0.3
-  flattenHeight: 0.5
-  heightMapResolution: 512
-  blendMapResolution: 512
-  normalizeBlendPaint: true
-  heightMapStartAtMiddle: true
-  flattenPickOnStroke: true
-tabs:
-  - type: scene
-    filepath: scenes\main.scene
 scenes:
   - filepath: scenes\main.scene
-    showAllJoints: false
-    showAllBones: false
-    showAllBodies: false
-    hideCameraView: false
-    hideLightIcons: false
-    hideSoundIcons: false
-    hideContainerGuides: false
-    showOrigin: true
-    showGrid3D: true
-    hideSelectionOutline: false
-    disableFaceCulling: false
-    showGrid2D: false
-    gridSpacing2D: 50
-    gridSpacing3D: 1
-    snapToGrid: false
-    snapTile: false
-    snapRotation: false
-    rotationSnapDegrees: 15
-    editorCamera:
-      type: camera_perspective
-      target: [-2369.4712, -371.4293, 2518.048]
-      up: [0, 1, 0]
-      yfov: 0.75
-      aspect: 2.9298246
-      nearClip: 0.3
-      farClip: 4000
-      position: [-1008.6451, 172.90161, 3878.8765]
+  - filepath: scenes\teste de terreno.scene

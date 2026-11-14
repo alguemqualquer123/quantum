@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UI_LAYOUT_COMPONENT_H
@@ -10,7 +10,7 @@
 #include "math/Matrix4.h"
 #include "math/Vector2.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class AnchorPreset{
         NONE,
@@ -32,7 +32,7 @@ namespace doriax{
         FULL_LAYOUT
     };
 
-    struct DORIAX_API UILayoutComponent{
+    struct QUANTUM_API UILayoutComponent{
         // UI part
         unsigned int width = 0;
         unsigned int height = 0;

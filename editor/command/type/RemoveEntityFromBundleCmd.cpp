@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RemoveEntityFromBundleCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::RemoveEntityFromBundleCmd::RemoveEntityFromBundleCmd(Project* project, uint32_t sceneId, Entity entity, Entity parent){
     this->project = project;

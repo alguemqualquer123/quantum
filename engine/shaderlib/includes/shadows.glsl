@@ -21,18 +21,52 @@ struct Shadow{
     vec4 lightProjPos;
 };
 
+// The CPU allocator writes one texel per logical shadow tile. R encodes the
+// resident physical atlas slot (+1), while G is the residency bit. A white
+// fallback texture intentionally decodes as an invalid page.
+vec2 getShadowPage(int index, int tile){
+    if (index < 0 || index >= MAX_SHADOW_ATLAS_SLOTS ||
+        tile < 0 || tile >= SHADOW_VIRTUAL_PAGES_PER_MAP){
+        return vec2(-1.0, 0.0);
+    }
+    int virtualPage = index * SHADOW_VIRTUAL_PAGES_PER_MAP + tile;
+    vec4 page = texture(
+        sampler2D(u_shadowPageTable, u_shadowPageTable_smp),
+        vec2((float(virtualPage) + 0.5) / float(MAX_SHADOW_VIRTUAL_PAGES), 0.5));
+    float physical = floor(page.r * float(MAX_SHADOW_ATLAS_SLOTS) + 0.5) - 1.0;
+    return vec2(physical, step(0.5, page.g));
+}
+
+int getShadowTile(int index){
+    #ifdef SHADOW_FRAGMENT_PROJECTION
+        vec4 fullProj = uShadowProjection.logicalLightVPMatrix[index] * vec4(v_position, 1.0);
+    #else
+        vec4 fullProj = v_lightProjPos[index];
+    #endif
+    if (abs(fullProj.w) < 0.0001)
+        return 0;
+    vec2 uv = fullProj.xy / fullProj.w * 0.5 + 0.5;
+    vec2 tileCoord = floor(clamp(uv, vec2(0.0), vec2(0.999999)) * float(SHADOW_VIRTUAL_PAGE_GRID));
+    return int(tileCoord.x) + int(tileCoord.y) * SHADOW_VIRTUAL_PAGE_GRID;
+}
+
 #ifdef SHADOW_FRAGMENT_PROJECTION
 // affine in position and normal, so projecting the interpolated values is exact
-vec4 getLightProjPos(int index){
+vec4 getLightProjPos(int index, int tile){
+    vec2 page = getShadowPage(index, tile);
+    if (page.y < 0.5){
+        return vec4(0.0);
+    }
+    int physicalIndex = int(page.x + 0.5);
     vec3 position = v_position;
     #ifdef SHADOW_OFFSET_NORMAL
-        position += SHADOW_OFFSET_NORMAL * uShadowProjection.shadowParams[index].x;
+        position += SHADOW_OFFSET_NORMAL * uShadowProjection.shadowParams[physicalIndex].x;
     #endif
-    return uShadowProjection.lightVPMatrix[index] * vec4(position, 1.0);
+    return uShadowProjection.lightVPMatrix[physicalIndex] * vec4(position, 1.0);
 }
 #else
 // shader forks from before the projection moved here still pass one varying per slot
-vec4 getLightProjPos(int index){
+vec4 getLightProjPos(int index, int tile){
     for (int i = 0; i < MAX_SHADOW_ATLAS_SLOTS; i++){
         if (i == index){
             return v_lightProjPos[i];
@@ -42,14 +76,16 @@ vec4 getLightProjPos(int index){
 }
 #endif
 
-Shadow getShadow2DConf(int index){
+Shadow getShadow2DConf(int index, int tile){
+    vec2 page = getShadowPage(index, tile);
+    int physicalIndex = int(page.x + 0.5);
     return Shadow(
-        uShadows.bias_texSize_nearFar[index].x,
-        uShadows.bias_texSize_nearFar[index].x / 10.0,
-        uShadows.bias_texSize_nearFar[index].yy,
-        uShadows.bias_texSize_nearFar[index].zw,
-        uShadows.atlasRect[index],
-        getLightProjPos(index)
+        uShadows.bias_texSize_nearFar[physicalIndex].x,
+        uShadows.bias_texSize_nearFar[physicalIndex].x / 10.0,
+        uShadows.bias_texSize_nearFar[physicalIndex].yy,
+        uShadows.bias_texSize_nearFar[physicalIndex].zw,
+        uShadows.atlasRect[physicalIndex],
+        getLightProjPos(index, tile)
     );
 }
 
@@ -122,8 +158,13 @@ vec4 getShadowCubeMap(int baseIndex, vec3 coords) {
 }
 #endif
 
-float shadowCompare(int shadowMapIndex, float currentDepth, float bias, vec2 texCoords){
-    vec4 rect = uShadows.atlasRect[shadowMapIndex];
+float shadowCompare(int shadowMapIndex, int tile, float currentDepth, float bias, vec2 texCoords){
+    vec2 page = getShadowPage(shadowMapIndex, tile);
+    if (page.y < 0.5){
+        return 0.0;
+    }
+    int physicalIndex = int(page.x + 0.5);
+    vec4 rect = uShadows.atlasRect[physicalIndex];
     vec2 atlasUV = getShadowAtlasUV(rect, texCoords);
     float visibility = texture(
         sampler2DShadow(u_shadowAtlas, u_shadowAtlas_smp),
@@ -131,7 +172,7 @@ float shadowCompare(int shadowMapIndex, float currentDepth, float bias, vec2 tex
     return 1.0 - visibility;
 }
 
-float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
+float shadowCalculationAux(int shadowMapIndex, int tile, Shadow shadowConf, float NdotL){
     float shadow = 0.0;
 
     vec3 proj_coords = shadowConf.lightProjPos.xyz / shadowConf.lightProjPos.w;
@@ -139,8 +180,6 @@ float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
     // proj_coords is in [-1,1] range, transform to [0,1] range
     proj_coords = proj_coords * 0.5 + 0.5;
     float currentDepth = proj_coords.z;
-
-    float bias = max(shadowConf.maxBias * (1.0 - NdotL), shadowConf.minBias);
 
     // proj_coords.xy is slot-local [0,1]; shadowCompare() applies the atlasRect scale.
     // Clamp every lookup to the slot interior (half-texel inset) so PCF taps near a
@@ -153,6 +192,13 @@ float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
     // so quality changes need no shader rebuild: 0 = 1 tap, 1 = 3x3, 2 = 5x5, 3 = 7x7
     int pcfRadius = clamp(int(lighting.cameraDir.w), 0, MAX_PCF_RADIUS);
 
+    float bias = max(shadowConf.maxBias * (1.0 - NdotL), shadowConf.minBias);
+    // Receiver-plane depth bias follows the projected surface slope. It stays in
+    // texel-scaled depth units, so cascades and atlas resolutions behave consistently.
+    float receiverSlope = max(abs(dFdx(currentDepth)), abs(dFdy(currentDepth)));
+    float slopeScale = 0.5 + 0.5 * float(pcfRadius);
+    bias = max(bias, receiverSlope * slopeScale + shadowConf.minBias);
+
     if (pcfRadius > 0){
 
         // the (2r+1)^2 box of bilinear taps weighs texels [1-f, 1, .., 1, f] per axis;
@@ -160,6 +206,11 @@ float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
         vec2 texelPos = proj_coords.xy * shadowConf.mapSize - 0.5;
         vec2 base = floor(texelPos);
         vec2 f = texelPos - base;
+        // A receiver farther from the light covers a larger projected footprint.
+        // Keep the tap count fixed for predictable cost, but widen the footprint
+        // gradually to reduce cascade shimmer and hard far-distance edges.
+        float receiverFilterScale = mix(0.75, 1.35, clamp(currentDepth, 0.0, 1.0));
+        float totalWeight = 0.0;
 
         // constant bound: HLSL unrolls any loop holding a texture lookup
         for (int kx = 0; kx <= MAX_PCF_RADIUS; ++kx) {
@@ -174,16 +225,19 @@ float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
                 float wy1 = (ky == pcfRadius) ? f.y : 1.0;
                 float wy = wy0 + wy1;
                 float oy = float(-pcfRadius + 2 * ky) + wy1 / wy + 0.5;
-                vec2 sampleCoord = clamp((base + vec2(ox, oy)) * texel_size, slotMin, slotMax);
-                shadow += wx * wy * shadowCompare(shadowMapIndex, currentDepth, bias, sampleCoord);
+                vec2 sampleTexel = texelPos +
+                    (base + vec2(ox, oy) - texelPos) * receiverFilterScale;
+                vec2 sampleCoord = clamp(sampleTexel * texel_size, slotMin, slotMax);
+                float weight = wx * wy;
+                shadow += weight * shadowCompare(shadowMapIndex, tile, currentDepth, bias, sampleCoord);
+                totalWeight += weight;
             }
         }
-        float pcfTaps = float(2 * pcfRadius + 1);
-        shadow /= pcfTaps * pcfTaps;
+        shadow /= max(totalWeight, 0.0001);
 
     } else {
 
-        shadow = shadowCompare(shadowMapIndex, currentDepth, bias, clamp(proj_coords.xy, slotMin, slotMax));
+        shadow = shadowCompare(shadowMapIndex, tile, currentDepth, bias, clamp(proj_coords.xy, slotMin, slotMax));
 
     }
 
@@ -195,20 +249,30 @@ float shadowCalculationAux(int shadowMapIndex, Shadow shadowConf, float NdotL){
 }
 
 float shadowCalculationPCF(int shadowMapIndex, float NdotL) {
-    Shadow shadowConf = getShadow2DConf(shadowMapIndex);
+    int tile = getShadowTile(shadowMapIndex);
+    if (getShadowPage(shadowMapIndex, tile).y < 0.5){
+        return 0.0;
+    }
+    Shadow shadowConf = getShadow2DConf(shadowMapIndex, tile);
 
-    return shadowCalculationAux(shadowMapIndex, shadowConf, NdotL);
+    return shadowCalculationAux(shadowMapIndex, tile, shadowConf, NdotL);
 }
 
 float shadowCascadedCalculationPCF(int shadowMapIndex, int numShadowCascades, float viewDepth, float NdotL) {
     for (int c = 0; c < MAX_SHADOWCASCADES; c++){
         if (c < numShadowCascades){
             int casShadowMapIndex = shadowMapIndex + c;
+            int tile = getShadowTile(casShadowMapIndex);
+            vec2 page = getShadowPage(casShadowMapIndex, tile);
+            if (page.y < 0.5){
+                continue;
+            }
+            int physicalIndex = int(page.x + 0.5);
             // only the chosen cascade is projected
-            vec2 nearFar = uShadows.bias_texSize_nearFar[casShadowMapIndex].zw;
+            vec2 nearFar = uShadows.bias_texSize_nearFar[physicalIndex].zw;
 
             if ((viewDepth >= nearFar.x) && (viewDepth <= nearFar.y)){
-                return shadowCalculationAux(casShadowMapIndex, getShadow2DConf(casShadowMapIndex), NdotL);
+                return shadowCalculationAux(casShadowMapIndex, tile, getShadow2DConf(casShadowMapIndex, tile), NdotL);
             }
         }
     }

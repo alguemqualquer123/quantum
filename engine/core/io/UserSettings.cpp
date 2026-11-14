@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UserSettings.h"
 #include "System.h"
 
-using namespace doriax;
+using namespace quantum;
 
 bool UserSettings::getBoolForKey(const char *key){
     return getBoolForKey(key, false);

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 class ShaderForkDialog {
 private:
@@ -56,4 +56,4 @@ public:
     void close() { m_isOpen = false; }
 };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

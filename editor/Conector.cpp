@@ -1,10 +1,12 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Conector.h"
 
 #include "editor/Out.h"
 #include "Project.h"
+#include "engine/core/Engine.h"
+#include "engine/core/script/ProjectABI.h"
 
 #include <iostream>
 #include <thread>
@@ -19,9 +21,35 @@
 #include <dlfcn.h>
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
+
+bool validateProjectAbi(void* libHandle) {
+    using AbiFunction = std::uint64_t (*)();
+    AbiFunction function = nullptr;
+#ifdef _WIN32
+    function = reinterpret_cast<AbiFunction>(GetProcAddress(static_cast<HMODULE>(libHandle),
+        "quantumProjectAbi"));
+#else
+    dlerror();
+    function = reinterpret_cast<AbiFunction>(dlsym(libHandle, "quantumProjectAbi"));
+    if (dlerror() != nullptr) function = nullptr;
+#endif
+    if (!function) {
+        editor::Out::error("C++ script library does not export quantumProjectAbi; rebuild it with this Quantum editor");
+        return false;
+    }
+
+    const std::uint64_t actual = function();
+    const std::uint64_t expected = quantum::projectAbiFingerprint();
+    if (actual != expected) {
+        editor::Out::error("C++ script library ABI mismatch (expected 0x%llx, got 0x%llx); refusing to load",
+            static_cast<unsigned long long>(expected), static_cast<unsigned long long>(actual));
+        return false;
+    }
+    return true;
+}
 
 // false when the library does not export it
 template<typename... Args>
@@ -99,10 +127,10 @@ void editor::Conector::unloadSharedLibrary(void* libHandle) {
     #endif
 }
 
-bool editor::Conector::connect(const fs::path& buildPath, std::string libName){
-    // Disconnect any existing connection first
-    disconnect();
-
+bool editor::Conector::stageLibrary(const fs::path& buildPath, const std::string& libName,
+                                    void*& outHandle, fs::path& outCopy) {
+    outHandle = nullptr;
+    outCopy.clear();
     std::string libPath = libName;
     #ifdef _WIN32
         libPath = libPath + ".dll";
@@ -147,7 +175,7 @@ bool editor::Conector::connect(const fs::path& buildPath, std::string libName){
     stagingDirs.push_back(buildPath / "hotreload");
     fs::path tempBase = fs::temp_directory_path(ec);
     if (!ec && !tempBase.empty()) {
-        stagingDirs.push_back(tempBase / "doriax_hotreload");
+        stagingDirs.push_back(tempBase / "quantum_hotreload");
     }
 
     fs::path copyPath;
@@ -177,15 +205,66 @@ bool editor::Conector::connect(const fs::path& buildPath, std::string libName){
         return false;
     }
 
-    libHandle = loadSharedLibrary(copyPath.string());
-    if (!libHandle) {
+    outHandle = loadSharedLibrary(copyPath.string());
+    if (!outHandle) {
         std::error_code rmEc;
         fs::remove(copyPath, rmEc);
         return false;
     }
 
-    loadedLibCopy = copyPath;
+    outCopy = copyPath;
+    return true;
+}
+
+bool editor::Conector::connect(const fs::path& buildPath, std::string libName){
+    void* candidate = nullptr;
+    fs::path candidateCopy;
+    if (!stageLibrary(buildPath, libName, candidate, candidateCopy)) return false;
+
+    if (!validateProjectAbi(candidate)) {
+        unloadSharedLibrary(candidate);
+        std::error_code ec;
+        fs::remove(candidateCopy, ec);
+        return false;
+    }
+
+    // Disconnect only after the replacement is mapped and ABI-checked. This keeps a working
+    // library alive if the new build is missing, malformed or compiled against another editor.
+    disconnect();
+    libHandle = candidate;
+    loadedLibCopy = candidateCopy;
     Out::info("Successfully connected to library");
+    return true;
+}
+
+bool editor::Conector::reload(const fs::path& buildPath, const std::string& libName,
+                              const std::vector<Scene*>& scenes) {
+    void* candidate = nullptr;
+    fs::path candidateCopy;
+    if (!stageLibrary(buildPath, libName, candidate, candidateCopy)) return false;
+
+    if (!validateProjectAbi(candidate)) {
+        unloadSharedLibrary(candidate);
+        std::error_code ec;
+        fs::remove(candidateCopy, ec);
+        return false;
+    }
+
+    // The old ABI is still mapped while destructors run. No callback can point at the old
+    // code after cleanup returns, so the actual unload/swap is a short owner-thread operation.
+    for (Scene* scene : scenes) {
+        if (!scene) continue;
+        cleanup(scene);
+        Engine::clearComponentSubscriptions(scene);
+    }
+
+    disconnect();
+    libHandle = candidate;
+    loadedLibCopy = candidateCopy;
+    for (Scene* scene : scenes) {
+        if (scene) init(scene);
+    }
+    Out::info("Safely reloaded C++ script library");
     return true;
 }
 

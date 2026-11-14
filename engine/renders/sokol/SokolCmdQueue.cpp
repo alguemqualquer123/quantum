@@ -1,5 +1,5 @@
 // ---------------------------------------
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Based on: https://github.com/oviano/sokol-multithread
 // ---------------------------------------
@@ -10,8 +10,9 @@
 #include <cassert>
 
 #include "SokolCmdQueue.h"
+#include "SokolObject.h"
 
-using namespace doriax;
+using namespace quantum;
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -146,7 +147,7 @@ void SokolCmdQueue::execute_commands(bool resource_only)
 				sg_update_image(command.update_image.image, command.update_image.data);
 				break;
 			case SokolRenderCommand::TYPE::BEGIN_PASS:
-				sg_begin_pass(command.begin_pass.pass);
+				SokolObject::beginPass(command.begin_pass.pass);
 				break;
 			case SokolRenderCommand::TYPE::APPLY_VIEWPORT:
 				sg_apply_viewport(command.apply_viewport.x, command.apply_viewport.y, command.apply_viewport.width, command.apply_viewport.height, command.apply_viewport.origin_top_left);

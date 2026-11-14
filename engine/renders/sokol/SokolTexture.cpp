@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolTexture.h"
@@ -12,10 +12,16 @@
 
 #include "meshoptimizer.h"
 
+namespace {
+// Applied to every trilinearly filtered 2D texture; sokol clamps it to what the
+// driver reports, so a device without the anisotropic-filter extension is unaffected.
+constexpr int DEFAULT_ANISOTROPY = 8;
+}
+
 // Sokol never sets TRANSFER_SRC, needed to copy render targets out for editor
 // thumbnails (GraphicUtils). Wrapping the call keeps sokol itself unpatched
 // (re-check when sokol_gfx is updated)
-#if defined(DORIAX_EDITOR) && defined(SOKOL_VULKAN)
+#if defined(QUANTUM_EDITOR) && defined(SOKOL_VULKAN)
 #include <vulkan/vulkan.h>
 
 namespace {
@@ -40,10 +46,10 @@ VkResult createSokolImage(VkDevice device, const VkImageCreateInfo* createInfo,
 }
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 const void* SokolTexture::getVulkanView(sg_view view) {
-#if defined(DORIAX_EDITOR) && defined(SOKOL_VULKAN)
+#if defined(QUANTUM_EDITOR) && defined(SOKOL_VULKAN)
     const _sg_view_t* resource = _sg_lookup_view(view.id);
     return resource ? reinterpret_cast<const void*>(resource->vk.img_view) : nullptr;
 #else
@@ -53,7 +59,7 @@ const void* SokolTexture::getVulkanView(sg_view view) {
 }
 
 const void* SokolTexture::getVulkanImage(sg_image image) {
-#if defined(DORIAX_EDITOR) && defined(SOKOL_VULKAN)
+#if defined(QUANTUM_EDITOR) && defined(SOKOL_VULKAN)
     const _sg_image_t* resource = _sg_lookup_image(image.id);
     return resource ? reinterpret_cast<const void*>(resource->vk.img) : nullptr;
 #else
@@ -145,13 +151,42 @@ sg_image SokolTexture::generateMipmaps(const sg_image_desc* desc_){
     sg_image_desc desc = *desc_;
 
     unsigned pixel_size = 0;
+    unsigned num_channels = 0;
+    enum SampleKind{ SAMPLE_8, SAMPLE_UNORM16, SAMPLE_HALF, SAMPLE_FLOAT } kind = SAMPLE_8;
 
     if (desc.pixel_format == SG_PIXELFORMAT_RGBA8){
         pixel_size = 4;
+        num_channels = 4;
     }else if (desc.pixel_format == SG_PIXELFORMAT_BGRA8){
         pixel_size = 4;
+        num_channels = 4;
     }else if (desc.pixel_format == SG_PIXELFORMAT_R8){
         pixel_size = 1;
+        num_channels = 1;
+    }else if (desc.pixel_format == SG_PIXELFORMAT_R16){
+        // what ColorFormat::RED16 becomes: 16-bit grayscale heightmaps keep full
+        // precision on load (TextureData::loadTexture), so terrain asks for this
+        pixel_size = 2;
+        num_channels = 1;
+        kind = SAMPLE_UNORM16;
+    }else if (desc.pixel_format == SG_PIXELFORMAT_R16F){
+        pixel_size = 2;
+        num_channels = 1;
+        kind = SAMPLE_HALF;
+    }else if (desc.pixel_format == SG_PIXELFORMAT_RGBA16F){
+        pixel_size = 8;
+        num_channels = 4;
+        kind = SAMPLE_HALF;
+    }else if (desc.pixel_format == SG_PIXELFORMAT_R32F){
+        // R16 is rewritten to R32F on backends without filterable norm16
+        // (unorm16ToFloat), so this is the other half of the heightmap case
+        pixel_size = 4;
+        num_channels = 1;
+        kind = SAMPLE_FLOAT;
+    }else if (desc.pixel_format == SG_PIXELFORMAT_RGBA32F){
+        pixel_size = 16;
+        num_channels = 4;
+        kind = SAMPLE_FLOAT;
     }else{
         Log::error("Undefined pixel format to generate mipmaps of %s", desc.label);
         if (Engine::isAsyncThread()){
@@ -217,20 +252,55 @@ sg_image SokolTexture::generateMipmaps(const sg_image_desc* desc_){
             {
                 for (int y = 0; y < target_height; ++y)
                 {
-                    for (int chanell = 0; chanell < pixel_size; ++chanell)
-                    {
-                        int color = 0;
-                        int sx = x * 2;
-                        int sy = y * 2;
-                        const int sx1 = (sx + 1 < source_width) ? (sx + 1) : (source_width - 1);
-                        const int sy1 = (sy + 1 < source_height) ? (sy + 1) : (source_height - 1);
+                    int sx = x * 2;
+                    int sy = y * 2;
+                    const int sx1 = (sx + 1 < source_width) ? (sx + 1) : (source_width - 1);
+                    const int sy1 = (sy + 1 < source_height) ? (sy + 1) : (source_height - 1);
 
-                        color += srcslice[(sy * source_width + sx) * pixel_size + chanell];
-                        color += srcslice[(sy * source_width + sx1) * pixel_size + chanell];
-                        color += srcslice[(sy1 * source_width + sx1) * pixel_size + chanell];
-                        color += srcslice[(sy1 * source_width + sx) * pixel_size + chanell];
-                        color /= 4;
-                        miptarget[(y * target_width + x) * pixel_size + chanell] = (uint8_t)color;
+                    if (kind == SAMPLE_8){
+                        for (unsigned chanell = 0; chanell < pixel_size; ++chanell)
+                        {
+                            int color = 0;
+                            color += srcslice[(sy * source_width + sx) * pixel_size + chanell];
+                            color += srcslice[(sy * source_width + sx1) * pixel_size + chanell];
+                            color += srcslice[(sy1 * source_width + sx1) * pixel_size + chanell];
+                            color += srcslice[(sy1 * source_width + sx) * pixel_size + chanell];
+                            color /= 4;
+                            miptarget[(y * target_width + x) * pixel_size + chanell] = (uint8_t)color;
+                        }
+                        continue;
+                    }
+
+                    // A 16- or 32-bit sample is one value, not a run of bytes:
+                    // averaging bytes would fold the halves of each channel together.
+                    const size_t o00 = ((size_t)sy  * source_width + sx ) * num_channels;
+                    const size_t o10 = ((size_t)sy  * source_width + sx1) * num_channels;
+                    const size_t o11 = ((size_t)sy1 * source_width + sx1) * num_channels;
+                    const size_t o01 = ((size_t)sy1 * source_width + sx ) * num_channels;
+                    const size_t dst = ((size_t)y * target_width + x) * num_channels;
+
+                    if (kind == SAMPLE_FLOAT){
+                        const float* srcf = (const float*)srcslice;
+                        float* dstf = (float*)miptarget;
+                        for (unsigned c = 0; c < num_channels; ++c)
+                            dstf[dst + c] = (srcf[o00 + c] + srcf[o10 + c] + srcf[o11 + c] + srcf[o01 + c]) * 0.25f;
+                        continue;
+                    }
+
+                    const uint16_t* src16 = (const uint16_t*)srcslice;
+                    uint16_t* dst16 = (uint16_t*)miptarget;
+
+                    for (unsigned c = 0; c < num_channels; ++c){
+                        if (kind == SAMPLE_UNORM16){
+                            unsigned v = src16[o00 + c] + src16[o10 + c] + src16[o11 + c] + src16[o01 + c];
+                            dst16[dst + c] = (uint16_t)(v / 4);
+                        }else{
+                            const float a = meshopt_dequantizeHalf(src16[o00 + c]);
+                            const float b = meshopt_dequantizeHalf(src16[o10 + c]);
+                            const float d = meshopt_dequantizeHalf(src16[o11 + c]);
+                            const float e = meshopt_dequantizeHalf(src16[o01 + c]);
+                            dst16[dst + c] = meshopt_quantizeHalf((a + b + d + e) * 0.25f);
+                        }
                     }
                 }
             }
@@ -325,6 +395,17 @@ bool SokolTexture::createTexture(
     sampler_desc.mipmap_filter = getFilterMipmap(minFilter);
     sampler_desc.wrap_u = getWrap(wrapU);
     sampler_desc.wrap_v = getWrap(wrapV);
+    // A ground plane is seen at a shallow angle, and trilinear mipmapping resolves that
+    // by averaging whole mip rows - the far half of a tiled floor turns to mush.
+    // Anisotropic filtering samples along the view direction instead. sokol only accepts
+    // it with linear min/mag and clamps it to the driver maximum, and a cube face has no
+    // consistent direction to stretch along, so both cases are skipped here.
+    if (type != TextureType::TEXTURE_CUBE
+        && sampler_desc.min_filter == SG_FILTER_LINEAR
+        && sampler_desc.mag_filter == SG_FILTER_LINEAR
+        && sampler_desc.mipmap_filter == SG_FILTER_LINEAR){
+        sampler_desc.max_anisotropy = DEFAULT_ANISOTROPY;
+    }
 
     // all faces of a mip level must be in one contiguous memory block
     unsigned char* combined = NULL;
@@ -383,7 +464,8 @@ bool SokolTexture::createTexture(
     return false;
 }
 
-bool SokolTexture::createDynamicTexture(const std::string& label, int width, int height){
+bool SokolTexture::createDynamicTexture(const std::string& label, int width, int height,
+            TextureFilter minFilter, TextureFilter magFilter){
     sg_image_desc imageDesc = {};
     imageDesc.usage.stream_update = true;
     imageDesc.width = width;
@@ -392,8 +474,8 @@ bool SokolTexture::createDynamicTexture(const std::string& label, int width, int
     imageDesc.label = label.c_str();
 
     sg_sampler_desc samplerDesc = {};
-    samplerDesc.min_filter = SG_FILTER_NEAREST;
-    samplerDesc.mag_filter = SG_FILTER_NEAREST;
+    samplerDesc.min_filter = getFilter(minFilter);
+    samplerDesc.mag_filter = getFilter(magFilter);
     samplerDesc.wrap_u = SG_WRAP_CLAMP_TO_EDGE;
     samplerDesc.wrap_v = SG_WRAP_CLAMP_TO_EDGE;
 

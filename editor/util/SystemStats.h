@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
     // Machine-wide resource snapshot for the Resource Monitor window and the editor
     // footer HUD. Everything here is best-effort: a platform (or a locked-down
     // machine) that cannot read a value leaves it at its "unavailable" marker -

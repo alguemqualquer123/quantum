@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UIUtils.h"
@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 // Symlinks are skipped so browsing cannot leave the tree it started in.
 static bool isBrowsableDir(const std::filesystem::directory_entry& entry) {

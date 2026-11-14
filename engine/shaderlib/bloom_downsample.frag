@@ -1,34 +1,32 @@
 #version 450
 
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 fragColor;
+// Halves the bloom chain with a 9-tap Gaussian. Each level reads the level above it,
+// so texelSize is the size of the SOURCE, not of the destination.
 
-layout(set = 0, binding = 0) uniform sampler2D u_bloomTexture;
+in vec2 v_texcoord;
+out vec4 frag_color;
 
-layout(set = 1, binding = 0) uniform fs_bloom_downsample_params {
-    vec4 texelSize; // 1.0/textureSize in .xy
-} u_fs_bloom_downsample;
+uniform texture2D u_bloomTexture0;
+uniform sampler u_bloom0_smp;
 
-// 13-tap Gaussian downsample filter
+uniform u_fs_bloomDownsampleParams {
+    vec4 texelSize; // 1.0 / source size in .xy
+} bloomDownsample;
+
 void main(){
-    vec2 texelSize = u_fs_bloom_downsample.texelSize.xy;
-    vec3 color = vec3(0.0);
+    vec2 ts = bloomDownsample.texelSize.xy;
+    vec3 color = texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord).rgb * 4.0;
 
-    // Center tap
-    color += texture(u_bloomTexture, uv).rgb * 4.0;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0, 0.0) * ts).rgb * 2.0;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0, 0.0) * ts).rgb * 2.0;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 0.0,-1.0) * ts).rgb * 2.0;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 0.0, 1.0) * ts).rgb * 2.0;
 
-    // Inner 4 taps (cardinal)
-    color += texture(u_bloomTexture, uv + vec2(-1.0, 0.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 1.0, 0.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 0.0,-1.0) * texelSize).rgb * 2.0;
-    color += texture(u_bloomTexture, uv + vec2( 0.0, 1.0) * texelSize).rgb * 2.0;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0,-1.0) * ts).rgb;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0,-1.0) * ts).rgb;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2(-1.0, 1.0) * ts).rgb;
+    color += texture(sampler2D(u_bloomTexture0, u_bloom0_smp), v_texcoord + vec2( 1.0, 1.0) * ts).rgb;
 
-    // Outer 4 taps (diagonal)
-    color += texture(u_bloomTexture, uv + vec2(-1.0,-1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2( 1.0,-1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2(-1.0, 1.0) * texelSize).rgb;
-    color += texture(u_bloomTexture, uv + vec2( 1.0, 1.0) * texelSize).rgb;
-
-    // Normalize: 4 + 2*4 + 1*4 = 16
-    fragColor = vec4(color / 16.0, 1.0);
+    // 4 + 2*4 + 1*4 = 16
+    frag_color = vec4(color / 16.0, 1.0);
 }

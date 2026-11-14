@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCRIPT_COMPONENT_H
@@ -7,14 +7,15 @@
 #include "ScriptProperty.h"
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     enum class ScriptType {
         CPP,
         LUA,
+        GRAPH,
     };
 
-    struct DORIAX_API ScriptEntry {
+    struct QUANTUM_API ScriptEntry {
         ScriptType type = ScriptType::CPP;
         std::string path;        // .cpp or .lua (for Lua: script file path)
         std::string headerPath;  // for C++; empty for Lua
@@ -25,7 +26,7 @@ namespace doriax{
         void* instance = nullptr; // C++ instance OR Lua handle
     };
 
-    struct DORIAX_API ScriptComponent {
+    struct QUANTUM_API ScriptComponent {
         std::vector<ScriptEntry> scripts;
     };
 

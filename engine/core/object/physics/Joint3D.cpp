@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Joint3D.h"
@@ -7,7 +7,7 @@
 #include "subsystem/PhysicsSystem.h"
 #include "component/Joint3DComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Joint3D::Joint3D(Scene* scene): EntityHandle(scene){
     addComponent<Joint3DComponent>();

@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "product": "Quantum",
+  "releases": [
+    {
+      "version": "0.8.3",
+      "label": "Quantum 0.8.3 - Windows x64",
+      "platform": "windows-x64",
+      "url": "https://github.com/alguemqualquer123/quantum/releases/download/v0.8.3/quantum-v0.8.3-windows-amd64.zip",
+      "sha256": "69fa1f87327cb816cf1ea5eb1b7a9a0bfca6d7b2b6ea6340b4fa7334ee1e025e",
+      "size": 557465507
+    },
+    {
+      "version": "0.8.2",
+      "label": "Quantum 0.8.2 - Windows x64",
+      "platform": "windows-x64",
+      "url": "https://github.com/alguemqualquer123/quantum/releases/download/v0.8.2/quantum-v0.8.2-windows-amd64.zip",
+      "sha256": "2a8a19a0f32ba27ba8485e7ff1768951359dfb354b42807db1ffe7b4aac85482",
+      "size": 557465646
+    }
+  ]
+}

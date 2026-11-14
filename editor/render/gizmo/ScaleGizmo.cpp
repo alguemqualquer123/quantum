@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ScaleGizmo.h"
 #include <cfloat>
 
-using namespace doriax;
+using namespace quantum;
 
 const Vector3 editor::ScaleGizmo::centerColor = Vector3(0.8, 0.8, 0.8);
 const Vector3 editor::ScaleGizmo::xaxisColor = Vector3(0.7, 0.2, 0.2);

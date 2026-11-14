@@ -1,8 +1,8 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // ResourceIndex.h - walks a project's resource roots and keeps a content-hashed
-// index with change history per scan. Used by doriax-resource-server.
+// index with change history per scan. Used by quantum-resource-server.
 
 #pragma once
 
@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 namespace fs = std::filesystem;
 
@@ -22,6 +22,11 @@ struct IndexEntry {
     uint64_t size = 0;
     int64_t mtimeRaw = 0;    // file_time clock ticks; only compared, never rendered
     std::string sha1;        // lowercase hex
+    std::map<std::string, std::string> metadata;
+    std::vector<std::string> dependencies;
+    std::vector<std::string> missingDependencies;
+
+    bool broken() const { return !missingDependencies.empty(); }
 };
 
 // Relative paths use '/' separators and are project-rooted. Returns false for
@@ -40,6 +45,13 @@ public:
     // The roots scanned are assets/, lua/, scenes/, scripts/ (missing ones are
     // tolerated). projectDir is made absolute in the constructor.
     explicit ResourceIndex(const fs::path& projectDir);
+
+    // Loads the last derived index, if present, so the next scan can reuse
+    // hashes for files whose size and mtime are unchanged. A missing cache is
+    // not an error; malformed caches are rejected and the caller can rescan.
+    bool loadPersisted(std::string& error);
+    bool savePersisted(std::string& error) const;
+    const fs::path& persistencePath() const { return persistencePath_; }
 
     // Re-walks the roots; files whose size and mtime are unchanged keep their
     // cached SHA-1, anything else is re-hashed. When the entry set changes,
@@ -79,6 +91,8 @@ private:
 
     fs::path projectDir_;
     fs::path canonicalRoot_;
+    fs::path persistencePath_;
+    fs::path metadataPath_;
     std::map<std::string, IndexEntry> entries_;
     uint64_t scanId_ = 0;
     std::string manifestSha1_;

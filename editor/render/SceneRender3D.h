@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "SceneRender.h"
 
-#include "Doriax.h"
+#include "Quantum.h"
 #include "gizmo/ViewportGizmo.h"
 
 #include <cstddef>
@@ -14,7 +14,7 @@
 #include <unordered_set>
 #include <vector>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     struct LightObjects{
         Sprite* icon = nullptr;

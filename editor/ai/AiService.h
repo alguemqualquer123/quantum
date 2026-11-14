@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,7 +13,7 @@
 #include <optional>
 #include <thread>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class EditorActionExecutor;
 
@@ -121,4 +121,4 @@ private:
     void repairUnansweredToolCallsLocked();
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

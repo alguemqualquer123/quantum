@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateProgressBar_h
@@ -9,7 +9,7 @@
 #include "Export.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Read-only percentage bar: a track brush and a fill brush clipped to the
     // value. Used for health, ammo, encumbrance and load screens.

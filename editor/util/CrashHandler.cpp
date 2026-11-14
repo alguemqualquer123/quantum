@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CrashHandler.h"
@@ -13,36 +13,50 @@
 #include <cstdlib>
 #include <cstring>
 #include <exception>
+#include <filesystem>
 #include <string>
+#include <ctime>
 
 #if defined(_WIN32)
     #include <windows.h>
     #include <dbghelp.h>
+    #include <crtdbg.h>
 #else
     #include <fcntl.h>
+    #include <sys/types.h>
     #include <unistd.h>
     #if defined(__APPLE__)
         #include <mach-o/dyld.h>
+        #include <pthread.h>
+    #elif defined(__linux__)
+        #include <sys/syscall.h>
     #endif
     #if defined(__GLIBC__) || defined(__APPLE__)
         #include <execinfo.h>
-        #define DORIAX_HAS_EXECINFO 1
+        #define QUANTUM_HAS_EXECINFO 1
     #endif
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
+
+    constexpr size_t kCrashPathCapacity = 4096;
+    constexpr size_t kLastPhaseCapacity = 128;
+    constexpr int kMaxCrashReports = 5;
 
     // Prepared at install time: a crashing process may not be able to allocate anymore,
     // so nothing below builds a string or takes a lock.
 #if defined(_WIN32)
     // wide, the ANSI code page can't hold every path
-    wchar_t logPath[4096] = {0};
+    wchar_t logPath[kCrashPathCapacity] = {0};
+    wchar_t crashReportPath[kCrashPathCapacity] = {0};
 #else
-    char logPath[4096] = {0};
+    char logPath[kCrashPathCapacity] = {0};
+    char crashReportPath[kCrashPathCapacity] = {0};
 #endif
-    char exePath[4096] = {0};
+    char exePath[kCrashPathCapacity] = {0};
+    std::atomic<char> lastPhase[kLastPhaseCapacity] = {};
     bool installed = false;
 
     // Bounds re-entry: a fault while reporting, or an exception escaping the terminate
@@ -76,13 +90,61 @@ namespace {
     #endif
     }
 
+    void setLastPhaseInternal(const char* phase) noexcept {
+        if (!phase || phase[0] == '\0') phase = "<not recorded>";
+
+        size_t index = 0;
+        for (; index + 1 < kLastPhaseCapacity && phase[index] != '\0'; ++index) {
+            const char value = (phase[index] == '\r' || phase[index] == '\n') ? '_' : phase[index];
+            lastPhase[index].store(value, std::memory_order_relaxed);
+        }
+        lastPhase[index].store('\0', std::memory_order_release);
+    }
+
+    void copyLastPhase(char* destination, size_t capacity) {
+        if (capacity == 0) return;
+        size_t index = 0;
+        for (; index + 1 < capacity && index < kLastPhaseCapacity; ++index) {
+            const char value = lastPhase[index].load(std::memory_order_acquire);
+            destination[index] = value;
+            if (value == '\0') return;
+        }
+        destination[index < capacity ? index : capacity - 1] = '\0';
+    }
+
+    std::filesystem::path crashReportFilePath(const std::filesystem::path& logFile) {
+        std::filesystem::path report = logFile;
+        report += ".crash";
+        return report;
+    }
+
+    void rotateCrashReports(const std::filesystem::path& report) {
+        std::error_code error;
+        if (!std::filesystem::exists(report, error) || error) return;
+
+        // Keep the active report plus four numbered predecessors. Rotation happens during
+        // startup, before a new crash, so the live Out log handle is never renamed.
+        for (int destinationIndex = kMaxCrashReports - 1; destinationIndex >= 1; --destinationIndex) {
+            std::filesystem::path destination = report;
+            destination += "." + std::to_string(destinationIndex);
+            std::filesystem::remove(destination, error);
+            error.clear();
+
+            std::filesystem::path source = report;
+            if (destinationIndex > 1) source += "." + std::to_string(destinationIndex - 1);
+            std::filesystem::rename(source, destination, error);
+            error.clear();
+        }
+    }
+
 #if defined(_WIN32)
     using FileHandle = HANDLE;
     const FileHandle kInvalidFile = INVALID_HANDLE_VALUE;
 
     FileHandle openReportFile() {
-        if (logPath[0] == L'\0') return kInvalidFile;
-        return CreateFileW(logPath, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        const wchar_t* path = crashReportPath[0] != L'\0' ? crashReportPath : logPath;
+        if (path[0] == L'\0') return kInvalidFile;
+        return CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
             nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
 
@@ -106,8 +168,9 @@ namespace {
     const FileHandle kInvalidFile = -1;
 
     FileHandle openReportFile() {
-        if (logPath[0] == '\0') return kInvalidFile;
-        return open(logPath, O_WRONLY | O_CREAT | O_APPEND, 0644);
+        const char* path = crashReportPath[0] != '\0' ? crashReportPath : logPath;
+        if (path[0] == '\0') return kInvalidFile;
+        return open(path, O_WRONLY | O_CREAT | O_APPEND, 0644);
     }
 
     void closeReportFile(FileHandle file) {
@@ -137,6 +200,121 @@ namespace {
             if (length >= (int)sizeof(buffer)) length = (int)sizeof(buffer) - 1;
             writeRaw(file, buffer, (size_t)length);
         }
+    }
+
+    const char* platformName() {
+#if defined(_WIN32)
+        return "Windows";
+#elif defined(__APPLE__)
+        return "macOS";
+#elif defined(__ANDROID__)
+        return "Android";
+#elif defined(__linux__)
+        return "Linux";
+#else
+        return "unknown";
+#endif
+    }
+
+    const char* architectureName() {
+#if defined(_M_ARM64) || defined(__aarch64__)
+        return "arm64";
+#elif defined(_M_X64) || defined(__x86_64__)
+        return "x86_64";
+#elif defined(_M_IX86) || defined(__i386__)
+        return "x86";
+#elif defined(_M_ARM) || defined(__arm__)
+        return "arm32";
+#else
+        return "unknown";
+#endif
+    }
+
+    const char* compilerName() {
+#if defined(__clang__)
+        return "Clang";
+#elif defined(_MSC_VER)
+        return "MSVC";
+#elif defined(__GNUC__)
+        return "GCC";
+#else
+        return "unknown";
+#endif
+    }
+
+    const char* buildConfiguration() {
+#if defined(NDEBUG)
+        return "Release";
+#else
+        return "Debug";
+#endif
+    }
+
+    unsigned long long currentProcessId() {
+#if defined(_WIN32)
+        return static_cast<unsigned long long>(GetCurrentProcessId());
+#else
+        return static_cast<unsigned long long>(getpid());
+#endif
+    }
+
+    unsigned long long currentThreadId() {
+#if defined(_WIN32)
+        return static_cast<unsigned long long>(GetCurrentThreadId());
+#elif defined(__linux__) && defined(SYS_gettid)
+        return static_cast<unsigned long long>(syscall(SYS_gettid));
+#elif defined(__APPLE__)
+        uint64_t threadId = 0;
+        return pthread_threadid_np(nullptr, &threadId) == 0 ? threadId : 0;
+#else
+        return 0;
+#endif
+    }
+
+    void writeTimestampUtc(FileHandle file) {
+#if defined(_WIN32)
+        SYSTEMTIME utc = {};
+        GetSystemTime(&utc);
+        writeFormatted(file, "timestamp_utc: %04u-%02u-%02uT%02u:%02u:%02u.%03uZ\n",
+            static_cast<unsigned>(utc.wYear), static_cast<unsigned>(utc.wMonth),
+            static_cast<unsigned>(utc.wDay), static_cast<unsigned>(utc.wHour),
+            static_cast<unsigned>(utc.wMinute), static_cast<unsigned>(utc.wSecond),
+            static_cast<unsigned>(utc.wMilliseconds));
+#else
+        const std::time_t now = std::time(nullptr);
+        std::tm utc = {};
+        bool converted = false;
+    #if defined(__unix__) || defined(__APPLE__)
+        converted = gmtime_r(&now, &utc) != nullptr;
+    #endif
+        if (converted) {
+            char timestamp[32] = {};
+            if (std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &utc) != 0) {
+                writeFormatted(file, "timestamp_utc: %s\n", timestamp);
+                return;
+            }
+        }
+        writeLine(file, "timestamp_utc: <unavailable>");
+#endif
+    }
+
+    void writeCrashMetadata(FileHandle file, const char* reason, const void* faultContext) {
+        char phase[kLastPhaseCapacity] = {};
+        copyLastPhase(phase, sizeof(phase));
+
+        writeLine(file, "crash_report_format: 2");
+        writeTimestampUtc(file);
+        writeFormatted(file, "version: %s\n", QUANTUM_EDITOR_VERSION);
+        writeFormatted(file, "platform: %s\n", platformName());
+        writeFormatted(file, "architecture: %s\n", architectureName());
+        writeFormatted(file, "compiler: %s\n", compilerName());
+        writeFormatted(file, "build_configuration: %s\n", buildConfiguration());
+        writeFormatted(file, "process_id: %llu\n", currentProcessId());
+        writeFormatted(file, "thread_id: %llu\n", currentThreadId());
+        writeFormatted(file, "last_phase: %s\n", phase[0] != '\0' ? phase : "<not recorded>");
+        writeFormatted(file, "context_available: %s\n", faultContext ? "yes" : "no");
+        writeFormatted(file, "FATAL: %s\n", reason ? reason : "<unknown>");
+        writeFormatted(file, "fatal_reason: %s\n", reason ? reason : "<unknown>");
     }
 
 #if defined(_WIN32)
@@ -204,7 +382,7 @@ namespace {
         if (count == 0) writeLine(file, "  <no backtrace available>");
 
         if (symbols) SymCleanup(process);
-#elif defined(DORIAX_HAS_EXECINFO)
+#elif defined(QUANTUM_HAS_EXECINFO)
         void* frames[64];
         int count = backtrace(frames, 64);
         if (count <= 0) {
@@ -224,8 +402,7 @@ namespace {
 
         writeLine(file, "");
         writeLine(file, "========================================================");
-        writeFormatted(file, "FATAL: %s\n", reason);
-        writeFormatted(file, "Doriax editor %s\n", DORIAX_EDITOR_VERSION);
+        writeCrashMetadata(file, reason, faultContext);
         if (exePath[0] != '\0') {
             writeFormatted(file, "binary: %s\n", exePath);
         }
@@ -325,20 +502,47 @@ namespace {
 
 }
 
-void editor::CrashHandler::install(const std::filesystem::path& logFile) {
-#if defined(_WIN32)
-    const std::wstring path = logFile.wstring();
-#else
-    const std::string path = logFile.string();
-#endif
-    if (path.size() < sizeof(logPath) / sizeof(logPath[0])) {
-        std::memcpy(logPath, path.c_str(), (path.size() + 1) * sizeof(logPath[0]));
-    }
+void editor::CrashHandler::setLastPhase(const char* phase) noexcept {
+    setLastPhaseInternal(phase);
+}
 
+void editor::CrashHandler::install(const std::filesystem::path& logFile) {
     if (installed) {
         return;
     }
     installed = true;
+    setLastPhaseInternal("crash-handler.install");
+
+#if defined(_WIN32)
+    // A debug CRT assertion must not open a modal dialog while the editor or a
+    // headless smoke test is failing. Keep WER/minidumps enabled, but route all
+    // CRT reports to stderr so the crash handler can finish writing its log.
+    _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+    _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+    _CrtSetReportMode(_CRT_WARN, _CRTDBG_MODE_FILE);
+    _CrtSetReportFile(_CRT_WARN, _CRTDBG_FILE_STDERR);
+    SetErrorMode(SetErrorMode(0) | SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+
+    const std::filesystem::path reportFile = crashReportFilePath(logFile);
+    const std::wstring path = logFile.native();
+    const std::wstring reportPath = reportFile.native();
+#else
+    const std::filesystem::path reportFile = crashReportFilePath(logFile);
+    const std::string path = logFile.native();
+    const std::string reportPath = reportFile.native();
+#endif
+
+    if (path.size() + 1 <= sizeof(logPath) / sizeof(logPath[0])) {
+        std::memcpy(logPath, path.c_str(), (path.size() + 1) * sizeof(logPath[0]));
+    }
+    if (reportPath.size() + 1 <= sizeof(crashReportPath) / sizeof(crashReportPath[0])) {
+        std::memcpy(crashReportPath, reportPath.c_str(),
+            (reportPath.size() + 1) * sizeof(crashReportPath[0]));
+    }
+
+    rotateCrashReports(reportFile);
 
     captureExecutablePath();
 
@@ -354,4 +558,6 @@ void editor::CrashHandler::install(const std::filesystem::path& logFile) {
     std::signal(SIGFPE, handleSignal);
     std::signal(SIGBUS, handleSignal);
 #endif
+
+    setLastPhaseInternal("editor.runtime-ready");
 }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor::cli {
+namespace quantum::editor::cli {
 
     namespace fs = std::filesystem;
 
@@ -49,7 +49,7 @@ namespace doriax::editor::cli {
     // The engine loads a "resources.pak" at the asset root, so the name is reserved.
     bool isReservedPackName(std::string name);
 
-    // doriax-resource-compiler subcommands. None of them open a window.
+    // quantum-resource-compiler subcommands. None of them open a window.
 
     // `pak --project <dir|project.yaml> [--out <file.pak>] [--verbose]`
     int runPakCommand(int argc, char** argv, const char* executableName);
@@ -61,6 +61,9 @@ namespace doriax::editor::cli {
 
     // `inspect --pack <file.pak> [--verbose]`
     int runInspectCommand(int argc, char** argv, const char* executableName);
+
+    // `graph --check <file.graph> | --dump | --compile [--out <file.gdat>] | --catalog | --validate-runtime`
+    int runGraphCommand(int argc, char** argv, const char* executableName);
 
     // Top level usage for the resource compiler. With argc < 1 (no arguments at
     // all) it still only prints usage: this executable never starts the backend.

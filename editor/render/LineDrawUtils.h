@@ -1,13 +1,13 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-#include "Doriax.h"
+#include "Quantum.h"
 #include <cmath>
 #include <tuple>
 
-namespace doriax::editor::LineDrawUtils{
+namespace quantum::editor::LineDrawUtils{
 
     inline void addCircle2D(Lines* lines, const Vector3& center, float radius, const Vector4& color, int segments = 20){
         if (radius <= 0.0f) return;

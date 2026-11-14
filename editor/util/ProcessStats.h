@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
     // One process as seen by a Resource Monitor snapshot. CPU and the per-process
     // memory deltas are relative to the previous sample of the same pid, so the
     // first read of a process reports cpuPercent == 0.

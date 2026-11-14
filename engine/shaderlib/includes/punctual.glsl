@@ -26,6 +26,9 @@ const int LightType_Spot = 2;
 // https://github.com/KhronosGroup/glTF/blob/master/extensions/2.0/Khronos/KHR_lights_punctual/README.md#range-property
 float getRangeAttenuation(float range, float distance)
 {
+    // Avoid the singularity when a fragment lies on a point light. The small
+    // floor is far below the scale of a visible light but keeps HDR values finite.
+    distance = max(distance, 0.01);
     if (range <= 0.0)
     {
         // negative range means unlimited
@@ -80,7 +83,7 @@ float getSpotMaskAttenuation(Light light, vec3 pointToLight, int lightIndex)
         return 0.0;
     }
 
-    // Doriax texture coordinates already match the uploaded image orientation.
+    // Quantum texture coordinates already match the uploaded image orientation.
     vec2 localUV = maskPosition * 0.5 + 0.5;
     ivec2 atlasDimensionsI = textureSize(
         sampler2D(u_spotMaskAtlas, u_spotMaskAtlas_smp),

@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Occluder2D.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Occluder2D::Occluder2D(Scene* scene): Object(scene){
     addComponent<Occluder2DComponent>();

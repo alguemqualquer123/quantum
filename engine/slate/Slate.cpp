@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/Slate.h"
@@ -14,7 +14,7 @@
 #include "slate/layout/FlexEngine.h"
 #include "slate/render/SlateRenderer.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
 

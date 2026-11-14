@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -14,13 +14,21 @@
 #include <chrono>
 #include <cstdint>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     // Forward declarations
     class SemanticSuggestions;
     struct SuggestionItem;
     struct SuggestionContext;
     enum class SuggestionKind;
+
+    // The find bar hands its request to editor/script, which owns the pattern engine
+    namespace script {
+        struct SearchOptions;
+    }
+
+    // The search options the find bar compiles into, defined in editor/script
+    namespace script { struct SearchOptions; }
 
     enum class SyntaxLanguage {
         None,
@@ -84,6 +92,14 @@ namespace doriax::editor {
         bool operator>=(const TextPosition& other) const {
             return !(*this < other);
         }
+    };
+
+    // One find result: where it starts and where it ends, in bytes. A regex match is not
+    // the length of the query, so the span is stored instead of derived.
+    struct FindSpan {
+        int line = 0;
+        int column = 0;
+        int endColumn = 0;
     };
 
     struct Selection {
@@ -164,6 +180,12 @@ namespace doriax::editor {
         void DeleteWordLeft();
         void DeleteWordRight();
 
+        // Comment and format commands, the same actions VSCode binds to Ctrl+/ (line),
+        // Alt+Shift+A (block) and Shift+Alt+F (format document).
+        void ToggleComment();
+        void ToggleBlockComment();
+        void FormatDocument();
+
         // Undo/Redo
         void Undo(int steps = 1);
         void Redo(int steps = 1);
@@ -176,7 +198,9 @@ namespace doriax::editor {
         void Cut();
         void Paste();
 
-        // Find and Replace
+        // Find and Replace. The bar keeps its own query and options, so the widget is the
+        // only place that knows what a match is: the pattern runs through editor/script's
+        // ScriptRegex, the same engine the project search and the CLI use.
         void SetSearchText(const std::string& text);
         bool FindNext();
         bool FindPrevious();
@@ -185,6 +209,29 @@ namespace doriax::editor {
         void CloseFind();
         bool IsFindOpen() const { return showFindDialog; }
         int ReplaceAll(const std::string& find, const std::string& replace, bool caseSensitive = true);
+        // Replaces with the bar's query, replacement and options, in one undo step.
+        int ReplaceAllFromFindBar();
+        int FindMatchCount() const { return static_cast<int>(searchResults.size()); }
+        int FindCurrentMatch() const { return currentSearchResult; }
+        // A pattern that does not compile is reported, never thrown: the process runs with
+        // _HAS_EXCEPTIONS=0, so an exception here would abort the editor.
+        const std::string& FindError() const { return findError; }
+        bool FindRegex() const { return findUseRegex; }
+        bool FindWholeWord() const { return findWholeWord; }
+        bool FindInSelection() const { return findInSelection; }
+        void SetFindRegex(bool on);
+        void SetFindWholeWord(bool on);
+        void SetFindInSelection(bool on);
+
+        // Line commands, the actions VSCode binds to Ctrl+G, Ctrl+L, Ctrl+Shift+K,
+        // Ctrl+Shift+D and Alt+Up/Down. Line numbers are 1-based, as shown in the gutter.
+        void GoToLine(int line, int column = 1);
+        void DeleteLines();
+        void DuplicateLines();
+        void MoveLines(int delta);
+        void SelectLines();
+        // Opens the same box the find bar does, so a menu item can ask for a line.
+        void OpenGoToLine();
 
         // Editor settings
         void SetReadOnly(bool value) { readOnly = value; }
@@ -281,21 +328,30 @@ namespace doriax::editor {
         TextPosition paramHintAnchor;                   // Where the '(' is
         std::string paramHintFuncName;                  // Name of the function that triggered it
 
-        // Search state
+        // Search state: the query, the options the bar shows, and the spans it found
         std::string searchText;
-        std::vector<TextPosition> searchResults;
+        std::vector<FindSpan> searchResults;
         int currentSearchResult;
         bool showFindDialog;
         bool showReplaceInput;
         char findInputBuffer[256];
         char replaceInputBuffer[256];
         bool findCaseSensitive;
+        bool findUseRegex;
+        bool findWholeWord;
+        bool findInSelection;
+        std::string findError;
         bool pendingScrollToCursor = false;
         bool findRefocusInput = false;
         bool pendingFocus = false;
         bool findLastCaseSensitive = false;
         bool showContextMenu = false;
         ImVec2 contextMenuPos;
+
+        // "Go to line" box: a popup over the document, so the target line stays visible
+        bool showGoToLine;
+        bool goToLineRefocus;
+        char goToLineBuffer[32];
 
         // Visual settings
         ImVec4 palette[static_cast<int>(TokenType::Count)];
@@ -367,6 +423,8 @@ namespace doriax::editor {
         void updateSuggestions(bool manualInvoke = false);
         void applySuggestion();
         void renderSuggestions(const ImVec2& origin);
+        // The side panel VSCode shows next to the list: the selected item's full signature
+        void renderSuggestionDetails(const ImVec2& listPos, float listWidth, float listHeight);
         bool isInCommentOrString(const TextPosition& pos) const;
         void triggerParamHint();
         void updateParamHint();
@@ -424,6 +482,19 @@ namespace doriax::editor {
         int openingBracketLine(const TextPosition& closer) const;
         void reindentAfterTyping(int typedLength);
 
+        // Comment markers of the language; empty when it has none
+        const std::string& lineCommentPrefix() const;
+        std::string blockCommentStart() const;
+        std::string blockCommentEnd() const;
+        // First column holding content, the line length when it holds none
+        int firstCodeColumn(int lineIndex) const;
+        // Lines touched by any cursor, sorted and without repeats
+        std::vector<int> cursorLines() const;
+        void insertColumns(int line, int column, const std::string& text);
+        void eraseColumns(int line, int column, int count);
+        // Indent levels each line should get; -1 leaves a line untouched
+        std::vector<int> computeBufferIndents() const;
+
         TextPosition screenToText(const ImVec2& screenPos, const ImVec2& origin) const;
         ImVec2 textToScreen(const TextPosition& pos, const ImVec2& origin) const;
 
@@ -473,6 +544,36 @@ namespace doriax::editor {
         TextPosition findDeleteWordEnd(const TextPosition& pos) const;
 
         void updateSearchResults();
+        // The find bar's box, the "in selection" range and the pattern it compiles
+        struct FindRequest {
+            std::string query;
+            bool useRegex;
+            bool caseSensitive;
+            bool wholeWord;
+            bool inSelection;
+            int firstLine;
+            int lastLine;
+        };
+        FindRequest findRequest() const;
+        // The search service's view of a find-bar request. Declared with only
+        // script::SearchOptions forward-declared, so a window that shows a code editor does
+        // not compile the script services.
+        static script::SearchOptions findOptionsFromRequest(const FindRequest& request);
+        // Selects one hit; the caret goes to its end when the search runs forward
+        void selectSearchResult(int index, bool caretAtEnd);
+        // Rewrites the document with the request's pattern, as one undo step
+        int replaceAllRequest(const FindRequest& request, const std::string& replacement);
+        // The bookkeeping every whole-line edit shares: the lines changed without going
+        // through insertTextAtCursor, so tokens, cursors and the width cache are all stale
+        void finishLineEdit();
+        // Backspace between the two halves of an empty quote pair removes both, so the
+        // character the editor closed for you is not left behind as a second keystroke
+        bool deleteEmptyPair(Cursor& cursor);
+        void renderGoToLine(const ImVec2& editorPos, const ImVec2& editorSize);
+        // Word under the primary cursor, which every visible copy of it gets marked for
+        std::string wordUnderCursor() const;
+        // The closing quote of `c`, 0 when it opens nothing
+        static char quotePair(char c);
     };
 
-} // namespace doriax::editor
+} // namespace quantum::editor

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PROGRESSBAR_H
@@ -6,8 +6,8 @@
 
 #include "Image.h"
 
-namespace doriax{
-    class DORIAX_API Progressbar: public Image{
+namespace quantum{
+    class QUANTUM_API Progressbar: public Image{
     private:
         void ensureFill();
 

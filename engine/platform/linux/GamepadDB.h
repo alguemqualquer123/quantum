@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     // Raw device control that drives one gamepad button or axis
     struct GamepadInput{

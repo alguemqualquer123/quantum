@@ -1,6 +1,4 @@
 name: VoxelWorld
-nextSceneId: 1
-selectedScene: 0
 canvasWidth: 1280
 canvasHeight: 720
 scalingMode: fitwidth
@@ -11,40 +9,8 @@ windowWidth: 1280
 windowHeight: 720
 windowResizable: true
 luaDir: .
+scriptDirs:
+  - scripts
 startSceneId: 1
-tabs:
-  - type: scene
-    filepath: Main Scene.scene
-  - type: codeeditor
-    filepath: scripts/ChunkGenerator.h
-  - type: codeeditor
-    filepath: scripts/ChunkGenerator.cpp
 scenes:
   - filepath: Main Scene.scene
-    showAllJoints: false
-    showAllBones: false
-    showAllBodies: false
-    hideCameraView: false
-    hideLightIcons: false
-    hideSoundIcons: false
-    hideContainerGuides: false
-    showOrigin: true
-    showGrid3D: true
-    hideSelectionOutline: false
-    disableFaceCulling: false
-    showGrid2D: false
-    gridSpacing2D: 50
-    gridSpacing3D: 1
-    snapToGrid: false
-    snapTile: false
-    snapRotation: false
-    rotationSnapDegrees: 15
-    editorCamera:
-      type: camera_perspective
-      target: [8, 4, 8]
-      up: [0, 1, 0]
-      yfov: 0.75
-      aspect: 2.6755674
-      nearClip: 0.1
-      farClip: 1000
-      position: [20, 15, 20]

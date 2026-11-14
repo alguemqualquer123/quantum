@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCALETRACKS_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "Engine.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API ScaleTracksComponent{
+    struct QUANTUM_API ScaleTracksComponent{
         std::vector<Vector3> values;
         // Per-key Hermite tangents (GLTF CUBICSPLINE); empty on linear tracks.
         // Cubic interpolation runs only while both stay sized to values — any

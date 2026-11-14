@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef POLYGON_COMPONENT_H
@@ -6,14 +6,14 @@
 
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     struct PolygonPoint{
         Vector3 position;
         Vector4 color;
     };
 
-    struct DORIAX_API PolygonComponent{
+    struct QUANTUM_API PolygonComponent{
         std::vector<PolygonPoint> points;
 
         bool needUpdatePolygon = true;

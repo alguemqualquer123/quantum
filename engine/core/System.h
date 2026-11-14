@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SYSTEM_H
@@ -16,7 +16,7 @@
 #include "io/Data.h"
 #include "sokol_gfx.h"
 
-namespace doriax {
+namespace quantum {
     class Engine;
 
     class AdMobBackend;
@@ -46,7 +46,7 @@ namespace doriax {
         CONFINED  // visible, but cannot leave the window bounds
     };
 
-    class DORIAX_API System {
+    class QUANTUM_API System {
     private:
 
         friend class Engine;
@@ -65,6 +65,10 @@ namespace doriax {
 
         static System& instance();
 
+        // True once Engine has installed the System. Log and resource helpers use this to stay
+        // silent (instead of aborting) when something reaches them before Engine::systemInit.
+        static bool hasInstance();
+
         virtual ~System() {}
 
         // *******
@@ -74,6 +78,11 @@ namespace doriax {
         virtual int getScreenHeight() = 0;
 
         virtual int getSampleCount();
+
+        // Copy the window's colour buffer into `out` as width*height*4 bytes, RGBA, first row at the
+        // top. Only ever called between a committed frame and the swap, and false where the platform
+        // has no read path (FrameCapture logs the reason).
+        virtual bool readBackFramebuffer(unsigned char* out, int width, int height);
 
         // Touch is the main input, as on phones and tablets; a laptop with a touch
         // screen and a mouse is not a touch device
@@ -145,6 +154,14 @@ namespace doriax {
         virtual AdMobBackend* getAdMobBackend();
         virtual InAppPurchaseBackend* getInAppPurchaseBackend();
         virtual WebPortalBackend* getWebPortalBackend();
+
+        // Whether this process's window is the one the desktop routes input to. A
+        // backend that does not track it answers true, so a caller that gates on it
+        // keeps the behaviour it had before the gate existed.
+        // New virtuals go here, at the end: a game project compiles against a copy of
+        // this header that only the editor refreshes, so a renumbered slot silently
+        // turns an already-built binary's call into the wrong function.
+        virtual bool hasFocus();
     };
 
 }

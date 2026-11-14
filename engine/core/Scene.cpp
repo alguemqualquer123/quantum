@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Scene.h"
@@ -14,12 +14,16 @@
 #include "subsystem/ActionSystem.h"
 #include "subsystem/AudioSystem.h"
 #include "subsystem/PhysicsSystem.h"
+#include "subsystem/WaterSystem.h"
 #include "manager/BundleManager.h"
 #include "object/EntityHandle.h"
 #include "util/Color.h"
 #include "subsystem/NetworkSystem.h"
+#include "event/EventBus.h"
 
-using namespace doriax;
+#include <algorithm>
+
+using namespace quantum;
 
 Scene::Scene() : EntityRegistry() {
     init();
@@ -33,6 +37,8 @@ void Scene::init(){
     registerSystem<ActionSystem>();
     registerSystem<MeshSystem>();
     registerSystem<UISystem>();
+    // before the render that draws it and the physics that floats on it
+    registerSystem<WaterSystem>();
     registerSystem<RenderSystem>();
     registerSystem<PhysicsSystem>();
     	registerSystem<AudioSystem>();
@@ -63,6 +69,12 @@ static void removeComponentSubscriptionsByTag(Scene* scene, const std::string& s
 
     for (size_t i = 0; i < components->size(); i++) {
         callback(components->getComponentFromIndex(i), substring);
+    }
+}
+
+void Scene::setSystemsPaused(bool paused) {
+    for (auto const& pair : systems) {
+        pair.second->setPaused(paused);
     }
 }
 
@@ -228,6 +240,68 @@ bool Scene::isDepthPrepassEnabled() const{
     return settings.depthPrepassEnabled;
 }
 
+void Scene::setRenderDistance(float metres){
+    settings.renderDistance = metres > 0.0f ? metres : 0.0f;
+}
+
+float Scene::getRenderDistance() const{
+    return settings.renderDistance;
+}
+
+void Scene::setRenderDistanceOverride(float metres){
+    renderDistanceOverride = metres > 0.0f ? metres : 0.0f;
+}
+
+float Scene::getRenderDistanceOverride() const{
+    return renderDistanceOverride;
+}
+
+float Scene::getEffectiveRenderDistance() const{
+    if (renderDistanceOverride > 0.0f)
+        return renderDistanceOverride;
+    return settings.renderDistance;
+}
+
+void Scene::setWindEnabled(bool enabled){
+    settings.windEnabled = enabled;
+}
+
+bool Scene::isWindEnabled() const{
+    return settings.windEnabled;
+}
+
+void Scene::setWindSpeed(float metresPerSecond){
+    settings.windSpeed = std::max(0.0f, metresPerSecond);
+}
+
+float Scene::getWindSpeed() const{
+    return settings.windSpeed;
+}
+
+void Scene::setWindDirection(float degrees){
+    settings.windDirection = degrees;
+}
+
+float Scene::getWindDirection() const{
+    return settings.windDirection;
+}
+
+void Scene::setWindGustiness(float gustiness){
+    settings.windGustiness = std::clamp(gustiness, 0.0f, 1.0f);
+}
+
+float Scene::getWindGustiness() const{
+    return settings.windGustiness;
+}
+
+void Scene::setWindChange(float cyclesPerSecond){
+    settings.windChange = std::max(0.0f, cyclesPerSecond);
+}
+
+float Scene::getWindChange() const{
+    return settings.windChange;
+}
+
 void Scene::setSSAOEnabled(bool ssaoEnabled){
     if (settings.ssaoEnabled != ssaoEnabled){
         settings.ssaoEnabled = ssaoEnabled;
@@ -270,6 +344,132 @@ void Scene::setSSAODebug(bool debug){
 
 bool Scene::isSSAODebug() const{
     return settings.ssaoDebug;
+}
+
+void Scene::setContactShadowsEnabled(bool enabled){
+    settings.contactShadowsEnabled = enabled;
+}
+
+bool Scene::isContactShadowsEnabled() const{
+    return settings.contactShadowsEnabled;
+}
+
+void Scene::setContactShadowLength(float length){
+    settings.contactShadowLength = std::max(0.0f, length);
+}
+
+float Scene::getContactShadowLength() const{
+    return settings.contactShadowLength;
+}
+
+void Scene::setContactShadowSteps(int steps){
+    settings.contactShadowSteps = std::clamp(steps, 4, 64);
+}
+
+int Scene::getContactShadowSteps() const{
+    return settings.contactShadowSteps;
+}
+
+void Scene::setContactShadowThickness(float thickness){
+    settings.contactShadowThickness = std::max(0.0f, thickness);
+}
+
+float Scene::getContactShadowThickness() const{
+    return settings.contactShadowThickness;
+}
+
+void Scene::setContactShadowIntensity(float intensity){
+    settings.contactShadowIntensity = std::clamp(intensity, 0.0f, 1.0f);
+}
+
+float Scene::getContactShadowIntensity() const{
+    return settings.contactShadowIntensity;
+}
+
+void Scene::setSSGIEnabled(bool enabled){
+    settings.ssgiEnabled = enabled;
+}
+
+bool Scene::isSSGIEnabled() const{
+    return settings.ssgiEnabled;
+}
+
+void Scene::setSSGIRadius(float radius){
+    settings.ssgiRadius = std::max(0.0f, radius);
+}
+
+float Scene::getSSGIRadius() const{
+    return settings.ssgiRadius;
+}
+
+void Scene::setSSGIIntensity(float intensity){
+    settings.ssgiIntensity = std::max(0.0f, intensity);
+}
+
+float Scene::getSSGIIntensity() const{
+    return settings.ssgiIntensity;
+}
+
+void Scene::setSSGISteps(int steps){
+    settings.ssgiSteps = std::clamp(steps, 4, 32);
+}
+
+int Scene::getSSGISteps() const{
+    return settings.ssgiSteps;
+}
+
+void Scene::setSSGIThickness(float thickness){
+    settings.ssgiThickness = std::max(0.0f, thickness);
+}
+
+float Scene::getSSGIThickness() const{
+    return settings.ssgiThickness;
+}
+
+// DOF draws its own depth pre-pass, so meshes must (re)build their depth fork when it
+// turns on. The other settings are plain field writes: the CoC/blur/composite shaders are
+// per-pass uniforms and switch no mesh shader variant.
+void Scene::setDOFEnabled(bool dofEnabled){
+    if (settings.dofEnabled != dofEnabled){
+        settings.dofEnabled = dofEnabled;
+        getSystem<RenderSystem>()->needReloadMeshes();
+    }
+}
+
+bool Scene::isDOFEnabled() const{
+    return settings.dofEnabled;
+}
+
+void Scene::setDOFFocusDistance(float distance){
+    settings.dofFocusDistance = distance;
+}
+
+float Scene::getDOFFocusDistance() const{
+    return settings.dofFocusDistance;
+}
+
+void Scene::setDOFAperture(float aperture){
+    settings.dofAperture = aperture;
+}
+
+float Scene::getDOFAperture() const{
+    return settings.dofAperture;
+}
+
+void Scene::setDOFFocusRange(float range){
+    settings.dofFocusRange = range;
+}
+
+float Scene::getDOFFocusRange() const{
+    return settings.dofFocusRange;
+}
+
+void Scene::setDOFMaxBlur(float maxBlur){
+    settings.dofMaxBlur = maxBlur;
+}
+
+float Scene::getDOFMaxBlur() const{
+    return settings.dofMaxBlur;
 }
 
 void Scene::setSSREnabled(bool ssrEnabled){
@@ -332,6 +532,78 @@ int Scene::getSSRDebugMode() const{
     return settings.ssrDebugMode;
 }
 
+void Scene::setTAAEnabled(bool enabled){
+    settings.taaEnabled = enabled;
+}
+
+bool Scene::isTAAEnabled() const{
+    return settings.taaEnabled;
+}
+
+void Scene::setTAABlend(float blend){
+    settings.taaBlend = std::clamp(blend, 0.0f, 0.99f);
+}
+
+float Scene::getTAABlend() const{
+    return settings.taaBlend;
+}
+
+void Scene::setTAAVelocityScale(float scale){
+    settings.taaVelocityScale = std::max(0.0f, scale);
+}
+
+float Scene::getTAAVelocityScale() const{
+    return settings.taaVelocityScale;
+}
+
+void Scene::setTAAVelocityClamp(float clamp){
+    settings.taaVelocityClamp = std::clamp(clamp, 0.001f, 1.0f);
+}
+
+float Scene::getTAAVelocityClamp() const{
+    return settings.taaVelocityClamp;
+}
+
+void Scene::setMotionBlurEnabled(bool enabled){
+    settings.motionBlurEnabled = enabled;
+}
+
+bool Scene::isMotionBlurEnabled() const{
+    return settings.motionBlurEnabled;
+}
+
+void Scene::setMotionBlurIntensity(float intensity){
+    settings.motionBlurIntensity = std::max(0.0f, intensity);
+}
+
+float Scene::getMotionBlurIntensity() const{
+    return settings.motionBlurIntensity;
+}
+
+void Scene::setMotionBlurSamples(int samples){
+    settings.motionBlurSamples = std::clamp(samples, 1, 32);
+}
+
+int Scene::getMotionBlurSamples() const{
+    return settings.motionBlurSamples;
+}
+
+void Scene::setMotionBlurVelocityClamp(float clamp){
+    settings.motionBlurVelocityClamp = std::clamp(clamp, 0.001f, 1.0f);
+}
+
+float Scene::getMotionBlurVelocityClamp() const{
+    return settings.motionBlurVelocityClamp;
+}
+
+void Scene::setMotionBlurDepthThreshold(float threshold){
+    settings.motionBlurDepthThreshold = std::clamp(threshold, 0.001f, 1.0f);
+}
+
+float Scene::getMotionBlurDepthThreshold() const{
+    return settings.motionBlurDepthThreshold;
+}
+
 void Scene::setFixedResolutionEnabled(bool fixedResolutionEnabled){
     if (settings.fixedResolutionEnabled != fixedResolutionEnabled){
         settings.fixedResolutionEnabled = fixedResolutionEnabled;
@@ -376,6 +648,215 @@ void Scene::setFixedResolutionFilter(TextureFilter filter){
 
 TextureFilter Scene::getFixedResolutionFilter() const{
     return settings.fixedResolutionFilter;
+}
+
+void Scene::setBloomEnabled(bool enabled){
+    settings.bloomEnabled = enabled;
+}
+
+bool Scene::isBloomEnabled() const{
+    return settings.bloomEnabled;
+}
+
+void Scene::setBloomThreshold(float threshold){
+    settings.bloomThreshold = threshold < 0.0f ? 0.0f : threshold;
+}
+
+float Scene::getBloomThreshold() const{
+    return settings.bloomThreshold;
+}
+
+void Scene::setBloomSoftKnee(float knee){
+    settings.bloomSoftKnee = knee < 0.0f ? 0.0f : (knee > 1.0f ? 1.0f : knee);
+}
+
+float Scene::getBloomSoftKnee() const{
+    return settings.bloomSoftKnee;
+}
+
+void Scene::setBloomIntensity(float intensity){
+    settings.bloomIntensity = intensity < 0.0f ? 0.0f : intensity;
+}
+
+float Scene::getBloomIntensity() const{
+    return settings.bloomIntensity;
+}
+
+// The dirt mask is blended in at this fraction, so it is a 0..1 control and the clamp is part
+// of the contract: a scene file asking for 4.0 must not silently become an opaque lens.
+void Scene::setBloomDirtIntensity(float dirt){
+    settings.bloomDirtIntensity = dirt < 0.0f ? 0.0f : (dirt > 1.0f ? 1.0f : dirt);
+}
+
+float Scene::getBloomDirtIntensity() const{
+    return settings.bloomDirtIntensity;
+}
+
+void Scene::setBloomLevels(int levels){
+    // 1..MAX: the chain allocates one target per level, so an unbounded value would be a
+    // memory request from a scene file.
+    settings.bloomMipLevels = levels < 1 ? 1 : (levels > MAX_BLOOM_LEVELS ? MAX_BLOOM_LEVELS : levels);
+}
+
+int Scene::getBloomLevels() const{
+    return settings.bloomMipLevels;
+}
+
+void Scene::setTonemapEnabled(bool enabled){
+    settings.tonemapEnabled = enabled;
+}
+
+bool Scene::isTonemapEnabled() const{
+    return settings.tonemapEnabled;
+}
+
+void Scene::setTonemapMode(int mode){
+    settings.tonemapMode = mode < 0 ? 0 : (mode > 4 ? 4 : mode);
+}
+
+int Scene::getTonemapMode() const{
+    return settings.tonemapMode;
+}
+
+void Scene::setExposure(float exposure){
+    settings.exposure = exposure <= 0.0f ? 0.01f : exposure;
+}
+
+float Scene::getExposure() const{
+    return settings.exposure;
+}
+
+void Scene::setAutoExposureEnabled(bool enabled){
+    settings.autoExposure = enabled;
+}
+
+bool Scene::isAutoExposureEnabled() const{
+    return settings.autoExposure;
+}
+
+void Scene::setAutoExposureSpeed(float speed){
+    // 0 would freeze the meter; the cap is what keeps a doorway from taking seconds to settle.
+    settings.autoExposureSpeed = speed < 0.05f ? 0.05f : (speed > 10.0f ? 10.0f : speed);
+}
+
+float Scene::getAutoExposureSpeed() const{
+    return settings.autoExposureSpeed;
+}
+
+void Scene::setAutoExposureMinEV(float ev){
+    ev = ev < -10.0f ? -10.0f : (ev > 10.0f ? 10.0f : ev);
+    settings.autoExposureMinEV = ev > settings.autoExposureMaxEV ? settings.autoExposureMaxEV : ev;
+}
+
+float Scene::getAutoExposureMinEV() const{
+    return settings.autoExposureMinEV;
+}
+
+void Scene::setAutoExposureMaxEV(float ev){
+    ev = ev < -10.0f ? -10.0f : (ev > 10.0f ? 10.0f : ev);
+    settings.autoExposureMaxEV = ev < settings.autoExposureMinEV ? settings.autoExposureMinEV : ev;
+}
+
+float Scene::getAutoExposureMaxEV() const{
+    return settings.autoExposureMaxEV;
+}
+
+void Scene::setExposureCompensation(float ev){
+    settings.exposureCompensation = ev < -5.0f ? -5.0f : (ev > 5.0f ? 5.0f : ev);
+}
+
+float Scene::getExposureCompensation() const{
+    return settings.exposureCompensation;
+}
+
+void Scene::setColorGradingEnabled(bool enabled){
+    settings.colorGradingEnabled = enabled;
+}
+
+bool Scene::isColorGradingEnabled() const{
+    return settings.colorGradingEnabled;
+}
+
+void Scene::setColorGradingSaturation(float saturation){
+    settings.colorGradingSaturation = saturation < 0.0f ? 0.0f : (saturation > 4.0f ? 4.0f : saturation);
+}
+
+float Scene::getColorGradingSaturation() const{
+    return settings.colorGradingSaturation;
+}
+
+void Scene::setColorGradingContrast(float contrast){
+    settings.colorGradingContrast = contrast < 0.0f ? 0.0f : (contrast > 4.0f ? 4.0f : contrast);
+}
+
+float Scene::getColorGradingContrast() const{
+    return settings.colorGradingContrast;
+}
+
+void Scene::setColorGradingBrightness(float brightness){
+    // stops of gain: -1 halves the image, 1 doubles it
+    settings.colorGradingBrightness = brightness < -1.0f ? -1.0f : (brightness > 1.0f ? 1.0f : brightness);
+}
+
+float Scene::getColorGradingBrightness() const{
+    return settings.colorGradingBrightness;
+}
+
+void Scene::setColorGradingHueShift(float degrees){
+    settings.colorGradingHueShift = degrees < -180.0f ? -180.0f : (degrees > 180.0f ? 180.0f : degrees);
+}
+
+float Scene::getColorGradingHueShift() const{
+    return settings.colorGradingHueShift;
+}
+
+void Scene::setColorGradingTemperature(float temperature){
+    settings.colorGradingTemperature = temperature < -1.0f ? -1.0f : (temperature > 1.0f ? 1.0f : temperature);
+}
+
+float Scene::getColorGradingTemperature() const{
+    return settings.colorGradingTemperature;
+}
+
+void Scene::setColorGradingTint(float tint){
+    settings.colorGradingTint = tint < -1.0f ? -1.0f : (tint > 1.0f ? 1.0f : tint);
+}
+
+float Scene::getColorGradingTint() const{
+    return settings.colorGradingTint;
+}
+
+void Scene::setColorGradingLUTPath(const std::string& path){
+    settings.colorGradingLUTPath = path;
+}
+
+const std::string& Scene::getColorGradingLUTPath() const{
+    return settings.colorGradingLUTPath;
+}
+
+void Scene::setFXAAEnabled(bool enabled){
+    settings.fxaaEnabled = enabled;
+}
+
+bool Scene::isFXAAEnabled() const{
+    return settings.fxaaEnabled;
+}
+
+// A blend fraction, so the clamp is the contract: 2.0 must not invert the image and -1 must
+// not select the un-antialiased source through a negative lerp.
+void Scene::setFXAAIntensity(float intensity){
+    settings.fxaaIntensity = intensity < 0.0f ? 0.0f : (intensity > 1.0f ? 1.0f : intensity);
+}
+
+float Scene::getFXAAIntensity() const{
+    return settings.fxaaIntensity;
+}
+
+bool Scene::isHdrEnabled() const{
+    // The tone map is the pass that applies grading and reads the adapted exposure, so a scene
+    // that asks for either needs the whole chain to run even with bloom off.
+    return settings.bloomEnabled || settings.tonemapEnabled || settings.colorGradingEnabled
+        || settings.autoExposure;
 }
 
 void Scene::setLightState(LightState state){
@@ -771,22 +1252,33 @@ void Scene::destroy(){
     }
 }
 
+// Each system's slice of the frame lands in Engine::FrameStats, so a slow scene names the
+// system that costs instead of only the frame that was slow. The clock is monotonic seconds,
+// so one subtraction and one multiply per system.
 void Scene::draw(){
     for (auto const& pair : systems){
+        const double start = Engine::getSystemTime();
         pair.second->draw();
+        Engine::addSystemStats(pair.first.c_str(), (Engine::getSystemTime() - start) * 1000.0, 2);
     }
 }
 
 
 void Scene::update(double dt){
+    inputActions.update();
+    inputActions.publishTransitions(EventBus::global());
     for (auto const& pair : systems){
+        const double start = Engine::getSystemTime();
         pair.second->update(dt);
+        Engine::addSystemStats(pair.first.c_str(), (Engine::getSystemTime() - start) * 1000.0, 1);
     }
 }
 
 void Scene::fixedUpdate(double dt){
     for (auto const& pair : systems){
+        const double start = Engine::getSystemTime();
         pair.second->fixedUpdate(dt);
+        Engine::addSystemStats(pair.first.c_str(), (Engine::getSystemTime() - start) * 1000.0, 0);
     }
 }
 

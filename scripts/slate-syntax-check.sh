@@ -8,7 +8,7 @@
 # With no arguments it checks every .cpp in the module and the demo.
 #
 # Include dirs are the ones CMake exports (harvested from
-# build/doriax-editor.vcxproj AdditionalIncludeDirectories) plus the module root.
+# build/quantum-editor.vcxproj AdditionalIncludeDirectories) plus the module root.
 set -e
 cd "$(dirname "$0")/.."
 

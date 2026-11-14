@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Vector4.h"
@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 const Vector4 Vector4::ZERO( 0, 0, 0, 0 );
 const Vector4 Vector4::UNIT_X( 1, 0, 0, 0 );

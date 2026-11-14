@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "BidiText.h"
@@ -7,7 +7,7 @@
 
 #include <SheenBidi/SheenBidi.h>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 // Presentation form of each letter, 0 where that form does not exist. A letter with no
 // initial form does not connect to the next one.

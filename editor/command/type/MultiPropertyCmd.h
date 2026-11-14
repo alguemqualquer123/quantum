@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,7 +9,7 @@
 #include <memory>
 #include <utility>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class MultiPropertyCmd : public Command {
     private:

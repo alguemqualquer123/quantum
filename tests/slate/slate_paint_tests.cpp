@@ -1,11 +1,11 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
-// GPU-free unit tests for the doriax::slate paint list and geometry builder
+// GPU-free unit tests for the quantum::slate paint list and geometry builder
 // (engine/slate/core/PaintList.* and Geometry.*). No window, no GL context:
 // everything asserted here is pure CPU tessellation and batching data.
 //
-// NOTE: if a sibling test translation unit is added to doriax-slate-tests,
+// NOTE: if a sibling test translation unit is added to quantum-slate-tests,
 // exactly one of them may define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN.
 
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
@@ -20,8 +20,8 @@
 #include "slate/core/PaintList.h"
 #include "texture/Texture.h"
 
-using namespace doriax;
-using namespace doriax::slate;
+using namespace quantum;
+using namespace quantum::slate;
 
 namespace {
 

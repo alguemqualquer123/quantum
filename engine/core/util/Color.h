@@ -1,5 +1,5 @@
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef color_h
@@ -8,9 +8,9 @@
 #include "Vector3.h"
 #include "Vector4.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Color {
+    class QUANTUM_API Color {
     private:
         static float GAMMA;
         static float INV_GAMMA;

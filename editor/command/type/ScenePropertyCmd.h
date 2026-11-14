@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include "Scene.h"
 #include "Catalog.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     template <typename T>
     struct ScenePropertyCmdValue {

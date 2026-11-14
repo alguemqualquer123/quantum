@@ -1,15 +1,15 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "SceneRender.h"
 
-#include "Doriax.h"
+#include "Quantum.h"
 #include "UILayer.h"
 #include "command/Command.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class SceneRender2D: public SceneRender{
     private:

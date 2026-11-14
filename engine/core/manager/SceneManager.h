@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCENEMANAGER_H
@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <initializer_list>
 
-namespace doriax {
+namespace quantum {
 
     class Scene;
 
@@ -41,7 +41,7 @@ namespace doriax {
     //   SceneManager.loadScene("Level1")
     //   SceneManager.addChildScene("Hud")
 
-    class DORIAX_API SceneManager {
+    class QUANTUM_API SceneManager {
     private:
         struct SceneEntry {
             uint32_t id;
@@ -135,6 +135,10 @@ namespace doriax {
         // Load a scene stack by id.
         // Returns false if the id is not found.
         static bool loadScene(uint32_t id);
+
+        // Reload the currently active registered stack through its factory. The
+        // request is deferred when called during a frame, like loadScene().
+        static bool reloadCurrentScene();
 
         // True between a deferred loadScene() and the frame that applies it.
         static bool isLoadPending();
@@ -232,6 +236,6 @@ namespace doriax {
         static void removeScenePtr(uint32_t id);
     };
 
-} // namespace doriax
+} // namespace quantum
 
 #endif // SCENEMANAGER_H

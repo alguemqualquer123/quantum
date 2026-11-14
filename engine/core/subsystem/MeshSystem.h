@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESHSYSTEM_H
@@ -19,6 +19,7 @@
 #include "math/Ray.h"
 
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -32,9 +33,12 @@ namespace tinygltf {
     class TinyGLTF;
 }
 
-namespace doriax{
+struct VoxelMeshData;
+class World;
 
-    class DORIAX_API MeshSystem : public SubSystem {
+namespace quantum{
+
+    class QUANTUM_API MeshSystem : public SubSystem {
 
     private:
         struct AsyncModelLoadResult;
@@ -61,14 +65,23 @@ namespace doriax{
             std::string loadedMeshPath;
             bool loadFailed = false;
             float chunkSize = 0; //the size the slot coordinates are in
+            // Grow-only side of the slot pool, at least the widest window the ring can take. The
+            // window shrinking must not remap slots: that re-scattered every chunk on camera moves.
+            int poolSide = 0;
             bool needUpdate = true;
             bool pending = false;
+        };
+
+        struct VoxelRenderChunk {
+            Entity entity = NULL_ENTITY;
+            int lodLevel = 0;
         };
 
         Entity foliagePreviewEntity = NULL_ENTITY;
 
         // Resolve of each terrain's foliageLayers. Kept here so the authored component stays copiable.
         std::unordered_map<Entity, std::vector<TerrainFoliageInstances>> terrainFoliage;
+        std::map<std::pair<int, int>, VoxelRenderChunk> voxelRenderChunks;
 
         static void decodeGLTFImage(tinygltf::Image& image, size_t index, int maxDimension);
         template<typename Fn>
@@ -99,7 +112,6 @@ namespace doriax{
         std::string getAsyncModelLoadKey(const std::string& filename) const;
         static std::shared_ptr<AsyncModelLoadResult> pollOrStartAsyncModelLoad(const Scene* scene, const std::string& filename, bool obj);
         static void cancelAsyncModelLoadByKey(const std::string& key);
-        bool isAsyncModelLoadPending(const std::string& filename) const;
         static bool isAsyncModelLoadPending(const Scene* scene, const std::string& filename);
         static bool isModelPreloading(const std::string& filename);
         static std::shared_ptr<AsyncModelLoadResult> loadModelFileOnWorker(const std::string& filename, bool obj, uint64_t buildId);
@@ -136,6 +148,8 @@ namespace doriax{
         // Terrain
         size_t getTerrainGridArraySize(int rootGridSize, int levels);
         void getTerrainHeightRangeArea(TerrainComponent& terrain, float x, float z, float w, float h, float& minHeight, float& maxHeight);
+        bool updateTerrainNodeRanges(TerrainComponent& terrain);
+        bool updateTerrainNodeRangesArea(TerrainComponent& terrain, size_t nodeIndex, float halfMapSize, int width, int height, int firstX, int firstZ, int lastX, int lastZ);
         void createPlaneNodeSubmesh(unsigned int submeshIndex, TerrainComponent& terrain, MeshComponent& mesh, int width, int height, int widthSegments, int heightSegments);
         void resetTerrainToUnbuilt(TerrainComponent& terrain, MeshComponent& mesh);
         bool createTerrain(TerrainComponent& terrain, MeshComponent& mesh);
@@ -149,7 +163,7 @@ namespace doriax{
         bool loadFoliageMesh(Entity entity, const std::string& path);
         float sampleFoliageDensity(TerrainComponent& terrain, TerrainFoliageLayer& layer, float localX, float localZ);
         void appendFoliageCell(TerrainComponent& terrain, TerrainFoliageLayer& layer, int cellX, int cellZ, std::vector<InstanceData>& instances);
-        void updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLayer& layer, TerrainFoliageInstances& instances, const Vector3& viewLocal, bool preview);
+        void updateFoliageLayer(TerrainComponent& terrain, TerrainFoliageLayer& layer, TerrainFoliageInstances& instances, const Vector3& viewLocal, bool preview, int layerIndex);
         void updateTerrainFoliage(Entity entity, TerrainComponent& terrain, Transform& transform);
 
     public:
@@ -174,6 +188,21 @@ namespace doriax{
 
         void createPlane(MeshComponent& mesh, float width=1, float depth=1, unsigned int tiles=1);
         void createWall(MeshComponent& mesh, float width=1, float height=1, unsigned int tiles=1);
+        // Converts meshed voxel faces into the regular runtime mesh buffers. Atlas coordinates
+        // are derived from the block id, while the per-vertex light value becomes vertex color.
+        bool createVoxelMesh(MeshComponent& mesh, const VoxelMeshData& voxel,
+            unsigned int atlasColumns = 1, unsigned int atlasRows = 1);
+        // Updates the ECS representation of the loaded voxel window. Worker futures only produce
+        // Chunk data; entity and GPU-facing mesh mutations stay on this owner-thread call.
+        size_t updateVoxelWorld(::World& world, int centerChunkX = 0, int centerChunkZ = 0,
+            int radius = 1, size_t maxJobs = 2, unsigned int atlasColumns = 1,
+            unsigned int atlasRows = 1);
+        // Camera-driven convenience path. The explicit-center overload remains useful for
+        // servers and headless simulation where no render camera exists.
+        size_t updateVoxelWorldFromCamera(::World& world, int radius = 1, size_t maxJobs = 2,
+            unsigned int atlasColumns = 1, unsigned int atlasRows = 1);
+        int getVoxelChunkLOD(int chunkX, int chunkZ) const;
+        void destroyVoxelWorld();
         void createBox(MeshComponent& mesh, float width=1, float height=1, float depth=1, unsigned int tiles=1);
         void createSphere(MeshComponent& mesh, float radius=1, unsigned int slices=36, unsigned int stacks=18);
         void createCylinder(MeshComponent& mesh, float baseRadius=1, float topRadius=1, float height=2, unsigned int slices=36, unsigned int stacks=18);
@@ -264,6 +293,9 @@ namespace doriax{
         void cancelAsyncModelLoads();
         static void cancelAllAsyncModelLoads();
         bool isAsyncModelLoadPending(Entity entity, const std::string& filename) const;
+        // True for a load of this file started by this scene or by a preload, which shares the
+        // scene-less key.
+        bool isAsyncModelLoadPending(const std::string& filename) const;
         void cancelAsyncModelLoad(Entity entity, const std::string& filename);
 
         bool createOrUpdateSprite(SpriteComponent& sprite, MeshComponent& mesh);

@@ -1,15 +1,15 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// ResourceServerClient.h - editor-side client for doriax-resource-server.
+// ResourceServerClient.h - editor-side client for quantum-resource-server.
 // Self-contained free functions (no engine or editor includes): the main agent
-// can drop ${EDITOR_DIR}/cli/ResourceServerClient.cpp into DORIAX_EDITOR_SOURCES
+// can drop ${EDITOR_DIR}/cli/ResourceServerClient.cpp into QUANTUM_EDITOR_SOURCES
 // and call these from anywhere without touching anything else.
 //
 // Protocol (server: tools/resource-server/): newline-delimited JSON over one
 // short-lived TCP connection per request on 127.0.0.1. The editor discovers
 // the ephemeral port by reading the line
-//   doriax-resource-server: listening on 127.0.0.1:<port>
+//   quantum-resource-server: listening on 127.0.0.1:<port>
 // that the spawned process prints on stdout.
 
 #pragma once
@@ -17,11 +17,11 @@
 #include <filesystem>
 #include <string>
 
-namespace doriax::editor::cli {
+namespace quantum::editor::cli {
 
 namespace fs = std::filesystem;
 
-// Locates the doriax-resource-server executable: beside the running editor
+// Locates the quantum-resource-server executable: beside the running editor
 // executable first, then the usual build-output subdirectories. Returns false
 // when none exists.
 bool findResourceServerExecutable(fs::path& outPath);
@@ -41,7 +41,7 @@ bool probeServer(const std::string& host, int port, std::string& statusJsonOut,
 // Convenience wrapper over probeServer() for the localhost default.
 bool requestStatus(int port, std::string& statusJsonOut, std::string& errorOut);
 
-// Spawns doriax-resource-server --project <projectDir> --port <port> detached,
+// Spawns quantum-resource-server --project <projectDir> --port <port> detached,
 // waits for its "listening on 127.0.0.1:<port>" stdout line (a few seconds),
 // and returns the discovered port and the child pid. The process keeps running
 // after this call returns; use stopResourceServer() to end it. The overload

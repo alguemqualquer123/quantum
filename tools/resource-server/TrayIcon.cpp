@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // TrayIcon.cpp - see TrayIcon.h.
@@ -29,7 +29,7 @@
     #include <unistd.h>
 #endif
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 #ifdef _WIN32
 
@@ -44,7 +44,7 @@ constexpr UINT kTrayCallback = WM_APP + 11;    // shell notifications
 constexpr UINT kMenuQuitServer = 1;
 constexpr UINT kMenuQuitServerAndEditor = 2;
 constexpr UINT kMenuShowWindow = 3;
-constexpr const wchar_t kWindowClass[] = L"doriaxResourceServerTray";
+constexpr const wchar_t kWindowClass[] = L"quantumResourceServerTray";
 
 std::wstring toWide(const std::string& utf8) {
     if (utf8.empty()) return std::wstring();
@@ -75,8 +75,8 @@ NOTIFYICONDATAW trayData(HWND hwnd) {
     return data;
 }
 
-// The icon comes from the executable's own resources: doriax_add_windows_resource()
-// embeds editor/resources/icons/doriax-editor.ico under the resource name GLFW_ICON
+// The icon comes from the executable's own resources: quantum_add_windows_resource()
+// embeds editor/resources/icons/quantum-editor.ico under the resource name GLFW_ICON
 // (that is the name GLFW looks up in the editor; here it is only a label).
 HICON appIcon() {
     int cx = GetSystemMetrics(SM_CXSMICON);
@@ -93,7 +93,7 @@ HICON appIcon() {
 }
 
 std::wstring tooltipText(const TraySnapshot& snap) {
-    std::wstring tip = L"doriax resource server";
+    std::wstring tip = L"quantum resource server";
     if (!snap.projectName.empty()) tip += L" - " + toWide(snap.projectName);
     if (!snap.address.empty()) tip += L" (" + toWide(snap.address) + L")";
     return tip;
@@ -121,7 +121,7 @@ void showMenu(HWND hwnd, const TraySnapshot& snap) {
     const auto addInfoLine = [menu](const std::wstring& text) {
         AppendMenuW(menu, MF_STRING | MF_GRAYED, 0, text.c_str());
     };
-    addInfoLine(L"doriax-resource-server");
+    addInfoLine(L"quantum-resource-server");
     if (!snap.projectName.empty()) addInfoLine(L"Project: " + toWide(snap.projectName));
     if (!snap.address.empty()) addInfoLine(L"Address: " + toWide(snap.address));
     if (!snap.watchedLine.empty()) addInfoLine(L"Watching: " + toWide(snap.watchedLine));
@@ -232,7 +232,7 @@ bool TrayIcon::create(const TraySnapshot& snapshot) {
 
     // A message-only window is how a process with no UI owns a tray icon: the
     // shell SendMessage()s the callback straight to this hwnd.
-    HWND hwnd = CreateWindowExW(0, kWindowClass, L"doriax-resource-server", 0, 0, 0, 0, 0,
+    HWND hwnd = CreateWindowExW(0, kWindowClass, L"quantum-resource-server", 0, 0, 0, 0, 0,
                                 HWND_MESSAGE, nullptr, GetModuleHandleW(nullptr), nullptr);
     if (!hwnd) return false;
 

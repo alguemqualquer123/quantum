@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef AUDIOSYSTEM_H
@@ -8,13 +8,17 @@
 
 #include "component/SoundComponent.h"
 
+#include <memory>
+#include <string>
+
 namespace SoLoud{
 	class Soloud;
+	class WavStream;
 }
 
-namespace doriax{
+namespace quantum{
 
-	class DORIAX_API AudioSystem : public SubSystem {
+	class QUANTUM_API AudioSystem : public SubSystem {
 
     private:
 		static bool inited;
@@ -23,6 +27,12 @@ namespace doriax{
 
 		static float globalVolume;
 		static bool muted;
+		static std::shared_ptr<SoLoud::WavStream> musicSource;
+		static std::shared_ptr<SoLoud::WavStream> nextMusicSource;
+		static unsigned int musicHandle;
+		static unsigned int nextMusicHandle;
+		static float musicFadeDuration;
+		static float musicFadeElapsed;
 
 		Vector3 cameraLastPosition;
 		bool outputRequested = false;
@@ -43,9 +53,24 @@ namespace doriax{
 
 		static void setGlobalVolume(float volume);
 		static float getGlobalVolume();
+		// Converts a position delta to the velocity expected by SoLoud's 3D
+		// source/listener API. A non-positive delta deliberately yields zero.
+		static Vector3 calculateDopplerVelocity(const Vector3& current,
+			const Vector3& previous, double deltaSeconds);
+		static void setBusVolume(const std::string& bus, float volume);
+		static float getBusVolume(const std::string& bus);
 
 		// Platform mute, like YouTube's, that the global volume can't override
 		static void setMuted(bool muted);
+		static bool loadMusicStream(const std::string& filename);
+		static bool playMusicStream(const std::string& filename, float crossFadeSeconds = 1.0f);
+		static void stopMusic();
+		static bool isMusicPlaying();
+		static bool setAmbienceLayer(const std::string& name, const std::string& filename,
+			float volume = 1.0f, float fadeSeconds = 1.0f);
+		static void stopAmbienceLayer(const std::string& name, float fadeSeconds = 1.0f);
+		static void stopAmbience();
+		static size_t getAmbienceLayerCount();
 
         bool loadSound(SoundComponent& audio);
 		void destroySound(SoundComponent& audio);

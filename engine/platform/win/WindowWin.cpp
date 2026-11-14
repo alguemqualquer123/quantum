@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "WindowWin.h"
@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 // Not in MinGW or pre-1703 SDK headers, and the entry point taking them is
 // resolved by name anyway.
@@ -109,7 +109,7 @@ namespace {
 
 }
 
-std::wstring doriax::winUtf8ToWide(const std::string& text) {
+std::wstring quantum::winUtf8ToWide(const std::string& text) {
     if (text.empty()) return {};
     int count = MultiByteToWideChar(
         CP_UTF8, MB_ERR_INVALID_CHARS, text.data(), static_cast<int>(text.size()),
@@ -454,6 +454,14 @@ void WindowWin::setMouseMode(MouseMode mode) {
 
 void WindowWin::setMousePosition(float x, float y) {
     if (!gWindow) return;
+    // SetCursorPos moves the one pointer the desktop shares, so a window in the
+    // background would drag the cursor out from under whatever the user is doing.
+    // The clip is already focus-gated for the same reason; a game that re-centres
+    // every frame is exactly the case that cannot wait for the next WM_KILLFOCUS.
+    // Raw deltas stop arriving while unfocused (the device targets this window), so
+    // the position the router holds - which the warp-request still updates - stays
+    // put and a look script reads no motion instead of a jump.
+    if (!hasFocus()) return;
     POINT point{static_cast<LONG>(x), static_cast<LONG>(y)};
     ClientToScreen(gWindow, &point);
     SetCursorPos(point.x, point.y);

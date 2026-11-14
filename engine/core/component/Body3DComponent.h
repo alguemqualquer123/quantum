@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BODY3D_COMPONENT_H
@@ -11,12 +11,12 @@
 #include "util/HybridArray.h"
 #include <cstdint>
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "Jolt/Jolt.h"
 #include "Jolt/Physics/Body/Body.h"
 #endif
 
-namespace doriax{
+namespace quantum{
 
     enum class Shape3DType{
         SPHERE,
@@ -53,8 +53,8 @@ namespace doriax{
         Body3DAllowedDOF_All          = 0x3F
     };
 
-    struct DORIAX_API Shape3D{
-#ifdef DORIAX_PHYSICS_3D
+    struct QUANTUM_API Shape3D{
+#ifdef QUANTUM_PHYSICS_3D
         JPH::ShapeRefC shape = NULL;
 #endif
         Vector3 position = Vector3::ZERO;
@@ -73,6 +73,11 @@ namespace doriax{
         // kg/m3: mass = scaled volume * density (radius-1 sphere is ~4189 kg).
         // Shape2D::density is area-based and defaults to 1.
         float density = 1000.0f;
+        // Contact material for this shape. Jolt combines two shapes as sqrt(friction1 * friction2)
+        // and max(restitution1, restitution2), matching its default body-level policy while
+        // allowing compound bodies to use different surfaces per shape.
+        float friction = 0.6f;
+        float restitution = 0.0f;
 
         Shape3DSource source = Shape3DSource::NONE;
         Entity sourceEntity = NULL_ENTITY;
@@ -85,7 +90,7 @@ namespace doriax{
     };
 
     struct Body3DComponent{
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
         JPH::BodyID body;
 #endif
 
@@ -102,11 +107,17 @@ namespace doriax{
         BodyType type = BodyType::STATIC;
         Body3DMotionQuality motionQuality = Body3DMotionQuality::DISCRETE;
         float gravityFactor = 1.0f;
+        // Jolt applies these coefficients during each fixed step. They are kept on
+        // the component so the tuning survives a body reload and scene round-trip.
+        float linearDamping = 0.05f;
+        float angularDamping = 0.05f;
         // in Water: 1 is neutral, more floats, less sinks, 0 ignores the water
         float buoyancy = 0.0f;
         float waterDrag = 0.5f;
         float waterAngularDrag = 0.01f;
         uint8_t allowedDOFs = Body3DAllowedDOF_All;
+        uint16_t categoryBits = 1;
+        uint16_t maskBits = 0xFFFF;
         bool sensor = false;
         bool newBody = true;
         Vector3 loadedScale = Vector3::UNIT_SCALE;

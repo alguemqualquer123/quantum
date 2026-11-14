@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESHLODPOOL_H
@@ -14,7 +14,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     struct MeshLodLevel{
         unsigned int indexBase = 0;
@@ -41,7 +41,7 @@ namespace doriax{
     typedef std::unordered_map< uint64_t, std::shared_future<std::shared_ptr<MeshLodData>> > lods_t;
 
     // Detail levels keyed by a hash of the geometry, built on the thread pool
-    class DORIAX_API MeshLodPool{
+    class QUANTUM_API MeshLodPool{
     private:
         static lods_t& getMap();
         static std::mutex& getMutex();

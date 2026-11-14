@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Engine.h"
@@ -11,6 +11,7 @@
 #include "render/SystemRender.h"
 #include "script/LuaBinding.h"
 #include "manager/SceneManager.h"
+#include "PluginManager.h"
 #include "subsystem/AudioSystem.h"
 #include "subsystem/PhysicsSystem.h"
 #include "subsystem/RenderSystem.h"
@@ -30,6 +31,8 @@
 #include "pool/ModelPool.h"
 #include "pool/MeshLodPool.h"
 #include "ui/UIRuntime.h"
+#include "util/FrameCapture.h"
+#include "event/EventBus.h"
 #ifndef NO_THREAD_SUPPORT
     #include "thread/ThreadPoolManager.h"
 #endif
@@ -38,7 +41,7 @@
 
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 // thread_local cannot be a data member of a DLL-exported class (MSVC C2492).
 // Keep the TLS counter as file-local storage and expose it via a plain function.
@@ -47,7 +50,7 @@ static unsigned int& getAsyncThreadDepthStorage() {
     return asyncThreadDepth;
 }
 
-//-----Doriax user config-----
+//-----Quantum user config-----
 std::vector<Scene*> Engine::scenes;
 std::unordered_set<Scene*> Engine::oneTimeScenes;
 std::mutex Engine::sceneListMutex;
@@ -81,6 +84,7 @@ double Engine::deltatime = 0;
 float Engine::framerate = 0;
 Engine::FrameStats Engine::frameStats;
 Engine::FrameStats Engine::currentFrameStats;
+uint64_t Engine::frameStatsStart = 0;
 
 // Upper bound for the delta time exposed to gameplay and the update loop.
 // A frame that stalls (scene load, debugger break, alt-tab) is clamped so scripts
@@ -103,7 +107,7 @@ Semaphore Engine::drawSemaphore;
 Framebuffer* Engine::framebuffer = nullptr;
 Framebuffer Engine::compositeFramebuffer;
 
-//-----Doriax user events-----
+//-----Quantum user events-----
 FunctionSubscribe<void()> Engine::onViewLoaded;
 FunctionSubscribe<void()> Engine::onViewChanged;
 FunctionSubscribe<void()> Engine::onViewDestroyed;
@@ -129,6 +133,7 @@ FunctionSubscribe<void()> Engine::onMouseLeave;
 FunctionSubscribe<void(int,bool,int)> Engine::onKeyDown;
 FunctionSubscribe<void(int,bool,int)> Engine::onKeyUp;
 FunctionSubscribe<void(wchar_t)> Engine::onCharInput;
+FunctionSubscribe<void(const std::string&, int, bool)> Engine::onTextComposition;
 FunctionSubscribe<void(int)> Engine::onGamepadConnect;
 FunctionSubscribe<void(int)> Engine::onGamepadDisconnect;
 FunctionSubscribe<void(int,int)> Engine::onGamepadButtonDown;
@@ -367,6 +372,7 @@ void Engine::pauseGameEvents(bool pause) {
     onKeyDown.setEnabled(!pause);
     onKeyUp.setEnabled(!pause);
     onCharInput.setEnabled(!pause);
+    onTextComposition.setEnabled(!pause);
     onGamepadButtonDown.setEnabled(!pause);
     onGamepadButtonUp.setEnabled(!pause);
     onGamepadAxisMove.setEnabled(!pause);
@@ -546,6 +552,14 @@ void Engine::setMousePosition(float x, float y){
     System::instance().setMousePosition(screenX, screenY);
 }
 
+bool Engine::hasFocus(){
+    // Before the view exists there is no window to lose focus from, and
+    // setMousePosition does not reach the platform anyway.
+    if (!viewLoaded)
+        return true;
+    return System::instance().hasFocus();
+}
+
 Platform Engine::getPlatform(){
 #if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
     return Platform::Windows;
@@ -580,7 +594,7 @@ GraphicBackend Engine::getGraphicBackend(){
     return GraphicBackend::WGPU;
 #elif defined(SOKOL_VULKAN)
     return GraphicBackend::VULKAN;
-#elif defined(DORIAX_APPLE) //Xcode template
+#elif defined(QUANTUM_APPLE) //Xcode template
     return GraphicBackend::METAL;
 #endif
 }
@@ -604,15 +618,138 @@ float Engine::getDeltatime(){
     return deltatime;
 }
 
+void Engine::setDeltatime(double deltatime){
+    Engine::deltatime = deltatime;
+}
+
+void Engine::screenshot(const std::string& path){
+    FrameCapture::request(path, 0);
+}
+
+void Engine::screenshotAfter(const std::string& path, int frames){
+    FrameCapture::request(path, frames);
+}
+
 void Engine::beginFrameStats(){
-    frameStats = currentFrameStats;
     currentFrameStats = FrameStats();
+    frameStatsStart = stm_now();
+}
+
+void Engine::endFrameStats(){
+    currentFrameStats.frameMs = stm_ms(stm_laptime(&frameStatsStart));
+    currentFrameStats.sortSystems();
+    currentFrameStats.sortScriptFunctions();
+    frameStats = currentFrameStats;
 }
 
 void Engine::addDrawStats(uint32_t instances, uint64_t triangles){
     currentFrameStats.drawCalls++;
     currentFrameStats.instances += instances;
     currentFrameStats.triangles += triangles;
+}
+
+void Engine::addFramePhaseStats(int phase, double milliseconds){
+    switch (phase) {
+        case 0: currentFrameStats.fixedUpdateMs += milliseconds; break;
+        case 1: currentFrameStats.updateMs += milliseconds; break;
+        case 2: currentFrameStats.drawSceneMs += milliseconds; break;
+        default: currentFrameStats.drawCommitMs += milliseconds; break;
+    }
+}
+
+void Engine::addScriptStats(double milliseconds, bool error, const char* functionName){
+    currentFrameStats.scriptMs += milliseconds;
+    currentFrameStats.scriptCalls++;
+    if (error)
+        currentFrameStats.scriptErrors++;
+
+    if (!functionName || !functionName[0]) return;
+    FrameStats::ScriptTime* slot = nullptr;
+    for (int i = 0; i < currentFrameStats.scriptFunctionCount; i++) {
+        if (strcmp(currentFrameStats.scriptFunctions[i].name, functionName) == 0) {
+            slot = &currentFrameStats.scriptFunctions[i];
+            break;
+        }
+    }
+    if (!slot) {
+        if (currentFrameStats.scriptFunctionCount >= FrameStats::MAX_SCRIPT_FUNCTIONS - 1) {
+            slot = &currentFrameStats.scriptFunctions[FrameStats::MAX_SCRIPT_FUNCTIONS - 1];
+            if (slot->name[0] == '\0')
+                snprintf(slot->name, FrameStats::SCRIPT_NAME_LENGTH, "%s", "+overflow");
+        } else {
+            slot = &currentFrameStats.scriptFunctions[currentFrameStats.scriptFunctionCount++];
+            snprintf(slot->name, FrameStats::SCRIPT_NAME_LENGTH, "%s", functionName);
+        }
+    }
+    slot->milliseconds += milliseconds;
+    slot->calls++;
+    if (error) slot->errors++;
+}
+
+void Engine::addMeshLoadStats(){
+    currentFrameStats.meshLoads++;
+}
+
+void Engine::addMeshDropStats(){
+    currentFrameStats.meshDrops++;
+}
+
+void Engine::addSystemStats(const char* name, double milliseconds, int phase){
+    if (!name)
+        return;
+
+    FrameStats::SystemTime* slot = nullptr;
+    for (int i = 0; i < currentFrameStats.timedSystemCount; i++) {
+        if (strcmp(currentFrameStats.timedSystems[i].name, name) == 0) {
+            slot = &currentFrameStats.timedSystems[i];
+            break;
+        }
+    }
+
+    if (!slot) {
+        // More distinct systems than slots: the extras are folded into the last one rather
+        // than dropped, so the column totals still add up to the phase time.
+        if (currentFrameStats.timedSystemCount >= FrameStats::MAX_TIMED_SYSTEMS) {
+            slot = &currentFrameStats.timedSystems[FrameStats::MAX_TIMED_SYSTEMS - 1];
+            if (slot->name[0] == '\0') {
+                snprintf(slot->name, FrameStats::SYSTEM_NAME_LENGTH, "%s", "+overflow");
+            }
+        } else {
+            slot = &currentFrameStats.timedSystems[currentFrameStats.timedSystemCount++];
+            snprintf(slot->name, FrameStats::SYSTEM_NAME_LENGTH, "%s", name);
+        }
+    }
+
+    double* field = phase == 0 ? &slot->fixedMs : phase == 1 ? &slot->updateMs : &slot->drawMs;
+    *field += milliseconds;
+}
+
+void Engine::FrameStats::sortSystems(){
+    // Insertion sort: at most 32 entries, and the array is nearly ordered already because
+    // the systems register in the same order every frame.
+    for (int i = 1; i < timedSystemCount; i++) {
+        SystemTime moving = timedSystems[i];
+        const double total = moving.fixedMs + moving.updateMs + moving.drawMs;
+        int j = i - 1;
+        while (j >= 0 &&
+               (timedSystems[j].fixedMs + timedSystems[j].updateMs + timedSystems[j].drawMs) < total) {
+            timedSystems[j + 1] = timedSystems[j];
+            j--;
+        }
+        timedSystems[j + 1] = moving;
+    }
+}
+
+void Engine::FrameStats::sortScriptFunctions(){
+    for (int i = 1; i < scriptFunctionCount; i++) {
+        ScriptTime moving = scriptFunctions[i];
+        int j = i - 1;
+        while (j >= 0 && scriptFunctions[j].milliseconds < moving.milliseconds) {
+            scriptFunctions[j + 1] = scriptFunctions[j];
+            j--;
+        }
+        scriptFunctions[j + 1] = moving;
+    }
 }
 
 const Engine::FrameStats& Engine::getFrameStats(){
@@ -796,6 +933,7 @@ void Engine::removeSubscriptionsByTag(const std::string& substring) {
     onKeyDown.removeByTagSubstring(substring);
     onKeyUp.removeByTagSubstring(substring);
     onCharInput.removeByTagSubstring(substring);
+    onTextComposition.removeByTagSubstring(substring);
 
     onGamepadConnect.removeByTagSubstring(substring);
     onGamepadDisconnect.removeByTagSubstring(substring);
@@ -840,6 +978,7 @@ void Engine::clearAllSubscriptions(bool includeLifecycle) {
     onKeyDown.clear();
     onKeyUp.clear();
     onCharInput.clear();
+    onTextComposition.clear();
 
     onGamepadConnect.clear();
     onGamepadDisconnect.clear();
@@ -986,6 +1125,11 @@ void Engine::systemInit(int argc, char* argv[], System* system){
     #ifndef NO_CPP_INIT
     getOnInit().call();
     #endif
+    #ifndef NO_PLUGIN_INIT
+    // Mapped here rather than in the editor so a shipped game, quantum-engine.exe and the editor all
+    // get the same extensions from the same directory layout.
+    plugin::PluginManager::instance().loadAll();
+    #endif
 }
 
 void Engine::systemViewLoaded(){
@@ -1114,8 +1258,15 @@ void Engine::runFrame(bool draw){
 
     drawSemaphore.acquire();
 
-    // async uploads of the last frame, while the scenes that queued them still exist
-    SystemRender::executeQueue();
+    // One stats window per frame that runs, whether or not it draws: a frame measured here
+    // is the unit the benchmark and the editor overlay both report.
+    beginFrameStats();
+
+    // async uploads and sokol command submission require a live graphics context.
+    // Headless runners still execute simulation and scripts, but deliberately skip
+    // these GPU-only operations until a view is loaded.
+    if (viewLoaded)
+        SystemRender::executeQueue();
 
     frameRunning = true;
 
@@ -1148,6 +1299,7 @@ void Engine::runFrame(bool draw){
         }
 
         double frameDelta = deltatime;
+        const uint64_t fixedPhaseStart = stm_now();
 
         // 1) Fixed-timestep phase (deterministic). Runs zero or more times per frame.
         //    Used for physics, networking, and any subsystem overriding fixedUpdate().
@@ -1183,14 +1335,28 @@ void Engine::runFrame(bool draw){
                 scenes[i]->getSystem<PhysicsSystem>()->interpolate(alpha);
             }
         }
+        addFramePhaseStats(0, stm_ms(stm_diff(stm_now(), fixedPhaseStart)));
 
         // 2) Variable-timestep phase. Runs exactly once per frame with the real frame delta.
         //    Used for animation, input, UI, and any subsystem overriding update().
+        const uint64_t variablePhaseStart = stm_now();
+        // Apply development Lua changes before dispatching callbacks so the first
+        // callback in a changed frame already uses the new module prototype.
+        for (int i = 0; i < scenes.size(); i++) {
+            LuaBinding::pollLuaScriptHotReload(scenes[i]);
+        }
         Engine::onUpdate.call();
         for (int i = 0; i < scenes.size(); i++) {
             scenes[i]->update(frameDelta);
         }
         Engine::onPostUpdate.call();
+        // Queued events are published by worker threads and delivered on the main thread at a
+        // deterministic point after gameplay has updated, before plugins observe the frame.
+        EventBus::global().dispatchQueued();
+        // After the scenes, so a plugin reads the state this frame produced, and inside the same
+        // phase window so its cost lands in the update column of the stats.
+        plugin::PluginManager::instance().update((float)frameDelta);
+        addFramePhaseStats(1, stm_ms(stm_diff(stm_now(), variablePhaseStart)));
     }
 
     if (draw){
@@ -1199,12 +1365,12 @@ void Engine::runFrame(bool draw){
         // again for a scene stack loaded during the update
         beginCompositeFramebuffer();
 
-        beginFrameStats();
+        const uint64_t drawPhaseStart = stm_now();
         for (int i = 0; i < scenes.size(); i++){
             scenes[i]->draw();
         }
 
-        // The retained-mode UI module (doriax::ui) paints on top of the scenes,
+        // The retained-mode UI module (quantum::ui) paints on top of the scenes,
         // into the same target the composite framebuffer is currently bound to.
         ui::UIRuntime::render();
 
@@ -1213,6 +1379,7 @@ void Engine::runFrame(bool draw){
         Engine::onPostDraw.call();
 
         endCompositeFramebuffer();
+        addFramePhaseStats(2, stm_ms(stm_diff(stm_now(), drawPhaseStart)));
     }else{
         // draw() moves the waves; this frame has no draw
         for (int i = 0; i < scenes.size(); i++){
@@ -1220,7 +1387,15 @@ void Engine::runFrame(bool draw){
         }
     }
 
-    SystemRender::commit();
+    const uint64_t commitStart = stm_now();
+    if (viewLoaded)
+        SystemRender::commit();
+    addFramePhaseStats(3, stm_ms(stm_diff(stm_now(), commitStart)));
+
+    // The submitted commands are already in the GL context and the platform has not swapped yet, so
+    // this is the one point where the window's colour buffer is the frame just drawn.
+    if (viewLoaded)
+        FrameCapture::runPending();
 
     if (draw){
         std::lock_guard<std::mutex> lock(sceneListMutex);
@@ -1249,12 +1424,32 @@ void Engine::runFrame(bool draw){
     // after the draw, so the new scenes are drawn loaded before the loading scene goes
     SceneManager::updateLoading();
 
+    endFrameStats();
+
     frameRunning = false;
 
     drawSemaphore.release();
 }
 
 void Engine::systemViewDestroyed(){
+    if (!viewLoaded) {
+        // A headless runner has no sokol context or view-owned GPU resources.
+        // Still release gameplay scenes and worker threads, but do not enter
+        // the graphics shutdown path, which requires a valid backend device.
+        onViewDestroyed.call();
+        for (Scene* scene : getScenesSnapshot()) {
+            if (scene) scene->destroy();
+        }
+        {
+            std::lock_guard<std::mutex> lock(sceneListMutex);
+            oneTimeScenes.clear();
+        }
+#ifndef NO_THREAD_SUPPORT
+        ThreadPoolManager::shutdown();
+#endif
+        return;
+    }
+
     SoundPool::requestShutdown();
     TextureDataPool::requestShutdown();
 
@@ -1288,6 +1483,7 @@ void Engine::systemViewDestroyed(){
 
 void Engine::systemShutdown(){
     Engine::onShutdown.call();
+    EventBus::global().clear();
 
     // before the Lua state closes under their callbacks
     AdMob::clearSubscriptions();
@@ -1573,6 +1769,10 @@ void Engine::systemCharInput(wchar_t codepoint){
         if (canSendUIEvents(scene))
             scene->getSystem<UISystem>()->eventOnCharInput(codepoint);
     }
+}
+
+void Engine::systemTextComposition(const std::string& text, int cursor, bool committed){
+    onTextComposition.call(text, cursor, committed);
 }
 
 void Engine::systemGamepadConnect(int gamepad, const std::string& name){

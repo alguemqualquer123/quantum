@@ -20,12 +20,12 @@ concurrency:
 
 env:
   BUILD_TYPE: Release
-  # The one build tree name; scripts/doriax-build-dir.bat carries the same
+  # The one build tree name; scripts/quantum-build-dir.bat carries the same
   # default, so CI and a developer's shell configure the same folder.
-  DORIAX_BUILD_DIR: build
-  TARGET: doriax-editor
+  QUANTUM_BUILD_DIR: build
+  TARGET: quantum-editor
   SIGNPATH_ORGANIZATION_ID: 71ade14e-ea98-448b-b32f-954d41e71ef9
-  SIGNPATH_PROJECT_SLUG: doriax
+  SIGNPATH_PROJECT_SLUG: quantum
 
 jobs:
   build:
@@ -49,7 +49,7 @@ jobs:
         - {
             name: "Windows Latest MSVC",
             os: windows-latest,
-            artifact: "doriax_windows",
+            artifact: "quantum_windows",
             cc: "cl",
             cxx: "cl",
             generators: "Visual Studio 18 2026"
@@ -57,7 +57,7 @@ jobs:
         - {
             name: "Windows Latest MinGW (UCRT64)",
             os: windows-latest,
-            artifact: "doriax_windows_mingw",
+            artifact: "quantum_windows_mingw",
             cc: "gcc",
             cxx: "g++",
             generators: "Ninja",
@@ -69,7 +69,7 @@ jobs:
             name: "Ubuntu Latest GCC",
             os: ubuntu-latest,
             container: "ubuntu:22.04",
-            artifact: "doriax_linux",
+            artifact: "quantum_linux",
             cc: "gcc",
             cxx: "g++",
             generators: "Ninja"
@@ -77,7 +77,7 @@ jobs:
         - {
             name: "macOS Latest Clang",
             os: macos-latest,
-            artifact: "doriax_macos",
+            artifact: "quantum_macos",
             cc: "clang",
             cxx: "clang++",
             generators: "Ninja"
@@ -106,7 +106,7 @@ jobs:
           echo github.event_name: ${{ github.event_name }}
 
       - name: Set up MSYS2 UCRT64
-        if: matrix.config.artifact == 'doriax_windows_mingw'
+        if: matrix.config.artifact == 'quantum_windows_mingw'
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -141,7 +141,7 @@ jobs:
           apt-get install -y --no-install-recommends \
             build-essential ninja-build pkg-config python3 wget gpg file \
             libx11-dev libxcursor-dev libxi-dev libxrandr-dev \
-            libgl1-mesa-dev libvulkan-dev \
+            libgl1-mesa-dev libgl1-mesa-dri libvulkan-dev xvfb xauth \
             libwayland-dev wayland-protocols extra-cmake-modules \
             libdbus-1-dev libcurl4-openssl-dev
           # 22.04 ships CMake 3.22; the vendored glslang requires 3.27 or newer.
@@ -170,19 +170,19 @@ jobs:
           # can resolve v0.6-N-gHASH the same way as a local clone.
           git fetch --tags --quiet || true
           VERSION="$(git describe --tags --always --dirty)"
-          echo "DORIAX_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "QUANTUM_VERSION=$VERSION" >> $GITHUB_ENV
           
       - name: Configure
         env:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
-          mkdir "$DORIAX_BUILD_DIR"
+          mkdir "$QUANTUM_BUILD_DIR"
           mkdir instdir
           cmake \
             -S . \
-            -B "$DORIAX_BUILD_DIR" \
-            -DDORIAXEDITOR_VERSION:STRING="$DORIAX_VERSION" \
+            -B "$QUANTUM_BUILD_DIR" \
+            -DQUANTUMEDITOR_VERSION:STRING="$QUANTUM_VERSION" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "${{ matrix.config.generators }}" \
             -DCMAKE_INSTALL_PREFIX:PATH=instdir \
@@ -194,14 +194,144 @@ jobs:
           CXX: ${{ matrix.config.cxx }}
         run: |
           targets=("${{ env.TARGET }}")
+          targets+=("quantum-network-smoke")
+          targets+=("quantum-serialization-smoke")
+          targets+=("voxel_demo")
+          targets+=("quantum-slate-tests")
+          targets+=("quantum-engine")
+          targets+=("quantum-network-relay")
+          targets+=("quantum-resource-compiler")
+          targets+=("quantum-build-generator")
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             targets+=("${{ env.TARGET }}-cmd")
           fi
-          cmake --build "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target "${targets[@]}"
+          cmake --build "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target "${targets[@]}"
+
+      - name: Run headless completion smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolve_binary() {
+            local name="$1"
+            local path
+            path="$(find "$QUANTUM_BUILD_DIR" -type f \( -name "$name" -o -name "$name.exe" \) -print -quit)"
+            if [[ -z "$path" ]]; then
+              echo "missing built binary: $name" >&2
+              exit 1
+            fi
+            printf '%s' "$path"
+          }
+
+          "$(resolve_binary quantum-network-smoke)"
+          "$(resolve_binary quantum-serialization-smoke)"
+          "$(resolve_binary voxel_demo)"
+          "$(resolve_binary quantum-slate-tests)"
+          "$(resolve_binary quantum-engine)" --project templates/daynight --headless --script-smoke --graph-smoke --graph-project-smoke --frames 1 --warmup 0
+
+          python3 scripts/network-relay-smoke.py --root . --config "${{ env.BUILD_TYPE }}"
+          python3 scripts/network-relay-smoke.py --root . --config "${{ env.BUILD_TYPE }}" --failover
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "$(resolve_binary quantum-editor-cmd)" doctor --project templates/voxelworld-main
+          fi
+
+      - name: Run editor recovery contract smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/editor_stability_smoke.py --json
+
+      - name: Verify asset database deeply
+        if: matrix.config.cc == 'cl'
+        shell: bash
+        run: |
+          set -euo pipefail
+          editor_cmd="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-editor-cmd' -o -name 'quantum-editor-cmd.exe' \) -print -quit)"
+          test -n "$editor_cmd"
+          "$editor_cmd" assets verify --project tests/scale/probe --deep --json
+
+      - name: Run incremental FBX import smoke
+        if: matrix.config.cc == 'cl'
+        shell: bash
+        run: |
+          set -euo pipefail
+          editor_cmd="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-editor-cmd' -o -name 'quantum-editor-cmd.exe' \) -print -quit)"
+          test -n "$editor_cmd"
+          python scripts/asset-import-smoke.py --root . --config "${{ env.BUILD_TYPE }}" --editor-executable "$editor_cmd"
+
+      - name: Run remote Lua debugger smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-engine' -o -name 'quantum-engine.exe' \) -print -quit)"
+          test -n "$engine"
+          python3 scripts/remote-debug-smoke.py --executable "$engine"
+
+      - name: Run scripting CLI lint smoke
+        if: matrix.config.cc == 'cl'
+        shell: bash
+        run: |
+          set -euo pipefail
+          editor_cmd="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-editor-cmd' -o -name 'quantum-editor-cmd.exe' \) -print -quit)"
+          test -n "$editor_cmd"
+          "$editor_cmd" script lint --file tests/scale/probe/lua/main.lua --strict --json
+
+      - name: Run Phase 3 presented-frame stability smoke
+        if: matrix.config.cc == 'cl' || matrix.config.artifact == 'quantum_linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          engine="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-engine' -o -name 'quantum-engine.exe' \) -print -quit)"
+          compiler="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-resource-compiler' -o -name 'quantum-resource-compiler.exe' \) -print -quit)"
+          # The dedicated resource compiler is currently a Windows-only
+          # installed tool. The editor's `shaders` CLI dispatch happens before
+          # backend initialization, so it is a safe headless fallback on Unix.
+          if [[ -z "$compiler" ]]; then
+            compiler="$(find "$QUANTUM_BUILD_DIR" -type f \( -name 'quantum-editor' -o -name 'quantum-editor.exe' \) -print -quit)"
+          fi
+          test -n "$engine"
+          test -n "$compiler"
+          artifact_dir="$RUNNER_TEMP/quantum-phase3-visual"
+          baseline_dir="$RUNNER_TEMP/quantum-phase3-baselines"
+          phase3_args=(
+            --project tests/phase3/visual_fixture
+            --engine "$engine"
+            --resource-compiler "$compiler"
+            --backend opengl
+            --feature taa --feature motionblur --feature hdr --feature lut
+            --feature clustered --feature ssgi --feature ssr
+            --feature atmosphere --feature shadows
+            --artifact-dir "$artifact_dir"
+            --baseline-dir "$baseline_dir"
+            --window 320x180
+            --capture-frame 60
+            --threshold 0.01
+          )
+          run_phase3() {
+            if [[ "${{ matrix.config.artifact }}" == "quantum_linux" ]]; then
+              LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a -s "-screen 0 1280x720x24" \
+                python3 scripts/phase3_visual.py "$@"
+            else
+              python3 scripts/phase3_visual.py "$@"
+            fi
+          }
+          run_phase3 "${phase3_args[@]}" --update-baselines
+          run_phase3 "${phase3_args[@]}"
+
+      - name: Verify generated Lua API artifacts
+        if: matrix.config.cc == 'cl'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake --build "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target generate_lua_docs generate_lua_types
+          test -s "${QUANTUM_BUILD_DIR}/generated/lua_api.md"
+          test -s "${QUANTUM_BUILD_DIR}/generated/lua_types.h"
+          cmake --build "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target generate_visual_script_catalog
+          test -s "${QUANTUM_BUILD_DIR}/generated/engine_node_catalog.json"
 
       - name: Install Strip
         shell: bash
-        run: cmake --install "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --strip
+        run: cmake --install "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --strip
         
       - name: List directories
         shell: bash
@@ -209,7 +339,7 @@ jobs:
         run: ls -laR
 
       - name: Check the GCC runtime was packaged
-        if: matrix.config.artifact == 'doriax_windows_mingw'
+        if: matrix.config.artifact == 'quantum_windows_mingw'
         shell: bash
         run: |
           for dll in libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll; do
@@ -265,11 +395,11 @@ jobs:
           # already resolve relative to the binary, so nothing moves.
           rm -rf AppDir && mkdir AppDir
           cp -a instdir AppDir/usr
-          cp editor/resources/linux/doriax-editor.desktop AppDir/
-          cp editor/resources/icons/linux/doriax-editor-512.png AppDir/doriax-editor.png
+          cp editor/resources/linux/quantum-editor.desktop AppDir/
+          cp editor/resources/icons/linux/quantum-editor-512.png AppDir/quantum-editor.png
 
-          # 22.04's libstdc++ is newer than older targets carry, and DORIAX_SHARED
-          # rules out -static-libstdc++: the editor and libdoriax.so would each get
+          # 22.04's libstdc++ is newer than older targets carry, and QUANTUM_SHARED
+          # rules out -static-libstdc++: the editor and libquantum.so would each get
           # their own runtime.
           mkdir -p AppDir/usr/lib
           for lib in libstdc++.so.6 libgcc_s.so.1; do
@@ -278,7 +408,7 @@ jobs:
 
           # glibc cannot ride along the way libstdc++ can, so AppRun turns anything
           # older than these binaries were linked against away with a message.
-          GLIBC_FLOOR="$(objdump -T AppDir/usr/bin/doriax-editor AppDir/usr/bin/libdoriax.so \
+          GLIBC_FLOOR="$(objdump -T AppDir/usr/bin/quantum-editor AppDir/usr/bin/libquantum.so \
             AppDir/usr/lib/libstdc++.so.6 AppDir/usr/lib/libgcc_s.so.1 \
             | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1)"
           echo "glibc floor: $GLIBC_FLOOR"
@@ -297,7 +427,7 @@ jobs:
           # Only take over where the host's runtime is older: doing it everywhere would
           # hand the host's Mesa an older libstdc++ than it was built against. Ask the
           # loader where that copy is rather than guess at distro layouts.
-          host_lib="$(LD_TRACE_LOADED_OBJECTS=1 "$HERE/usr/bin/doriax-editor" 2>/dev/null \
+          host_lib="$(LD_TRACE_LOADED_OBJECTS=1 "$HERE/usr/bin/quantum-editor" 2>/dev/null \
             | sed -n 's/.*libstdc++\.so\.6 => \([^ ]*\).*/\1/p')"
           bundled="$(glibcxx_minor "$HERE/usr/lib/libstdc++.so.6")"
           host="$(glibcxx_minor "$host_lib")"
@@ -309,7 +439,7 @@ jobs:
           glibc="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $NF}')"
           if [ -n "$glibc" ] && [ "$glibc" != "@GLIBC_FLOOR@" ] \
             && [ "$(printf '%s\n%s\n' "$glibc" "@GLIBC_FLOOR@" | sort -V | head -1)" = "$glibc" ]; then
-            msg="Doriax needs glibc @GLIBC_FLOOR@ or newer, and this system has $glibc.
+            msg="Quantum needs glibc @GLIBC_FLOOR@ or newer, and this system has $glibc.
           Ubuntu 22.04 and Debian 12 are the oldest releases it runs on; older ones
           need a build from source."
             printf '%s\n' "$msg" >&2
@@ -323,7 +453,7 @@ jobs:
             exit 1
           fi
 
-          exec "$HERE/usr/bin/doriax-editor" "$@"
+          exec "$HERE/usr/bin/quantum-editor" "$@"
           APPRUN
           sed -i "s/@GLIBC_FLOOR@/$GLIBC_FLOOR/g" AppDir/AppRun
           chmod +x AppDir/AppRun
@@ -340,13 +470,13 @@ jobs:
           # -u writes a .zsync so AppImageUpdate and Gear Lever can delta-update
           # from the release assets.
           ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 ./appimagetool AppDir \
-            -u "gh-releases-zsync|doriaxengine|doriax|latest|Doriax-*-x86_64.AppImage.zsync" \
-            "dist/Doriax-${DORIAX_VERSION}-linux-x86_64.AppImage"
+            -u "gh-releases-zsync|alguemqualquer123|quantum|latest|Quantum-*-x86_64.AppImage.zsync" \
+            "dist/Quantum-${QUANTUM_VERSION}-linux-x86_64.AppImage"
 
           # appimagetool writes the .zsync in the working directory, not beside the
           # AppImage, and -u embeds update info even if zsyncmake never ran.
-          mv "Doriax-${DORIAX_VERSION}-linux-x86_64.AppImage.zsync" dist/
-          test -s "dist/Doriax-${DORIAX_VERSION}-linux-x86_64.AppImage.zsync"
+          mv "Quantum-${QUANTUM_VERSION}-linux-x86_64.AppImage.zsync" dist/
+          test -s "dist/Quantum-${QUANTUM_VERSION}-linux-x86_64.AppImage.zsync"
 
           ls -la dist
 
@@ -377,11 +507,11 @@ jobs:
           codesign --verify --strict --verbose=2 "$APP" || echo "::warning::strict verify failed"
 
           set -e
-          # Same loose tree the zip had before the bundle: doriax-editor,
-          # libdoriax.dylib, engine/. Actions wraps this as doriax_macos.zip.
+          # Same loose tree the zip had before the bundle: quantum-editor,
+          # libquantum.dylib, engine/. Actions wraps this as quantum_macos.zip.
           BIN="$APP/Contents/MacOS"
           mkdir -p dist/macos-zip
-          cp "$BIN/$(basename "$APP" .app)" dist/macos-zip/doriax-editor
+          cp "$BIN/$(basename "$APP" .app)" dist/macos-zip/quantum-editor
           for dylib in "$BIN"/*.dylib; do
             [ -e "$dylib" ] && cp "$dylib" dist/macos-zip/
           done
@@ -394,17 +524,17 @@ jobs:
             find "$APP" | head -40
             exit 1
           fi
-          chmod +x dist/macos-zip/doriax-editor
+          chmod +x dist/macos-zip/quantum-editor
           for dylib in dist/macos-zip/*.dylib; do
             [ -e "$dylib" ] && codesign --force --sign - --timestamp=none "$dylib"
           done
-          codesign --force --sign - --timestamp=none dist/macos-zip/doriax-editor
+          codesign --force --sign - --timestamp=none dist/macos-zip/quantum-editor
 
           # Artifact zips lose the executable bit, so ship a dmg too.
           mkdir dmg-stage
           cp -R "$APP" dmg-stage/
           ln -s /Applications dmg-stage/Applications
-          hdiutil create -volname "Doriax" -srcfolder dmg-stage -ov -format UDZO dist/Doriax.dmg
+          hdiutil create -volname "Quantum" -srcfolder dmg-stage -ov -format UDZO dist/Quantum.dmg
           rm -rf dmg-stage
           ls -la dist dist/macos-zip instdir/bin
 
@@ -478,19 +608,19 @@ jobs:
 
           # The artifacts came through an Actions zip, which dropped the
           # executable bit the release archives ship with.
-          chmod +x artifacts/doriax_linux/doriax-editor
-          chmod +x artifacts/doriax_macos/doriax-editor
+          chmod +x artifacts/quantum_linux/quantum-editor
+          chmod +x artifacts/quantum_macos/quantum-editor
 
           # A tree of binaries still needs an archive.
-          (cd artifacts/doriax_windows && zip -qr "$GITHUB_WORKSPACE/release/Doriax-${VERSION}-windows-x64.zip" .)
-          (cd artifacts/doriax_linux && zip -qr "$GITHUB_WORKSPACE/release/Doriax-${VERSION}-linux-x86_64.zip" .)
-          (cd artifacts/doriax_macos && zip -qr "$GITHUB_WORKSPACE/release/Doriax-${VERSION}-macos-universal.zip" .)
+          (cd artifacts/quantum_windows && zip -qr "$GITHUB_WORKSPACE/release/Quantum-${VERSION}-windows-x64.zip" .)
+          (cd artifacts/quantum_linux && zip -qr "$GITHUB_WORKSPACE/release/Quantum-${VERSION}-linux-x86_64.zip" .)
+          (cd artifacts/quantum_macos && zip -qr "$GITHUB_WORKSPACE/release/Quantum-${VERSION}-macos-universal.zip" .)
 
           # The .zsync names the AppImage it belongs to, so the pair keeps the
           # filenames it was built with.
-          cp artifacts/doriax_linux_appimage/* release/
-          cp artifacts/doriax_linux_zsync/* release/
-          cp artifacts/doriax_macos_dmg/Doriax.dmg "release/Doriax-${VERSION}-macos-universal.dmg"
+          cp artifacts/quantum_linux_appimage/* release/
+          cp artifacts/quantum_linux_zsync/* release/
+          cp artifacts/quantum_macos_dmg/Quantum.dmg "release/Quantum-${VERSION}-macos-universal.dmg"
           ls -la release
           # --clobber so re-running the workflow on a release replaces the assets.
           gh release upload "$VERSION" release/* --clobber --repo "$GITHUB_REPOSITORY"

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Light2D.h"
@@ -6,7 +6,7 @@
 #include "util/Color.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Light2D::Light2D(Scene* scene): Object(scene){
     addComponent<Light2DComponent>();

@@ -1,9 +1,11 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "window/HubWindow.h"
 
 #include <algorithm>
+#include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -12,21 +14,25 @@
 #include "AppSettings.h"
 #include "EditorVersion.h"
 #include "Out.h"
+#include "ai/HttpClient.h"
 #include "imgui.h"
 #include "util/FileDialogs.h"
 #include "util/FileUtils.h"
+#include "util/PackageZip.h"
 #include "util/ProcessLaunch.h"
+#include "json.hpp"
+#include "util/Checksum.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
 #ifdef _WIN32
-constexpr const char* kEditorExecutableName = "doriax-editor.exe";
-constexpr const char* kResourceServerExecutableName = "doriax-resource-server.exe";
+constexpr const char* kEditorExecutableName = "quantum-editor.exe";
+constexpr const char* kResourceServerExecutableName = "quantum-resource-server.exe";
 #else
-constexpr const char* kEditorExecutableName = "doriax-editor";
-constexpr const char* kResourceServerExecutableName = "doriax-resource-server";
+constexpr const char* kEditorExecutableName = "quantum-editor";
+constexpr const char* kResourceServerExecutableName = "quantum-resource-server";
 #endif
 
 // Per-run state and heavy build outputs that must not travel into an installed
@@ -39,6 +45,60 @@ constexpr const char* kInstallSkipDirs[] = {"build", ".git", ".vs"};
 
 constexpr const char* kCreatePopupId = "New Project";
 constexpr const char* kRemovePopupId = "Remove Install";
+constexpr const char* kDefaultHubManifestUrl =
+    "https://raw.githubusercontent.com/alguemqualquer123/quantum/main/release-manifest.json";
+
+using Json = nlohmann::json;
+
+std::string releasePlatform() {
+#if defined(_WIN32) && defined(_M_ARM64)
+    return "windows-arm64";
+#elif defined(_WIN32)
+    return "windows-x64";
+#elif defined(__APPLE__) && defined(__aarch64__)
+    return "macos-arm64";
+#elif defined(__APPLE__)
+    return "macos-x64";
+#elif defined(__aarch64__)
+    return "linux-arm64";
+#else
+    return "linux-x64";
+#endif
+}
+
+bool isAllowedRemoteUrl(const std::string& url) {
+    if (url.rfind("https://", 0) == 0) {
+        return true;
+    }
+    // Plain HTTP is useful for a local release server during development, but a
+    // public Hub must use HTTPS so the manifest and archive cannot be replaced in transit.
+    return url.rfind("http://127.0.0.1", 0) == 0 ||
+           url.rfind("http://localhost", 0) == 0;
+}
+
+std::string safeInstallLabel(std::string label) {
+    if (label.empty()) {
+        label = "Quantum";
+    }
+    for (char& character : label) {
+        const bool safe = (character >= 'a' && character <= 'z') ||
+                          (character >= 'A' && character <= 'Z') ||
+                          (character >= '0' && character <= '9') ||
+                          character == '-' || character == '_' || character == '.';
+        if (!safe) {
+            character = '_';
+        }
+    }
+    while (!label.empty() && (label.back() == '.' || label.back() == ' ')) {
+        label.pop_back();
+    }
+    return label.empty() ? "Quantum" : label;
+}
+
+std::string jsonString(const Json& node, const char* key) {
+    const auto found = node.find(key);
+    return found != node.end() && found->is_string() ? found->get<std::string>() : std::string();
+}
 
 bool isInstallSkippedFile(const std::filesystem::path& path) {
     const std::string name = path.filename().string();
@@ -186,13 +246,47 @@ bool copyBuildFolder(const std::filesystem::path& sourceDirIn,
     return true;
 }
 
+// The folder the hub used before the fork took the Quantum name.
+std::filesystem::path legacyHubDataDir() {
+#if defined(_WIN32)
+    if (const char* localAppData = std::getenv("LOCALAPPDATA"); localAppData && *localAppData) {
+        return std::filesystem::path(localAppData) / "Quantum" / "Hub";
+    }
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData) {
+        return std::filesystem::path(appData) / "Quantum" / "Hub";
+    }
+#elif defined(__APPLE__)
+    if (const char* home = std::getenv("HOME"); home && *home) {
+        return std::filesystem::path(home) / "Library" / "Application Support" / "Quantum" / "Hub";
+    }
+#else
+    if (const char* dataHome = std::getenv("XDG_DATA_HOME"); dataHome && *dataHome) {
+        return std::filesystem::path(dataHome) / "quantum" / "hub";
+    }
+    if (const char* home = std::getenv("HOME"); home && *home) {
+        return std::filesystem::path(home) / ".local" / "share" / "quantum" / "hub";
+    }
+#endif
+    return {};
+}
+
 } // namespace
 
-editor::HubWindow::HubWindow() {
+quantum::editor::HubWindow::HubWindow() {
+    FileUtils::adoptLegacyDirectory(legacyHubDataDir(), hubDataDir());
+    std::snprintf(releaseManifestUrl, sizeof(releaseManifestUrl), "%s", kDefaultHubManifestUrl);
+#ifdef QUANTUM_HUB_DEFAULT_MANIFEST_URL
+    std::snprintf(releaseManifestUrl, sizeof(releaseManifestUrl), "%s",
+                  QUANTUM_HUB_DEFAULT_MANIFEST_URL);
+#endif
     loadConfig();
 }
 
-editor::HubWindow::~HubWindow() {
+quantum::editor::HubWindow::~HubWindow() {
+    if (releaseJob && releaseJob->worker.joinable()) {
+        releaseJob->cancelRequested = true;
+        releaseJob->worker.join();
+    }
     if (installJob && installJob->worker.joinable()) {
         // Ask the worker to stop early so closing the hub never waits for a
         // full copy to finish.
@@ -201,38 +295,38 @@ editor::HubWindow::~HubWindow() {
     }
 }
 
-std::filesystem::path editor::HubWindow::hubDataDir() const {
+std::filesystem::path quantum::editor::HubWindow::hubDataDir() const {
 #if defined(_WIN32)
     if (const char* localAppData = std::getenv("LOCALAPPDATA"); localAppData && *localAppData) {
-        return std::filesystem::path(localAppData) / "Doriax" / "Hub";
+        return std::filesystem::path(localAppData) / "Quantum" / "Hub";
     }
     if (const char* appData = std::getenv("APPDATA"); appData && *appData) {
-        return std::filesystem::path(appData) / "Doriax" / "Hub";
+        return std::filesystem::path(appData) / "Quantum" / "Hub";
     }
 #elif defined(__APPLE__)
     if (const char* home = std::getenv("HOME"); home && *home) {
-        return std::filesystem::path(home) / "Library" / "Application Support" / "Doriax" / "Hub";
+        return std::filesystem::path(home) / "Library" / "Application Support" / "Quantum" / "Hub";
     }
 #else
     if (const char* dataHome = std::getenv("XDG_DATA_HOME"); dataHome && *dataHome) {
-        return std::filesystem::path(dataHome) / "doriax" / "hub";
+        return std::filesystem::path(dataHome) / "quantum" / "hub";
     }
     if (const char* home = std::getenv("HOME"); home && *home) {
-        return std::filesystem::path(home) / ".local" / "share" / "doriax" / "hub";
+        return std::filesystem::path(home) / ".local" / "share" / "quantum" / "hub";
     }
 #endif
-    return std::filesystem::current_path() / "doriax-hub";
+    return std::filesystem::current_path() / "quantum-hub";
 }
 
-std::filesystem::path editor::HubWindow::installsDir() const {
+std::filesystem::path quantum::editor::HubWindow::installsDir() const {
     return hubDataDir() / "installs";
 }
 
-std::filesystem::path editor::HubWindow::hubConfigPath() const {
+std::filesystem::path quantum::editor::HubWindow::hubConfigPath() const {
     return hubDataDir() / "hub.yaml";
 }
 
-void editor::HubWindow::loadConfig() {
+void quantum::editor::HubWindow::loadConfig() {
     std::ifstream input(hubConfigPath());
     if (!input.is_open()) {
         return;
@@ -247,11 +341,13 @@ void editor::HubWindow::loadConfig() {
         const std::string value = line.substr(separator + 1);
         if (key == "default_install" && value != "-") {
             defaultInstallLabel = value;
+        } else if (key == "manifest_url") {
+            std::snprintf(releaseManifestUrl, sizeof(releaseManifestUrl), "%s", value.c_str());
         }
     }
 }
 
-void editor::HubWindow::saveConfig() {
+void quantum::editor::HubWindow::saveConfig() {
     std::error_code ec;
     std::filesystem::create_directories(hubDataDir(), ec);
     std::ofstream output(hubConfigPath(), std::ios::trunc);
@@ -263,9 +359,10 @@ void editor::HubWindow::saveConfig() {
             ? installs[selectedInstall].label
             : std::string("-");
     output << "default_install=" << selected << "\n";
+    output << "manifest_url=" << releaseManifestUrl << "\n";
 }
 
-void editor::HubWindow::scanInstalls() {
+void quantum::editor::HubWindow::scanInstalls() {
     installs.clear();
     std::error_code ec;
     const std::filesystem::path directory = installsDir();
@@ -295,7 +392,7 @@ void editor::HubWindow::scanInstalls() {
     installsScanned = true;
 }
 
-void editor::HubWindow::scanTemplates() {
+void quantum::editor::HubWindow::scanTemplates() {
     templates.clear();
     std::error_code ec;
     const std::filesystem::path templatesRoot = FileUtils::getTemplatesDir();
@@ -317,13 +414,125 @@ void editor::HubWindow::scanTemplates() {
     templatesScanned = true;
 }
 
-void editor::HubWindow::setStatus(const std::string& message) {
+void quantum::editor::HubWindow::setStatus(const std::string& message) {
     statusMessage = message;
     statusMessageTime = ImGui::GetTime();
     Out::info("Hub: %s", message.c_str());
 }
 
-std::filesystem::path editor::HubWindow::effectiveEditorDir() const {
+void quantum::editor::HubWindow::fetchRemoteReleases() {
+    if (releaseJob && releaseJob->running) {
+        setStatus("Release list is already loading.");
+        return;
+    }
+
+    const std::string manifestUrl = trimmed(releaseManifestUrl);
+    if (manifestUrl.empty()) {
+        setStatus("Set a release manifest URL first.");
+        return;
+    }
+    if (!isAllowedRemoteUrl(manifestUrl)) {
+        setStatus("Release manifest must use HTTPS (HTTP is allowed only for localhost). ");
+        return;
+    }
+
+    auto job = std::make_unique<ReleaseJob>();
+    job->running = true;
+    ReleaseJob* jobPointer = job.get();
+    job->worker = std::thread([jobPointer, manifestUrl]() {
+        ai::HttpClient client;
+        const ai::HttpResponse response = client.get(manifestUrl, {}, &jobPointer->cancelRequested);
+        std::string error;
+        std::vector<RemoteRelease> releases;
+
+        if (!response.error.empty()) {
+            error = response.error;
+        } else if (response.status < 200 || response.status >= 300) {
+            error = "manifest returned HTTP " + std::to_string(response.status);
+        } else {
+            const Json root = Json::parse(response.body, nullptr, false);
+            const auto entries = root.is_object() ? root.find("releases") : root.end();
+            if (root.is_discarded() || !root.is_object() ||
+                entries == root.end() || !entries->is_array()) {
+                error = "manifest must contain a releases array";
+            } else {
+                for (const Json& node : *entries) {
+                    if (!node.is_object()) {
+                        continue;
+                    }
+                    const std::string platform = jsonString(node, "platform");
+                    if (!platform.empty() && platform != releasePlatform()) {
+                        continue;
+                    }
+
+                    RemoteRelease release;
+                    release.version = jsonString(node, "version");
+                    release.label = jsonString(node, "label");
+                    release.url = jsonString(node, "url");
+                    release.sha256 = jsonString(node, "sha256");
+                    const auto size = node.find("size");
+                    if (size != node.end() && size->is_number_unsigned()) {
+                        release.size = size->get<unsigned long long>();
+                    }
+                    if (release.label.empty()) {
+                        release.label = "Quantum " + release.version;
+                    }
+                    if (release.version.empty() || release.url.empty() || release.sha256.empty()) {
+                        continue;
+                    }
+                    if (!isAllowedRemoteUrl(release.url)) {
+                        continue;
+                    }
+                    releases.push_back(std::move(release));
+                }
+                std::sort(releases.begin(), releases.end(), [](const RemoteRelease& left,
+                                                               const RemoteRelease& right) {
+                    return left.version > right.version;
+                });
+                if (releases.empty()) {
+                    error = "manifest has no release for " + releasePlatform();
+                }
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(jobPointer->mutex);
+            jobPointer->error = error;
+            jobPointer->releases = std::move(releases);
+        }
+        jobPointer->success = error.empty();
+        jobPointer->running = false;
+    });
+
+    releaseJob = std::move(job);
+    setStatus("Loading releases...");
+}
+
+void quantum::editor::HubWindow::pollRemoteReleases() {
+    if (!releaseJob || releaseJob->running) {
+        return;
+    }
+
+    releaseJob->worker.join();
+    const bool success = releaseJob->success;
+    std::string error;
+    std::vector<RemoteRelease> releases;
+    {
+        std::lock_guard<std::mutex> lock(releaseJob->mutex);
+        error = releaseJob->error;
+        releases = std::move(releaseJob->releases);
+    }
+    releaseJob.reset();
+
+    if (!success) {
+        setStatus("Could not load releases: " + error);
+        return;
+    }
+    remoteReleases = std::move(releases);
+    setStatus("Loaded " + std::to_string(remoteReleases.size()) + " release(s).");
+}
+
+std::filesystem::path quantum::editor::HubWindow::effectiveEditorDir() const {
     if (selectedInstall >= 0 && selectedInstall < static_cast<int>(installs.size()) &&
         installs[selectedInstall].valid) {
         return installs[selectedInstall].path;
@@ -331,7 +540,7 @@ std::filesystem::path editor::HubWindow::effectiveEditorDir() const {
     return FileUtils::getExecutableDir();
 }
 
-void editor::HubWindow::launchProject(const std::filesystem::path& projectPath) {
+void quantum::editor::HubWindow::launchProject(const std::filesystem::path& projectPath) {
     const std::filesystem::path executable = effectiveEditorDir() / kEditorExecutableName;
     std::error_code ec;
     if (!std::filesystem::exists(executable, ec)) {
@@ -347,7 +556,7 @@ void editor::HubWindow::launchProject(const std::filesystem::path& projectPath) 
     }
 }
 
-void editor::HubWindow::launchCreateProject(const std::filesystem::path& projectPath,
+void quantum::editor::HubWindow::launchCreateProject(const std::filesystem::path& projectPath,
                                             const std::string& templateName) {
     const std::filesystem::path executable = effectiveEditorDir() / kEditorExecutableName;
     std::error_code ec;
@@ -368,20 +577,20 @@ void editor::HubWindow::launchCreateProject(const std::filesystem::path& project
     }
 }
 
-void editor::HubWindow::openCreateDialog() {
+void quantum::editor::HubWindow::openCreateDialog() {
     createDialogOpen = true;
     createPopupOpened = false;
     dialogError.clear();
     if (projectName[0] == '\0') {
-        std::snprintf(projectName, sizeof(projectName), "%s", "MyDoriaxProject");
+        std::snprintf(projectName, sizeof(projectName), "%s", "MyQuantumProject");
     }
     if (projectLocation[0] == '\0') {
-        const std::filesystem::path defaultLocation = homeDirectory() / "DoriaxProjects";
+        const std::filesystem::path defaultLocation = homeDirectory() / "QuantumProjects";
         std::snprintf(projectLocation, sizeof(projectLocation), "%s", defaultLocation.string().c_str());
     }
 }
 
-void editor::HubWindow::startInstall(const std::filesystem::path& sourceDir, const std::string& label) {
+void quantum::editor::HubWindow::startInstall(const std::filesystem::path& sourceDir, const std::string& label) {
     if (installJob && installJob->running) {
         setStatus("An install is already running.");
         return;
@@ -434,7 +643,135 @@ void editor::HubWindow::startInstall(const std::filesystem::path& sourceDir, con
     setStatus("Installing \"" + installJob->label + "\"...");
 }
 
-void editor::HubWindow::pollInstallJob() {
+void quantum::editor::HubWindow::startRemoteInstall(const RemoteRelease& release) {
+    if (installJob && installJob->running) {
+        setStatus("An install is already running.");
+        return;
+    }
+    if (release.url.empty() || release.sha256.empty()) {
+        setStatus("This release has no download URL or SHA-256 checksum.");
+        return;
+    }
+    if (!isAllowedRemoteUrl(release.url)) {
+        setStatus("Release downloads must use HTTPS.");
+        return;
+    }
+
+    std::error_code ec;
+    const std::string baseLabel = safeInstallLabel(release.label);
+    std::filesystem::create_directories(installsDir(), ec);
+    if (ec) {
+        setStatus("Could not create the install directory: " + ec.message());
+        return;
+    }
+
+    std::filesystem::path destination = installsDir() / baseLabel;
+    for (int suffix = 2; std::filesystem::exists(destination, ec); ++suffix) {
+        destination = installsDir() / (baseLabel + "-" + std::to_string(suffix));
+    }
+
+    const std::filesystem::path downloadsDir = hubDataDir() / "downloads";
+    const std::filesystem::path stagingRoot =
+        hubDataDir() / "staging" /
+        (baseLabel + "-" + std::to_string(
+            std::chrono::steady_clock::now().time_since_epoch().count()));
+    const std::filesystem::path archive = downloadsDir / (baseLabel + ".zip.part");
+
+    auto job = std::make_unique<InstallJob>();
+    job->label = destination.filename().string();
+    job->destination = destination;
+    job->phase = 1;
+    job->running = true;
+    InstallJob* jobPointer = job.get();
+
+    job->worker = std::thread([jobPointer, release, archive, stagingRoot, destination]() {
+        auto fail = [&](const std::string& message) {
+            {
+                std::lock_guard<std::mutex> lock(jobPointer->mutex);
+                jobPointer->error = message;
+            }
+            std::error_code cleanupError;
+            std::filesystem::remove(archive, cleanupError);
+            std::filesystem::remove_all(stagingRoot, cleanupError);
+            jobPointer->success = false;
+            jobPointer->running = false;
+        };
+
+        std::error_code ec;
+        std::filesystem::create_directories(archive.parent_path(), ec);
+        if (ec) {
+            fail("Could not create the download directory: " + ec.message());
+            return;
+        }
+
+        ai::HttpClient client;
+        const ai::HttpResponse response = client.downloadToFile(
+            release.url, archive, {"Accept: application/zip"}, &jobPointer->cancelRequested);
+        if (!response.error.empty()) {
+            fail(response.error);
+            return;
+        }
+        if (response.status < 200 || response.status >= 300) {
+            fail("download returned HTTP " + std::to_string(response.status));
+            return;
+        }
+
+        jobPointer->phase = 2;
+        std::string hashError;
+        const std::string actualHash = quantum::sha256HexOfFile(archive.string(), hashError);
+        if (!hashError.empty()) {
+            fail("Could not verify download: " + hashError);
+            return;
+        }
+        std::string expectedHash = release.sha256;
+        std::transform(expectedHash.begin(), expectedHash.end(), expectedHash.begin(),
+                       [](unsigned char character) {
+                           return static_cast<char>(std::tolower(character));
+                       });
+        if (actualHash != expectedHash) {
+            fail("SHA-256 mismatch; the downloaded release was rejected.");
+            return;
+        }
+
+        jobPointer->phase = 3;
+        std::string packageError;
+        const std::string baseFolder = ::editor::PackageZip::baseFolderOf(archive.string(), packageError);
+        if (!packageError.empty() || baseFolder.empty() || baseFolder == "." || baseFolder == ".." ||
+            baseFolder.find('/') != std::string::npos || baseFolder.find('\\') != std::string::npos) {
+            fail(packageError.empty() ? "Release archive must contain one safe root folder."
+                                      : packageError);
+            return;
+        }
+        if (!::editor::PackageZip::extract(archive.string(), stagingRoot.string(), packageError)) {
+            fail(packageError);
+            return;
+        }
+
+        const std::filesystem::path extractedRoot = stagingRoot / baseFolder;
+        if (!std::filesystem::exists(extractedRoot / kEditorExecutableName, ec)) {
+            fail("Release archive has no " + std::string(kEditorExecutableName) + ".");
+            return;
+        }
+        jobPointer->missingResourceServer =
+            !std::filesystem::exists(extractedRoot / kResourceServerExecutableName, ec);
+
+        std::filesystem::rename(extractedRoot, destination, ec);
+        if (ec) {
+            fail("Could not finalize the install: " + ec.message());
+            return;
+        }
+
+        std::filesystem::remove(archive, ec);
+        std::filesystem::remove_all(stagingRoot, ec);
+        jobPointer->success = true;
+        jobPointer->running = false;
+    });
+
+    installJob = std::move(job);
+    setStatus("Downloading \"" + installJob->label + "\"...");
+}
+
+void quantum::editor::HubWindow::pollInstallJob() {
     if (!installJob || installJob->running) {
         return;
     }
@@ -466,7 +803,7 @@ void editor::HubWindow::pollInstallJob() {
     }
 }
 
-void editor::HubWindow::removeInstall(int index) {
+void quantum::editor::HubWindow::removeInstall(int index) {
     if (index < 0 || index >= static_cast<int>(installs.size())) {
         return;
     }
@@ -486,7 +823,7 @@ void editor::HubWindow::removeInstall(int index) {
     setStatus("Removed \"" + label + "\".");
 }
 
-void editor::HubWindow::drawProjectsTab() {
+void quantum::editor::HubWindow::drawProjectsTab() {
     const ImVec4 warning(1.0f, 0.45f, 0.35f, 1.0f);
 
     if (ImGui::Button("New Project...", ImVec2(140, 0))) {
@@ -501,7 +838,7 @@ void editor::HubWindow::drawProjectsTab() {
                 AppSettings::addToRecentProjects(picked, true);
                 setStatus("Added \"" + std::filesystem::path(picked).filename().string() + "\".");
             } else {
-                setStatus("\"" + picked + "\" is not a Doriax project (no project.yaml).");
+                setStatus("\"" + picked + "\" is not a Quantum project (no project.yaml).");
             }
         }
     }
@@ -553,10 +890,15 @@ void editor::HubWindow::drawProjectsTab() {
     ImGui::EndChild();
 }
 
-void editor::HubWindow::drawInstallsTab() {
+void quantum::editor::HubWindow::drawInstallsTab() {
     const ImVec4 warning(1.0f, 0.45f, 0.35f, 1.0f);
 
     const bool installing = installJob && installJob->running;
+
+    if (!remoteReleasesRequested && !releaseJob && remoteReleases.empty()) {
+        remoteReleasesRequested = true;
+        fetchRemoteReleases();
+    }
 
     ImGui::BeginDisabled(installing);
     if (ImGui::Button("Install This Build", ImVec2(160, 0))) {
@@ -580,6 +922,46 @@ void editor::HubWindow::drawInstallsTab() {
     ImGui::Dummy(ImVec2(0, 6));
     ImGui::TextDisabled("%s", "Projects open with the selected install. Installing copies the build folder (executable, engine files and templates).");
     ImGui::Dummy(ImVec2(0, 6));
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Remote releases");
+    ImGui::TextDisabled("Download a verified editor package published on GitHub.");
+    ImGui::SetNextItemWidth(-130);
+    if (ImGui::InputText("Manifest URL", releaseManifestUrl, IM_ARRAYSIZE(releaseManifestUrl))) {
+        saveConfig();
+    }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(installing || (releaseJob && releaseJob->running));
+    if (ImGui::Button("Load releases", ImVec2(120, 0))) {
+        saveConfig();
+        fetchRemoteReleases();
+    }
+    ImGui::EndDisabled();
+
+    if (releaseJob && releaseJob->running) {
+        ImGui::TextDisabled("Contacting release server...");
+    } else if (!remoteReleases.empty()) {
+        for (int i = 0; i < static_cast<int>(remoteReleases.size()); ++i) {
+            const RemoteRelease& release = remoteReleases[i];
+            ImGui::PushID(2000 + i);
+            ImGui::Separator();
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextUnformatted(release.label.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", release.version.c_str());
+            if (release.size > 0) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("%.1f MB", static_cast<double>(release.size) / (1024.0 * 1024.0));
+            }
+            ImGui::SameLine(ImGui::GetContentRegionMax().x - 150.0f);
+            ImGui::BeginDisabled(installing);
+            if (ImGui::Button("Download / Install", ImVec2(145, 0))) {
+                startRemoteInstall(release);
+            }
+            ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+    }
 
     ImGui::BeginChild("##hub_installs", ImVec2(0, 0), ImGuiChildFlags_Borders);
     {
@@ -645,7 +1027,7 @@ void editor::HubWindow::drawInstallsTab() {
     ImGui::EndChild();
 }
 
-void editor::HubWindow::drawCreateDialog() {
+void quantum::editor::HubWindow::drawCreateDialog() {
     if (createDialogOpen && !createPopupOpened) {
         ImGui::OpenPopup(kCreatePopupId);
         createPopupOpened = true;
@@ -658,7 +1040,7 @@ void editor::HubWindow::drawCreateDialog() {
                viewport->WorkPos.y + viewport->WorkSize.y * 0.5f),
         ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal(kCreatePopupId, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextUnformatted("Create a new Doriax project");
+        ImGui::TextUnformatted("Create a new Quantum project");
         ImGui::Separator();
         ImGui::Dummy(ImVec2(0, 4));
 
@@ -740,7 +1122,7 @@ void editor::HubWindow::drawCreateDialog() {
     }
 }
 
-void editor::HubWindow::drawRemoveDialog() {
+void quantum::editor::HubWindow::drawRemoveDialog() {
     if (pendingRemove < 0 || pendingRemove >= static_cast<int>(installs.size())) {
         return;
     }
@@ -775,7 +1157,8 @@ void editor::HubWindow::drawRemoveDialog() {
     }
 }
 
-void editor::HubWindow::show() {
+void quantum::editor::HubWindow::show() {
+    pollRemoteReleases();
     pollInstallJob();
 
     if (!installsScanned) {
@@ -801,7 +1184,7 @@ void editor::HubWindow::show() {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::Begin("##DoriaxHub", nullptr, windowFlags);
+    ImGui::Begin("##QuantumHub", nullptr, windowFlags);
     ImGui::PopStyleVar(3);
 
     // Sidebar.
@@ -810,7 +1193,7 @@ void editor::HubWindow::show() {
         ImGui::Dummy(ImVec2(0, 4));
         ImGui::Indent(10);
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.45f, 0.75f, 1.0f, 1.0f));
-        ImGui::TextUnformatted("DORIAX HUB");
+        ImGui::TextUnformatted("QUANTUM HUB");
         ImGui::PopStyleColor();
         ImGui::Unindent(10);
         ImGui::Dummy(ImVec2(0, 12));
@@ -826,7 +1209,7 @@ void editor::HubWindow::show() {
         if (footerPosition > 0) {
             ImGui::SetCursorPosY(footerPosition);
         }
-        ImGui::TextDisabled("Version %s", DORIAX_EDITOR_VERSION);
+        ImGui::TextDisabled("Version %s", QUANTUM_EDITOR_VERSION);
     }
     ImGui::EndChild();
 
@@ -845,10 +1228,17 @@ void editor::HubWindow::show() {
     if (installJob && installJob->running) {
         const int total = installJob->totalFiles.load();
         const int copied = installJob->copiedFiles.load();
-        if (total > 0) {
+        const int phase = installJob->phase.load();
+        if (phase == 1 && total > 0) {
             char overlay[64];
             std::snprintf(overlay, sizeof(overlay), "%d / %d files", copied, total);
             ImGui::ProgressBar(static_cast<float>(copied) / static_cast<float>(total), ImVec2(320, 0), overlay);
+        } else if (phase == 1) {
+            ImGui::TextUnformatted("Downloading...");
+        } else if (phase == 2) {
+            ImGui::TextUnformatted("Verifying SHA-256...");
+        } else if (phase == 3) {
+            ImGui::TextUnformatted("Extracting release...");
         } else {
             ImGui::TextUnformatted("Scanning build folder...");
         }

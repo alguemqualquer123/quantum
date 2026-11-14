@@ -1,15 +1,23 @@
 cmake_minimum_required(VERSION 3.20)
-project(doriax-editor)
+project(quantum-editor)
+
+# vcpkg's MSBuild integration defaults to probing PowerShell 7 and then falls
+# back to Windows PowerShell. Prefer its built-in app-local deployment command
+# so Visual Studio builds do not emit a misleading pwsh.exe-not-found error on
+# machines that only ship the inbox PowerShell implementation.
+if(MSVC AND WIN32)
+    list(APPEND CMAKE_VS_GLOBALS "VcpkgXUseBuiltInApplocalDeps=true")
+endif()
 
 # Same as CI (.github/workflows/cmake.yml): git describe --tags --always --dirty.
-# CI passes DORIAXEDITOR_VERSION explicitly; local builds ask git here.
-if(NOT DORIAXEDITOR_VERSION)
+# CI passes QUANTUMEDITOR_VERSION explicitly; local builds ask git here.
+if(NOT QUANTUMEDITOR_VERSION)
     find_package(Git QUIET)
     if(GIT_FOUND)
         execute_process(
             COMMAND ${GIT_EXECUTABLE} describe --tags --always --dirty
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            OUTPUT_VARIABLE DORIAXEDITOR_VERSION
+            OUTPUT_VARIABLE QUANTUMEDITOR_VERSION
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_QUIET
         )
@@ -17,59 +25,60 @@ if(NOT DORIAXEDITOR_VERSION)
 endif()
 
 # Git allows characters that would break the generated C++ and .rc string literals
-string(REGEX REPLACE "[^A-Za-z0-9._+-]" "" DORIAXEDITOR_VERSION "${DORIAXEDITOR_VERSION}")
+string(REGEX REPLACE "[^A-Za-z0-9._+-]" "" QUANTUMEDITOR_VERSION "${QUANTUMEDITOR_VERSION}")
 
-if(NOT DORIAXEDITOR_VERSION)
-    set(DORIAXEDITOR_VERSION "unknown")
+if(NOT QUANTUMEDITOR_VERSION)
+    set(QUANTUMEDITOR_VERSION "unknown")
 endif()
 
 # Windows VERSIONINFO wants four integers, which only a vX.Y[.Z] tag can give.
-set(DORIAX_VERSION_NUMERIC "0,0,0,0")
-if(DORIAXEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
-    set(DORIAX_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},${CMAKE_MATCH_3},0")
-elseif(DORIAXEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)$")
-    set(DORIAX_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},0,0")
+set(QUANTUM_VERSION_NUMERIC "0,0,0,0")
+if(QUANTUMEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+    set(QUANTUM_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},${CMAKE_MATCH_3},0")
+elseif(QUANTUMEDITOR_VERSION MATCHES "^v?([0-9]+)\\.([0-9]+)$")
+    set(QUANTUM_VERSION_NUMERIC "${CMAKE_MATCH_1},${CMAKE_MATCH_2},0,0")
 endif()
 
-message(STATUS "Doriax version is ${DORIAXEDITOR_VERSION}")
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/ReleaseMetadata.cmake)
+message(STATUS "Quantum version is ${QUANTUMEDITOR_VERSION} (${QUANTUM_PACKAGE_NAME})")
 
-# One build tree per checkout. Its folder name is the DORIAX_BUILD_DIR environment
-# variable, defaulting to "build"; scripts/doriax-build-dir.bat, the CI workflows
+# One build tree per checkout. Its folder name is the QUANTUM_BUILD_DIR environment
+# variable, defaulting to "build"; scripts/quantum-build-dir.bat, the CI workflows
 # and the docs all read the same value. Extra trees (build-debug/, build-release/,
 # build-ninja/) were each carrying their own CMakeCache, their own generated
 # headers and their own copy of every object file.
-if(DEFINED ENV{DORIAX_BUILD_DIR} AND NOT "$ENV{DORIAX_BUILD_DIR}" STREQUAL "")
-    set(DORIAX_BUILD_DIR "$ENV{DORIAX_BUILD_DIR}")
+if(DEFINED ENV{QUANTUM_BUILD_DIR} AND NOT "$ENV{QUANTUM_BUILD_DIR}" STREQUAL "")
+    set(QUANTUM_BUILD_DIR "$ENV{QUANTUM_BUILD_DIR}")
 else()
-    set(DORIAX_BUILD_DIR "build")
+    set(QUANTUM_BUILD_DIR "build")
 endif()
-file(TO_CMAKE_PATH "${DORIAX_BUILD_DIR}" DORIAX_BUILD_DIR_PATH)
-if(NOT DORIAX_BUILD_DIR_PATH MATCHES "^([A-Za-z]:/|/)")
+file(TO_CMAKE_PATH "${QUANTUM_BUILD_DIR}" QUANTUM_BUILD_DIR_PATH)
+if(NOT QUANTUM_BUILD_DIR_PATH MATCHES "^([A-Za-z]:/|/)")
     # A bare name is relative to the repository root, which is how the scripts
     # and CI use it.
-    set(DORIAX_BUILD_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${DORIAX_BUILD_DIR_PATH}")
+    set(QUANTUM_BUILD_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${QUANTUM_BUILD_DIR_PATH}")
 endif()
-file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}" DORIAX_ACTIVE_TREE)
-get_filename_component(DORIAX_ACTIVE_TREE_PARENT "${DORIAX_ACTIVE_TREE}" DIRECTORY)
-string(TOLOWER "${DORIAX_ACTIVE_TREE}" DORIAX_ACTIVE_TREE_LOWER)
-string(TOLOWER "${DORIAX_ACTIVE_TREE_PARENT}" DORIAX_ACTIVE_TREE_PARENT_LOWER)
-string(TOLOWER "${DORIAX_BUILD_DIR_PATH}" DORIAX_BUILD_DIR_PATH_LOWER)
-string(TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" DORIAX_SOURCE_DIR_LOWER)
+file(TO_CMAKE_PATH "${CMAKE_BINARY_DIR}" QUANTUM_ACTIVE_TREE)
+get_filename_component(QUANTUM_ACTIVE_TREE_PARENT "${QUANTUM_ACTIVE_TREE}" DIRECTORY)
+string(TOLOWER "${QUANTUM_ACTIVE_TREE}" QUANTUM_ACTIVE_TREE_LOWER)
+string(TOLOWER "${QUANTUM_ACTIVE_TREE_PARENT}" QUANTUM_ACTIVE_TREE_PARENT_LOWER)
+string(TOLOWER "${QUANTUM_BUILD_DIR_PATH}" QUANTUM_BUILD_DIR_PATH_LOWER)
+string(TOLOWER "${CMAKE_CURRENT_SOURCE_DIR}" QUANTUM_SOURCE_DIR_LOWER)
 # Only a sibling folder of the checkout is questioned: building into an unrelated
 # directory (a scratch disk, an SSD) is exactly what the variable is for.
-if(DORIAX_ACTIVE_TREE_PARENT_LOWER STREQUAL DORIAX_SOURCE_DIR_LOWER AND
-   NOT DORIAX_ACTIVE_TREE_LOWER STREQUAL DORIAX_BUILD_DIR_PATH_LOWER)
+if(QUANTUM_ACTIVE_TREE_PARENT_LOWER STREQUAL QUANTUM_SOURCE_DIR_LOWER AND
+   NOT QUANTUM_ACTIVE_TREE_LOWER STREQUAL QUANTUM_BUILD_DIR_PATH_LOWER)
     message(WARNING
-        "doriax: this build tree is ${CMAKE_BINARY_DIR}, but DORIAX_BUILD_DIR names "
-        "${DORIAX_BUILD_DIR_PATH}. Configure with -B ${DORIAX_BUILD_DIR_PATH} (or set "
-        "DORIAX_BUILD_DIR) so the checkout keeps a single tree.")
+        "quantum: this build tree is ${CMAKE_BINARY_DIR}, but QUANTUM_BUILD_DIR names "
+        "${QUANTUM_BUILD_DIR_PATH}. Configure with -B ${QUANTUM_BUILD_DIR_PATH} (or set "
+        "QUANTUM_BUILD_DIR) so the checkout keeps a single tree.")
 endif()
 
 if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-set(DORIAX_SHARED ON)
+set(QUANTUM_SHARED ON)
 
 set(ENABLE_OPT OFF CACHE BOOL "Enables spirv-opt capability if present" FORCE)
 
@@ -123,7 +132,7 @@ if(WIN32)
  
     if(MSVC)
         set(PLATFORM_PROPERTIES_FLAGS LINK_FLAGS "/ENTRY:mainCRTStartup")
-        if(DORIAX_SHARED)
+        if(QUANTUM_SHARED)
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
         else()
             set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -131,19 +140,27 @@ if(WIN32)
     elseif(MINGW)
         # Same call as the CRT above: a shared engine means one GCC runtime for
         # the editor, the DLL and the plugins, shipped beside the binaries.
-        get_filename_component(DORIAX_MINGW_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
-        find_file(DORIAX_MINGW_STDCXX libstdc++-6.dll PATHS ${DORIAX_MINGW_BIN} NO_DEFAULT_PATH)
-        find_file(DORIAX_MINGW_PTHREAD libwinpthread-1.dll PATHS ${DORIAX_MINGW_BIN} NO_DEFAULT_PATH)
+        get_filename_component(QUANTUM_MINGW_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+        find_file(QUANTUM_MINGW_STDCXX libstdc++-6.dll PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
+        find_file(QUANTUM_MINGW_PTHREAD libwinpthread-1.dll PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
         # The unwind DLL is named after the toolchain's exception model
-        find_file(DORIAX_MINGW_GCC NAMES libgcc_s_seh-1.dll libgcc_s_dw2-1.dll libgcc_s_sjlj-1.dll
-                  PATHS ${DORIAX_MINGW_BIN} NO_DEFAULT_PATH)
+        find_file(QUANTUM_MINGW_GCC NAMES libgcc_s_seh-1.dll libgcc_s_dw2-1.dll libgcc_s_sjlj-1.dll
+                  PATHS ${QUANTUM_MINGW_BIN} NO_DEFAULT_PATH)
 
-        if(DORIAX_MINGW_STDCXX AND DORIAX_MINGW_PTHREAD AND DORIAX_MINGW_GCC)
-            set(DORIAX_MINGW_RUNTIME ${DORIAX_MINGW_STDCXX} ${DORIAX_MINGW_PTHREAD} ${DORIAX_MINGW_GCC})
+        if(QUANTUM_MINGW_STDCXX AND QUANTUM_MINGW_PTHREAD AND QUANTUM_MINGW_GCC)
+            set(QUANTUM_MINGW_RUNTIME ${QUANTUM_MINGW_STDCXX} ${QUANTUM_MINGW_PTHREAD} ${QUANTUM_MINGW_GCC})
         else()
             message(WARNING "Incomplete GCC runtime next to ${CMAKE_CXX_COMPILER}: the editor will only start from a shell that has it on PATH.")
         endif()
     endif()
+endif()
+
+# Shared desktop builds need the MSVC runtime outside the developer machine.
+# InstallRequiredSystemLibraries resolves the toolchain-matched redistributable
+# beside the binaries so the ZIP and an extracted stage are self-contained.
+if(WIN32 AND MSVC)
+    set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION bin)
+    include(InstallRequiredSystemLibraries)
 endif()
 
 if(APPLE)
@@ -153,7 +170,7 @@ endif()
 set(IMGUI_DIR libs/imgui)
 set(HTTPLIB_DIR libs/cpp-httplib)
 set(EDITOR_DIR editor)
-set(DORIAX_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/engine)
+set(QUANTUM_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/engine)
 
 # Warnings from vendored code are not ours to fix and only hide our own
 if(MSVC)
@@ -165,32 +182,32 @@ endif()
 # Icon and version resource for one binary. Each target needs its own so
 # OriginalFilename matches the file on disk. SignPath wants metadata on every
 # signed binary, so the DLL gets one too: pass an empty icon_name for it.
-function(doriax_add_windows_resource out_var target_name icon_name original_filename description)
-    set(DORIAX_ORIGINAL_FILENAME ${original_filename})
-    set(DORIAX_FILE_DESCRIPTION ${description})
-    set(DORIAX_INTERNAL_NAME ${target_name})
+function(quantum_add_windows_resource out_var target_name icon_name original_filename description)
+    set(QUANTUM_ORIGINAL_FILENAME ${original_filename})
+    set(QUANTUM_FILE_DESCRIPTION ${description})
+    set(QUANTUM_INTERNAL_NAME ${target_name})
 
     if(icon_name)
-        set(DORIAX_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/${icon_name}")
-        set(DORIAX_ICON_RESOURCE "GLFW_ICON ICON \"${DORIAX_ICON_FILE}\"")
+        set(QUANTUM_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/${icon_name}")
+        set(QUANTUM_ICON_RESOURCE "GLFW_ICON ICON \"${QUANTUM_ICON_FILE}\"")
     else()
-        set(DORIAX_ICON_RESOURCE "")
+        set(QUANTUM_ICON_RESOURCE "")
     endif()
 
     if(original_filename MATCHES "\\.dll$")
-        set(DORIAX_FILE_TYPE "0x2L     // VFT_DLL")
+        set(QUANTUM_FILE_TYPE "0x2L     // VFT_DLL")
     else()
-        set(DORIAX_FILE_TYPE "0x1L     // VFT_APP")
+        set(QUANTUM_FILE_TYPE "0x1L     // VFT_APP")
     endif()
 
     set(generated_rc "${CMAKE_CURRENT_BINARY_DIR}/resources/${target_name}.rc")
     configure_file(
-        "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/doriax-editor.rc.in"
+        "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/quantum-editor.rc.in"
         ${generated_rc}
         @ONLY
     )
     if(icon_name)
-        set_property(SOURCE ${generated_rc} APPEND PROPERTY OBJECT_DEPENDS ${DORIAX_ICON_FILE})
+        set_property(SOURCE ${generated_rc} APPEND PROPERTY OBJECT_DEPENDS ${QUANTUM_ICON_FILE})
     endif()
 
     add_library(${target_name}-resource OBJECT ${generated_rc})
@@ -201,23 +218,23 @@ function(doriax_add_windows_resource out_var target_name icon_name original_file
 endfunction()
 
 if(WIN32)
-    include(${DORIAX_ROOT}/platform/win/WindowsManifest.cmake)
+    include(${QUANTUM_ROOT}/platform/win/WindowsManifest.cmake)
 endif()
 
-set(DORIAX_EDITOR_ICON_OBJECTS)
+set(QUANTUM_EDITOR_ICON_OBJECTS)
 if(WIN32)
-    doriax_add_windows_resource(
-        DORIAX_EDITOR_ICON_OBJECTS
-        doriax-editor
-        "doriax-editor.ico"
-        "doriax-editor.exe"
-        "Doriax Engine Editor"
+    quantum_add_windows_resource(
+        QUANTUM_EDITOR_ICON_OBJECTS
+        quantum-editor
+        "quantum-editor.ico"
+        "quantum-editor.exe"
+        "Quantum Engine Editor"
     )
 endif()
 
 # Linux has no .rc or .icns equivalent, so the icon reaches the desktop as theme
 # files (installed at the end of this file) plus the _NET_WM_ICON pixels below.
-set(DORIAX_LINUX_ICON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/linux")
+set(QUANTUM_LINUX_ICON_DIR "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/linux")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(wm_icon_header "// Generated from editor/resources/icons/linux. Do not edit.\n")
@@ -227,26 +244,45 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Sizes a window manager or dock actually draws, up to a HiDPI dock's 256.
     # 512 is left out: on the wire it alone would outweigh the whole set.
     foreach(icon_size IN ITEMS 16 32 48 64 128 256)
-        set(icon_png "${DORIAX_LINUX_ICON_DIR}/doriax-editor-${icon_size}.png")
+        set(icon_png "${QUANTUM_LINUX_ICON_DIR}/quantum-editor-${icon_size}.png")
         file(READ "${icon_png}" icon_hex HEX)
         string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," icon_bytes "${icon_hex}")
-        string(APPEND wm_icon_header "static const unsigned char doriax_wm_icon_${icon_size}[] = {${icon_bytes}};\n\n")
-        string(APPEND wm_icon_entries "    { doriax_wm_icon_${icon_size}, sizeof(doriax_wm_icon_${icon_size}) },\n")
+        string(APPEND wm_icon_header "static const unsigned char quantum_wm_icon_${icon_size}[] = {${icon_bytes}};\n\n")
+        string(APPEND wm_icon_entries "    { quantum_wm_icon_${icon_size}, sizeof(quantum_wm_icon_${icon_size}) },\n")
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${icon_png}")
     endforeach()
 
-    string(APPEND wm_icon_header "struct DoriaxWmIconPng { const unsigned char* data; unsigned int size; };\n\n")
-    string(APPEND wm_icon_header "static const DoriaxWmIconPng doriax_wm_icon_pngs[] = {\n${wm_icon_entries}};\n")
+    string(APPEND wm_icon_header "struct QuantumWmIconPng { const unsigned char* data; unsigned int size; };\n\n")
+    string(APPEND wm_icon_header "static const QuantumWmIconPng quantum_wm_icon_pngs[] = {\n${wm_icon_entries}};\n")
 
     # Staged through a .in because configure_file only rewrites on a real change.
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/resources/doriax_wm_icon.h.in" "${wm_icon_header}")
+    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h.in" "${wm_icon_header}")
     configure_file(
-        "${CMAKE_CURRENT_BINARY_DIR}/resources/doriax_wm_icon.h.in"
-        "${CMAKE_CURRENT_BINARY_DIR}/resources/doriax_wm_icon.h"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum_wm_icon.h"
         COPYONLY
     )
     include_directories("${CMAKE_CURRENT_BINARY_DIR}/resources")
 endif()
+
+install(SCRIPT "${CMAKE_BINARY_DIR}/InstallReleaseManifest.cmake"
+        CONFIGURATIONS Release RelWithDebInfo MinSizeRel
+)
+
+set(CPACK_PACKAGE_NAME "${QUANTUM_PACKAGE_NAME}")
+set(CPACK_PACKAGE_VENDOR "SR VINIX")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Quantum game engine and editor")
+set(CPACK_PACKAGE_VERSION "${QUANTUM_PACKAGE_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "${QUANTUM_PACKAGE_NAME}")
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+if(WIN32)
+    set(CPACK_GENERATOR "ZIP")
+elseif(APPLE)
+    set(CPACK_GENERATOR "DragNDrop")
+else()
+    set(CPACK_GENERATOR "TGZ")
+endif()
+include(CPack)
 
 find_package(Threads REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -271,8 +307,8 @@ if(API_BACKEND STREQUAL "linux")
 
     list(APPEND BACKEND_SOURCES
         ${EDITOR_DIR}/backend/BackendLinux.cpp
-        ${DORIAX_ROOT}/platform/linux/WindowLinux.cpp
-        ${DORIAX_ROOT}/platform/linux/GamepadDB.cpp
+        ${QUANTUM_ROOT}/platform/linux/WindowLinux.cpp
+        ${QUANTUM_ROOT}/platform/linux/GamepadDB.cpp
     )
     list(APPEND BACKEND_LIBS X11::X11 X11::Xrandr)
 
@@ -290,8 +326,8 @@ elseif(API_BACKEND STREQUAL "win")
     list(APPEND BACKEND_SOURCES
         ${IMGUI_DIR}/backends/imgui_impl_win32.cpp
         ${EDITOR_DIR}/backend/BackendWin.cpp
-        ${DORIAX_ROOT}/platform/win/WindowWin.cpp
-        ${DORIAX_ROOT}/platform/win/GamepadWin.cpp
+        ${QUANTUM_ROOT}/platform/win/WindowWin.cpp
+        ${QUANTUM_ROOT}/platform/win/GamepadWin.cpp
     )
 
     list(APPEND BACKEND_LIBS
@@ -316,8 +352,8 @@ elseif(API_BACKEND STREQUAL "mac")
     list(APPEND BACKEND_SOURCES
         ${IMGUI_DIR}/backends/imgui_impl_osx.mm
         ${EDITOR_DIR}/backend/BackendMac.mm
-        ${DORIAX_ROOT}/platform/mac/WindowMac.mm
-        ${DORIAX_ROOT}/platform/apple/DoriaxGameController.mm
+        ${QUANTUM_ROOT}/platform/mac/WindowMac.mm
+        ${QUANTUM_ROOT}/platform/apple/QuantumGameController.mm
     )
 
     list(APPEND BACKEND_LIBS
@@ -333,9 +369,9 @@ elseif(API_BACKEND STREQUAL "mac")
         ${IMGUI_DIR}/backends/imgui_impl_osx.mm
         ${IMGUI_DIR}/backends/imgui_impl_metal.mm
         ${EDITOR_DIR}/backend/BackendMac.mm
-        ${DORIAX_ROOT}/platform/mac/WindowMac.mm
+        ${QUANTUM_ROOT}/platform/mac/WindowMac.mm
         ${EDITOR_DIR}/util/GraphicUtils.cpp
-        ${DORIAX_ROOT}/platform/apple/DoriaxGameController.mm
+        ${QUANTUM_ROOT}/platform/apple/QuantumGameController.mm
         PROPERTIES
         COMPILE_FLAGS "-fobjc-arc"
     )
@@ -359,8 +395,8 @@ endif()
 
 set(SHADERCOMPILER_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/shadercompiler)
 
-add_definitions("-DDORIAX_EDITOR")
-add_definitions("-DDORIAX_CRASH_GUARD")
+add_definitions("-DQUANTUM_EDITOR")
+add_definitions("-DQUANTUM_CRASH_GUARD")
 
 add_definitions("-DNO_LUA_INIT")
 #add_definitions("-DNO_CPP_INIT")
@@ -372,7 +408,7 @@ else()
     add_definitions("-DSOKOL_GLCORE")
 endif()
 if(NATIVE_MENU)
-    add_definitions("-DDORIAX_NATIVE_MENU")
+    add_definitions("-DQUANTUM_NATIVE_MENU")
 endif()
 add_definitions("-DWITH_MINIAUDIO") # For SoLoud
 set(NFD_PORTAL ON CACHE BOOL "Use xdg-desktop-portal instead of GTK") # For NFD
@@ -423,94 +459,105 @@ add_custom_command(
 
 include_directories (${CMAKE_CURRENT_SOURCE_DIR})
 
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/sokol)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/json)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/lua)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/luabridge3)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/box2d/include)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/joltphysics)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/stb)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/tinygltf)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/harfbuzz)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/sheenbidi/Headers)
-include_directories (SYSTEM ${DORIAX_ROOT}/libs/soloud/include)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/sokol)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/json)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/lua)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/luabridge3)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/box2d/include)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/joltphysics)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/stb)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/tinygltf)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/harfbuzz)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/sheenbidi/Headers)
+include_directories (SYSTEM ${QUANTUM_ROOT}/libs/soloud/include)
 
-include_directories (${DORIAX_ROOT}/core)
-include_directories (${DORIAX_ROOT}/core/action)
-include_directories (${DORIAX_ROOT}/core/action/keyframe)
-include_directories (${DORIAX_ROOT}/core/buffer)
-include_directories (${DORIAX_ROOT}/core/component)
-include_directories (${DORIAX_ROOT}/core/ecs)
-include_directories (${DORIAX_ROOT}/core/io)
-include_directories (${DORIAX_ROOT}/core/manager)
-include_directories (${DORIAX_ROOT}/core/math)
-include_directories (${DORIAX_ROOT}/core/object)
-include_directories (${DORIAX_ROOT}/core/object/sound)
-include_directories (${DORIAX_ROOT}/core/object/ui)
-include_directories (${DORIAX_ROOT}/core/object/environment)
-include_directories (${DORIAX_ROOT}/core/object/physics)
-include_directories (${DORIAX_ROOT}/core/pool)
-include_directories (${DORIAX_ROOT}/core/registry)
-include_directories (${DORIAX_ROOT}/core/render)
-include_directories (${DORIAX_ROOT}/core/script)
-include_directories (${DORIAX_ROOT}/core/service)
-include_directories (${DORIAX_ROOT}/core/shader)
-include_directories (${DORIAX_ROOT}/core/subsystem)
-include_directories (${DORIAX_ROOT}/core/texture)
-include_directories (${DORIAX_ROOT}/core/util)
+include_directories (${QUANTUM_ROOT}/core)
+include_directories (${QUANTUM_ROOT}/core/action)
+include_directories (${QUANTUM_ROOT}/core/action/keyframe)
+include_directories (${QUANTUM_ROOT}/core/buffer)
+include_directories (${QUANTUM_ROOT}/core/component)
+include_directories (${QUANTUM_ROOT}/core/ecs)
+include_directories (${QUANTUM_ROOT}/core/io)
+include_directories (${QUANTUM_ROOT}/core/manager)
+include_directories (${QUANTUM_ROOT}/core/math)
+include_directories (${QUANTUM_ROOT}/core/object)
+include_directories (${QUANTUM_ROOT}/core/object/sound)
+include_directories (${QUANTUM_ROOT}/core/object/ui)
+include_directories (${QUANTUM_ROOT}/core/object/environment)
+include_directories (${QUANTUM_ROOT}/core/object/physics)
+include_directories (${QUANTUM_ROOT}/core/pool)
+include_directories (${QUANTUM_ROOT}/core/registry)
+include_directories (${QUANTUM_ROOT}/core/render)
+include_directories (${QUANTUM_ROOT}/core/script)
+include_directories (${QUANTUM_ROOT}/core/service)
+include_directories (${QUANTUM_ROOT}/core/shader)
+include_directories (${QUANTUM_ROOT}/core/subsystem)
+include_directories (${QUANTUM_ROOT}/core/texture)
+include_directories (${QUANTUM_ROOT}/core/util)
+# engine/plugin is its own include path in the engine (engine/CMakeLists.txt:757), and the editor
+# CLI needs the same bare includes for `plugins list|run|check`.
+include_directories (${QUANTUM_ROOT}/plugin)
 # GamepadMappings.h, shared by GamepadDB (editor) and GamepadLinux (games)
-include_directories (${DORIAX_ROOT}/platform/common)
+include_directories (${QUANTUM_ROOT}/platform/common)
 # renderer/Renderer.h, which EditorFrame.h includes from one directory up
 include_directories (${EDITOR_DIR}/backend)
 if(API_BACKEND STREQUAL "linux")
-    include_directories (${DORIAX_ROOT}/platform/linux) # WindowLinux.h, GamepadDB.h
+    include_directories (${QUANTUM_ROOT}/platform/linux) # WindowLinux.h, GamepadDB.h
 elseif(API_BACKEND STREQUAL "win")
-    include_directories (${DORIAX_ROOT}/platform/win) # GamepadWin.h for BackendWin
+    include_directories (${QUANTUM_ROOT}/platform/win) # GamepadWin.h for BackendWin
 elseif(API_BACKEND STREQUAL "mac")
-    # WindowMac.h for BackendMac, DoriaxGameController.h from the shared Apple path
-    include_directories (${DORIAX_ROOT}/platform/mac)
-    include_directories (${DORIAX_ROOT}/platform/apple)
+    # WindowMac.h for BackendMac, QuantumGameController.h from the shared Apple path
+    include_directories (${QUANTUM_ROOT}/platform/mac)
+    include_directories (${QUANTUM_ROOT}/platform/apple)
 endif()
-include_directories (${DORIAX_ROOT}/renders)
+include_directories (${QUANTUM_ROOT}/renders)
 
 include_directories (${SHADERCOMPILER_ROOT}/src)
 
-add_subdirectory(${DORIAX_ROOT})
+add_subdirectory(${QUANTUM_ROOT})
 
-# Standalone game runtime exe; needs the doriax link target above.
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/doriax_engine_exe.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/doriax_reflector.cmake)
+# Standalone game runtime exe; needs the quantum link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/engine/quantum_engine_exe.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/reflector/quantum_reflector.cmake)
 
 # Development executable for the retained-mode UI module (engine/core/ui).
-# include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/doriax_ui_demo.cmake)
+# include(${CMAKE_CURRENT_SOURCE_DIR}/engine/ui_demo/quantum_ui_demo.cmake)
 
 # GPU-free unit tests of the UI module (EXCLUDE_FROM_ALL; never built by default).
-option(DORIAX_BUILD_TESTS "Build the doriax unit tests" ON)
-if(DORIAX_BUILD_TESTS)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/doriax_tests.cmake)
+option(QUANTUM_BUILD_TESTS "Build the quantum unit tests" ON)
+if(QUANTUM_BUILD_TESTS)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_tests.cmake)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_model_tests.cmake)
+endif()
+
+# Plugins: modules the engine maps at run time (engine/plugin), plus the probe that proves one
+# actually loads. Both need the `quantum` link target above.
+include(${CMAKE_CURRENT_SOURCE_DIR}/plugins/quantum_plugins.cmake)
+if(QUANTUM_BUILD_TESTS AND QUANTUM_BUILD_PLUGINS)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/tests/quantum_plugin_tests.cmake)
 endif()
 
 # Slate module: the Slate/UMG/CommonUI-style retained UI (engine/slate), its
 # widget-gallery executable and its GPU-free tests. Own static lib, so nothing in
 # engine/CMakeLists.txt changes.
-include(${CMAKE_CURRENT_SOURCE_DIR}/engine/slate/doriax_slate.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/engine/slate/quantum_slate.cmake)
 
 # Signed alongside the exes, so it needs the same metadata. MinGW prefixes the name.
-if(WIN32 AND DORIAX_SHARED)
-    doriax_add_windows_resource(
-        DORIAX_LIB_ICON_OBJECTS
-        doriax
+if(WIN32 AND QUANTUM_SHARED)
+    quantum_add_windows_resource(
+        QUANTUM_LIB_ICON_OBJECTS
+        quantum
         ""
-        "${CMAKE_SHARED_LIBRARY_PREFIX}doriax${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        "Doriax Engine Runtime"
+        "${CMAKE_SHARED_LIBRARY_PREFIX}quantum${CMAKE_SHARED_LIBRARY_SUFFIX}"
+        "Quantum Engine Runtime"
     )
-    target_sources(doriax PRIVATE ${DORIAX_LIB_ICON_OBJECTS})
+    target_sources(quantum PRIVATE ${QUANTUM_LIB_ICON_OBJECTS})
 endif()
 
 # The engine compiles sokol's Vulkan backend, so it needs the headers and the
 # loader itself. Only the standalone engine build sets this up on its own.
 if(GRAPHIC_BACKEND STREQUAL "vulkan")
-    target_link_libraries(doriax PUBLIC Vulkan::Vulkan)
+    target_link_libraries(quantum PUBLIC Vulkan::Vulkan)
 endif()
 
 add_subdirectory(${SHADERCOMPILER_ROOT} EXCLUDE_FROM_ALL)
@@ -560,8 +607,8 @@ include_directories (${EDITOR_DIR})
 # ---- UILab: the editor's UI component library (libs/uilab) ------------------
 # ImGui stays compiled into each editor executable, so UILab gets the headers through
 # this INTERFACE target and links against the same objects the editor already holds.
-add_library(doriax_imgui INTERFACE)
-target_include_directories(doriax_imgui SYSTEM INTERFACE
+add_library(quantum_imgui INTERFACE)
+target_include_directories(quantum_imgui SYSTEM INTERFACE
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
     ${IMGUI_DIR}/misc/cpp
@@ -574,7 +621,7 @@ set(UILAB_BUILD_DEMOS OFF)
 set(UILAB_FETCH_DEPS OFF)
 set(UILAB_PROVIDE_THIRD_PARTY OFF)
 set(UILAB_EXPORT_TARGETS OFF)
-set(UILAB_IMGUI_TARGET doriax_imgui)
+set(UILAB_IMGUI_TARGET quantum_imgui)
 add_subdirectory(libs/uilab)
 
 if(MSVC)
@@ -588,14 +635,83 @@ endif()
 add_custom_target(generate_shaders DEPENDS ${SHADERS_HEADER})
 add_custom_target(generate_api_suggestions DEPENDS ${API_SUGGESTIONS_HEADER})
 
-set(DORIAX_EDITOR_SOURCES
+# Generate the Lua API reference from the Lua bindings and C++ headers
+set(LUA_API_MD "${GENERATED_DIR}/lua_api.md")
+
+add_custom_command(
+    OUTPUT ${LUA_API_MD}
+    COMMAND $<TARGET_FILE:quantum-reflector> docs
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --out ${LUA_API_MD}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS}
+    COMMENT "Generating lua_api.md from Lua bindings and C++ headers"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_lua_docs DEPENDS ${LUA_API_MD})
+
+# Keep the visual-scripting node catalog as a generated, machine-readable artifact.  The
+# graph runtime and external tooling consume the same reflection manifest; making it a build
+# target prevents a binding change from silently leaving the catalog stale.
+set(VISUAL_SCRIPT_NODE_CATALOG_JSON "${GENERATED_DIR}/engine_node_catalog.json")
+
+add_custom_command(
+    OUTPUT ${VISUAL_SCRIPT_NODE_CATALOG_JSON}
+    COMMAND $<TARGET_FILE:quantum-reflector> catalog
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --out ${VISUAL_SCRIPT_NODE_CATALOG_JSON}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS}
+    COMMENT "Generating visual scripting node catalog from Lua bindings and C++ headers"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_visual_script_catalog DEPENDS ${VISUAL_SCRIPT_NODE_CATALOG_JSON})
+
+# The same manifest rendered as an EmmyLua definition file, plus the hand-written
+# usage chapter, and embedded as a header: the editor drops it into a project as
+# Types.lua so a script gets completions and a person gets examples.
+set(LUA_USAGE_FILE "${CMAKE_SOURCE_DIR}/tools/reflector/lua_usage.lua")
+set(LUA_TYPES_HEADER "${GENERATED_DIR}/lua_types.h")
+
+add_custom_command(
+    OUTPUT ${LUA_TYPES_HEADER}
+    COMMAND $<TARGET_FILE:quantum-reflector> types
+            --bindings ${BINDING_DIR}
+            --engine-core ${ENGINE_CORE_DIR}
+            --usage ${LUA_USAGE_FILE}
+            --out ${LUA_TYPES_HEADER}
+    DEPENDS quantum-reflector ${BINDING_FILES} ${ENGINE_HEADERS} ${LUA_USAGE_FILE}
+    COMMENT "Generating lua_types.h (the Lua API as Types.lua) from the bindings"
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)
+
+add_custom_target(generate_lua_types DEPENDS ${LUA_TYPES_HEADER})
+
+set(QUANTUM_EDITOR_SOURCES
     ${EDITOR_DIR}/main.cpp
     ${EDITOR_DIR}/cli/CommandLine.cpp
+    ${EDITOR_DIR}/cli/ComponentLibrary.cpp
+    ${EDITOR_DIR}/cli/EngineAssetsCli.cpp
+    ${EDITOR_DIR}/cli/MaterialCommands.cpp
+    ${EDITOR_DIR}/cli/ProjectDoctor.cpp
+    ${EDITOR_DIR}/cli/ProjectFileType.cpp
     ${EDITOR_DIR}/cli/ResourceCompilerCli.cpp
     ${EDITOR_DIR}/cli/BuildGeneratorCli.cpp
     ${EDITOR_DIR}/cli/ResourceServerClient.cpp
+    ${EDITOR_DIR}/cli/ScriptCommands.cpp
+    ${EDITOR_DIR}/cli/ScriptDebugCommands.cpp
+    ${EDITOR_DIR}/cli/ShortcutCommands.cpp
+    ${EDITOR_DIR}/cli/ApiCommands.cpp
+    ${EDITOR_DIR}/cli/PluginCommands.cpp
+    ${EDITOR_DIR}/cli/PackageCommands.cpp
+    ${EDITOR_DIR}/cli/TerrainCommands.cpp
+    ${EDITOR_DIR}/cli/WorldCreatorCommands.cpp
     ${EDITOR_DIR}/App.cpp
     ${EDITOR_DIR}/AppSettings.cpp
+    ${EDITOR_DIR}/KeyBindings.cpp
+    ${EDITOR_DIR}/EngineApiIndex.cpp
     ${EDITOR_DIR}/UILabHost.cpp
     ${EDITOR_DIR}/Theme.cpp
     ${EDITOR_DIR}/Factory.cpp
@@ -633,14 +749,15 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/util/Clipboard.cpp
     ${EDITOR_DIR}/util/EntityBundle.cpp
     ${EDITOR_DIR}/util/ProjectUtils.cpp
+    ${EDITOR_DIR}/util/ReadyMadeComponents.cpp
+    ${EDITOR_DIR}/util/ProjectFile.cpp
+    ${EDITOR_DIR}/util/ShellAssociation.cpp
     ${EDITOR_DIR}/util/ScriptParser.cpp
     ${EDITOR_DIR}/util/ScriptEvents.cpp
-    ${EDITOR_DIR}/util/PngWriter.cpp
     ${EDITOR_DIR}/util/FbxImporter.cpp
     ${EDITOR_DIR}/util/GlbBuilder.cpp
     ${EDITOR_DIR}/util/TerrainMapFileWriter.cpp
     ${EDITOR_DIR}/util/TerrainMapUtils.cpp
-    ${EDITOR_DIR}/util/TerrainErosion.cpp
     ${EDITOR_DIR}/util/UIUtils.cpp
     ${EDITOR_DIR}/util/CommandRunner.cpp
     ${EDITOR_DIR}/util/ProcessStats.cpp
@@ -648,9 +765,32 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/util/ShellEnv.cpp
     ${EDITOR_DIR}/util/GitMonitor.cpp
     ${EDITOR_DIR}/util/LineDiff.cpp
+    ${EDITOR_DIR}/util/MaterialSets.cpp
+    ${EDITOR_DIR}/util/DefaultMaterial.cpp
+    ${EDITOR_DIR}/util/EngineAssets.cpp
+    ${EDITOR_DIR}/util/AssetDatabase.cpp
     ${EDITOR_DIR}/util/ProcessLaunch.cpp
+    ${EDITOR_DIR}/util/ShellSession.cpp
+    ${EDITOR_DIR}/util/TerminalText.cpp
+    ${EDITOR_DIR}/util/PackageZip.cpp
+    ${EDITOR_DIR}/util/PackageManager.cpp
+
+    ${EDITOR_DIR}/window/NetworkPlayWindow.cpp
+    ${EDITOR_DIR}/window/ScriptDebuggerWindow.cpp
+
+    ${EDITOR_DIR}/graph/GraphSerializerYaml.cpp
+    ${EDITOR_DIR}/graph/GraphAsset.cpp
+    ${EDITOR_DIR}/graph/GraphEditorWindow.cpp
+    ${EDITOR_DIR}/graph/GraphScriptProperties.cpp
 
     ${EDITOR_DIR}/shader/ShaderBuilder.cpp
+
+    # The text services behind the Script Editor page: no window, no project, so the
+    # CLI and the panels call the same functions.
+    ${EDITOR_DIR}/script/ScriptRegex.cpp
+    ${EDITOR_DIR}/script/ScriptDiagnostics.cpp
+    ${EDITOR_DIR}/script/ScriptOutline.cpp
+    ${EDITOR_DIR}/script/ScriptSearch.cpp
 
     ${EDITOR_DIR}/window/Properties.cpp
     ${EDITOR_DIR}/window/OutputWindow.cpp
@@ -658,8 +798,12 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/window/Structure.cpp
     ${EDITOR_DIR}/window/ResourcesWindow.cpp
     ${EDITOR_DIR}/window/ImageViewerWindow.cpp
+    ${EDITOR_DIR}/window/ModelViewerWindow.cpp
+    ${EDITOR_DIR}/window/ModelExportWindow.cpp
+    ${EDITOR_DIR}/window/MaterialBrowserWindow.cpp
     ${EDITOR_DIR}/window/CodeEditor.cpp
     ${EDITOR_DIR}/window/AnimationWindow.cpp
+    ${EDITOR_DIR}/window/AnimatorWindow.cpp
     ${EDITOR_DIR}/window/TerrainEditWindow.cpp
     ${EDITOR_DIR}/window/AiChatWindow.cpp
     ${EDITOR_DIR}/window/LoadingWindow.cpp
@@ -669,6 +813,11 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/window/WelcomeScreenWindow.cpp
     ${EDITOR_DIR}/window/HubWindow.cpp
     ${EDITOR_DIR}/window/ResourceMonitorWindow.cpp
+    ${EDITOR_DIR}/window/TerminalWindow.cpp
+    ${EDITOR_DIR}/window/PluginSchemaPanel.cpp
+    ${EDITOR_DIR}/window/PluginBrowserWindow.cpp
+    ${EDITOR_DIR}/window/PluginWindowHost.cpp
+    ${EDITOR_DIR}/window/WorldCreatorWindow.cpp
     ${EDITOR_DIR}/window/dialog/SceneSaveDialog.cpp
     ${EDITOR_DIR}/window/dialog/ComponentAddDialog.cpp
     ${EDITOR_DIR}/window/dialog/ProjectSaveDialog.cpp
@@ -736,6 +885,7 @@ set(DORIAX_EDITOR_SOURCES
     ${EDITOR_DIR}/command/type/ComponentToBundleSharedCmd.cpp
     ${EDITOR_DIR}/command/type/ForkShaderCmd.cpp
     ${EDITOR_DIR}/command/type/TerrainMapPatchCmd.cpp
+    ${EDITOR_DIR}/command/type/WorldGenApplyCmd.cpp
 
     ${IMGUI_SOURCES}
     ${BACKEND_SOURCES}
@@ -743,15 +893,17 @@ set(DORIAX_EDITOR_SOURCES
 
 if(APPLE)
     # NSPasteboard image/file-URL reading for the AI chat attachment paste.
-    list(APPEND DORIAX_EDITOR_SOURCES ${EDITOR_DIR}/util/ClipboardMac.mm)
+    list(APPEND QUANTUM_EDITOR_SOURCES ${EDITOR_DIR}/util/ClipboardMac.mm)
 endif()
 
 if(WIN32)
-    list(APPEND DORIAX_EDITOR_SOURCES ${EDITOR_DIR}/util/MsBuildProgress.cpp)
+    list(APPEND QUANTUM_EDITOR_SOURCES ${EDITOR_DIR}/util/MsBuildProgress.cpp)
 endif()
 
-function(configure_doriax_editor_target target_name)
-    add_dependencies(${target_name} generate_shaders generate_api_suggestions)
+function(configure_quantum_editor_target target_name)
+    # lua_types.h is #included by Project.cpp, so it must be current at link time,
+    # not generated on demand like the docs.
+    add_dependencies(${target_name} generate_shaders generate_api_suggestions generate_lua_types)
 
     target_include_directories(${target_name} SYSTEM PRIVATE
         ${IMGUI_DIR}
@@ -772,7 +924,7 @@ function(configure_doriax_editor_target target_name)
         ${BACKEND_LIBS}
         ${OPENGL_LIBRARIES}
         Threads::Threads
-        doriax
+        quantum
         shadercompiler
         nfd
         yaml-cpp
@@ -785,7 +937,11 @@ function(configure_doriax_editor_target target_name)
         # dbghelp resolves the crash-report backtrace; ws2_32 serves MCP and the
         # resource-server client in editor/cli. pdh/iphlpapi/dxgi feed the
         # system monitor: PDH counters, interface stats and the DXGI adapter.
-        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32 pdh iphlpapi dxgi)
+        # advapi32 owns the registry keys the project file type is written to.
+        target_link_libraries(${target_name} PRIVATE winhttp shell32 dbghelp psapi ws2_32 pdh iphlpapi dxgi advapi32)
+        # /bigobj: avoid "number of sections exceeded object file format limit" on
+        # large translation units such as editor/Properties.cpp / Catalog.cpp.
+        target_compile_options(${target_name} PRIVATE /bigobj)
     else()
         # ${CMAKE_DL_LIBS} lets the monitor dlopen NVML for NVIDIA GPU data where present.
         target_link_libraries(${target_name} PRIVATE CURL::libcurl ${CMAKE_DL_LIBS})
@@ -797,7 +953,7 @@ function(configure_doriax_editor_target target_name)
     endif()
 
     if(X11_FOUND)
-        target_compile_definitions(${target_name} PRIVATE DORIAX_HAS_X11_CLIPBOARD)
+        target_compile_definitions(${target_name} PRIVATE QUANTUM_HAS_X11_CLIPBOARD)
         target_link_libraries(${target_name} PRIVATE X11::X11)
     endif()
 
@@ -810,9 +966,9 @@ function(configure_doriax_editor_target target_name)
 
         PROPERTIES
 
-        CXX_STANDARD ${DORIAX_CXX_STANDARD}
+        CXX_STANDARD ${QUANTUM_CXX_STANDARD}
         CXX_STANDARD_REQUIRED ON
-        OBJCXX_STANDARD ${DORIAX_CXX_STANDARD}
+        OBJCXX_STANDARD ${QUANTUM_CXX_STANDARD}
         OBJCXX_STANDARD_REQUIRED ON
     )
 
@@ -830,66 +986,66 @@ function(configure_doriax_editor_target target_name)
 endfunction()
 
 add_executable(
-    doriax-editor
+    quantum-editor
 
     ${PLATFORM_EXEC_FLAGS}
 
-    ${DORIAX_EDITOR_SOURCES}
-    ${DORIAX_EDITOR_ICON_OBJECTS}
+    ${QUANTUM_EDITOR_SOURCES}
+    ${QUANTUM_EDITOR_ICON_OBJECTS}
 )
 
-configure_doriax_editor_target(doriax-editor)
+configure_quantum_editor_target(quantum-editor)
 
 if(WIN32)
-    doriax_add_windows_manifest(doriax-editor)
+    quantum_add_windows_manifest(quantum-editor)
 endif()
 
 if(PLATFORM_PROPERTIES_FLAGS)
-    set_target_properties(doriax-editor PROPERTIES ${PLATFORM_PROPERTIES_FLAGS})
+    set_target_properties(quantum-editor PROPERTIES ${PLATFORM_PROPERTIES_FLAGS})
 endif()
 
 # The dylib goes in Contents/MacOS, where @loader_path already finds it.
 if(APPLE)
-    set(DORIAX_BUNDLE_NAME "Doriax")
-    set(DORIAX_BUNDLE_IDENTIFIER "org.doriax.editor")
-    set(DORIAX_BUNDLE_ICON_NAME "doriax.icns")
+    set(QUANTUM_BUNDLE_NAME "Quantum")
+    set(QUANTUM_BUNDLE_IDENTIFIER "org.srvinix.quantum.editor")
+    set(QUANTUM_BUNDLE_ICON_NAME "quantum.icns")
 
     # CFBundleShortVersionString takes digits and dots only.
-    string(REPLACE "," "." DORIAX_BUNDLE_VERSION "${DORIAX_VERSION_NUMERIC}")
-    string(REGEX REPLACE "^([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" DORIAX_BUNDLE_VERSION "${DORIAX_BUNDLE_VERSION}")
+    string(REPLACE "," "." QUANTUM_BUNDLE_VERSION "${QUANTUM_VERSION_NUMERIC}")
+    string(REGEX REPLACE "^([0-9]+\\.[0-9]+\\.[0-9]+).*$" "\\1" QUANTUM_BUNDLE_VERSION "${QUANTUM_BUNDLE_VERSION}")
 
     # engine/CMakeLists.txt sets this in its own scope, which does not reach here.
-    set(DORIAX_BUNDLE_MIN_OS "${CMAKE_OSX_DEPLOYMENT_TARGET}")
-    if(NOT DORIAX_BUNDLE_MIN_OS)
-        set(DORIAX_BUNDLE_MIN_OS "12.0")
+    set(QUANTUM_BUNDLE_MIN_OS "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+    if(NOT QUANTUM_BUNDLE_MIN_OS)
+        set(QUANTUM_BUNDLE_MIN_OS "12.0")
     endif()
 
-    set(DORIAX_ICON_PNG "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/doriax-editor.png")
-    set(DORIAX_ICONSET "${CMAKE_CURRENT_BINARY_DIR}/resources/doriax.iconset")
-    set(DORIAX_ICNS "${CMAKE_CURRENT_BINARY_DIR}/resources/${DORIAX_BUNDLE_ICON_NAME}")
+    set(QUANTUM_ICON_PNG "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/icons/quantum-editor.png")
+    set(QUANTUM_ICONSET "${CMAKE_CURRENT_BINARY_DIR}/resources/quantum.iconset")
+    set(QUANTUM_ICNS "${CMAKE_CURRENT_BINARY_DIR}/resources/${QUANTUM_BUNDLE_ICON_NAME}")
 
     add_custom_command(
-        OUTPUT ${DORIAX_ICNS}
-        COMMAND ${CMAKE_COMMAND} -E rm -rf ${DORIAX_ICONSET}
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${DORIAX_ICONSET}
-        COMMAND sips -z 16 16     ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_16x16.png
-        COMMAND sips -z 32 32     ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_16x16@2x.png
-        COMMAND sips -z 32 32     ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_32x32.png
-        COMMAND sips -z 64 64     ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_32x32@2x.png
-        COMMAND sips -z 128 128   ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_128x128.png
-        COMMAND sips -z 256 256   ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_128x128@2x.png
-        COMMAND sips -z 256 256   ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_256x256.png
-        COMMAND sips -z 512 512   ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_256x256@2x.png
-        COMMAND sips -z 512 512   ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_512x512.png
-        COMMAND sips -z 1024 1024 ${DORIAX_ICON_PNG} --out ${DORIAX_ICONSET}/icon_512x512@2x.png
-        COMMAND iconutil -c icns ${DORIAX_ICONSET} -o ${DORIAX_ICNS}
-        DEPENDS ${DORIAX_ICON_PNG}
-        COMMENT "Generating ${DORIAX_BUNDLE_ICON_NAME}"
+        OUTPUT ${QUANTUM_ICNS}
+        COMMAND ${CMAKE_COMMAND} -E rm -rf ${QUANTUM_ICONSET}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${QUANTUM_ICONSET}
+        COMMAND sips -z 16 16     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_16x16.png
+        COMMAND sips -z 32 32     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_16x16@2x.png
+        COMMAND sips -z 32 32     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_32x32.png
+        COMMAND sips -z 64 64     ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_32x32@2x.png
+        COMMAND sips -z 128 128   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_128x128.png
+        COMMAND sips -z 256 256   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_128x128@2x.png
+        COMMAND sips -z 256 256   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_256x256.png
+        COMMAND sips -z 512 512   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_256x256@2x.png
+        COMMAND sips -z 512 512   ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_512x512.png
+        COMMAND sips -z 1024 1024 ${QUANTUM_ICON_PNG} --out ${QUANTUM_ICONSET}/icon_512x512@2x.png
+        COMMAND iconutil -c icns ${QUANTUM_ICONSET} -o ${QUANTUM_ICNS}
+        DEPENDS ${QUANTUM_ICON_PNG}
+        COMMENT "Generating ${QUANTUM_BUNDLE_ICON_NAME}"
         VERBATIM
     )
 
-    target_sources(doriax-editor PRIVATE ${DORIAX_ICNS})
-    set_source_files_properties(${DORIAX_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
+    target_sources(quantum-editor PRIVATE ${QUANTUM_ICNS})
+    set_source_files_properties(${QUANTUM_ICNS} PROPERTIES MACOSX_PACKAGE_LOCATION Resources)
 
     configure_file(
         "${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/macos/Info.plist.in"
@@ -897,15 +1053,15 @@ if(APPLE)
         @ONLY
     )
 
-    set_target_properties(doriax-editor PROPERTIES
-        OUTPUT_NAME "${DORIAX_BUNDLE_NAME}"
+    set_target_properties(quantum-editor PROPERTIES
+        OUTPUT_NAME "${QUANTUM_BUNDLE_NAME}"
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/resources/Info.plist"
     )
 
-    if(DORIAX_SHARED)
-        add_custom_command(TARGET doriax-editor POST_BUILD
+    if(QUANTUM_SHARED)
+        add_custom_command(TARGET quantum-editor POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_FILE:doriax> $<TARGET_FILE_DIR:doriax-editor>
+                $<TARGET_FILE:quantum> $<TARGET_FILE_DIR:quantum-editor>
             COMMENT "Copying the engine runtime into the bundle"
         )
     endif()
@@ -914,82 +1070,162 @@ endif()
 # In the bundle this has to be Resources, not MacOS: codesign treats everything in
 # Contents/MacOS as code. FileUtils::getEngineDir() looks in both places.
 if(APPLE)
-    set(DORIAX_EDITOR_ENGINE_DIR $<TARGET_BUNDLE_CONTENT_DIR:doriax-editor>/Resources/engine)
+    set(QUANTUM_EDITOR_ENGINE_DIR $<TARGET_BUNDLE_CONTENT_DIR:quantum-editor>/Resources/engine)
     # Build trees from before the move still hold a copy in MacOS, which codesign rejects.
-    set(DORIAX_CLEAN_STALE_ENGINE COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:doriax-editor>/engine)
+    set(QUANTUM_CLEAN_STALE_ENGINE COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:quantum-editor>/engine)
 else()
-    set(DORIAX_EDITOR_ENGINE_DIR $<TARGET_FILE_DIR:doriax-editor>/engine)
-    set(DORIAX_CLEAN_STALE_ENGINE)
+    set(QUANTUM_EDITOR_ENGINE_DIR $<TARGET_FILE_DIR:quantum-editor>/engine)
+    # copy_directory does not remove renamed files left by an older snapshot.
+    # Clear the generated runtime copy first so API/template sync cannot retain
+    # stale legacy filenames after a Quantum rebrand.
+    set(QUANTUM_CLEAN_STALE_ENGINE COMMAND ${CMAKE_COMMAND} -E rm -rf $<TARGET_FILE_DIR:quantum-editor>/engine)
 endif()
 
-add_custom_target(copy_doriax_editor_engine
-    ${DORIAX_CLEAN_STALE_ENGINE}
+add_custom_target(copy_quantum_editor_engine
+    ${QUANTUM_CLEAN_STALE_ENGINE}
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/engine
-        ${DORIAX_EDITOR_ENGINE_DIR}
+        ${QUANTUM_EDITOR_ENGINE_DIR}
     COMMENT "Copying engine next to the editor"
 )
 
-add_dependencies(doriax-editor copy_doriax_editor_engine)
+add_dependencies(quantum-editor copy_quantum_editor_engine)
 
-set(DORIAX_EDITOR_INSTALL_TARGETS doriax-editor)
+set(QUANTUM_EDITOR_INSTALL_TARGETS quantum-editor)
+set(QUANTUM_HUB_RELEASE_MANIFEST_URL "" CACHE STRING
+    "HTTPS URL of the release manifest embedded in the standalone Quantum Hub")
+
+# The Hub is a standalone launcher executable. It shares the editor implementation
+# so project management, templates and install discovery stay in one code path, but
+# its entry point defaults to Hub mode and it can be distributed independently.
+set(QUANTUM_HUB_ICON_OBJECTS)
+if(WIN32)
+    quantum_add_windows_resource(
+        QUANTUM_HUB_ICON_OBJECTS
+        quantum-hub
+        "quantum-editor.ico"
+        "quantum-hub.exe"
+        "Quantum Hub"
+    )
+endif()
+
+add_executable(
+    quantum-hub
+
+    EXCLUDE_FROM_ALL
+
+    ${PLATFORM_EXEC_FLAGS}
+    ${QUANTUM_EDITOR_SOURCES}
+    ${QUANTUM_HUB_ICON_OBJECTS}
+)
+
+configure_quantum_editor_target(quantum-hub)
+target_compile_definitions(quantum-hub PRIVATE QUANTUM_HUB_EXECUTABLE=1)
+if(QUANTUM_HUB_RELEASE_MANIFEST_URL)
+    target_compile_definitions(quantum-hub PRIVATE
+        QUANTUM_HUB_DEFAULT_MANIFEST_URL="${QUANTUM_HUB_RELEASE_MANIFEST_URL}")
+endif()
+add_dependencies(quantum-hub copy_quantum_editor_engine)
+if(WIN32)
+    quantum_add_windows_manifest(quantum-hub)
+endif()
+if(PLATFORM_PROPERTIES_FLAGS)
+    set_target_properties(quantum-hub PROPERTIES ${PLATFORM_PROPERTIES_FLAGS})
+endif()
+list(APPEND QUANTUM_EDITOR_INSTALL_TARGETS quantum-hub)
 
 # Windows GUI-subsystem executables do not behave like normal CLI programs
 # when launched from cmd.exe/PowerShell. Provide a console-subsystem twin for
 # automation while keeping Unix-like platforms on a single editor binary.
 #
 # EXCLUDE_FROM_ALL keeps it out of the default ("all") build, so local and IDE
-# builds only produce doriax-editor. Release builds compile it explicitly by
-# name (`cmake --build --target doriax-editor-cmd`, see
+# builds only produce quantum-editor. Release builds compile it explicitly by
+# name (`cmake --build --target quantum-editor-cmd`, see
 # .github/workflows/cmake.yml); the install rule below still installs it because
 # CI builds it before installing.
 if(WIN32)
     # Its own icon because both executables install to the same folder
-    doriax_add_windows_resource(
-        DORIAX_EDITOR_CMD_ICON_OBJECTS
-        doriax-editor-cmd
-        "doriax-editor-cmd.ico"
-        "doriax-editor-cmd.exe"
-        "Doriax Engine Editor (command line)"
+    quantum_add_windows_resource(
+        QUANTUM_EDITOR_CMD_ICON_OBJECTS
+        quantum-editor-cmd
+        "quantum-editor-cmd.ico"
+        "quantum-editor-cmd.exe"
+        "Quantum Engine Editor (command line)"
     )
 
     add_executable(
-        doriax-editor-cmd
+        quantum-editor-cmd
 
         EXCLUDE_FROM_ALL
 
-        ${DORIAX_EDITOR_SOURCES}
-        ${DORIAX_EDITOR_CMD_ICON_OBJECTS}
+        ${QUANTUM_EDITOR_SOURCES}
+        ${QUANTUM_EDITOR_CMD_ICON_OBJECTS}
     )
 
-    configure_doriax_editor_target(doriax-editor-cmd)
-    doriax_add_windows_manifest(doriax-editor-cmd)
-    add_dependencies(doriax-editor-cmd copy_doriax_editor_engine)
-    list(APPEND DORIAX_EDITOR_INSTALL_TARGETS doriax-editor-cmd)
+    configure_quantum_editor_target(quantum-editor-cmd)
+    quantum_add_windows_manifest(quantum-editor-cmd)
+    add_dependencies(quantum-editor-cmd copy_quantum_editor_engine)
+    list(APPEND QUANTUM_EDITOR_INSTALL_TARGETS quantum-editor-cmd)
 endif()
 
 # Headless asset compiler (pak/shaders/inspect); target defined in the .cmake.
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/doriax_resource_compiler.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/build-generator/doriax_build_generator.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-compiler/quantum_resource_compiler.cmake)
+
+add_executable(quantum-network-smoke
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/network-smoke/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-network-smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-network-smoke PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-network-smoke PRIVATE quantum voxel)
+if(WIN32)
+    target_link_libraries(quantum-network-smoke PRIVATE ws2_32)
+endif()
+
+add_executable(quantum-serialization-smoke
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/serialization-smoke/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-serialization-smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-serialization-smoke PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-serialization-smoke PRIVATE quantum)
+if(WIN32)
+    target_link_libraries(quantum-serialization-smoke PRIVATE ws2_32)
+endif()
+
+add_executable(quantum-network-relay
+    ${CMAKE_CURRENT_SOURCE_DIR}/tools/network-relay/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/engine/core/subsystem/NetworkProtocol.cpp
+)
+target_include_directories(quantum-network-relay PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(quantum-network-relay PROPERTIES CXX_STANDARD ${QUANTUM_CXX_STANDARD} CXX_STANDARD_REQUIRED ON)
+target_link_libraries(quantum-network-relay PRIVATE quantum)
+if(WIN32)
+    target_link_libraries(quantum-network-relay PRIVATE ws2_32)
+endif()
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/build-generator/quantum_build_generator.cmake)
 # Local asset index service the editor talks to over 127.0.0.1 JSON-lines.
-include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-server/doriax_resource_server.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/resource-server/quantum_resource_server.cmake)
 
 # The bundle already holds the dylib and engine/.
 if(APPLE)
-    install(TARGETS doriax-editor
+    install(TARGETS quantum-editor quantum-hub quantum-engine quantum-network-relay
             CONFIGURATIONS Release MinSizeRel
             BUNDLE DESTINATION bin
+            RUNTIME DESTINATION bin
+            LIBRARY DESTINATION bin
+            ARCHIVE DESTINATION bin
     )
 else()
-    install(TARGETS ${DORIAX_EDITOR_INSTALL_TARGETS} doriax
+    install(TARGETS ${QUANTUM_EDITOR_INSTALL_TARGETS} quantum quantum-engine quantum-network-relay
             CONFIGURATIONS Release MinSizeRel
             RUNTIME DESTINATION bin
             LIBRARY DESTINATION bin
             ARCHIVE DESTINATION bin
     )
 
-    if(DORIAX_MINGW_RUNTIME)
-        install(FILES ${DORIAX_MINGW_RUNTIME}
+    if(QUANTUM_MINGW_RUNTIME)
+        install(FILES ${QUANTUM_MINGW_RUNTIME}
                 CONFIGURATIONS Release MinSizeRel
                 DESTINATION bin
         )
@@ -1002,26 +1238,27 @@ else()
 endif()
 
 # Desktop integration: a launcher entry plus the themed icons the launcher,
-# taskbar and alt-tab switcher look up by the "doriax-editor" icon name.
+# taskbar and alt-tab switcher look up by the "quantum-editor" icon name.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/doriax-editor.desktop
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/quantum-editor.desktop
             DESTINATION share/applications
             CONFIGURATIONS Release MinSizeRel
     )
 
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/org.doriax.editor.metainfo.xml
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${EDITOR_DIR}/resources/linux/org.srvinix.quantum.editor.metainfo.xml
             DESTINATION share/metainfo
             CONFIGURATIONS Release MinSizeRel
     )
 
     foreach(icon_size IN ITEMS 16 32 48 64 128 256 512)
-        install(FILES ${DORIAX_LINUX_ICON_DIR}/doriax-editor-${icon_size}.png
+        install(FILES ${QUANTUM_LINUX_ICON_DIR}/quantum-editor-${icon_size}.png
                 DESTINATION share/icons/hicolor/${icon_size}x${icon_size}/apps
-                RENAME doriax-editor.png
+                RENAME quantum-editor.png
                 CONFIGURATIONS Release MinSizeRel
         )
     endforeach()
 endif()
-# add_subdirectory(engine/voxel)
-# add_subdirectory(engine/voxel_demo)
+add_subdirectory(engine/voxel)
+add_subdirectory(engine/voxel_demo)
+target_link_libraries(quantum PRIVATE voxel)
 

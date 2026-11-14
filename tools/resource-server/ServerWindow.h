@@ -1,11 +1,11 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// ServerWindow.h - the connections window of doriax-resource-server.
+// ServerWindow.h - the connections window of quantum-resource-server.
 //
 // Plain Win32 (user32 + gdi32 + comctl32), because this target deliberately
 // links nothing but the standard library and the system socket/shell libs (see
-// doriax_resource_server.cmake): no engine, no editor, no imgui. The window is
+// quantum_resource_server.cmake): no engine, no editor, no imgui. The window is
 // an observer only - the serving loop owns every piece of state and hands a
 // WindowSnapshot in once per poll slice, so painting can never block a request.
 //
@@ -19,7 +19,7 @@
 
 #include "Connections.h"
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 // Everything the window shows, already turned into display strings by the
 // serving loop: the window never reaches into ResourceIndex.

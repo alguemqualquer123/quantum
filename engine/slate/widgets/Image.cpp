@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/widgets/Image.h"
@@ -8,7 +8,7 @@
 
 #include "slate/core/StyleSet.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         void clampSize(float& width, float& height, const Vector2& minSize, const Vector2& maxSize) {

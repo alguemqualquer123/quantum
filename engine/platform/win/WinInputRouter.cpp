@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "WinInputRouter.h"
@@ -8,9 +8,12 @@
 
 #include "Engine.h"
 
+#include <imm.h>
+#include <string>
+#include <vector>
 #include <windowsx.h> // GET_X_LPARAM / GET_Y_LPARAM
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -32,6 +35,40 @@ int mouseButtonFromMessage(UINT message, WPARAM wParam) {
 // carrying information and only the WM_INPUT deltas are used.
 bool isCaptured() {
     return Engine::getMouseMode() == MouseMode::CAPTURED;
+}
+
+std::string utf8FromWide(const wchar_t* text, int length) {
+    if (!text || length <= 0) return {};
+    const int bytes = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS,
+        text, length, nullptr, 0, nullptr, nullptr);
+    if (bytes <= 0) return {};
+    std::string output(static_cast<size_t>(bytes), '\0');
+    WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, text, length,
+        output.data(), bytes, nullptr, nullptr);
+    return output;
+}
+
+void dispatchImeComposition(HWND window, LPARAM flags) {
+    HIMC context = ImmGetContext(window);
+    if (!context) return;
+
+    const bool hasResult = (flags & GCS_RESULTSTR) != 0;
+    const bool hasComposition = (flags & GCS_COMPSTR) != 0;
+    const DWORD kind = hasResult ? GCS_RESULTSTR : (hasComposition ? GCS_COMPSTR : 0);
+    if (kind != 0) {
+        const LONG byteCount = ImmGetCompositionStringW(context, kind, nullptr, 0);
+        if (byteCount > 0) {
+            std::vector<wchar_t> buffer(static_cast<size_t>(byteCount / sizeof(wchar_t)) + 1);
+            ImmGetCompositionStringW(context, kind, buffer.data(), byteCount);
+            const DWORD cursor = hasResult
+                ? 0u : ImmGetCompositionStringW(context, GCS_CURSORPOS, nullptr, 0);
+            Engine::systemTextComposition(utf8FromWide(buffer.data(), static_cast<int>(byteCount / sizeof(wchar_t))),
+                static_cast<int>(cursor), hasResult);
+        } else if (hasComposition) {
+            Engine::systemTextComposition({}, 0, false);
+        }
+    }
+    ImmReleaseContext(window, context);
 }
 
 }
@@ -136,6 +173,16 @@ bool WinInputRouter::handleMessage(HWND window, UINT message, WPARAM wParam,
             result = 0;
             return true;
         }
+
+        case WM_IME_COMPOSITION:
+            dispatchImeComposition(window, lParam);
+            result = 0;
+            return true;
+
+        case WM_IME_ENDCOMPOSITION:
+            Engine::systemTextComposition({}, 0, false);
+            result = 0;
+            return true;
 
         default:
             break;

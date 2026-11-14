@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UI_CONTAINER_COMPONENT_H
@@ -9,7 +9,7 @@
 #include "math/Rect.h"
 #include "ecs/Entity.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class ContainerType{
         VERTICAL,
@@ -24,7 +24,7 @@ namespace doriax{
         bool expand = true;
     };
 
-    struct DORIAX_API UIContainerComponent{
+    struct QUANTUM_API UIContainerComponent{
         ContainerType type = ContainerType::VERTICAL;
         bool useAllWrapSpace = false;
 

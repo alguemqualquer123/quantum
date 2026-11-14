@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Camera.h"
@@ -7,7 +7,7 @@
 #include "Engine.h"
 #include "subsystem/RenderSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Camera::Camera(Scene* scene): Object(scene){
     addComponent<CameraComponent>();

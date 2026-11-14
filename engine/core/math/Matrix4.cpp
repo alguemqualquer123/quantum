@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Matrix4.h"
@@ -14,7 +14,7 @@
 #include "OBB.h"
 #include "Plane.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Matrix4::Matrix4(){
     identity();

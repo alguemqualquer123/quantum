@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TILEMAP_COMPONENT_H
@@ -21,7 +21,7 @@
 #include "Engine.h"
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     struct TileRectData{
         std::string name;
@@ -47,7 +47,7 @@ namespace doriax{
         unsigned int count = 0;  // number of indices
     };
 
-    struct DORIAX_API TilemapComponent{
+    struct QUANTUM_API TilemapComponent{
         unsigned int width = 0;
         unsigned int height = 0;
 

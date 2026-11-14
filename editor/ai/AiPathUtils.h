@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <filesystem>
 #include <string>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class PathUtils {
 public:
@@ -17,4 +17,4 @@ public:
                                                  const std::string& extension);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

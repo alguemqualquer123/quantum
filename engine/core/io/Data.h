@@ -1,10 +1,10 @@
 //
 // Inspired by work of Jari Komppa in SoLoud audio engine
 // https://sol.gfxile.net/soloud/file.html
-// Modified by Eduardo Doria.
+// Modified by SR VINIX.
 //
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef DATA_H
@@ -14,9 +14,9 @@
 #include "FileData.h"
 #include "File.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Data: public FileData {
+    class QUANTUM_API Data: public FileData {
 
     protected:
         unsigned char *dataPtr;

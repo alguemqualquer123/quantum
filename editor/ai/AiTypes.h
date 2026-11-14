@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 using Json = nlohmann::json;
 
@@ -282,4 +282,4 @@ ApprovalMode approvalModeFromString(const std::string& value);
 // Return false to cancel the stream.
 using StreamingCallback = std::function<bool(const std::string& deltaText)>;
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

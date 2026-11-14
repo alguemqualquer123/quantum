@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCENE_H
@@ -11,11 +11,12 @@
 #include "SceneSettings.h"
 #include "render/Render.h"
 #include "math/Vector2.h"
+#include "InputActionMap.h"
 #include <string>
 #include <vector>
 
 
-namespace doriax{
+namespace quantum{
 
     class Camera;
 
@@ -27,7 +28,7 @@ namespace doriax{
         DISABLED
     };
 
-    class DORIAX_API Scene : public EntityRegistry {
+    class QUANTUM_API Scene : public EntityRegistry {
     private:
 
         Entity camera;
@@ -40,7 +41,16 @@ namespace doriax{
         // Gravity's live value stays in PhysicsSystem; settings.gravity* is only the default.
         SceneSettings settings;
 
+        // Runtime-only render-distance cap, never serialized: the editor drives it from its own
+        // viewport settings so a designer can preview a shorter view without touching the value
+        // the game ships with. 0 = no cap.
+        float renderDistanceOverride = 0.0f;
+
         UIEventState uiEventState;
+
+        // One action map belongs to the scene so gameplay and Lua observe the same
+        // edge-triggered state during a frame.
+        InputActionMap inputActions;
 
         std::vector<std::pair<std::string, std::shared_ptr<SubSystem>>> systems;
 
@@ -86,7 +96,16 @@ namespace doriax{
         void update(double dt);
         void fixedUpdate(double dt);
 
+        InputActionMap& getInputActionMap() { return inputActions; }
+        const InputActionMap& getInputActionMap() const { return inputActions; }
+
         void removeSubscriptionsByTag(const std::string& substring);
+
+        // Stops every subsystem from ticking while the scene keeps receiving events:
+        // the engine loop and the scripts still run, so a paused world can be watched
+        // and stepped out of. Scripts use it through the scene.pause / scene.resume
+        // graph nodes and the Lua equivalent.
+        void setSystemsPaused(bool paused);
 
         void updateCameraSize();
 
@@ -115,6 +134,35 @@ namespace doriax{
         void setDepthPrepassEnabled(bool enabled);
         bool isDepthPrepassEnabled() const;
 
+        // How far the scene is drawn in metres; 0 = unlimited. The value caps the perspective
+        // projection, so the frustum far plane that culls moves in with it.
+        void setRenderDistance(float metres);
+        float getRenderDistance() const;
+
+        // Non-zero override that wins over the authored value for as long as it lasts (the
+        // editor viewport). getEffectiveRenderDistance is what the renderer reads.
+        void setRenderDistanceOverride(float metres);
+        float getRenderDistanceOverride() const;
+        float getEffectiveRenderDistance() const;
+
+        // The air movement the water reads: metres per second, and an angle in the project's
+        // unit like a Water's waveDirection. Wind::sample turns these into the wind blowing at
+        // one point and instant.
+        void setWindEnabled(bool enabled);
+        bool isWindEnabled() const;
+
+        void setWindSpeed(float metresPerSecond);
+        float getWindSpeed() const;
+
+        void setWindDirection(float angle);
+        float getWindDirection() const;
+
+        void setWindGustiness(float gustiness);
+        float getWindGustiness() const;
+
+        void setWindChange(float cyclesPerSecond);
+        float getWindChange() const;
+
         void setSSAOEnabled(bool ssaoEnabled);
         bool isSSAOEnabled() const;
 
@@ -129,6 +177,51 @@ namespace doriax{
 
         void setSSAODebug(bool debug);
         bool isSSAODebug() const;
+
+        void setContactShadowsEnabled(bool enabled);
+        bool isContactShadowsEnabled() const;
+
+        void setContactShadowLength(float length);
+        float getContactShadowLength() const;
+
+        void setContactShadowSteps(int steps);
+        int getContactShadowSteps() const;
+
+        void setContactShadowThickness(float thickness);
+        float getContactShadowThickness() const;
+
+        void setContactShadowIntensity(float intensity);
+        float getContactShadowIntensity() const;
+
+        void setSSGIEnabled(bool enabled);
+        bool isSSGIEnabled() const;
+
+        void setSSGIRadius(float radius);
+        float getSSGIRadius() const;
+
+        void setSSGIIntensity(float intensity);
+        float getSSGIIntensity() const;
+
+        void setSSGISteps(int steps);
+        int getSSGISteps() const;
+
+        void setSSGIThickness(float thickness);
+        float getSSGIThickness() const;
+
+        void setDOFEnabled(bool dofEnabled);
+        bool isDOFEnabled() const;
+
+        void setDOFFocusDistance(float distance);
+        float getDOFFocusDistance() const;
+
+        void setDOFAperture(float aperture);
+        float getDOFAperture() const;
+
+        void setDOFFocusRange(float range);
+        float getDOFFocusRange() const;
+
+        void setDOFMaxBlur(float maxBlur);
+        float getDOFMaxBlur() const;
 
         void setSSREnabled(bool ssrEnabled);
         bool isSSREnabled() const;
@@ -151,6 +244,25 @@ namespace doriax{
         void setSSRDebugMode(int mode);
         int getSSRDebugMode() const;
 
+        void setTAAEnabled(bool enabled);
+        bool isTAAEnabled() const;
+        void setTAABlend(float blend);
+        float getTAABlend() const;
+        void setTAAVelocityScale(float scale);
+        float getTAAVelocityScale() const;
+        void setTAAVelocityClamp(float clamp);
+        float getTAAVelocityClamp() const;
+        void setMotionBlurEnabled(bool enabled);
+        bool isMotionBlurEnabled() const;
+        void setMotionBlurIntensity(float intensity);
+        float getMotionBlurIntensity() const;
+        void setMotionBlurSamples(int samples);
+        int getMotionBlurSamples() const;
+        void setMotionBlurVelocityClamp(float clamp);
+        float getMotionBlurVelocityClamp() const;
+        void setMotionBlurDepthThreshold(float threshold);
+        float getMotionBlurDepthThreshold() const;
+
         void setFixedResolutionEnabled(bool fixedResolutionEnabled);
         bool isFixedResolutionEnabled() const;
 
@@ -164,6 +276,91 @@ namespace doriax{
 
         void setFixedResolutionFilter(TextureFilter filter);
         TextureFilter getFixedResolutionFilter() const;
+
+        // HDR pipeline: these run the bloom / tone map chain. The chain itself works in
+        // half float, but the scene target is still the 0..1 sRGB one until an HDR mesh
+        // variant exists, so the passes decode on entry and the tone map re-encodes.
+        void setBloomEnabled(bool enabled);
+        bool isBloomEnabled() const;
+
+        void setBloomThreshold(float threshold);
+        float getBloomThreshold() const;
+
+        void setBloomSoftKnee(float knee);
+        float getBloomSoftKnee() const;
+
+        void setBloomIntensity(float intensity);
+        float getBloomIntensity() const;
+
+        void setBloomDirtIntensity(float dirt);
+        float getBloomDirtIntensity() const;
+
+        void setBloomLevels(int levels);
+        int getBloomLevels() const;
+
+        void setTonemapEnabled(bool enabled);
+        bool isTonemapEnabled() const;
+
+        void setTonemapMode(int mode);
+        int getTonemapMode() const;
+
+        void setExposure(float exposure);
+        float getExposure() const;
+
+        // Eye adaptation. The EV pair is the range the meter may pick, in exposure values, so it
+        // reaches the pass as 2^ev multipliers.
+        void setAutoExposureEnabled(bool enabled);
+        bool isAutoExposureEnabled() const;
+
+        void setAutoExposureSpeed(float speed);
+        float getAutoExposureSpeed() const;
+
+        void setAutoExposureMinEV(float ev);
+        float getAutoExposureMinEV() const;
+
+        void setAutoExposureMaxEV(float ev);
+        float getAutoExposureMaxEV() const;
+
+        void setExposureCompensation(float ev);
+        float getExposureCompensation() const;
+
+        // Display-referred grading, applied by the tone map after its curve.
+        void setColorGradingEnabled(bool enabled);
+        bool isColorGradingEnabled() const;
+
+        void setColorGradingSaturation(float saturation);
+        float getColorGradingSaturation() const;
+
+        void setColorGradingContrast(float contrast);
+        float getColorGradingContrast() const;
+
+        void setColorGradingBrightness(float brightness);
+        float getColorGradingBrightness() const;
+
+        void setColorGradingHueShift(float degrees);
+        float getColorGradingHueShift() const;
+
+        void setColorGradingTemperature(float temperature);
+        float getColorGradingTemperature() const;
+
+        void setColorGradingTint(float tint);
+        float getColorGradingTint() const;
+
+        // A strip LUT is uploaded as a texture2DArray: each square slice is one
+        // blue coordinate, while red and green occupy the slice's XY plane.
+        void setColorGradingLUTPath(const std::string& path);
+        const std::string& getColorGradingLUTPath() const;
+
+        // FXAA over the finished image. Independent of isHdrEnabled(): a scene with no bloom
+        // and no tone map still wants its edges smoothed.
+        void setFXAAEnabled(bool enabled);
+        bool isFXAAEnabled() const;
+
+        void setFXAAIntensity(float intensity);
+        float getFXAAIntensity() const;
+
+        // Whether the frame has to go through the HDR chain at all.
+        bool isHdrEnabled() const;
 
         void setLightState(LightState state);
         LightState getLightState() const;
@@ -261,7 +458,13 @@ namespace doriax{
 
             auto it = std::find_if(systems.begin(), systems.end(), [&](const auto& pair) { return pair.first == typeName; });
 
-            assert(it == systems.end() && "Registering system more than once");
+            // Scene bootstrap can be reached more than once by headless tools while a project is
+            // being inspected and regenerated. Reuse the existing system instead of aborting the
+            // process; systems are scene-owned singletons and duplicate registration cannot add
+            // useful state.
+            if (it != systems.end()) {
+                return std::dynamic_pointer_cast<T>(it->second);
+            }
 
             auto system = std::make_shared<T>(this);
             systems.push_back(std::make_pair(typeName, system));

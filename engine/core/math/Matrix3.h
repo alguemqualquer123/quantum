@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MATRIX3_H
@@ -6,9 +6,9 @@
 
 #include "math/Vector3.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Matrix3 {
+    class QUANTUM_API Matrix3 {
 
     private:
 

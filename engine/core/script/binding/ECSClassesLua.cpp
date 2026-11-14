@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -16,6 +16,7 @@
 #include "subsystem/ActionSystem.h"
 #include "subsystem/AudioSystem.h"
 #include "subsystem/MeshSystem.h"
+#include "subsystem/NetworkSystem.h"
 #include "subsystem/PhysicsSystem.h"
 #include "subsystem/RenderSystem.h"
 #include "subsystem/UISystem.h"
@@ -32,9 +33,11 @@
 #include "component/SoundComponent.h"
 #include "component/SpriteComponent.h"
 #include "component/FogComponent.h"
+#include "component/DecalComponent.h"
 #include "component/TilemapComponent.h"
+#include "component/AnimatorControllerComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 void LuaBinding::registerECSClasses(lua_State *L){
 #ifndef DISABLE_LUA_BINDINGS
@@ -130,6 +133,16 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
+        .beginClass<DecalComponent>("DecalComponent")
+        .addProperty("enabled", &DecalComponent::enabled, &DecalComponent::enabled)
+        .addProperty("color", &DecalComponent::color, &DecalComponent::color)
+        .addProperty("size", &DecalComponent::size, &DecalComponent::size)
+        .addProperty("opacity", &DecalComponent::opacity, &DecalComponent::opacity)
+        .addProperty("depthFade", &DecalComponent::depthFade, &DecalComponent::depthFade)
+        .addProperty("texture", &DecalComponent::texture, &DecalComponent::texture)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
         .deriveClass<ActionSystem, SubSystem>("ActionSystem")
         .addFunction("actionStart", &ActionSystem::actionStart)
         .addFunction("actionStop", &ActionSystem::actionStop)
@@ -146,6 +159,16 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addStaticFunction("checkActive", &AudioSystem::checkActive)
         .addFunction("stopSceneSounds", &AudioSystem::stopSceneSounds)
         .addStaticProperty("globalVolume", &AudioSystem::getGlobalVolume,  &AudioSystem::setGlobalVolume)
+        .addStaticFunction("setBusVolume", &AudioSystem::setBusVolume)
+        .addStaticFunction("getBusVolume", &AudioSystem::getBusVolume)
+        .addStaticFunction("loadMusicStream", &AudioSystem::loadMusicStream)
+        .addStaticFunction("playMusicStream", &AudioSystem::playMusicStream)
+        .addStaticFunction("stopMusic", &AudioSystem::stopMusic)
+        .addStaticFunction("isMusicPlaying", &AudioSystem::isMusicPlaying)
+        .addStaticFunction("setAmbienceLayer", &AudioSystem::setAmbienceLayer)
+        .addStaticFunction("stopAmbienceLayer", &AudioSystem::stopAmbienceLayer)
+        .addStaticFunction("stopAmbience", &AudioSystem::stopAmbience)
+        .addStaticFunction("getAmbienceLayerCount", &AudioSystem::getAmbienceLayerCount)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -175,6 +198,35 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
+        .deriveClass<NetworkSystem, SubSystem>("NetworkSystem")
+        .addFunction("startServer", &NetworkSystem::startServer)
+        .addFunction("startClient", &NetworkSystem::startClient)
+        .addFunction("startRelayServer", &NetworkSystem::startRelayServer)
+        .addFunction("startRelayClient", &NetworkSystem::startRelayClient)
+        .addFunction("setAuthToken", &NetworkSystem::setAuthToken)
+        .addFunction("isConnected", &NetworkSystem::isConnected)
+        .addFunction("isServer", &NetworkSystem::isServer)
+        .addFunction("isClient", &NetworkSystem::isClient)
+        .addFunction("getLocalPeerId", &NetworkSystem::getLocalPeerId)
+        .addFunction("getConnectedPeerCount", &NetworkSystem::getConnectedPeerCount)
+        .addFunction("setMaxPeers", &NetworkSystem::setMaxPeers)
+        .addFunction("getMaxPeers", &NetworkSystem::getMaxPeers)
+        .addFunction("registerEntity", &NetworkSystem::registerEntity)
+        .addFunction("setPredictionVelocity", &NetworkSystem::setPredictionVelocity)
+        .addFunction("clearPrediction", &NetworkSystem::clearPrediction)
+        .addFunction("hasEntityAuthority", &NetworkSystem::hasEntityAuthority)
+        .addFunction("setInterestCenter", &NetworkSystem::setInterestCenter)
+        .addFunction("clearInterestCenter", &NetworkSystem::clearInterestCenter)
+        .addFunction("setEntityReplicationPolicy", &NetworkSystem::setEntityReplicationPolicy)
+        .addFunction("setPacketLossSimulationForTesting", &NetworkSystem::setPacketLossSimulationForTesting)
+        .addFunction("setPacketReorderingSimulationForTesting", &NetworkSystem::setPacketReorderingSimulationForTesting)
+        .addFunction("sendReliable", &NetworkSystem::sendReliableText)
+        .addFunction("pollReliable", &NetworkSystem::pollReliableText)
+        .addFunction("sendUnreliable", &NetworkSystem::sendUnreliableText)
+        .addFunction("pollUnreliable", &NetworkSystem::pollUnreliableText)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
         .deriveClass<PhysicsSystem, SubSystem>("PhysicsSystem")
         .addProperty("gravity", (Vector3(PhysicsSystem::*)() const)&PhysicsSystem::getGravity, (void(PhysicsSystem::*)(Vector3))&PhysicsSystem::setGravity)
         .addFunction("setGravity",
@@ -190,7 +242,8 @@ void LuaBinding::registerECSClasses(lua_State *L){
             luabridge::overload<Vector3>(&PhysicsSystem::setGravity3D),
             luabridge::overload<float, float, float>(&PhysicsSystem::setGravity3D))
         .addProperty("interpolation", &PhysicsSystem::isInterpolation, &PhysicsSystem::setInterpolation)
-#ifdef DORIAX_PHYSICS_2D
+        .addProperty("debugDrawEnabled", &PhysicsSystem::isDebugDrawEnabled, &PhysicsSystem::setDebugDrawEnabled)
+#ifdef QUANTUM_PHYSICS_2D
         .addProperty("pointsToMeterScale2D", &PhysicsSystem::getPointsToMeterScale2D,  &PhysicsSystem::setPointsToMeterScale2D)
         .addProperty("beginContact2D", [] (PhysicsSystem* self, lua_State* L) { return &self->beginContact2D; }, [] (PhysicsSystem* self, lua_State* L) { self->beginContact2D = L; })
         .addProperty("endContact2D", [] (PhysicsSystem* self, lua_State* L) { return &self->endContact2D; }, [] (PhysicsSystem* self, lua_State* L) { self->endContact2D = L; })
@@ -200,7 +253,7 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addProperty("preSolve2D", [] (PhysicsSystem* self, lua_State* L) { return &self->preSolve2D; }, [] (PhysicsSystem* self, lua_State* L) { self->preSolve2D = L; })
         .addProperty("shouldCollide2D", [] (PhysicsSystem* self, lua_State* L) { return &self->shouldCollide2D; }, [] (PhysicsSystem* self, lua_State* L) { self->shouldCollide2D = L; })
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
         .addProperty("lock3DBodies", &PhysicsSystem::isLock3DBodies, &PhysicsSystem::setLock3DBodies)
         // True inside a contact callback, where a body can be moved but not created
         .addProperty("steppingWorld3D", &PhysicsSystem::isSteppingWorld3D)
@@ -211,7 +264,7 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addProperty("onContactRemoved3D", [] (PhysicsSystem* self, lua_State* L) { return &self->onContactRemoved3D; }, [] (PhysicsSystem* self, lua_State* L) { self->onContactRemoved3D = L; })
         .addProperty("shouldCollide3D", [] (PhysicsSystem* self, lua_State* L) { return &self->shouldCollide3D; }, [] (PhysicsSystem* self, lua_State* L) { self->shouldCollide3D = L; })
 #endif
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
         .addFunction("createBody2D", &PhysicsSystem::createBody2D)
         .addFunction("removeBody2D", &PhysicsSystem::removeBody2D)
         .addFunction("loadBody2D", &PhysicsSystem::loadBody2D)
@@ -229,7 +282,7 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addFunction("loadMotorJoint2D", &PhysicsSystem::loadMotorJoint2D)
         .addFunction("destroyJoint2D", &PhysicsSystem::destroyJoint2D)
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
         .addFunction("createBody3D", &PhysicsSystem::createBody3D)
         .addFunction("removeBody3D", &PhysicsSystem::removeBody3D)
         .addFunction("loadBody3D", &PhysicsSystem::loadBody3D)
@@ -332,6 +385,143 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
+        .beginNamespace("AnimatorParameterType")
+        .addVariable("Float", AnimatorParameter::Type::Float)
+        .addVariable("Int", AnimatorParameter::Type::Int)
+        .addVariable("Bool", AnimatorParameter::Type::Bool)
+        .addVariable("Trigger", AnimatorParameter::Type::Trigger)
+        .endNamespace();
+
+    luabridge::getGlobalNamespace(L)
+        .beginNamespace("AnimatorConditionMode")
+        .addVariable("Greater", AnimatorTransition::Condition::Mode::Greater)
+        .addVariable("Less", AnimatorTransition::Condition::Mode::Less)
+        .addVariable("Equals", AnimatorTransition::Condition::Mode::Equals)
+        .addVariable("NotEqual", AnimatorTransition::Condition::Mode::NotEqual)
+        .endNamespace();
+
+    // The animator state machine data, mirror of what the editor's Animator
+    // window authors. Runtime fields are read-only; drive them through
+    // AnimatorController (setFloat/setTrigger/playState...).
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorParameter>("AnimatorParameter")
+        .addConstructor<void (*) ()>()
+        .addProperty("name", &AnimatorParameter::name, &AnimatorParameter::name)
+        .addProperty("type", &AnimatorParameter::type, &AnimatorParameter::type)
+        .addProperty("defaultValue", &AnimatorParameter::defaultValue, &AnimatorParameter::defaultValue)
+        .addProperty("boolValue", &AnimatorParameter::boolValue, &AnimatorParameter::boolValue)
+        .addProperty("runtimeValue", &AnimatorParameter::runtimeValue)
+        .addProperty("triggerPending", &AnimatorParameter::triggerPending)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorClip::Event>("AnimatorClipEvent")
+        .addConstructor<void (*) ()>()
+        .addProperty("time", &AnimatorClip::Event::time, &AnimatorClip::Event::time)
+        .addProperty("functionName", &AnimatorClip::Event::functionName, &AnimatorClip::Event::functionName)
+        .addProperty("parameter", &AnimatorClip::Event::parameter, &AnimatorClip::Event::parameter)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorClip>("AnimatorClip")
+        .addConstructor<void (*) ()>()
+        .addProperty("name", &AnimatorClip::name, &AnimatorClip::name)
+        .addProperty("animation", &AnimatorClip::animation, &AnimatorClip::animation)
+        .addProperty("audio", &AnimatorClip::audio, &AnimatorClip::audio)
+        .addProperty("speed", &AnimatorClip::speed, &AnimatorClip::speed)
+        .addProperty("offset", &AnimatorClip::offset, &AnimatorClip::offset)
+        .addProperty("loop", &AnimatorClip::loop, &AnimatorClip::loop)
+        .addProperty("layer", &AnimatorClip::layer, &AnimatorClip::layer)
+        .addProperty("events", &AnimatorClip::events, &AnimatorClip::events)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorState>("AnimatorState")
+        .addConstructor<void (*) ()>()
+        .addProperty("id", &AnimatorState::id, &AnimatorState::id)
+        .addProperty("name", &AnimatorState::name, &AnimatorState::name)
+        .addProperty("clips", &AnimatorState::clips, &AnimatorState::clips)
+        .addProperty("isDefault", &AnimatorState::isDefault, &AnimatorState::isDefault)
+        .addProperty("x", &AnimatorState::x, &AnimatorState::x)
+        .addProperty("y", &AnimatorState::y, &AnimatorState::y)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorTransition::Condition>("AnimatorTransitionCondition")
+        .addConstructor<void (*) ()>()
+        .addProperty("parameter", &AnimatorTransition::Condition::parameter, &AnimatorTransition::Condition::parameter)
+        .addProperty("mode", &AnimatorTransition::Condition::mode, &AnimatorTransition::Condition::mode)
+        .addProperty("value", &AnimatorTransition::Condition::value, &AnimatorTransition::Condition::value)
+        .addProperty("boolValue", &AnimatorTransition::Condition::boolValue, &AnimatorTransition::Condition::boolValue)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorTransition>("AnimatorTransition")
+        .addConstructor<void (*) ()>()
+        .addProperty("id", &AnimatorTransition::id, &AnimatorTransition::id)
+        .addProperty("name", &AnimatorTransition::name, &AnimatorTransition::name)
+        .addProperty("fromState", &AnimatorTransition::fromState, &AnimatorTransition::fromState)
+        .addProperty("toState", &AnimatorTransition::toState, &AnimatorTransition::toState)
+        .addProperty("hasExitTime", &AnimatorTransition::hasExitTime, &AnimatorTransition::hasExitTime)
+        .addProperty("exitTime", &AnimatorTransition::exitTime, &AnimatorTransition::exitTime)
+        .addProperty("transitionDuration", &AnimatorTransition::transitionDuration, &AnimatorTransition::transitionDuration)
+        .addProperty("offset", &AnimatorTransition::offset, &AnimatorTransition::offset)
+        .addProperty("canTransitionToSelf", &AnimatorTransition::canTransitionToSelf, &AnimatorTransition::canTransitionToSelf)
+        .addProperty("interruptionSource", &AnimatorTransition::interruptionSource, &AnimatorTransition::interruptionSource)
+        .addProperty("conditions", &AnimatorTransition::conditions, &AnimatorTransition::conditions)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorLayer>("AnimatorLayer")
+        .addConstructor<void (*) ()>()
+        .addProperty("name", &AnimatorLayer::name, &AnimatorLayer::name)
+        .addProperty("weight", &AnimatorLayer::weight, &AnimatorLayer::weight)
+        .addProperty("additive", &AnimatorLayer::additive, &AnimatorLayer::additive)
+        .addProperty("enabled", &AnimatorLayer::enabled, &AnimatorLayer::enabled)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorIKChain>("AnimatorIKChain")
+        .addConstructor<void (*) ()>()
+        .addProperty("root", &AnimatorIKChain::root, &AnimatorIKChain::root)
+        .addProperty("middle", &AnimatorIKChain::middle, &AnimatorIKChain::middle)
+        .addProperty("tip", &AnimatorIKChain::tip, &AnimatorIKChain::tip)
+        .addProperty("target", &AnimatorIKChain::target, &AnimatorIKChain::target)
+        .addProperty("pole", &AnimatorIKChain::pole, &AnimatorIKChain::pole)
+        .addProperty("weight", &AnimatorIKChain::weight, &AnimatorIKChain::weight)
+        .addProperty("enabled", &AnimatorIKChain::enabled, &AnimatorIKChain::enabled)
+        .addProperty("orientBones", &AnimatorIKChain::orientBones, &AnimatorIKChain::orientBones)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<AnimatorControllerComponent>("AnimatorControllerComponent")
+        .addProperty("controllerAsset", &AnimatorControllerComponent::controllerAsset, &AnimatorControllerComponent::controllerAsset)
+        .addProperty("parameters", &AnimatorControllerComponent::parameters, &AnimatorControllerComponent::parameters)
+        .addProperty("layers", &AnimatorControllerComponent::layers, &AnimatorControllerComponent::layers)
+        .addProperty("ikChains", &AnimatorControllerComponent::ikChains, &AnimatorControllerComponent::ikChains)
+        .addProperty("states", &AnimatorControllerComponent::states, &AnimatorControllerComponent::states)
+        .addProperty("transitions", &AnimatorControllerComponent::transitions, &AnimatorControllerComponent::transitions)
+        .addProperty("enabled", &AnimatorControllerComponent::enabled, &AnimatorControllerComponent::enabled)
+        .addProperty("rootMotionEnabled", &AnimatorControllerComponent::rootMotionEnabled, &AnimatorControllerComponent::rootMotionEnabled)
+        .addProperty("rootMotionTarget", &AnimatorControllerComponent::rootMotionTarget, &AnimatorControllerComponent::rootMotionTarget)
+        .addProperty("rootMotionScale", &AnimatorControllerComponent::rootMotionScale, &AnimatorControllerComponent::rootMotionScale)
+        .addProperty("currentState", &AnimatorControllerComponent::currentState)
+        .addProperty("currentStateTime", &AnimatorControllerComponent::currentStateTime)
+        .addProperty("isPlaying", &AnimatorControllerComponent::isPlaying)
+        .addProperty("onEvent", [] (AnimatorControllerComponent* self, lua_State* L) { return &self->onEvent; }, [] (AnimatorControllerComponent* self, lua_State* L) { self->onEvent = L; })
+        .addProperty("onStateChange", [] (AnimatorControllerComponent* self, lua_State* L) { return &self->onStateChange; }, [] (AnimatorControllerComponent* self, lua_State* L) { self->onStateChange = L; })
+        .addFunction("setFloat", &AnimatorControllerComponent::setFloat)
+        .addFunction("getFloat", &AnimatorControllerComponent::getFloat)
+        .addFunction("setInteger", &AnimatorControllerComponent::setInteger)
+        .addFunction("getInteger", &AnimatorControllerComponent::getInteger)
+        .addFunction("setBool", &AnimatorControllerComponent::setBool)
+        .addFunction("getBool", &AnimatorControllerComponent::getBool)
+        .addFunction("setTrigger", &AnimatorControllerComponent::setTrigger)
+        .addFunction("resetTrigger", &AnimatorControllerComponent::resetTrigger)
+        .addFunction("getCurrentStateName", &AnimatorControllerComponent::getCurrentStateName)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
         .beginClass<TimedActionComponent>("TimedActionComponent")
         .addProperty("time", &TimedActionComponent::time)
         .addProperty("value", &TimedActionComponent::value)
@@ -339,6 +529,49 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addProperty("loop", &TimedActionComponent::loop, &TimedActionComponent::loop)
         .addProperty("pingPong", &TimedActionComponent::pingPong, &TimedActionComponent::pingPong)
         .addProperty("function", [] (TimedActionComponent* self, lua_State* L) { return &self->function; }, [] (TimedActionComponent* self, lua_State* L) { self->function = L; })
+        .endClass();
+
+    // The one fog in the scene, reachable as Scene.getFog(). The classic per-pixel fog and
+    // the fullscreen height fog / light shafts share the density and colour, so a day-night
+    // script that already drives fog.color drives the atmosphere with it.
+    luabridge::getGlobalNamespace(L)
+        .beginClass<FogComponent>("FogComponent")
+        .addProperty("type", &FogComponent::type, &FogComponent::type)
+        .addProperty("color", &FogComponent::color, &FogComponent::color)
+        .addProperty("density", &FogComponent::density, &FogComponent::density)
+        .addProperty("linearStart", &FogComponent::linearStart, &FogComponent::linearStart)
+        .addProperty("linearEnd", &FogComponent::linearEnd, &FogComponent::linearEnd)
+        .addProperty("heightFog", &FogComponent::heightFog, &FogComponent::heightFog)
+        .addProperty("fogHeightFalloff", &FogComponent::fogHeightFalloff, &FogComponent::fogHeightFalloff)
+        .addProperty("fogGroundHeight", &FogComponent::fogGroundHeight, &FogComponent::fogGroundHeight)
+        .addProperty("fogSunAmount", &FogComponent::fogSunAmount, &FogComponent::fogSunAmount)
+        .addProperty("fogFarRange", &FogComponent::fogFarRange, &FogComponent::fogFarRange)
+        .addProperty("fogScatteringG", &FogComponent::fogScatteringG, &FogComponent::fogScatteringG)
+        .addProperty("fogSunColor", &FogComponent::fogSunColor, &FogComponent::fogSunColor)
+        .addProperty("fogNoiseEnabled", &FogComponent::fogNoiseEnabled, &FogComponent::fogNoiseEnabled)
+        .addProperty("fogNoiseScale", &FogComponent::fogNoiseScale, &FogComponent::fogNoiseScale)
+        .addProperty("fogNoiseStrength", &FogComponent::fogNoiseStrength, &FogComponent::fogNoiseStrength)
+        .addProperty("fogNoiseSpeed", &FogComponent::fogNoiseSpeed, &FogComponent::fogNoiseSpeed)
+        .addProperty("fogNoiseWind", &FogComponent::fogNoiseWind, &FogComponent::fogNoiseWind)
+        .addProperty("volumetricFog", &FogComponent::volumetricFog, &FogComponent::volumetricFog)
+        .addProperty("volumetricFogSteps", &FogComponent::volumetricFogSteps, &FogComponent::volumetricFogSteps)
+        .addProperty("volumetricFogIntensity", &FogComponent::volumetricFogIntensity, &FogComponent::volumetricFogIntensity)
+        .addProperty("godRays", &FogComponent::godRays, &FogComponent::godRays)
+        .addProperty("rayIntensity", &FogComponent::rayIntensity, &FogComponent::rayIntensity)
+        .addProperty("rayThreshold", &FogComponent::rayThreshold, &FogComponent::rayThreshold)
+        .addProperty("raySoftness", &FogComponent::raySoftness, &FogComponent::raySoftness)
+        .addProperty("rayDecay", &FogComponent::rayDecay, &FogComponent::rayDecay)
+        .addProperty("rayDensity", &FogComponent::rayDensity, &FogComponent::rayDensity)
+        .addProperty("cloudsEnabled", &FogComponent::cloudsEnabled, &FogComponent::cloudsEnabled)
+        .addProperty("cloudBaseHeight", &FogComponent::cloudBaseHeight, &FogComponent::cloudBaseHeight)
+        .addProperty("cloudThickness", &FogComponent::cloudThickness, &FogComponent::cloudThickness)
+        .addProperty("cloudCoverage", &FogComponent::cloudCoverage, &FogComponent::cloudCoverage)
+        .addProperty("cloudDensity", &FogComponent::cloudDensity, &FogComponent::cloudDensity)
+        .addProperty("cloudScale", &FogComponent::cloudScale, &FogComponent::cloudScale)
+        .addProperty("cloudSpeed", &FogComponent::cloudSpeed, &FogComponent::cloudSpeed)
+        .addProperty("cloudSunAmount", &FogComponent::cloudSunAmount, &FogComponent::cloudSunAmount)
+        .addProperty("cloudWind", &FogComponent::cloudWind, &FogComponent::cloudWind)
+        .addProperty("cloudColor", &FogComponent::cloudColor, &FogComponent::cloudColor)
         .endClass();
     
     luabridge::getGlobalNamespace(L)
@@ -669,6 +902,12 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addProperty("emitter", &ParticlesComponent::emitter, &ParticlesComponent::emitter)
         .addProperty("loop", &ParticlesComponent::loop, &ParticlesComponent::loop)
         .addProperty("localSpace", &ParticlesComponent::localSpace, &ParticlesComponent::localSpace)
+        .addProperty("gpuSimulation", &ParticlesComponent::gpuSimulation, &ParticlesComponent::gpuSimulation)
+        .addProperty("collisionEnabled", &ParticlesComponent::collisionEnabled, &ParticlesComponent::collisionEnabled)
+        .addProperty("collisionBounce", &ParticlesComponent::collisionBounce, &ParticlesComponent::collisionBounce)
+        .addProperty("collisionFriction", &ParticlesComponent::collisionFriction, &ParticlesComponent::collisionFriction)
+        .addProperty("trailsEnabled", &ParticlesComponent::trailsEnabled, &ParticlesComponent::trailsEnabled)
+        .addProperty("trailLength", &ParticlesComponent::trailLength, &ParticlesComponent::trailLength)
         .addProperty("rate", &ParticlesComponent::rate, &ParticlesComponent::rate)
         .addProperty("maxPerUpdate", &ParticlesComponent::maxPerUpdate, &ParticlesComponent::maxPerUpdate)
         .addProperty("bursts", &ParticlesComponent::bursts, &ParticlesComponent::bursts)
@@ -700,6 +939,7 @@ void LuaBinding::registerECSClasses(lua_State *L){
         .addProperty("handle", &SoundComponent::handle)
         .addProperty("state", &SoundComponent::state)
         .addProperty("filename", &SoundComponent::filename, &SoundComponent::filename)
+        .addProperty("bus", &SoundComponent::bus, &SoundComponent::bus)
         .addProperty("loaded", &SoundComponent::loaded)
         .addProperty("loadFailed", &SoundComponent::loadFailed)
         .addProperty("enableClocked", &SoundComponent::enableClocked, &SoundComponent::enableClocked)

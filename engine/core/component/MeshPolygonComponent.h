@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MESHPOLYGON_COMPONENT_H
@@ -10,9 +10,9 @@
 
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API MeshPolygonComponent{
+    struct QUANTUM_API MeshPolygonComponent{
         unsigned int width = 0;
         unsigned int height = 0;
 

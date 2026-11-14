@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PARTICLES_COMPONENT_H
@@ -13,7 +13,7 @@
 
 #include <algorithm>
 
-namespace doriax{
+namespace quantum{
 
     enum class ParticleEmitterShape{
         Box = 0,
@@ -231,7 +231,7 @@ namespace doriax{
         float time = 0;
     };
 
-    struct DORIAX_API ParticlesComponent{
+    struct QUANTUM_API ParticlesComponent{
         std::vector<ParticleData> particles;
 
         unsigned int maxParticles = 100;
@@ -243,6 +243,17 @@ namespace doriax{
 
         bool loop = true;
         bool localSpace = false;
+        // Integrates simple ballistic motion in the point vertex shader. The runtime
+        // still owns spawning and lifetime so collision/trail features remain exact.
+        bool gpuSimulation = false;
+        float gpuSimulationTime = 0.0f; // runtime clock, not serialized
+
+        // Optional collision response against static 3D physics bodies.
+        bool collisionEnabled = false;
+        float collisionBounce = 0.25f;
+        float collisionFriction = 0.0f;
+        bool trailsEnabled = false;
+        unsigned int trailLength = 8;
 
         int rate = 5; //per second
         int maxPerUpdate = 100;
@@ -254,6 +265,8 @@ namespace doriax{
         Matrix4 cachedTargetModelInv;
         Quaternion cachedTargetWorldRotInv;
         Vector3 cachedTargetInvScale = Vector3(1,1,1);
+        Entity trailTarget = NULL_ENTITY;
+        std::vector<std::vector<Vector3>> trailHistory;
 
         ParticleLifeInitializer lifeInitializer;
 

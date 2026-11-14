@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCROLLBAR_H
@@ -8,8 +8,8 @@
 #include "Text.h"
 #include "Container.h"
 
-namespace doriax{
-    class DORIAX_API Scrollbar: public Image{
+namespace quantum{
+    class QUANTUM_API Scrollbar: public Image{
     private:
         void ensureBar();
 

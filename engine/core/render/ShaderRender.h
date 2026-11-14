@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ShaderRender_h
@@ -7,8 +7,8 @@
 #include "Render.h"
 #include "sokol/SokolShader.h"
 
-namespace doriax{
-    class DORIAX_API ShaderRender{
+namespace quantum{
+    class QUANTUM_API ShaderRender{
 
     private:
         // render callback clean function

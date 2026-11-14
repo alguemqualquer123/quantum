@@ -1,16 +1,16 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
-#include "Doriax.h"
+#include "Quantum.h"
 
 #include "ToolsLayer.h"
 #include "UILayer.h"
 #include "RenderUtil.h"
 #include "command/Command.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     constexpr float DEFAULT_EDITOR_CAMERA_NEAR = 0.3f;
     constexpr float DEFAULT_EDITOR_CAMERA_FAR = 4000.0f;
@@ -36,6 +36,7 @@ namespace doriax::editor{
         bool disableFaceCulling  = false;
         bool disableFog          = false;
         bool disableUnderwater   = false;
+        bool showClusteredLightGrid = false;
         bool showGrid2D          = false;
         float gridSpacing2D      = 50.0f;
         float gridSpacing3D      = 1.0f;
@@ -56,6 +57,9 @@ namespace doriax::editor{
         float aspect = 0;
         float nearClip = 0;
         float farClip = 0;
+        // The far the frustum is drawn and culled with: farClip after the scene's render
+        // distance. Kept apart from farClip so moving the cap redraws the lines.
+        float cullFarClip = -1;
         float leftClip = 0;
         float rightClip = 0;
         float bottomClip = 0;

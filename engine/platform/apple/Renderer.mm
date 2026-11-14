@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import <simd/simd.h>
@@ -7,8 +7,8 @@
 #import "Renderer.h"
 
 #include "Engine.h"
-#include "DoriaxApple.h"
-#import "DoriaxGameController.h"
+#include "QuantumApple.h"
+#import "QuantumGameController.h"
 
 @implementation Renderer
 {
@@ -41,9 +41,9 @@ static CGSize _screenSize;
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withArgs:(NSArray*)args;
 {
-    doriax::Engine::systemInit((int)[args count], [self getArray:args], new DoriaxApple());
+    quantum::Engine::systemInit((int)[args count], [self getArray:args], new QuantumApple());
 
-    [DoriaxGameController start];
+    [QuantumGameController start];
 
     self = [super init];
     if(self)
@@ -58,7 +58,7 @@ static CGSize _screenSize;
         
         _screenSize.width = (float) view.drawableSize.width;
         _screenSize.height = (float) view.drawableSize.height;
-        doriax::Engine::systemViewLoaded();
+        quantum::Engine::systemViewLoaded();
     }
 
     return self;
@@ -66,13 +66,13 @@ static CGSize _screenSize;
 
 - (void)destroyView
 {
-    doriax::Engine::systemViewDestroyed();
-    doriax::Engine::systemShutdown();
+    quantum::Engine::systemViewDestroyed();
+    quantum::Engine::systemShutdown();
 }
 
 - (void)drawInMTKView:(nonnull MTKView *)view
 {
-    doriax::Engine::systemDraw();
+    quantum::Engine::systemDraw();
 }
 
 - (void)mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size
@@ -80,19 +80,19 @@ static CGSize _screenSize;
     /// Respond to drawable size or orientation changes here
     _screenSize.width = (float) size.width;
     _screenSize.height = (float) size.height;
-    doriax::Engine::systemViewChanged();
+    quantum::Engine::systemViewChanged();
 }
 
 + (void)pauseGame {
-    doriax::Engine::systemPause();
+    quantum::Engine::systemPause();
 }
 
 + (void)resumeGame {
-    doriax::Engine::systemResume();
+    quantum::Engine::systemResume();
 }
 
 + (void)updateGame {
-    doriax::Engine::systemUpdate();
+    quantum::Engine::systemUpdate();
 }
 
 + (void)waitForGPU {

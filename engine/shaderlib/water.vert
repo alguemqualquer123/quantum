@@ -6,7 +6,8 @@
 // (xy = render target size, zw = 1 / size). Do not mix int and float members: GL
 // uploads the block typed after its first member.
 //
-// sumWaterWaves in RenderSystem.cpp repeats this wave sum for height queries: change both.
+// sumWaterWaves in RenderSystem.cpp repeats this wave sum for height queries, and
+// WaterSystem::getSimSurface adds the field to it where the water simulates: change both.
 //
 //   uniform u_vs_customParams {
 //       float time;
@@ -30,6 +31,41 @@ out float v_waveHeight;
 
 const float TWO_PI = 6.283185307179586;
 
+#ifdef USE_WATER_SIM
+    // Depth per cell instead of one level plane, fetched per vertex like the terrain
+    // heightmap. The field lies on the world ground, so a puddle stays where the water
+    // left it even when the entity is moved or turned. One texel per cell: r = water
+    // standing, g = ground under it, b = ripple, a = flow speed.
+    uniform highp texture2D u_waterFieldTexture;
+    uniform highp sampler u_waterField_smp;
+
+    uniform u_vs_waterSimParams {
+        vec4 simMap;    // xy = 1 / world metres of the field, zw = 1 / cells (one texel)
+        vec4 simOrigin; // xy = world XZ of the field's lower bound
+        vec4 simCell;   // xy = world metres per cell, z = depth under which a cell is dry
+        vec4 simTune;   // x = share of the ground slope carried into the wave normal
+    } waterSim;
+
+    out float v_simWet;
+    out float v_simFlow;
+
+    // surface over the entity level, in world metres: ground + standing water + ripple
+    float fieldHeight(vec2 uv){
+        vec4 field = texture(sampler2D(u_waterFieldTexture, u_waterField_smp), uv);
+        return field.g + field.r + field.b;
+    }
+
+    // the slope the water lies on, which a level plane cannot show
+    vec3 fieldNormal(vec2 uv, vec3 waves){
+        vec2 e = waterSim.simMap.zw;
+        float dhdx = fieldHeight(uv + vec2(e.x, 0.0)) - fieldHeight(uv - vec2(e.x, 0.0));
+        float dhdz = fieldHeight(uv + vec2(0.0, e.y)) - fieldHeight(uv - vec2(0.0, e.y));
+        vec3 ground = normalize(vec3(-dhdx / (2.0 * waterSim.simCell.x), 1.0, -dhdz / (2.0 * waterSim.simCell.y)));
+        // the bowl tilts the surface and the waves still ripple over it
+        return normalize(vec3(ground.x + waves.x * waterSim.simTune.x, ground.y, ground.z + waves.z * waterSim.simTune.x));
+    }
+#endif
+
 // Gerstner wave at the world point p, adding up the surface derivatives
 vec3 gerstnerWave(vec4 wave, float phase, vec2 p, float steepness, inout vec3 tangent, inout vec3 binormal){
     vec2 d = wave.xy;
@@ -40,7 +76,7 @@ vec3 gerstnerWave(vec4 wave, float phase, vec2 p, float steepness, inout vec3 ta
     float c = cos(f);
     float qa = steepness * a;
 
-    tangent += vec3(-qa * k * d.x * d.x * s, a * k * d.x * c, -qa * k * d.x * d.y * s);
+    tangent += vec3(-qa * k * d.x * d.x * s, a * k * d.x * c, -qa * k * d.y * s);
     binormal += vec3(-qa * k * d.x * d.y * s, a * k * d.y * c, -qa * k * d.y * d.y * s);
 
     return vec3(qa * d.x * c, a * s, qa * d.y * c);
@@ -62,8 +98,20 @@ void main(){
 
     worldPos.xyz += offset;
 
+    vec3 normal = normalize(cross(binormal, tangent));
+
+    #ifdef USE_WATER_SIM
+        // texel centres at (i + 0.5) / cells, the same convention the ground is baked with
+        vec2 uv = (p - waterSim.simOrigin.xy) * waterSim.simMap.xy;
+        vec4 field = texture(sampler2D(u_waterFieldTexture, u_waterField_smp), uv);
+        worldPos.y += field.g + field.r + field.b;
+        normal = fieldNormal(uv, normal);
+        v_simWet = field.r / max(waterSim.simCell.z, 0.0001);
+        v_simFlow = field.a;
+    #endif
+
     v_position = worldPos.xyz;
-    v_normal = normalize(cross(binormal, tangent));
+    v_normal = normal;
     v_waveHeight = offset.y;
 
     gl_Position = waterParams.viewProjectionMatrix * worldPos;

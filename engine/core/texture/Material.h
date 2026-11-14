@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef MATERIAL_H
@@ -7,9 +7,9 @@
 #include "math/Vector3.h"
 #include "texture/Texture.h"
 
-namespace doriax{
+namespace quantum{
 
-    // AUTO preserves Doriax's historical texture-alpha detection for materials
+    // AUTO preserves Quantum's historical texture-alpha detection for materials
     // created in the editor. The other values map directly to glTF alphaMode.
     // The editor's generic enum property path stores enum values as int, matching
     // the engine's other editable enums.
@@ -20,7 +20,7 @@ namespace doriax{
         BLEND
     };
 
-    struct DORIAX_API Material{
+    struct QUANTUM_API Material{
         // --- start shader part
         Vector4 baseColorFactor = Vector4(1.0f, 1.0f, 1.0f, 1.0f);  // linear color
         float metallicFactor = 1.0f;
@@ -44,7 +44,8 @@ namespace doriax{
 
         // --- start transmission (KHR_materials_transmission)
         float transmissionFactor = 0.0f;
-        uint8_t _pad_transmission[12];
+        float thicknessFactor = 0.0f;
+        uint8_t _pad_transmission[8];
         // --- end transmission
 
         // --- start volume (KHR_materials_volume)
@@ -59,10 +60,12 @@ namespace doriax{
         // --- end anisotropy
 
         // --- start height (parallax occlusion mapping)
+        // Uploaded to u_fs_heightParams as four floats, so the layer counts stay floats
+        // and the padding is zeroed instead of going to the GPU as indeterminate bytes.
         float heightScale = 0.05f;
-        int heightMinLayers = 8;
-        int heightMaxLayers = 32;
-        uint8_t _pad_height[4];
+        float heightMinLayers = 8.0f;
+        float heightMaxLayers = 32.0f;
+        uint8_t _pad_height[4] = {0, 0, 0, 0};
         // --- end height
 
         Texture baseColorTexture;
@@ -119,6 +122,7 @@ namespace doriax{
                    sheenColorFactor == other.sheenColorFactor &&
                    sheenRoughnessFactor == other.sheenRoughnessFactor &&
                    transmissionFactor == other.transmissionFactor &&
+                   thicknessFactor == other.thicknessFactor &&
                    attenuationColor == other.attenuationColor &&
                    attenuationDistance == other.attenuationDistance &&
                    anisotropyStrength == other.anisotropyStrength &&

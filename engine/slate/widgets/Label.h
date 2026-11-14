@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateLabel_h
@@ -11,7 +11,7 @@
 #include "slate/core/TextRenderer.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Non-interactive text. Font, size, colour, alignment, wrap and overflow all
     // come from the style, so a Label is themeable without touching call sites.
@@ -24,6 +24,7 @@ namespace doriax::slate {
 
         Label& setText(std::string text);
         const std::string& getText() const;
+        const char* getTypeName() const override;
 
         //Per-instance overrides of the style; prefer a named style when the
         //look is shared, since overrides are the reason a theme stops working.

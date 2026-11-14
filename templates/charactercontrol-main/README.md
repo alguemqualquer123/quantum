@@ -1,6 +1,6 @@
 # Character Control
 
-This is a simple example of character control movement using 3D physics and animations in the Doriax Engine (https://github.com/doriaxengine/doriax).
+This is a simple example of character control movement using 3D physics and animations in the Quantum Engine (https://github.com/alguemqualquer123/quantum), a fork of the Quantum Engine.
 
 ## Assets
 

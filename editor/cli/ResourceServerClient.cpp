@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // ResourceServerClient.cpp - see ResourceServerClient.h.
@@ -41,12 +41,12 @@
     extern char** environ;
 #endif
 
-namespace doriax::editor::cli {
+namespace quantum::editor::cli {
 
 namespace {
 
 constexpr int kSpawnWaitMs = 8000;
-constexpr char kListeningPrefix[] = "doriax-resource-server: listening on 127.0.0.1:";
+constexpr char kListeningPrefix[] = "quantum-resource-server: listening on 127.0.0.1:";
 
 // ---------------------------------------------------------------------------
 // Socket library lifetime: refcounted so any number of clients can coexist
@@ -219,10 +219,10 @@ std::string windowsExeDirectory() {
 
 bool findResourceServerExecutable(fs::path& outPath) {
 #ifdef _WIN32
-    const char* exeName = "doriax-resource-server.exe";
+    const char* exeName = "quantum-resource-server.exe";
     const std::string exeDir = windowsExeDirectory();
 #else
-    const char* exeName = "doriax-resource-server";
+    const char* exeName = "quantum-resource-server";
     std::string exeDir;
     char buf[4096];
     ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
@@ -393,7 +393,7 @@ bool probeServer(const std::string& host, int port, std::string& statusJsonOut,
                  std::string& errorOut) {
     // The "client" tag is optional for the server but makes this editor show up
     // by name in its connections window even if the process lookup fails.
-    return requestServerLine(host, port, "{\"cmd\":\"status\",\"client\":\"doriax-editor\"}",
+    return requestServerLine(host, port, "{\"cmd\":\"status\",\"client\":\"quantum-editor\"}",
                              statusJsonOut, errorOut);
 }
 
@@ -416,7 +416,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
 
     fs::path exe = serverExe;
     if (exe.empty() && !findResourceServerExecutable(exe)) {
-        errorOut = "doriax-resource-server executable not found beside the editor";
+        errorOut = "quantum-resource-server executable not found beside the editor";
         return false;
     }
 
@@ -500,7 +500,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         TerminateProcess(pi.hProcess, 1);
         if (!recordFile.empty()) removeServerRecord(recordFile);
         portOut = 0;
-        errorOut = "doriax-resource-server did not report a listening port";
+        errorOut = "quantum-resource-server did not report a listening port";
         CloseHandle(hRead);
         CloseHandle(pi.hThread);
         CloseHandle(pi.hProcess);
@@ -544,7 +544,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
 
     fs::path exe = serverExe;
     if (exe.empty() && !findResourceServerExecutable(exe)) {
-        errorOut = "doriax-resource-server executable not found beside the editor";
+        errorOut = "quantum-resource-server executable not found beside the editor";
         return false;
     }
 
@@ -637,7 +637,7 @@ bool spawnResourceServer(const fs::path& projectDir, const fs::path& serverExe, 
         waitpid(pid, &status, 0);
         if (!recordFile.empty()) removeServerRecord(recordFile);
         portOut = 0;
-        errorOut = "doriax-resource-server did not report a listening port";
+        errorOut = "quantum-resource-server did not report a listening port";
         return false;
     }
 

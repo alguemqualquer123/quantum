@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Win32 -> engine key translation. The engine's key constants are GLFW's
 // (see core/Input.h), so this reproduces GLFW's Win32 scancode table rather
@@ -21,7 +21,7 @@
 
 #include "Input.h"
 
-namespace doriax {
+namespace quantum {
 
     // Indexed by scancode including the extended bit (0x100), so 0..0x1ff.
     inline const int* winScancodeTable() {

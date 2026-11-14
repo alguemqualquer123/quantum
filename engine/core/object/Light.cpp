@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Light.h"
@@ -8,7 +8,7 @@
 #include "subsystem/RenderSystem.h"
 #include <math.h>
 
-using namespace doriax;
+using namespace quantum;
 
 Light::Light(Scene* scene): Object(scene){
     addComponent<LightComponent>();

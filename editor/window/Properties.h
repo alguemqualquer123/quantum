@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -21,7 +21,7 @@
 
 #include <functional>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class SceneWindow;
     class ForkShaderCmd;
@@ -101,7 +101,7 @@ namespace doriax::editor{
         int nameFocusFrames = 0;   // visible frames left for focusNameInput() to take
         bool finishProperty;
 
-        // Window state the library's Begin writes while doriax only draws contents.
+        // Window state the library's Begin writes while quantum only draws contents.
         bool hostedWindow = false;
         bool hostedWasOpen = true;
 
@@ -115,6 +115,14 @@ namespace doriax::editor{
         // for drag and drop textures
         std::map<std::string, bool> hasTextureDrag;
         std::map<std::string, std::map<Entity, Texture>> originalTex;
+
+        // Files awaiting slot confirmation in the "Load Textures" popup.
+        struct PendingTextureFile {
+            std::string path;
+            int slot = -1;
+        };
+        std::vector<PendingTextureFile> pendingTextureFiles;
+        int pendingTextureSubmesh = -1;
 
         // for drag and drop fonts, keyed by property id and slot
         std::map<std::string, bool> hasFontDrag;
@@ -382,12 +390,14 @@ namespace doriax::editor{
         void drawSpriteComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawTilemapComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawTerrainComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
+        void drawAnimatorControllerComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawLightComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawLight2DComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawOccluder2DComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawFogComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawMirrorComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawReflectionProbeComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
+        void drawDecalComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawCameraComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawAudioComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);
         void drawSkyComponent(ComponentType cpType, SceneProject* sceneProject, std::vector<Entity> entities);

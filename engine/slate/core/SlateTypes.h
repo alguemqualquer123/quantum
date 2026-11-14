@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateTypes_h
@@ -11,7 +11,29 @@
 #include "math/Vector4.h"
 #include "texture/Texture.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
+
+    class Widget;
+
+    struct SlateEvent {
+        Widget* currentTarget = nullptr;
+        bool handled = false;
+        bool propagationStopped = false;
+
+        void stopPropagation() {
+            propagationStopped = true;
+        }
+    };
+
+    struct SlatePointerEvent : SlateEvent {
+        Vector2 position;
+        int button = -1;
+    };
+
+    struct SlateKeyEvent : SlateEvent {
+        int key = -1;
+        bool repeat = false;
+    };
 
     // Flow axis of a Box/WrapBox/ScrollBox.
     enum class Orientation {

@@ -1,0 +1,12 @@
+# (c) SR VINIX
+# SPDX-License-Identifier: MIT
+
+id: 1
+name: Quantum Phase 3 Visual Fixture
+scene:
+  backgroundColor: [0.025, 0.035, 0.06, 1]
+  lightState: on
+  depthPrepassEnabled: true
+  renderDistance: 100
+mainCamera: ~
+entities: []

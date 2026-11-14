@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ACTION_H
@@ -7,8 +7,8 @@
 #include "object/EntityHandle.h"
 #include "object/Object.h"
 
-namespace doriax{
-    class DORIAX_API Action: public EntityHandle{
+namespace quantum{
+    class QUANTUM_API Action: public EntityHandle{
     public:
         Action(Scene* scene);
         Action(Scene* scene, Entity entity);

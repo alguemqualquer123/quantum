@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 
@@ -8,7 +8,7 @@
 #include "component/MeshPolygonComponent.h"
 #include "subsystem/MeshSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 MeshPolygon::MeshPolygon(Scene* scene): Mesh(scene){
     addComponent<MeshPolygonComponent>();

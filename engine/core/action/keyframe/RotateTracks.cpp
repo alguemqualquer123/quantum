@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RotateTracks.h"
@@ -6,7 +6,7 @@
 #include "component/KeyframeTracksComponent.h"
 #include "component/RotateTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 RotateTracks::RotateTracks(Scene* scene): KeyframeTracks(scene){
     addComponent<RotateTracksComponent>();

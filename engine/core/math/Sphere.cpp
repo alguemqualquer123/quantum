@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Sphere.h"
@@ -10,7 +10,7 @@
 #include "AABB.h"
 #include "OBB.h"
 
-using namespace doriax;
+using namespace quantum;
 
 
 Sphere::Sphere() : center(Vector3(0, 0, 0)), radius(1.0f){ 

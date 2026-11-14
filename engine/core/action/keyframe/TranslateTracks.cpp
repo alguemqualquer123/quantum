@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "TranslateTracks.h"
@@ -6,7 +6,7 @@
 #include "component/KeyframeTracksComponent.h"
 #include "component/TranslateTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 TranslateTracks::TranslateTracks(Scene* scene): KeyframeTracks(scene){
     addComponent<TranslateTracksComponent>();

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AdMob.h"
@@ -7,7 +7,7 @@
 #include "System.h"
 #include <chrono>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     // Google stops serving app open ads loaded more than four hours ago

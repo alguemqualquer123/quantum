@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Matrix3.h"
@@ -9,7 +9,7 @@
 #include <assert.h>
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 Matrix3::Matrix3() {
     identity();

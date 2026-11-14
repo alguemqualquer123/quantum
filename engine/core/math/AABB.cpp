@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AABB.h"
@@ -7,7 +7,7 @@
 #include "Log.h"
 #include "OBB.h"
 
-using namespace doriax;
+using namespace quantum;
 
 const AABB AABB::ZERO(0, 0, 0, 0, 0, 0);
 

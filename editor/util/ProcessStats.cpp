@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ProcessStats.h"
@@ -26,7 +26,7 @@
 #include <unistd.h>
 #endif
 
-namespace doriax::editor {
+namespace quantum::editor {
     namespace {
         // Wall clock in seconds since an arbitrary epoch; used as the denominator
         // for the CPU-time deltas that GetProcessTimes / /proc report.

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/UIRuntime.h"
@@ -9,8 +9,8 @@
 #include "ui/layout/YogaLayout.h"
 #include "ui/render/UIRenderer.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 std::unique_ptr<VisualElement> UIRuntime::root;
 PaintList UIRuntime::paintList;

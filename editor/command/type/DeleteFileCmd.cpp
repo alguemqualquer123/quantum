@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "DeleteFileCmd.h"
@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <string>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::DeleteFileCmd::DeleteFileCmd(Project* project, std::vector<fs::path> filePaths, fs::path rootPath){
     this->project = project;

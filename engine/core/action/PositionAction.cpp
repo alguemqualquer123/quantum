@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "PositionAction.h"
 
-using namespace doriax;
+using namespace quantum;
 
 PositionAction::PositionAction(Scene* scene): TimedAction(scene){
     addComponent<PositionActionComponent>();

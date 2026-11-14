@@ -1,6 +1,6 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
-// doriax::System over WindowMac. It keeps no state of its own, so the editor
+// quantum::System over WindowMac. It keeps no state of its own, so the editor
 // driving WindowMac directly and a game going through here stay in agreement.
 
 #ifndef SystemMac_h
@@ -8,7 +8,7 @@
 
 #include "System.h"
 
-namespace doriax {
+namespace quantum {
 
     class SystemMac: public System {
     public:
@@ -17,6 +17,8 @@ namespace doriax {
         int getScreenHeight() override;
 
         int getSampleCount() override;
+
+        bool readBackFramebuffer(unsigned char* out, int width, int height) override;
 
 #if defined(SOKOL_METAL) || defined(SOKOL_VULKAN)
         // The GL backend renders into the default framebuffer, which the base

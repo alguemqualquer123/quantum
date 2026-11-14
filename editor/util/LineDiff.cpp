@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LineDiff.h"
@@ -8,7 +8,7 @@
 #include <string_view>
 #include <unordered_map>
 
-using namespace doriax;
+using namespace quantum;
 using editor::LineChange;
 
 namespace {

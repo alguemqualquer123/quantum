@@ -1,11 +1,11 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/SlateTypes.h"
 
 #include <algorithm>
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     //UMG CanvasPanel slot math: the anchors pick the edges of `reference` the
     //slot is glued to, the offsets push the rect away from those edges in

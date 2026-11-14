@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SPRITEANIMATION_COMPONENT_H
@@ -7,9 +7,9 @@
 #include "Engine.h"
 #include "util/HybridArray.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API SpriteAnimationComponent{
+    struct QUANTUM_API SpriteAnimationComponent{
         bool loop = true;
 
         unsigned int framesTimeSize = 0;

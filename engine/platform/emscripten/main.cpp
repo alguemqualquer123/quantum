@@ -1,8 +1,8 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-#include "DoriaxWeb.h"
+#include "QuantumWeb.h"
 
 int main(int argc, char **argv) {
-    return DoriaxWeb::init(argc, argv);
+    return QuantumWeb::init(argc, argv);
 }

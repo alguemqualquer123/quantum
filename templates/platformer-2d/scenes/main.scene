@@ -1,107 +1,468 @@
 id: 1
-name: "Main Scene"
-sceneType: "scene_2d"
-mainCamera: 2
+name: Main Scene
+scene:
+  backgroundColor: [0.4, 0.6, 0.9, 1]
+  shadowQuality: low
+  meshLodEnabled: true
+  meshLodThreshold: 1
+  depthPrepassEnabled: false
+  renderDistance: 0
+  lightState: auto
+  globalIlluminationIntensity: 0
+  globalIlluminationColor: [1, 1, 1]
+  ambientLight2DIntensity: 1
+  ambientLight2DColor: [1, 1, 1]
+  shadow2DQuality: low
+  ssaoEnabled: false
+  ssaoRadius: 0.5
+  ssaoIntensity: 1
+  ssaoBias: 0.025
+  contactShadowsEnabled: false
+  contactShadowLength: 0.35
+  contactShadowSteps: 12
+  contactShadowThickness: 0.025
+  contactShadowIntensity: 0.65
+  ssgiEnabled: false
+  ssgiRadius: 2.5
+  ssgiIntensity: 0.35
+  ssgiSteps: 12
+  ssgiThickness: 0.25
+  dofEnabled: false
+  dofFocusDistance: 8
+  dofAperture: 2
+  dofFocusRange: 4
+  dofMaxBlur: 0.02
+  ssrEnabled: false
+  ssrMaxDistance: 8
+  ssrThickness: 0.5
+  ssrMaxSteps: 48
+  ssrIntensity: 1
+  ssrBlur: 0
+  taaEnabled: false
+  taaBlend: 0.9
+  taaVelocityScale: 1
+  taaVelocityClamp: 0.25
+  motionBlurEnabled: false
+  motionBlurIntensity: 1
+  motionBlurSamples: 8
+  motionBlurVelocityClamp: 0.08
+  motionBlurDepthThreshold: 0.5
+  gravity2D: [0, -20]
+  gravity3D: [0, -9.81, 0]
+  windEnabled: false
+  windSpeed: 6
+  windDirection: 0
+  windGustiness: 0.35
+  windChange: 0.2
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: nearest
+  bloomEnabled: false
+  bloomThreshold: 0.75
+  bloomSoftKnee: 0.5
+  bloomIntensity: 1
+  bloomDirtIntensity: 0
+  bloomMipLevels: 5
+  tonemapEnabled: false
+  tonemapMode: 0
+  exposure: 1
+  autoExposure: false
+  autoExposureSpeed: 1
+  autoExposureMinEV: -2
+  autoExposureMaxEV: 8
+  exposureCompensation: 0
+  colorGradingEnabled: false
+  colorGradingSaturation: 1
+  colorGradingContrast: 1
+  colorGradingBrightness: 0
+  colorGradingHueShift: 0
+  colorGradingTemperature: 0
+  colorGradingTint: 0
+  fxaaEnabled: false
+  fxaaIntensity: 1
+  enableUIEvents: not_set
+sceneType: scene_2d
+mainCamera: 1
 maxValues:
-  maxSubmeshes: 0
+  maxSubmeshes: 1
   maxTilemapTilesRect: 0
   maxTilemapTiles: 0
   maxExternalBuffers: 0
   maxSpriteFrames: 0
-  maxBones: 0
-scene:
-  backgroundColor: [0.4, 0.6, 0.9, 1.0]
-  shadowQuality: "low"
-  lightState: "auto"
-  globalIlluminationIntensity: 0.0
-  globalIlluminationColor: [1.0, 1.0, 1.0]
-  ambientLight2DIntensity: 1.0
-  ambientLight2DColor: [1.0, 1.0, 1.0]
-  shadow2DQuality: "low"
-  ssaoEnabled: false
-  ssaoRadius: 0.5
-  ssaoIntensity: 1.0
-  ssaoBias: 0.025
-  ssrEnabled: false
-  ssrMaxDistance: 8.0
-  ssrThickness: 0.5
-  ssrMaxSteps: 48
-  ssrIntensity: 1.0
-  ssrBlur: 0.0
-  gravity2D: [0.0, -20.0]
-  gravity3D: [0.0, -9.81, 0.0]
-  fixedResolutionEnabled: false
-  fixedResolutionWidth: 640
-  fixedResolutionHeight: 360
-  fixedResolutionFilter: "nearest"
-  enableUIEvents: "enabled"
+  maxBones: 96
+  maxShapes2D: 1
+  maxShapePoints2D: 4
+  maxShapes3D: 0
+  maxShapeVertices3D: 0
+  maxShapeIndices3D: 0
+shaderKeys:
+  - type: blit
+  - type: bloomthreshold
+  - type: bloomdownsample
+  - type: bloomupsample
+  - type: bloomcomposite
+  - type: tonemap
+  - type: exposure
+  - type: velocity
+  - type: taa
+  - type: fxaa
+  - type: motionblur
+  - type: contact_shadows
+  - type: ssgi
+  - type: decal
 entities:
-  - type: "Entity"
-    entity: 1
-    name: "Camera"
+  - type: Entity
+    entity: 1001
+    name: Camera
     components:
-      Transform:
-        position: [0.0, 2.0, 10.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [1.0, 1.0, 1.0]
+      transform:
+        position: [0, 2, 10]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       camera:
-        type: "camera_ortho"
-        target: [0.0, 0.0, 0.0]
-        up: [0.0, 1.0, 0.0]
-        leftClip: -10.0
-        rightClip: 10.0
-        bottomClip: -6.0
-        topClip: 6.0
-        yfov: 45.0
+        type: camera_ortho
+        target: [0, 0, 0]
+        up: [0, 1, 0]
+        leftClip: -10
+        rightClip: 10
+        bottomClip: -6
+        topClip: 6
+        yfov: 45
         aspect: 1.778
-        nearClip: -1.0
-        farClip: 1.0
+        nearClip: 0
+        farClip: 100
         renderToTexture: false
         transparentSort: false
+        depthTest: true
         useTarget: false
         autoResize: true
         framebufferWidth: 800
         framebufferHeight: 450
-        framebufferFilter: "linear"
+        framebufferFilter: linear
       script:
         scripts:
-          - type: "lua"
-            path: "scripts/camera_follow.lua"
+          - type: lua
+            path: scripts/camera_follow.lua
             enabled: true
             properties:
-              - name: "followSpeed"
-                displayName: "Follow Speed"
-                type: "Float"
-                value: 8.0
-                defaultValue: 8.0
-  - type: "Entity"
-    entity: 2
-    name: "Player"
+              - name: followSpeed
+                displayName: Follow Speed
+                type: Float
+                value: 8
+                defaultValue: 8
+  - type: Entity
+    entity: 1002
+    name: Player
     components:
-      Transform:
-        position: [-3.0, 1.0, 0.0]
-        rotation: [1.0, 0.0, 0.0, 0.0]
-        scale: [1.0, 1.0, 1.0]
+      transform:
+        position: [-3, 1, 0]
+        rotation: [1, 0, 0, 0]
+        scale: [1, 1, 1]
+        worldPosition: [0, 0, 0]
+        worldRotation: [1, 0, 0, 0]
+        worldScale: [1, 1, 1]
+        localMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        modelMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normalMatrix: [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
         visible: true
+        billboardRotation: [1, 0, 0, 0]
         billboard: false
         fakeBillboard: false
         cylindricalBillboard: false
       mesh:
-        meshType: "box"
-        path: ""
-        submeshIndex: 0
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAAL8AAAA/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAA/AACAPwAAgD8AAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAA/AACAPwAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAAAAAAAAAAAAAAAAAgD8AAIA/AACAPwAAgD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAgD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAC/AACAPwAAgD8AAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAC/AACAPwAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAAAAAAAAAAAAAAAAgL8AAIA/AACAPwAAgD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAgD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAC/AACAPwAAAAAAAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAL8AAAC/AACAPwAAgD8AAIC/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAA/AAAAAAAAgD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAC/AACAPwAAAAAAAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAC/AACAPwAAgD8AAIA/AAAAAAAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAA/AACAPwAAgD8AAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAD8AAAC/AACAPwAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAAAAAAAAAACAPwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAA/AACAPwAAAAAAAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAPwAAAL8AAAC/AACAPwAAgD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAgD8AAAAAAACAvwAAAAAAAIA/AACAPwAAgD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAGAAUABAAHAAYACAAJAAoACAAKAAsADAAOAA0ADAAPAA4AEAARABIAEAASABMAFAAWABUAFAAXABYA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.92, 0.55, 0.3, 1]
+              metallicFactor: 0
+              roughnessFactor: 1
+              alphaCutoff: 0.5
+              foliageTransmission: 0
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8
+              heightMaxLayers: 32
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: default
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        bonesMatrix:
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+          - [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+        normAdjustJoint: 1
+        normAdjustWeight: 1
+        aabb:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        verticesAABB:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        worldAABB:
+          min: [0, 0, 0]
+          max: [0, 0, 0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        lodEnabled: true
+        lodBias: 1
+        renderInReflectionProbes: true
+        shadowsBillboard: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      script:
+        scripts:
+          - type: lua
+            path: scripts/platformer_player.lua
+            enabled: true
+            properties:
+              - name: moveSpeed
+                displayName: Move Speed
+                type: Float
+                value: 8
+                defaultValue: 8
+              - name: jumpForce
+                displayName: Jump Force
+                type: Float
+                value: 12
+                defaultValue: 12
       body2d:
-        type: "dynamic"
+        type: dynamic
         numShapes: 1
         shapes:
-          - type: "polygon"
-            density: 1.0
+          - type: polygon
+            pointA: [0, 0]
+            pointB: [0, 0]
+            radius: 0
+            loop: false
+            density: 1
             friction: 0.3
-            restitution: 0.0
+            restitution: 0
+            sensor: false
             enableHitEvents: false
             contactEvents: false
             preSolveEvents: false
@@ -114,167 +475,6 @@ entities:
               - [0.4, -0.5]
               - [0.4, 0.5]
               - [-0.4, 0.5]
-      script:
-        scripts:
-          - type: "lua"
-            path: "scripts/platformer_player.lua"
-            enabled: true
-            properties:
-              - name: "moveSpeed"
-                displayName: "Move Speed"
-                type: "Float"
-                value: 8.0
-                defaultValue: 8.0
-              - name: "jumpForce"
-                displayName: "Jump Force"
-                type: "Float"
-                value: 12.0
-                defaultValue: 12.0
-  - type: "Entity"
-    entity: 3
-    name: "Ground"
-    children:
-      - type: "Entity"
-        entity: 4
-        name: "GroundCenter"
-        components:
-          Transform:
-            position: [0.0, -1.0, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
-            scale: [20.0, 1.0, 1.0]
-            visible: true
-            billboard: false
-            fakeBillboard: false
-            cylindricalBillboard: false
-          mesh:
-            meshType: "box"
-            path: ""
-            submeshIndex: 0
-          body2d:
-            type: "static"
-            numShapes: 1
-            shapes:
-              - type: "polygon"
-                density: 1.0
-                friction: 0.5
-                restitution: 0.0
-                enableHitEvents: false
-                contactEvents: false
-                preSolveEvents: false
-                sensorEvents: false
-                categoryBits: 1
-                maskBits: 65535
-                groupIndex: 0
-                vertices:
-                  - [-0.5, -0.5]
-                  - [0.5, -0.5]
-                  - [0.5, 0.5]
-                  - [-0.5, 0.5]
-      - type: "Entity"
-        entity: 5
-        name: "Platform1"
-        components:
-          Transform:
-            position: [4.0, 1.0, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
-            scale: [4.0, 0.5, 1.0]
-            visible: true
-            billboard: false
-            fakeBillboard: false
-            cylindricalBillboard: false
-          mesh:
-            meshType: "box"
-            path: ""
-            submeshIndex: 0
-          body2d:
-            type: "static"
-            numShapes: 1
-            shapes:
-              - type: "polygon"
-                density: 1.0
-                friction: 0.5
-                restitution: 0.0
-                enableHitEvents: false
-                contactEvents: false
-                preSolveEvents: false
-                sensorEvents: false
-                categoryBits: 1
-                maskBits: 65535
-                groupIndex: 0
-                vertices:
-                  - [-0.5, -0.5]
-                  - [0.5, -0.5]
-                  - [0.5, 0.5]
-                  - [-0.5, 0.5]
-      - type: "Entity"
-        entity: 6
-        name: "Platform2"
-        components:
-          Transform:
-            position: [7.0, 2.5, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
-            scale: [3.0, 0.5, 1.0]
-            visible: true
-            billboard: false
-            fakeBillboard: false
-            cylindricalBillboard: false
-          mesh:
-            meshType: "box"
-            path: ""
-            submeshIndex: 0
-          body2d:
-            type: "static"
-            numShapes: 1
-            shapes:
-              - type: "polygon"
-                density: 1.0
-                friction: 0.5
-                restitution: 0.0
-                enableHitEvents: false
-                contactEvents: false
-                preSolveEvents: false
-                sensorEvents: false
-                categoryBits: 1
-                maskBits: 65535
-                groupIndex: 0
-                vertices:
-                  - [-0.5, -0.5]
-                  - [0.5, -0.5]
-                  - [0.5, 0.5]
-                  - [-0.5, 0.5]
-      - type: "Entity"
-        entity: 7
-        name: "Platform3"
-        components:
-          Transform:
-            position: [-5.0, 2.0, 0.0]
-            rotation: [1.0, 0.0, 0.0, 0.0]
-            scale: [3.5, 0.5, 1.0]
-            visible: true
-            billboard: false
-            fakeBillboard: false
-            cylindricalBillboard: false
-          mesh:
-            meshType: "box"
-            path: ""
-            submeshIndex: 0
-          body2d:
-            type: "static"
-            numShapes: 1
-            shapes:
-              - type: "polygon"
-                density: 1.0
-                friction: 0.5
-                restitution: 0.0
-                enableHitEvents: false
-                contactEvents: false
-                preSolveEvents: false
-                sensorEvents: false
-                categoryBits: 1
-                maskBits: 65535
-                groupIndex: 0
-                vertices:
-                  - [-0.5, -0.5]
-                  - [0.5, -0.5]
-                  - [0.5, 0.5]
-                  - [-0.5, 0.5]
+  - type: Entity
+    entity: 1003
+    name: Ground

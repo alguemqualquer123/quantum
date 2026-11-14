@@ -1,10 +1,22 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 
 #include "Input.h"
 
-using namespace doriax;
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <map>
+#include <utility>
+
+#if defined(_WIN32)
+#include <windows.h>
+#include <Xinput.h>
+#pragma comment(lib, "xinput9_1_0.lib")
+#endif
+
+using namespace quantum;
 
 std::map<int,bool> Input::keyPressed;
 std::map<int,bool> Input::mousePressed;
@@ -14,6 +26,68 @@ std::vector<Touch> Input::touches;
 std::vector<Gamepad> Input::gamepads;
 bool Input::mousedEntered;
 int Input::modifiers;
+
+namespace {
+struct TouchStart {
+    quantum::Vector2 position;
+    std::chrono::steady_clock::time_point time;
+};
+
+std::map<int, TouchStart> touchStarts;
+std::vector<quantum::GestureEvent> pendingGestures;
+
+void finishTouch(int pointer, const quantum::Vector2& end, float forcedDuration) {
+    const auto startIt = touchStarts.find(pointer);
+    if (startIt == touchStarts.end()) return;
+    const quantum::Vector2 start = startIt->second.position;
+    const float duration = forcedDuration >= 0.0f
+        ? forcedDuration
+        : std::chrono::duration<float>(std::chrono::steady_clock::now() - startIt->second.time).count();
+    const float dx = end.x - start.x;
+    const float dy = end.y - start.y;
+    const float distanceSquared = dx * dx + dy * dy;
+    quantum::GestureEvent event;
+    event.pointer = pointer;
+    event.start = start;
+    event.end = end;
+    event.duration = (std::max)(0.0f, duration);
+    if (event.duration >= 0.5f && distanceSquared < 2500.0f) {
+        event.type = quantum::GestureType::LongPress;
+    } else if (distanceSquared >= 1024.0f) {
+        event.type = quantum::GestureType::Swipe;
+    } else {
+        event.type = quantum::GestureType::Tap;
+    }
+    pendingGestures.push_back(event);
+    touchStarts.erase(startIt);
+}
+}
+
+void Input::injectKeyState(int key, bool pressed, int mods){
+    if (pressed) addKeyPressed(key);
+    else releaseKeyPressed(key);
+    setModifiers(mods);
+}
+
+void Input::injectTouchStart(int pointer, float x, float y){
+    addTouch(pointer, x, y);
+}
+
+void Input::injectTouchMove(int pointer, float x, float y){
+    setTouchPosition(pointer, x, y);
+}
+
+void Input::injectTouchEnd(int pointer, float x, float y, float durationSeconds){
+    setTouchPosition(pointer, x, y);
+    finishTouch(pointer, Vector2(x, y), durationSeconds);
+    removeTouch(pointer);
+}
+
+std::vector<GestureEvent> Input::consumeGestureEvents(){
+    std::vector<GestureEvent> events;
+    events.swap(pendingGestures);
+    return events;
+}
 
 void Input::addKeyPressed(int key){
     keyPressed[key] = true;
@@ -42,8 +116,10 @@ void Input::setMouseScroll(float xoffset, float yoffset){
 }
 
 void Input::addTouch(int pointer, float x, float y){
-    if (findTouchIndex(pointer) == -1)
+    if (findTouchIndex(pointer) == -1){
         touches.push_back({pointer, Vector2(x, y)});
+        touchStarts[pointer] = {Vector2(x, y), std::chrono::steady_clock::now()};
+    }
 }
 
 void Input::setTouchPosition(int pointer, float x, float y){
@@ -54,12 +130,15 @@ void Input::setTouchPosition(int pointer, float x, float y){
 
 void Input::removeTouch(int pointer){
     size_t index = findTouchIndex(pointer);
-    if (index != -1)
+    if (index != -1){
+        finishTouch(pointer, touches[index].position, -1.0f);
         touches.erase (touches.begin()+index);
+    }
 }
 
 void Input::clearTouches(){
     touches.clear();
+    touchStarts.clear();
 }
 
 void Input::addGamepad(int id, const std::string& name){
@@ -185,6 +264,25 @@ float Input::getGamepadAxis(int id, int axis){
         return gamepads[index].axisValue[axis];
 
     return 0.0f;
+}
+
+bool Input::setGamepadVibration(int id, float lowFrequency, float highFrequency){
+#if defined(_WIN32)
+    if (id < 0 || id > 3) return false;
+    XINPUT_VIBRATION vibration{};
+    vibration.wLeftMotorSpeed = static_cast<WORD>(std::clamp(lowFrequency, 0.0f, 1.0f) * 65535.0f);
+    vibration.wRightMotorSpeed = static_cast<WORD>(std::clamp(highFrequency, 0.0f, 1.0f) * 65535.0f);
+    return XInputSetState(static_cast<DWORD>(id), &vibration) == ERROR_SUCCESS;
+#else
+    (void)id;
+    (void)lowFrequency;
+    (void)highFrequency;
+    return false;
+#endif
+}
+
+bool Input::stopGamepadVibration(int id){
+    return setGamepadVibration(id, 0.0f, 0.0f);
 }
 
 std::vector<Gamepad> Input::getGamepads(){

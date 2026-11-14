@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -12,8 +12,9 @@
 #include "io/File.h"
 #include "io/FileData.h"
 #include "io/UserSettings.h"
+#include "io/SaveGame.h"
 
-using namespace doriax;
+using namespace quantum;
 
 void LuaBinding::registerIOClasses(lua_State *L){
 #ifndef DISABLE_LUA_BINDINGS
@@ -94,6 +95,28 @@ void LuaBinding::registerIOClasses(lua_State *L){
         .addStaticFunction("setStringForKey", &UserSettings::setStringForKey)
         .addStaticFunction("setDataForKey", &UserSettings::setDataForKey)
         .addStaticFunction("removeKey", &UserSettings::removeKey)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<SaveGame>("SaveGame")
+        .addConstructor<void(const std::string&)>()
+        .addFunction("isValid", &SaveGame::isValid)
+        .addFunction("load", &SaveGame::load)
+        .addFunction("save", &SaveGame::save)
+        .addFunction("exists", &SaveGame::exists)
+        .addFunction("deleteSlot", &SaveGame::deleteSlot)
+        .addFunction("clear", &SaveGame::clear)
+        .addFunction("setString", &SaveGame::setString)
+        .addFunction("setBlob", [] (SaveGame* save, const std::string& key, const std::string& value) {
+            save->setBlob(key, std::vector<uint8_t>(value.begin(), value.end()));
+        })
+        .addFunction("setInt", &SaveGame::setInt)
+        .addFunction("setNumber", &SaveGame::setNumber)
+        .addFunction("getString", &SaveGame::getString)
+        .addFunction("getInt", &SaveGame::getInt)
+        .addFunction("getNumber", &SaveGame::getNumber)
+        .addFunction("has", &SaveGame::has)
+        .addFunction("remove", &SaveGame::remove)
         .endClass();
 
 #endif //DISABLE_LUA_BINDINGS

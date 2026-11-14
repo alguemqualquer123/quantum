@@ -54,9 +54,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libgl1-mesa-dev libglfw3-dev libxi-dev libxcursor-dev
 
-      - name: Download Doriax editor
+      - name: Download Quantum editor
         id: editor
-        uses: doriaxengine/download-doriax-editor@v1
+        uses: quantumengine/download-quantum-editor@v1
         with:
           platform: ${{ matrix.platform }}
           github-token: ${{ github.token }}
@@ -124,9 +124,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build libasound2-dev libgl1-mesa-dev libglfw3-dev libxi-dev libxcursor-dev libopengl0
 
-      - name: Download Doriax editor
+      - name: Download Quantum editor
         id: editor
-        uses: doriaxengine/download-doriax-editor@v1
+        uses: quantumengine/download-quantum-editor@v1
         with:
           platform: linux
           github-token: ${{ github.token }}

@@ -1,17 +1,17 @@
 //
 // Inspired by work of Jari Komppa in SoLoud audio engine
 // https://sol.gfxile.net/soloud/file.html
-// Modified by Eduardo Doria.
+// Modified by SR VINIX.
 //
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "File.h"
 
 #include "System.h"
 
-using namespace doriax;
+using namespace quantum;
 
 File::File(){
     fileHandle = NULL;

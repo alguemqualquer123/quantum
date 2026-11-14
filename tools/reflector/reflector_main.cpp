@@ -1,8 +1,11 @@
-// doriax-reflector: standalone CLI that regenerates engine_api_suggestions.h
+// quantum-reflector: standalone CLI that regenerates engine_api_suggestions.h
 // from LuaBridge binding files. Pure C++17 std; no engine code, no deps.
 //
 // Subcommands:
 //   reflect --bindings <dir> [--engine-core <dir>] --out <header> [--json <file>]
+//   catalog --bindings <dir> [--engine-core <dir>] --out <json>
+//   docs    --bindings <dir> [--engine-core <dir>] --out <markdown>
+//   types   --bindings <dir> [--engine-core <dir>] --out <lua> [--usage <lua>]
 //   check   --bindings <dir> [--engine-core <dir>] --against <header>
 #include "reflector.h"
 
@@ -20,16 +23,27 @@ namespace {
 
 void printUsage(std::ostream& os) {
     os <<
-R"(doriax-reflector - regenerate engine API suggestions header from Lua bindings.
+R"(quantum-reflector - regenerate engine API suggestions header from Lua bindings.
 
 Usage:
-  doriax-reflector reflect --bindings <dir> [--engine-core <dir>] --out <header> [--json <file>]
-  doriax-reflector check   --bindings <dir> [--engine-core <dir>] --against <header>
-  doriax-reflector --help | -h
+  quantum-reflector reflect --bindings <dir> [--engine-core <dir>] --out <header> [--json <file>]
+  quantum-reflector catalog --bindings <dir> [--engine-core <dir>] --out <json>
+  quantum-reflector docs    --bindings <dir> [--engine-core <dir>] --out <markdown>
+  quantum-reflector types   --bindings <dir> [--engine-core <dir>] --out <lua|.h> [--usage <lua>]
+  quantum-reflector check   --bindings <dir> [--engine-core <dir>] --against <header>
+  quantum-reflector --help | -h
 
 Commands:
   reflect   Parse binding/*.cpp (+ C++ headers for signatures) and emit the
             generated header (--out) and/or a JSON API manifest (--json).
+  catalog   Emit the structured visual-scripting node catalog (classes,
+            methods with typed params, properties, events, enums).
+  docs      Emit a Markdown Lua API reference (classes, methods, properties,
+            events, constants and enums).
+  types     Emit the EmmyLua-annotated Types.lua the editor drops into a
+            project: the same surface as `docs`, but as declarations a Lua
+            language server can complete. --out ending in .h/.hpp wraps it as
+            an embedded string header, anything else writes plain Lua.
   check     Regenerate the header in memory and exit non-zero if it would
             differ from --against <header> (prints a diff-style summary).
 
@@ -38,8 +52,10 @@ Options:
   --engine-core <dir>  Directory scanned recursively for *.h public-method
                        signatures. Default: <bindings>/../.. (like the old
                        generate_api_suggestions.py).
-  --out <header>       Output path for the generated header (reflect only).
+  --out <path>         Output path for the generated header, catalog, docs or
+                       types file (reflect/catalog/docs/types).
   --json <file>        Output path for the machine-readable API manifest.
+  --usage <file.lua>   Hand-written usage chapter appended to the types file.
   --against <header>   Existing header to compare against (check only).
 
 Exit codes: 0 ok / up-to-date, 1 check found changes or no binding files,
@@ -54,6 +70,7 @@ struct Options {
     std::string out;
     std::string json;
     std::string against;
+    std::string usage;
 };
 
 bool parseArgs(int argc, char** argv, Options& opt, std::string& err) {
@@ -77,7 +94,9 @@ bool parseArgs(int argc, char** argv, Options& opt, std::string& err) {
         return false;
     }
     opt.command = args[i++];
-    if (opt.command != "reflect" && opt.command != "check") {
+    if (opt.command != "reflect" && opt.command != "catalog" &&
+        opt.command != "docs" && opt.command != "types" &&
+        opt.command != "check") {
         err = "unknown command: " + opt.command;
         return false;
     }
@@ -88,6 +107,7 @@ bool parseArgs(int argc, char** argv, Options& opt, std::string& err) {
         else if (a == "--engine-core") { if (!needValue(a, opt.engineCore)) return false; }
         else if (a == "--out") { if (!needValue(a, opt.out)) return false; }
         else if (a == "--json") { if (!needValue(a, opt.json)) return false; }
+        else if (a == "--usage") { if (!needValue(a, opt.usage)) return false; }
         else if (a == "--against") { if (!needValue(a, opt.against)) return false; }
         else if (a == "--help" || a == "-h") { opt.command.clear(); return true; }
         else {
@@ -103,6 +123,18 @@ bool parseArgs(int argc, char** argv, Options& opt, std::string& err) {
     }
     if (opt.command == "reflect" && opt.out.empty() && opt.json.empty()) {
         err = "reflect needs at least one of --out <header> / --json <file>";
+        return false;
+    }
+    if (opt.command == "catalog" && opt.out.empty()) {
+        err = "catalog needs --out <json>";
+        return false;
+    }
+    if (opt.command == "docs" && opt.out.empty()) {
+        err = "docs needs --out <markdown>";
+        return false;
+    }
+    if (opt.command == "types" && opt.out.empty()) {
+        err = "types needs --out <lua or .h>";
         return false;
     }
     if (opt.command == "check" && opt.against.empty()) {
@@ -190,17 +222,55 @@ static int runMain(int argc, char** argv) {
         return 1;
     }
 
+    if (opt.command == "catalog") {
+        std::string json = refl::renderNodeCatalogJson(manifest);
+        if (!writeFileText(opt.out, json)) return 3;
+        std::printf("[quantum-reflector] Generated node catalog %s\n", opt.out.c_str());
+        printSummary(manifest);
+        return 0;
+    }
+
+    if (opt.command == "docs") {
+        std::string markdown = refl::renderLuaDocsMarkdown(manifest);
+        if (!writeFileText(opt.out, markdown)) return 3;
+        std::printf("[quantum-reflector] Generated Lua API docs %s\n", opt.out.c_str());
+        printSummary(manifest);
+        return 0;
+    }
+
+    if (opt.command == "types") {
+        std::string usage;
+        if (!opt.usage.empty()) {
+            std::string readErr;
+            if (!refl::readFile(opt.usage, usage, readErr)) {
+                std::cerr << "error: " << readErr << "\n";
+                return 3;
+            }
+        }
+        const std::string ext = fs::path(opt.out).extension().generic_string();
+        const bool headerForm = ext == ".h" || ext == ".hpp";
+        const std::string text = headerForm
+                                     ? refl::renderLuaTypesHeader(manifest, usage)
+                                     : refl::renderLuaTypesFile(manifest, usage);
+        if (!writeFileText(opt.out, text)) return 3;
+        std::printf("[quantum-reflector] Generated %s %s\n",
+                    headerForm ? "Lua types header" : "Lua types file",
+                    opt.out.c_str());
+        printSummary(manifest);
+        return 0;
+    }
+
     if (opt.command == "reflect") {
         if (!opt.out.empty()) {
             std::string header = refl::renderHeader(manifest);
             if (!writeFileText(opt.out, header)) return 3;
-            std::printf("[doriax-reflector] Generated %s\n", opt.out.c_str());
+            std::printf("[quantum-reflector] Generated %s\n", opt.out.c_str());
             printSummary(manifest);
         }
         if (!opt.json.empty()) {
             std::string json = refl::renderJson(manifest);
             if (!writeFileText(opt.json, json)) return 3;
-            std::printf("[doriax-reflector] Generated %s\n", opt.json.c_str());
+            std::printf("[quantum-reflector] Generated %s\n", opt.json.c_str());
         }
         return 0;
     }
@@ -216,10 +286,10 @@ static int runMain(int argc, char** argv) {
     std::string rendered = refl::renderHeader(manifest);
     std::string report;
     if (refl::checkAgainst(rendered, existing, report)) {
-        std::printf("[doriax-reflector] %s is up to date\n", opt.against.c_str());
+        std::printf("[quantum-reflector] %s is up to date\n", opt.against.c_str());
         return 0;
     }
-    std::cout << "[doriax-reflector] Regeneration would change " << opt.against
+    std::cout << "[quantum-reflector] Regeneration would change " << opt.against
               << ":\n" << report;
     return 1;
 }

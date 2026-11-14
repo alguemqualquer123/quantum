@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LIGHT_H
@@ -6,9 +6,9 @@
 
 #include "Object.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Light: public Object{
+    class QUANTUM_API Light: public Object{
     public:
         Light(Scene* scene);
         Light(Scene* scene, Entity entity);

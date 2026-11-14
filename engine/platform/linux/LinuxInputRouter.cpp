@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LinuxInputRouter.h"
@@ -11,7 +11,7 @@
 // XLookupKeysym and XLookupString are declared here, not in Xlib.h
 #include <X11/Xutil.h>
 
-using namespace doriax;
+using namespace quantum;
 
 void LinuxInputRouter::setMousePosition(double x, double y) {
     mousePosX = x;

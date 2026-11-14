@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TextureRender_h
@@ -7,9 +7,9 @@
 #include "Render.h"
 #include "sokol/SokolTexture.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API TextureRender{
+    class QUANTUM_API TextureRender{
 
     public:
         //***Backend***
@@ -39,7 +39,10 @@ namespace doriax {
                 TextureFilter minFilter, TextureFilter magFilter, TextureWrap wrapU, TextureWrap wrapV,
                 ColorFormat colorFormat = ColorFormat::RGBA);
 
-        bool createDynamicTexture(const std::string& label, int width, int height);
+        // data fields are read by eye (bones, the water field), so the filter defaults to
+        // nearest; a field a surface is interpolated over asks for linear
+        bool createDynamicTexture(const std::string& label, int width, int height,
+                TextureFilter minFilter = TextureFilter::NEAREST, TextureFilter magFilter = TextureFilter::NEAREST);
         void updateTexture(const void* data, size_t size);
 
         void destroyTexture();

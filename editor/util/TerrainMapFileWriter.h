@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 #include <thread>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 // Background writer for terrain map files. Brush strokes only touch the in-memory
 // map (and the GPU copy); the PNG encode + disk write of the full map — slow enough

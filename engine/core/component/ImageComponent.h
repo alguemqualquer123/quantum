@@ -1,12 +1,12 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef IMAGE_COMPONENT_H
 #define IMAGE_COMPONENT_H
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API ImageComponent{
+    struct QUANTUM_API ImageComponent{
         //Nine patch rect
         unsigned int patchMarginLeft = 0;
         unsigned int patchMarginRight = 0;

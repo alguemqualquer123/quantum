@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef COLORACTION_H
@@ -6,8 +6,8 @@
 
 #include "TimedAction.h"
 
-namespace doriax{
-    class DORIAX_API ColorAction: public TimedAction{
+namespace quantum{
+    class QUANTUM_API ColorAction: public TimedAction{
 
     public:
         ColorAction(Scene* scene);

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,7 +10,7 @@
 
 #include "render/RenderUtil.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class ScaleGizmo: public Object{
     private:

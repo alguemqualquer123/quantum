@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,7 +8,7 @@
 #include "object/Model.h"
 #include "object/Light.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class ModelRender{
     private:
@@ -32,10 +32,19 @@ namespace doriax::editor{
         void positionCameraForModel();
         void fixDarkMaterials();
 
+        // The combined bounds of the model branch, so a viewer can frame and orbit it
+        bool getModelBounds(AABB& outBounds);
+        void setFrameSize(int width, int height);
+        void setLightIntensity(float intensity);
+        // The orbit look: the eye placed around a focus point at a distance and two angles
+        void setCameraPose(const Vector3& focus, float yaw, float pitch, float distance);
+
         Framebuffer* getFramebuffer();
         Texture getTexture();
         Scene* getScene();
         Object* getObject();
+        Camera* getCamera();
+        Model* getModel();
     };
 
 }

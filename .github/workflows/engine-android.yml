@@ -10,6 +10,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: true
 
       - name: Setup JDK
         uses: actions/setup-java@v5
@@ -17,7 +20,54 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Resolve release version
+        run: echo "QUANTUM_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
+
       - name: Build with Gradle
         run: | 
           cd engine/workspaces/androidstudio/
-          ./gradlew assembleDebug
+          ./gradlew --no-daemon --stacktrace assembleRelease \
+            -PQUANTUM_VERSION="$QUANTUM_VERSION" \
+            -PQUANTUM_VERSION_CODE="$GITHUB_RUN_NUMBER"
+
+      - name: Write Android release manifest
+        run: |
+          python3 - "$QUANTUM_VERSION" "$GITHUB_RUN_NUMBER" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          output = pathlib.Path("engine/workspaces/androidstudio/release-manifest.json")
+          output.write_text(json.dumps({
+              "schema": 1,
+              "product": "Quantum",
+              "version": sys.argv[1].lstrip("v"),
+              "channel": "ci",
+              "platform": "android",
+              "architecture": "android-apk",
+              "graphicBackend": "gles3",
+              "buildType": "Release",
+              "buildNumber": int(sys.argv[2]),
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+          mapfile -t apks < <(find engine/workspaces/androidstudio/app/build/outputs/apk/release -type f -name '*.apk' | sort)
+          test "${#apks[@]}" -gt 0
+          for apk in "${apks[@]}"; do test -s "$apk"; done
+      - name: Verify Android artifact
+        run: |
+          mapfile -t apks < <(find engine/workspaces/androidstudio/app/build/outputs/apk/release -type f -name '*.apk' | sort)
+          args=(
+            --root engine/workspaces/androidstudio \
+            --manifest engine/workspaces/androidstudio/release-manifest.json \
+            --report engine/workspaces/androidstudio/release-smoke-report.json
+          )
+          for apk in "${apks[@]}"; do args+=(--artifact "$apk"); done
+          python3 scripts/release-smoke.py "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quantum-android-release-${{ github.sha }}
+          path: |
+            engine/workspaces/androidstudio/app/build/outputs/apk/release/*.apk
+            engine/workspaces/androidstudio/release-manifest.json
+            engine/workspaces/androidstudio/release-smoke-report.json
+          if-no-files-found: error

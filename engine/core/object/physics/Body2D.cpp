@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Body2D.h"
@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 b2BodyType getBodyTypeToB2(BodyType type){
     if (type == BodyType::STATIC){

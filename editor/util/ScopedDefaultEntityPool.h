@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "registry/EntityRegistry.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class ScopedDefaultEntityPool {
     public:

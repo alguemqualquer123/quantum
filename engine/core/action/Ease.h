@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef EASE_H
@@ -9,7 +9,7 @@
 
 #include "util/FunctionSubscribe.h"
 
-namespace doriax {
+namespace quantum {
 
     enum class EaseType{
         LINEAR,

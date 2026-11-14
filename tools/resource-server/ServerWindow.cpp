@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 // ServerWindow.cpp - see ServerWindow.h.
@@ -16,7 +16,7 @@
     #include <commctrl.h>
 #endif
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 #ifdef _WIN32
 
@@ -27,7 +27,7 @@ namespace {
 // as tools/resource-server/TrayIcon.cpp).
 ServerWindow* g_window = nullptr;
 
-constexpr const wchar_t kWindowClass[] = L"doriaxResourceServerWindow";
+constexpr const wchar_t kWindowClass[] = L"quantumResourceServerWindow";
 constexpr int kIdClients = 100;
 constexpr int kIdLog = 101;
 constexpr int kBtnClear = 200;

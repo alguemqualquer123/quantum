@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "OutputWindow.h"
@@ -23,7 +23,7 @@ static float getElapsedSeconds() {
     return std::chrono::duration<float>(now - startTime).count();
 }
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 static ImVec4 GetLogTypeColor(LogType type) {
     // Tune to taste

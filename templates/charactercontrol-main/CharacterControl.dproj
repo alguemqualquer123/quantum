@@ -1,0 +1,7 @@
+# Quantum project
+# Double-click to open this project in the Quantum editor.
+# The settings live in project.yaml, next to this file. This marker only gives
+# the operating system a file to bind the icon and the "open with" entry to.
+extension = .dproj
+project = project.yaml
+name = CharacterControl

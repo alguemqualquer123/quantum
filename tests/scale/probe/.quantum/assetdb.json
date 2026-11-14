@@ -1,0 +1,439 @@
+{
+  "engine": "quantum",
+  "files": [
+    {
+      "dependencies": [],
+      "kind": "model",
+      "metadata": {
+        "faceCount": "12",
+        "format": "obj",
+        "normalCount": "6",
+        "texcoordCount": "4",
+        "vertexCount": "8"
+      },
+      "mtime": 134387444933931192,
+      "path": "assets/cube.obj",
+      "sha1": "63f7f7c997d1721d2709fe19eb793e2e109db75b",
+      "size": 718
+    },
+    {
+      "dependencies": [],
+      "kind": "model",
+      "metadata": {
+        "faceCount": "12800",
+        "format": "obj",
+        "normalCount": "6561",
+        "texcoordCount": "6561",
+        "vertexCount": "6561"
+      },
+      "mtime": 134387444933654701,
+      "path": "assets/grid.obj",
+      "sha1": "02f66268972561551da8c4eaa4a73732644160da",
+      "size": 891941
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582374078,
+      "path": "assets/shaders/atmosphere_glsl410.sdat",
+      "sha1": "a2328eac9347d6249dfee985dda13c0645c73e8a",
+      "size": 7122
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582474382,
+      "path": "assets/shaders/blit_glsl410.sdat",
+      "sha1": "6ba1ee7b3143258adf3707591f34a3ad542dff02",
+      "size": 1014
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582559648,
+      "path": "assets/shaders/bloomcomposite_glsl410.sdat",
+      "sha1": "bedc66849ca4e9f8a703f9edffeb1799737b0193",
+      "size": 2934
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582704826,
+      "path": "assets/shaders/bloomdownsample_glsl410.sdat",
+      "sha1": "d817666688d802a3bc92984423ad40e761be0630",
+      "size": 1819
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582800023,
+      "path": "assets/shaders/bloomthreshold_glsl410.sdat",
+      "sha1": "824394c58fd23f1043afc1513f07ec99eb0e8270",
+      "size": 1758
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582875185,
+      "path": "assets/shaders/bloomupsample_glsl410.sdat",
+      "sha1": "75097402d75e2197b95e119923da35921e53f63f",
+      "size": 2103
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041582950239,
+      "path": "assets/shaders/depth_Ter_glsl410.sdat",
+      "sha1": "4216602055adf584bec9a7633b7c9f368ca3995d",
+      "size": 4388
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583035321,
+      "path": "assets/shaders/depth_glsl410.sdat",
+      "sha1": "a7f29e1004aa1fc401ea0f8902dd8790fd1ad880",
+      "size": 1845
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583115435,
+      "path": "assets/shaders/exposure_glsl410.sdat",
+      "sha1": "4a6815d1fe4d56605cb802e7a42ac35f3072709a",
+      "size": 4375
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583190592,
+      "path": "assets/shaders/fxaa_glsl410.sdat",
+      "sha1": "e89f4da1387ddb06b2acb29ea91efa2cc9bc1919",
+      "size": 3458
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583286188,
+      "path": "assets/shaders/lines_Vc4_glsl410.sdat",
+      "sha1": "bec47cdbfa5e07979035247f9f741b34466031c9",
+      "size": 1096
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583361351,
+      "path": "assets/shaders/mesh_PucNorFogTerDlo_glsl410.sdat",
+      "sha1": "b60ea677e40d22f677e36904319c2625472c75a4",
+      "size": 24606
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583446445,
+      "path": "assets/shaders/mesh_PucNorFogTer_glsl410.sdat",
+      "sha1": "22baa28ccfe4117eae87862ff71176b245690805",
+      "size": 27411
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583526522,
+      "path": "assets/shaders/mesh_PucNorTerDlo_glsl410.sdat",
+      "sha1": "3002a4622c23cfbb35fe227c7024f9f6ea4a8e28",
+      "size": 23525
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583611724,
+      "path": "assets/shaders/mesh_PucNorTer_glsl410.sdat",
+      "sha1": "20a31ec5857ea44364534a381cf017de5d0ffac7",
+      "size": 26334
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583676910,
+      "path": "assets/shaders/mesh_PucNorVc4AopDlo_glsl410.sdat",
+      "sha1": "b36366aaaadbf603fa1c8e67727686fc41acf44a",
+      "size": 14458
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583751996,
+      "path": "assets/shaders/mesh_PucNorVc4Aop_glsl410.sdat",
+      "sha1": "e457ad51e8387e2d2b71bac87bf04e7f0f6b8c2e",
+      "size": 17264
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583822038,
+      "path": "assets/shaders/mesh_PucNorVc4FogAopDlo_glsl410.sdat",
+      "sha1": "00ebae7d82caabc67de07fc9b8f9ec840baf855c",
+      "size": 15535
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041583897218,
+      "path": "assets/shaders/mesh_PucNorVc4FogAop_glsl410.sdat",
+      "sha1": "49ec92f0eaf7cda9651577b1f92e95e307065453",
+      "size": 18341
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384125907723027,
+      "path": "assets/shaders/mesh_PucNorVc4IstAopDlo_glsl410.sdat",
+      "sha1": "1f3f4c8551c05176c4f3194a2a4025d088d7078a",
+      "size": 15543
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384125907818235,
+      "path": "assets/shaders/mesh_PucNorVc4IstAopIfdDlo_glsl410.sdat",
+      "sha1": "ba56d223baa96c137a87b73541c0e24f703a91cd",
+      "size": 16138
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384125907913350,
+      "path": "assets/shaders/mesh_PucNorVc4IstAopIfd_glsl410.sdat",
+      "sha1": "61caea4d07ec75b907f6947f7cda12b1b257f2a1",
+      "size": 18944
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384125907993468,
+      "path": "assets/shaders/mesh_PucNorVc4IstAop_glsl410.sdat",
+      "sha1": "1840a846d9b7727f3395709111624691b1166b43",
+      "size": 18349
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584112533,
+      "path": "assets/shaders/mesh_UltAop_glsl410.sdat",
+      "sha1": "c60e0162ff58e9fc8987fd7e4e6ff9d4880249c3",
+      "size": 1980
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584177721,
+      "path": "assets/shaders/mesh_UltSkiAop_glsl410.sdat",
+      "sha1": "3e5f1c46e38df864621b3a6c9ae4988940bac0dc",
+      "size": 4021
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584258290,
+      "path": "assets/shaders/mesh_UltTer_glsl410.sdat",
+      "sha1": "e80ded9d7efdbb9289e87e99bd001bff639d7200",
+      "size": 8504
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584318257,
+      "path": "assets/shaders/mesh_UltUv1Aop_glsl410.sdat",
+      "sha1": "8d1e0760f0b8c4091382e7cff839496a5e7cd2bc",
+      "size": 2887
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584393448,
+      "path": "assets/shaders/mesh_UltVc4Aop_glsl410.sdat",
+      "sha1": "715bccf94a8882c488fd4af79dab5fe32ba665bf",
+      "size": 2213
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584448508,
+      "path": "assets/shaders/mesh_UltVc4SkiAop_glsl410.sdat",
+      "sha1": "eaf6b4dd81aa795b42fbd421a4bd31f402fff732",
+      "size": 4256
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584528548,
+      "path": "assets/shaders/mesh_Uv1PucNorFogTerDlo_glsl410.sdat",
+      "sha1": "f9e7dcb677bfbe9b5f894dcf5db70d18a1b08bee",
+      "size": 27881
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584603706,
+      "path": "assets/shaders/mesh_Uv1PucNorFogTer_glsl410.sdat",
+      "sha1": "eb1e54dc2f3e90429419c5aadeb9bb304752f6c2",
+      "size": 30686
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584668837,
+      "path": "assets/shaders/mesh_Uv1PucNorTerTpbDlo_glsl410.sdat",
+      "sha1": "87bfa71d8ff54c6c0b018fcd078c6f58bbfe4978",
+      "size": 34259
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584738948,
+      "path": "assets/shaders/mesh_Uv1PucNorTerTpb_glsl410.sdat",
+      "sha1": "08841c8a86e86a1b6e62f0f4bf7942c579d53da8",
+      "size": 37064
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584809047,
+      "path": "assets/shaders/mesh_glsl410.sdat",
+      "sha1": "2f2af9cfac3547d771f32432a07d45049909011a",
+      "size": 4956
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584874209,
+      "path": "assets/shaders/points_TexVc4Txr_glsl410.sdat",
+      "sha1": "142b43aef61f15670cd4624c40ddb307954b2ced",
+      "size": 2835
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041584949312,
+      "path": "assets/shaders/points_TexVc4_glsl410.sdat",
+      "sha1": "946ae355ebc9ce355d49414bd57773c4470987a7",
+      "size": 2508
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585009397,
+      "path": "assets/shaders/sky_assets_shaders_sky_daynight_glsl410.sdat",
+      "sha1": "fc0a1151bd589000680be780baf9c01746f1d99e",
+      "size": 16942
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585094518,
+      "path": "assets/shaders/sky_glsl410.sdat",
+      "sha1": "0131117a8a8cb6bb66d2ebbb452e1f6248f4df55",
+      "size": 1059
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585149572,
+      "path": "assets/shaders/tonemap_glsl410.sdat",
+      "sha1": "0399020d9b884bf530a5b59101a8b03e26ca3d3d",
+      "size": 6897
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585209608,
+      "path": "assets/shaders/ui_Ftx_glsl410.sdat",
+      "sha1": "d55e997616eea0b72e6e34c3fc5f9ad1a0ce48ef",
+      "size": 1504
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585279809,
+      "path": "assets/shaders/ui_TexVc4_glsl410.sdat",
+      "sha1": "e1d2bc3a8e9a713a3165f5262de95d9d3b087cf9",
+      "size": 1959
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585354915,
+      "path": "assets/shaders/ui_Vc4_glsl410.sdat",
+      "sha1": "595bd330a67e271139e72233a1a08ee9aa9c4415",
+      "size": 1284
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585414957,
+      "path": "assets/shaders/underwater_glsl410.sdat",
+      "sha1": "021855a7d15814d51a75c4e0484e63c71b5d6099",
+      "size": 3608
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585485133,
+      "path": "assets/shaders/water_DepRfrSim_glsl410.sdat",
+      "sha1": "93d5b353ad99b842bfcadb7a088bc5579e0a4bce",
+      "size": 34448
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585550270,
+      "path": "assets/shaders/water_DepRfr_glsl410.sdat",
+      "sha1": "804f4329854539e3ecdfd79cac30883cc8614093",
+      "size": 32252
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585620317,
+      "path": "assets/shaders/water_FogDepRfrSim_glsl410.sdat",
+      "sha1": "5820d175228dbddf659401719e737fe1405f7d5e",
+      "size": 35607
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585685514,
+      "path": "assets/shaders/water_FogDepRfr_glsl410.sdat",
+      "sha1": "67b836b62f5d640499bc47e87aa51e87a10ab876",
+      "size": 33411
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585760612,
+      "path": "assets/shaders/water_FogSim_glsl410.sdat",
+      "sha1": "bf3988211c9a0cb3136882a73adde65539795054",
+      "size": 32281
+    },
+    {
+      "dependencies": [],
+      "kind": "asset",
+      "mtime": 134384041585820636,
+      "path": "assets/shaders/water_Sim_glsl410.sdat",
+      "sha1": "9a1b088654e05c5c1d625e0baf1288c1fc7fb845",
+      "size": 31122
+    },
+    {
+      "dependencies": [
+        "assets/cube.obj"
+      ],
+      "kind": "script",
+      "mtime": 134387526880596091,
+      "path": "lua/main.lua",
+      "sha1": "02e918488f95a5918752044aa240852014c2541f",
+      "size": 8265
+    }
+  ],
+  "format": 2,
+  "manifestSha1": "a80d6815aad38d4edbb54b592692a54238eac15e"
+}

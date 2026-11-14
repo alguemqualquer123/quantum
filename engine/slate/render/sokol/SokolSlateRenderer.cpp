@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "SokolSlateRenderer.h"
@@ -13,8 +13,8 @@
 #include "texture/Framebuffer.h"
 #include "render/FramebufferRender.h"
 
-using namespace doriax;
-using namespace doriax::slate;
+using namespace quantum;
+using namespace quantum::slate;
 
 namespace {
 
@@ -68,7 +68,7 @@ SokolSlateRenderer::SokolSlateRenderer() :
 SokolSlateRenderer::~SokolSlateRenderer() {
 }
 
-namespace doriax {
+namespace quantum {
     std::unique_ptr<slate::ISlateRenderer> slate::createSlateRenderer() {
         return std::unique_ptr<slate::ISlateRenderer>(new SokolSlateRenderer());
     }
@@ -95,7 +95,7 @@ bool SokolSlateRenderer::ensureLoaded(const slate::SlateMesh& mesh) {
 
     if (!vertexBuffer.getRender()->createBuffer(vertexCapacity, vertexBuffer.getData(), vertexBuffer.getType(), vertexBuffer.getUsage()) ||
         !indexBuffer.getRender()->createBuffer(indexCapacity, indexBuffer.getData(), indexBuffer.getType(), indexBuffer.getUsage())) {
-        Log::error("Doriax Slate: failed to create the Slate vertex/index buffers");
+        Log::error("Quantum Slate: failed to create the Slate vertex/index buffers");
         return false;
     }
 
@@ -109,7 +109,7 @@ bool SokolSlateRenderer::ensureLoaded(const slate::SlateMesh& mesh) {
         std::shared_ptr<ShaderRender> shader = ShaderPool::get(ShaderType::UI, properties[i], 0);
         if (!shader || !shader->isCreated()) {
             if (!shaderMissingLogged) {
-                Log::error("Doriax Slate: the UI shader variants are not compiled yet; run 'doriax-resource-compiler.exe shaders --project <dir> --backend opengl'");
+                Log::error("Quantum Slate: the UI shader variants are not compiled yet; run 'quantum-resource-compiler.exe shaders --project <dir> --backend opengl'");
                 shaderMissingLogged = true;
             }
             return false;
@@ -140,7 +140,7 @@ bool SokolSlateRenderer::ensureLoaded(const slate::SlateMesh& mesh) {
             fontSlotTex = shaderData.getTextureIndex(TextureShaderType::UI);
 
         if (!render.endLoad(PIP_DEFAULT | PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW)) {
-            Log::error("Doriax Slate: failed to create the Slate pipeline (shader variant %u)", (unsigned int)properties[i]);
+            Log::error("Quantum Slate: failed to create the Slate pipeline (shader variant %u)", (unsigned int)properties[i]);
             return false;
         }
     }
@@ -196,7 +196,7 @@ void SokolSlateRenderer::applyScissor(const Rect& rect) {
     //false, the same convention RenderSystem's UI scissor uses, so the top-left
     //rect the clip resolution builds must be flipped against the pass height.
     //sg_apply_scissor_rect cannot be called from here: sokol is a static lib
-    //linked into both doriax.dll and this consumer, so outside the dll its
+    //linked into both quantum.dll and this consumer, so outside the dll its
     //state is a second copy that sg_setup never ran on.
     const float x = std::floor(rect.getX());
     const float top = std::floor(rect.getY());

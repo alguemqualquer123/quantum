@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderHeaderBuilder.h"
@@ -8,7 +8,7 @@
 #include <cctype>
 #include <unordered_set>
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 namespace {
     // Shader names carry variant codes that may contain characters which are not

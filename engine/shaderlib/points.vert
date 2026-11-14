@@ -14,6 +14,8 @@
 uniform u_vs_pointsParams {
     mat4 mvpMatrix;
     float pointScale;
+    float simulationTime;
+    vec2 padding;
 } pointsParams;
 
 in vec3 a_position;
@@ -40,6 +42,13 @@ in float a_pointsize;
     out vec4 v_texturerect;
 #endif
 
+#ifdef HAS_GPU_PARTICLES
+    in vec3 a_particleVelocity;
+    in vec3 a_particleAcceleration;
+    in float a_particleSpawnTime;
+    in float a_particleLife;
+#endif
+
 
 void main() {
 
@@ -55,7 +64,15 @@ void main() {
         v_texturerect = a_texturerect;
     #endif
 
-    gl_Position = pointsParams.mvpMatrix * vec4(a_position, 1.0);
+    vec3 particlePosition = a_position;
+
+    #ifdef HAS_GPU_PARTICLES
+        float particleAge = clamp(pointsParams.simulationTime - a_particleSpawnTime, 0.0, a_particleLife);
+        particlePosition += a_particleVelocity * particleAge;
+        particlePosition += 0.5 * a_particleAcceleration * particleAge * particleAge;
+    #endif
+
+    gl_Position = pointsParams.mvpMatrix * vec4(particlePosition, 1.0);
 
     // gl_Position.w is the eye-space depth for perspective and exactly 1.0 for
     // ortho/UI, so this single expression gives world-space sizing in both cases.

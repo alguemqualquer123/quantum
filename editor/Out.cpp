@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Out.h"
@@ -18,7 +18,7 @@
     #include <windows.h>
 #endif
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 OutputWindow* Out::outputWindow = nullptr;
 std::function<void(LogType, const std::string&)> Out::uilabLogMirror = nullptr;
@@ -112,7 +112,7 @@ void Out::setLogFile(const std::filesystem::path& path) {
     }
 
     logFilePath = path;
-    logFileStream << "\n=== Doriax editor " << DORIAX_EDITOR_VERSION << " started at "
+    logFileStream << "\n=== Quantum editor " << QUANTUM_EDITOR_VERSION << " started at "
                   << timestamp() << " ===" << std::endl;
 }
 

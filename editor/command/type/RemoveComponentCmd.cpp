@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RemoveComponentCmd.h"
@@ -13,7 +13,7 @@
 #include <set>
 #include <utility>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneRender2D.h"
@@ -10,7 +10,7 @@
 #include <cmath>
 
 
-using namespace doriax;
+using namespace quantum;
 
 editor::SceneRender2D::SceneRender2D(Scene* scene, unsigned int width, unsigned int height, bool isUI): SceneRender(scene, true, false, 40, 2){
     this->isUI = isUI;

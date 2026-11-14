@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef COLORACTION_COMPONENT_H
@@ -6,9 +6,9 @@
 
 #include "math/Vector3.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API ColorActionComponent{
+    struct QUANTUM_API ColorActionComponent{
         Vector3 endColor;
         Vector3 startColor;
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -11,7 +11,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class RenameFileCmd: public Command{
 

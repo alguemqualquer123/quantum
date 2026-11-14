@@ -1,10 +1,10 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "cli/BuildGeneratorCli.h"
 
 #include "AppSettings.h"
-#include "Doriax.h"
+#include "Quantum.h"
 #include "EditorHost.h"
 #include "Generator.h"
 #include "Out.h"
@@ -35,16 +35,16 @@
     #include <cstdio>
 #endif
 
-namespace doriax::editor::cli {
+namespace quantum::editor::cli {
 
-using ::doriax::Engine;
-using ::doriax::ShaderBuildResult;
-using ::doriax::ShaderKey;
-using ::doriax::ShaderPool;
+using ::quantum::Engine;
+using ::quantum::ShaderBuildResult;
+using ::quantum::ShaderKey;
+using ::quantum::ShaderPool;
 
 namespace {
 
-    constexpr const char* INTERNAL_DIRNAME = ".doriax";
+    constexpr const char* INTERNAL_DIRNAME = ".quantum";
     constexpr const char* BUILD_DIRNAME = "build";
     constexpr const char* PROJECT_FILE = "project.yaml";
 
@@ -69,11 +69,11 @@ namespace {
 
     std::string getCommandName(const char* executableName) {
         if (!executableName || !*executableName) {
-            return "doriax-build-generator";
+            return "quantum-build-generator";
         }
         const fs::path executablePath(executableName);
         const std::string filename = executablePath.filename().string();
-        return filename.empty() ? std::string("doriax-build-generator") : filename;
+        return filename.empty() ? std::string("quantum-build-generator") : filename;
     }
 
     // Accepts either the project directory or its project.yaml.
@@ -236,7 +236,7 @@ namespace {
     }
 
     // Every path the Generator path writes into the project: the root CMakeLists,
-    // AGENTS.md, the .vscode helper, and the whole .doriax internal tree
+    // AGENTS.md, the .vscode helper, and the whole .quantum internal tree
     // (scene_scripts.cpp, generated/, engine-api/).
     std::map<std::string, fs::file_time_type> snapshotGeneratedOutputs(const fs::path& projectDir) {
         std::map<std::string, fs::file_time_type> snapshot;
@@ -266,7 +266,7 @@ namespace {
     }
 
     // Newest mtime over the project's generator inputs: *.scene / *.bundle /
-    // scripts anywhere outside .doriax / .vscode / build, plus project.yaml.
+    // scripts anywhere outside .quantum / .vscode / build, plus project.yaml.
     fs::file_time_type newestSourceMtime(const fs::path& projectDir, bool& found) {
         found = false;
         fs::file_time_type newest{};
@@ -359,7 +359,7 @@ namespace {
         if (!fs::is_directory(projectDir / INTERNAL_DIRNAME, ec)) return;
         std::ofstream out(stamp, std::ios::binary);
         if (!out) return;
-        out << "doriax-build-generator\n";
+        out << "quantum-build-generator\n";
         out.close();
         // Rewriting an existing file keeps its old mtime on some platforms.
         fs::last_write_time(stamp, fs::file_time_type::clock::now(), ec);
@@ -435,7 +435,7 @@ namespace {
             << "Usage:\n"
             << "  " << cmd << " generate --project <dir|project.yaml> [options]\n\n"
             << "Runs only the project-generation step: writes CMakeLists.txt and the\n"
-            << ".doriax/generated sources (scene factories, scene_scripts.cpp, main.cpp)\n"
+            << ".quantum/generated sources (scene factories, scene_scripts.cpp, main.cpp)\n"
             << "into the project. Idempotent: unchanged files keep their bytes and mtime.\n\n"
             << "Options:\n"
             << "  -p, --project <path>        Project directory (or its project.yaml).\n"
@@ -454,7 +454,7 @@ namespace {
             << "the same command runner and cmake path lookup the editor uses.\n\n"
             << "Options:\n"
             << "  -p, --project <path>        Project directory holding CMakeLists.txt.\n"
-            << "  -b, --build-dir <dir>       Build tree. Default: <project>/.doriax/build.\n"
+            << "  -b, --build-dir <dir>       Build tree. Default: <project>/.quantum/build.\n"
             << "      --config <type>         CMAKE_BUILD_TYPE. Default: Release.\n"
             << "      --kit <k=v ...>         cxx=<path> cc=<path> gen=\"<name>\".\n"
             << "      --jobs <n>              Parallel job cap passed to the generated build\n"
@@ -471,7 +471,7 @@ namespace {
             << "progress lines to stdout:  progress <0..100> <stage> <detail>\n\n"
             << "Options:\n"
             << "  -p, --project <path>        Project directory (used to locate the build tree).\n"
-            << "  -b, --build-dir <dir>       Build tree. Default: <project>/.doriax/build.\n"
+            << "  -b, --build-dir <dir>       Build tree. Default: <project>/.quantum/build.\n"
             << "      --config <Debug|Release> Configuration. Default: Release.\n"
             << "      --target <name>         Build a single target.\n"
             << "  -j, --jobs <n>              --parallel jobs (0 = automatic). Default: 0.\n"
@@ -622,6 +622,7 @@ namespace {
         Project project;
         auto platform = std::make_unique<Platform>(&project);
         EngineRuntimeGuard engineRuntime;
+        if (options.verbose) std::cerr << commandName << " generate: initializing headless engine\n";
         Engine::systemInit(argc, argv, platform.get());
         engineRuntime.initialized = true;
         Engine::pauseGameEvents(true);
@@ -632,10 +633,15 @@ namespace {
             return builder.buildShader(shaderKey, projectPtr);
         });
 
+        if (options.verbose) std::cerr << commandName << " generate: loading project\n";
         if (!project.loadProject(projectDir, false)) {
             std::cerr << commandName << " generate: failed to load project: "
                       << projectDir.string() << "\n";
             return 1;
+        }
+        if (options.verbose) {
+            std::cerr << commandName << " generate: project loaded with "
+                      << project.getScenes().size() << " scene(s)\n";
         }
 
         // Load every scene's data before saving: an unopened scene has no in-memory
@@ -648,7 +654,15 @@ namespace {
                 }
             }
             for (const fs::path& filepath : filepaths) {
+                if (options.verbose) {
+                    std::cerr << commandName << " generate: loading scene "
+                              << filepath.generic_string() << "\n";
+                }
                 project.loadScene(filepath, false, false, true);
+                if (options.verbose) {
+                    std::cerr << commandName << " generate: loaded scene "
+                              << filepath.generic_string() << "\n";
+                }
             }
         }
 
@@ -802,11 +816,11 @@ namespace {
             cmd += "-DCMAKE_CXX_COMPILER=\"" + toCMakePath(kit.cxxCompiler) + "\" ";
         }
         cmd += "-DCMAKE_BUILD_TYPE=" + options.configType + " ";
-        cmd += "-DDORIAX_PARALLEL_BUILD_JOBS=" + std::to_string(resolveJobs(options.jobs)) + " ";
-        // Deliberately no -DDORIAX_LIB_DIR here: passing it would skip the
-        // generated CMakeLists' own resolution (DORIAX_LIB_DIR environment
+        cmd += "-DQUANTUM_PARALLEL_BUILD_JOBS=" + std::to_string(resolveJobs(options.jobs)) + " ";
+        // Deliberately no -DQUANTUM_LIB_DIR here: passing it would skip the
+        // generated CMakeLists' own resolution (QUANTUM_LIB_DIR environment
         // variable, then the editor directory recorded at generate time) and,
-        // with it, the DORIAX_SHARED/DORIAX_EDITOR macros that make the engine
+        // with it, the QUANTUM_SHARED/QUANTUM_EDITOR macros that make the engine
         // import library link. Override the engine tree with that variable.
         cmd += "\"" + toCMakePath(projectDir.string()) + "\" ";
         cmd += "-B \"" + toCMakePath(buildDir.string()) + "\"";

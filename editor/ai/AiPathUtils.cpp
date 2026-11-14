@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AiPathUtils.h"
@@ -7,7 +7,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 bool PathUtils::isSafeRelativePath(const fs::path& path) {
     if (path.empty() || path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
@@ -67,4 +67,4 @@ fs::path PathUtils::uniqueChildPath(const fs::path& directory,
     return directory / (stem + "-copy" + extension);
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

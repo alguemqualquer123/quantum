@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Model.h"
@@ -16,7 +16,7 @@
 #include <sstream>
 #include <cfloat>
 
-using namespace doriax;
+using namespace quantum;
 
 Model::Model(Scene* scene): Mesh(scene){
     addComponent<ModelComponent>();

@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BODY3D_H
 #define BODY3D_H
 
-#ifndef DORIAX_PHYSICS_3D
+#ifndef QUANTUM_PHYSICS_3D
 #error "Body3D needs 3D Physics, enabled in Project Settings > Build"
 #endif
 
@@ -16,11 +16,11 @@
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Body/BodyInterface.h"
 
-namespace doriax{
+namespace quantum{
 
     class Object;
 
-    class DORIAX_API Body3D: public EntityHandle{
+    class QUANTUM_API Body3D: public EntityHandle{
     protected:
         void checkBody(const Body3DComponent& body) const;
 
@@ -73,6 +73,16 @@ namespace doriax{
         float getShapeDensity() const;
         float getShapeDensity(size_t index) const;
 
+        void setShapeFriction(float friction);
+        void setShapeFriction(size_t index, float friction);
+        float getShapeFriction() const;
+        float getShapeFriction(size_t index) const;
+
+        void setShapeRestitution(float restitution);
+        void setShapeRestitution(size_t index, float restitution);
+        float getShapeRestitution() const;
+        float getShapeRestitution(size_t index) const;
+
         void setType(BodyType type);
         BodyType getType() const;
 
@@ -102,6 +112,12 @@ namespace doriax{
 
         float getGravityFactor() const;
         void setGravityFactor(float gravityFactor);
+
+        float getLinearDamping() const;
+        void setLinearDamping(float linearDamping);
+
+        float getAngularDamping() const;
+        void setAngularDamping(float angularDamping);
 
         // applied each fixed step while the body is in a Water
         float getBuoyancy() const;

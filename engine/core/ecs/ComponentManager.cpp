@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ComponentManager.h"
@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 
-using namespace doriax;
+using namespace quantum;
 
 // One registry inside the library, so every module caches the same index for a type.
 // Keyed by mangled name, not type_index: identity is then plain string equality.

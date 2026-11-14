@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MeshPreviewRender.h"
@@ -6,7 +6,8 @@
 #include "Configs.h"
 #include "Stream.h"
 
-using namespace doriax;
+
+using namespace quantum;
 
 editor::MeshPreviewRender::MeshPreviewRender(){
     scene = new Scene(EntityPool::System);

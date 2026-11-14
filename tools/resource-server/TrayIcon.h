@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// TrayIcon.h - Windows notification-area presence for doriax-resource-server.
+// TrayIcon.h - Windows notification-area presence for quantum-resource-server.
 //
 // The server is meant to outlive the editor: it keeps indexing the project and
 // sits in the tray (the area where Discord and the anti-cheat agents live) so
@@ -15,7 +15,7 @@
 
 #include <string>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 // Everything the menu and the tooltip show, refreshed every poll slice.
 struct TraySnapshot {

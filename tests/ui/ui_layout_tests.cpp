@@ -1,9 +1,9 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
 // GPU-free unit tests of the flexbox layout pass (Yoga) and of the UMG-style
 // layout containers. Rects are compared against the resolved layout stored on
-// the elements; the GPU side is verified visually with doriax-ui-demo.
+// the elements; the GPU side is verified visually with quantum-ui-demo.
 
 #include "doctest.h"
 
@@ -14,8 +14,8 @@
 #include "ui/core/VisualElement.h"
 #include "ui/layout/Panels.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 TEST_CASE("ui::layout stacks a column with padding and gap") {
     std::unique_ptr<VisualElement> root(new VisualElement("root"));
@@ -117,7 +117,7 @@ TEST_CASE("ui::layout measures labels from the shaped text") {
     column->setAlignItems(AlignItems::FlexStart);
 
     Label* title = column->addChild<Label>("title");
-    title->setText("Doriax UI");
+    title->setText("Quantum UI");
     title->setFontSize(24);
 
     Label* subtitle = column->addChild<Label>("subtitle");

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCRIPT_BASE_H
@@ -7,9 +7,9 @@
 #include "Scene.h"
 #include "Entity.h"
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API ScriptBase {
+    class QUANTUM_API ScriptBase {
     protected:
         Scene* scene;
         Entity entity;

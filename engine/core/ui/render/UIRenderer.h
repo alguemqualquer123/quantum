@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef UIRenderer_h
@@ -11,15 +11,15 @@
 #include "math/Vector2.h"
 #include "ui/render/VertexBuilder.h"
 
-namespace doriax {
+namespace quantum {
     class Framebuffer;
 }
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // Backend interface for the retained-mode UI renderer. Implementations live
     // in renders/<backend> (SokolUIRenderer); no backend types leak through it.
-    class DORIAX_API UIRenderer {
+    class QUANTUM_API UIRenderer {
     public:
         virtual ~UIRenderer() = default;
 
@@ -27,10 +27,10 @@ namespace doriax::ui {
         // `viewRect` the screen region it maps to (letterbox aware). `target`
         // is the active offscreen framebuffer, nullptr for the swapchain.
         virtual void render(const UIMesh& mesh, Vector2 canvasSize, const Rect& viewRect,
-                            doriax::Framebuffer* target) = 0;
+                            quantum::Framebuffer* target) = 0;
     };
 
-    DORIAX_API std::unique_ptr<UIRenderer> createUIRenderer();
+    QUANTUM_API std::unique_ptr<UIRenderer> createUIRenderer();
 }
 
 #endif /* UIRenderer_h */

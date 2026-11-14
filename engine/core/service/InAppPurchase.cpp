@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "InAppPurchase.h"
@@ -8,7 +8,7 @@
 #include "json.hpp"
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     const char* notAvailableMessage = "In-app purchases are not available on this platform or build";

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SPRITE_COMPONENT_H
@@ -8,7 +8,7 @@
 #include "util/HybridArray.h"
 #include "Engine.h"
 
-namespace doriax{
+namespace quantum{
 
     enum class PivotPreset{
         CENTER,
@@ -22,7 +22,7 @@ namespace doriax{
         BOTTOM_RIGHT
     };
 
-    struct DORIAX_API SpriteComponent{
+    struct QUANTUM_API SpriteComponent{
         unsigned int width = 0;
         unsigned int height = 0;
 

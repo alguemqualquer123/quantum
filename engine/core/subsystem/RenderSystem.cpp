@@ -1,7 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "RenderSystem.h"
+
+#include "texture/TextureData.h"
 #include "object/Camera.h"
 #include "math/Quaternion.h"
 #include "Scene.h"
@@ -16,10 +18,12 @@
 #include "texture/IBLEnvironment.h"
 #include "util/Angle.h"
 #include "util/Color.h"
+#include "util/Wind.h"
 #include "buffer/ExternalBuffer.h"
 #include "math/AABB.h"
 #include "pool/TextureDataPool.h"
 #include "subsystem/PhysicsSystem.h"
+#include "subsystem/WaterSystem.h"
 #include <memory>
 #include <algorithm>
 #include <array>
@@ -31,10 +35,26 @@
 #include <cstdint>
 #include <cstring>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     constexpr int SPOT_MASK_TILE_SIZE = 256;
+
+    int shadowVirtualPageIndex(int logicalPage, int tile){
+        return logicalPage * SHADOW_VIRTUAL_PAGES_PER_MAP + tile;
+    }
+
+    Matrix4 shadowTileCrop(int tile){
+        Matrix4 crop;
+        crop.identity();
+        const int tileX = tile % SHADOW_VIRTUAL_PAGE_GRID;
+        const int tileY = tile / SHADOW_VIRTUAL_PAGE_GRID;
+        crop.set(0, 0, (float)SHADOW_VIRTUAL_PAGE_GRID);
+        crop.set(1, 1, (float)SHADOW_VIRTUAL_PAGE_GRID);
+        crop.set(3, 0, 1.0f - 2.0f * (float)tileX);
+        crop.set(3, 1, 1.0f - 2.0f * (float)tileY);
+        return crop;
+    }
 
     // every light, not just the selected ones, so the variant does not change with the camera
     bool allLightsDirectional(Scene* scene){
@@ -46,6 +66,17 @@ namespace {
             }
         }
         return count > 0;
+    }
+
+    bool hasMaterialExtensions(const Material& material){
+        return material.clearcoatFactor > 0.0001f ||
+               material.sheenColorFactor.x > 0.0001f ||
+               material.sheenColorFactor.y > 0.0001f ||
+               material.sheenColorFactor.z > 0.0001f ||
+               material.transmissionFactor > 0.0001f ||
+               material.thicknessFactor > 0.0001f ||
+               material.anisotropyStrength > 0.0001f ||
+               material.attenuationDistance > 0.0001f;
     }
 
     static_assert(sizeof(Matrix4) == sizeof(float) * 16);
@@ -306,6 +337,8 @@ bool RenderSystem::emptyTexturesCreated = false;
 
 RenderSystem::RenderSystem(Scene* scene): SubSystem(scene){
     instanceViewsDirty = true;
+    mainInstanceViewDirty = true;
+    shadowInstanceViewsDirty = true;
     signature.set(scene->getComponentId<Transform>());
 
     this->scene = scene;
@@ -316,6 +349,19 @@ RenderSystem::RenderSystem(Scene* scene): SubSystem(scene){
     ssaoSlotParams = -1;
     ssaoBlurSlotParams = -1;
     currentSSAOTexture = NULL;
+    contactShadowsLoaded = false;
+    contactShadowsHDR = false;
+    contactShadowsWidth = 0;
+    contactShadowsHeight = 0;
+    contactShadowsSlotParams = -1;
+    ssgiLoaded = false;
+    ssgiHDR = false;
+    ssgiWidth = 0;
+    ssgiHeight = 0;
+    ssgiSlotParams = -1;
+    decalsLoaded = false;
+    decalsHDR = false;
+    decalSlotParams = -1;
     currentSceneDepthTexture = NULL;
     depthPrePassRendered = false;
     currentSceneCopy = NULL;
@@ -331,6 +377,7 @@ RenderSystem::RenderSystem(Scene* scene): SubSystem(scene){
     ssrLoaded = false;
     ssrWidth = 0;
     ssrHeight = 0;
+    ssrCompositeHDR = false;
     ssrSlotParams = -1;
     ssrBlurSlotParams = -1;
     compositeSlotParams = -1;
@@ -341,21 +388,79 @@ RenderSystem::RenderSystem(Scene* scene): SubSystem(scene){
     fixedResHeight = 0;
     blitSlotParams = -1;
 
-    postProcessLoaded = false;
-    postProcessNeedReload = false;
-    postProcessNeedUpdateUniforms = false;
-    postProcessWidth = 0;
-    postProcessHeight = 0;
     postProcessNeedsDepth = false;
     postProcessNeedsGBuffer = false;
+
+    bloomLoaded = false;
+    bloomWidth = 0;
+    bloomHeight = 0;
+    activeBloomMipLevels = 0;
+    bloomIntensity = 0.0f;
+    bloomThresholdSlotParams = -1;
+    bloomDownsampleSlotParams = -1;
+    bloomUpsampleSlotParams = -1;
+    bloomCompositeSlotParams = -1;
+
+    tonemapLoaded = false;
+    tonemapSlotParams = -1;
+
+    exposureLoaded = false;
+    exposureSlotParams = -1;
+    exposureWriteIndex = 0;
+    hdrFeatureMask = 0;
+
+    hdrLoaded = false;
+    hdrWidth = 0;
+    hdrHeight = 0;
+    lut3DLoaded = false;
+    lut3DSize = 0;
+
+    fxaaLoaded = false;
+    fxaaWidth = 0;
+    fxaaHeight = 0;
+    fxaaSlotParams = -1;
+
+    dofLoaded = false;
+    dofWidth = 0;
+    dofHeight = 0;
+    dofHalfWidth = 0;
+    dofHalfHeight = 0;
+    dofCocSlotParams = -1;
+    dofBlurSlotParams = -1;
+    dofCompositeSlotParams = -1;
+
+    atmosphereLoaded = false;
+    atmosphereWidth = 0;
+    atmosphereHeight = 0;
+    atmosphereSlotParams = -1;
+
+    velocityLoaded = false;
+    taaLoaded = false;
+    motionBlurLoaded = false;
+    temporalWidth = 0;
+    temporalHeight = 0;
+    temporalInputWidth = 0;
+    temporalInputHeight = 0;
+    velocitySlotParams = -1;
+    taaSlotParams = -1;
+    motionBlurSlotParams = -1;
+    taaHistoryIndex = 0;
+    taaHistoryValid = false;
+    previousViewProjectionValid = false;
 
     shadowAtlasSlotResolution = 0;
     shadowAtlasCols = 0;
     shadowAtlasRows = 0;
     shadowAtlasUsedSlots = 0;
     needUpdateShadowAtlas = true;
+    shadowAtlasContentDirty = true;
+    shadowPageTableCreated = false;
+    shadowPageTablePixels.fill(0);
+    shadowVirtualToPhysical.fill(-1);
+    shadowPhysicalPageKeys.fill(0);
     shadowPointAtlasSlotResolution = 0;
     needUpdateShadowPointAtlas = true;
+    shadowPointAtlasContentDirty = true;
     needUpdateShadowBindings = false;
     hasShadowAtlas = false;
     hasShadowPointAtlas = false;
@@ -374,6 +479,13 @@ RenderSystem::RenderSystem(Scene* scene): SubSystem(scene){
     occluder2DNeedUpdateBuffer = false;
     hasReflectionProbes = false;
     capturingReflectionProbe = false;
+    clusteredLightGridWidth = 0;
+    clusteredLightGridHeight = 0;
+    clusteredLightGridDepthSlices = 0;
+    clusteredLightGridReady = false;
+    clusteredLightGridKey = 0;
+    clusteredLightGridInfo = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    clusteredLightGridDepth = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 RenderSystem::~RenderSystem(){
@@ -384,6 +496,7 @@ void RenderSystem::load(){
     hasShadows = false;
     onlyDirectionalLights = false;
     hasFog = false;
+    hasHeightFog = false;
     hasIBL = false;
     hasReflectionProbes = false;
     hasWaterDepth = false;
@@ -420,9 +533,26 @@ void RenderSystem::destroy(){
     emptyTexturesCreated = false;
 
     destroySSAO();
+    destroyContactShadows();
+    destroySSGI();
+    destroyDecals();
     destroySSR();
     destroyBlit();
     destroyPostProcess();
+    destroyHDR();
+    destroyTemporalEffects();
+    destroyFXAA();
+    destroyDOF();
+    destroyAtmosphere();
+    clusteredLightGridBuffer.destroyBuffer();
+    clusteredLightGridData.clear();
+    clusteredLightGridWidth = 0;
+    clusteredLightGridHeight = 0;
+    clusteredLightGridDepthSlices = 0;
+    clusteredLightGridReady = false;
+    clusteredLightGridKey = 0;
+    clusteredLightGridInfo = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    clusteredLightGridDepth = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
     for (InstanceView& view : instanceViews){
         view.buffer.getRender()->destroyBuffer();
         view.data.clear();
@@ -430,6 +560,8 @@ void RenderSystem::destroy(){
     }
     instanceViewsDirty = true;
     shadowAtlasFramebuffer.destroyFramebuffer();
+    shadowPageTable.destroyTexture();
+    shadowPageTableCreated = false;
     shadowAtlasSlotResolution = 0;
     shadowAtlasCols = 0;
     shadowAtlasRows = 0;
@@ -612,7 +744,7 @@ void RenderSystem::createEmptyTextures(){
     }
 }
 
-// Past MAX_LIGHTS lit lights, directional ones go first, then the nearest to the eye.
+// Past MAX_FORWARD_LIGHTS lit lights, directional ones go first, then the nearest to the eye.
 // One in use counts as 10% nearer, so close ones do not swap every frame.
 std::vector<size_t> RenderSystem::chooseLights(const Vector3& eye, const std::vector<size_t>& inUse){
     auto lights = scene->getComponentArray<LightComponent>();
@@ -631,9 +763,9 @@ std::vector<size_t> RenderSystem::chooseLights(const Vector3& eye, const std::ve
         }
         candidates.push_back({score, i});
     }
-    if (candidates.size() > (size_t)MAX_LIGHTS){
-        std::nth_element(candidates.begin(), candidates.begin() + MAX_LIGHTS, candidates.end());
-        candidates.resize(MAX_LIGHTS);
+    if (candidates.size() > (size_t)MAX_FORWARD_LIGHTS){
+        std::nth_element(candidates.begin(), candidates.begin() + MAX_FORWARD_LIGHTS, candidates.end());
+        candidates.resize(MAX_FORWARD_LIGHTS);
     }
 
     // component order, so a light keeps its slot while the set stays the same
@@ -691,7 +823,7 @@ void RenderSystem::setLightSlot(int slot, size_t index){
         light.worldUp.x,
         light.worldUp.y,
         light.worldUp.z,
-        (light.type == LightType::SPOT && light.spotMaskReady) ? light.spotMaskAspect : 0.0f);
+        (slot < MAX_LIGHTS && light.type == LightType::SPOT && light.spotMaskReady) ? light.spotMaskAspect : 0.0f);
 }
 
 void RenderSystem::checkLightsAndShadow(){
@@ -757,6 +889,8 @@ bool RenderSystem::loadLights(int numLights){
             if (light.needUpdateShadowMap){
                 needUpdateShadowAtlas = true;
                 needUpdateShadowPointAtlas = true;
+                shadowAtlasContentDirty = true;
+                shadowPointAtlasContentDirty = true;
                 needUpdateShadowBindings = true;
                 light.needUpdateShadowMap = false;
             }
@@ -794,7 +928,10 @@ bool RenderSystem::loadLights(int numLights){
     }
 
     if (freeProjectiveSlot > 0){
-        if (!ensureShadowAtlas(maxProjectiveSlotResolution, freeProjectiveSlot)){
+        const int physicalPageBudget = std::min(
+            MAX_SHADOW_ATLAS_SLOTS,
+            freeProjectiveSlot * SHADOW_VIRTUAL_PAGES_PER_MAP);
+        if (!ensureShadowAtlas(maxProjectiveSlotResolution, physicalPageBudget)){
             Log::warn("Failed to create projective shadow atlas");
             for (int i = 0; i < numLights; i++){
                 LightComponent& light = lights->getComponentFromIndex(activeLights[i]);
@@ -812,9 +949,12 @@ bool RenderSystem::loadLights(int numLights){
         shadowAtlasCols = 0;
         shadowAtlasRows = 0;
         shadowAtlasUsedSlots = 0;
+        shadowAtlasContentDirty = true;
         initShadowAtlasRects();
         hasShadowAtlas = false;
     }
+
+    rebuildShadowPageMapping(hasShadowAtlas ? shadowAtlasUsedSlots : 0);
 
     if (freePointSlot > 0){
         if (!ensureShadowPointAtlas(maxPointSlotResolution)){
@@ -832,6 +972,7 @@ bool RenderSystem::loadLights(int numLights){
         }
         shadowPointAtlasFramebuffer.destroyFramebuffer();
         shadowPointAtlasSlotResolution = 0;
+        shadowPointAtlasContentDirty = true;
         hasShadowPointAtlas = false;
     }
 
@@ -840,6 +981,7 @@ bool RenderSystem::loadLights(int numLights){
 
 void RenderSystem::updateSpotMaskAtlas(int numLights){
     auto lights = scene->getComponentArray<LightComponent>();
+    const int maskLights = std::min(numLights, MAX_LIGHTS);
     std::array<SpotMaskAtlasEntry, MAX_LIGHTS> newEntries;
     std::array<TextureData*, MAX_LIGHTS> sources{};
     std::array<std::shared_ptr<std::array<TextureData, 6>>, MAX_LIGHTS> sourceOwners;
@@ -849,7 +991,7 @@ void RenderSystem::updateSpotMaskAtlas(int numLights){
     committedSlots.fill(-1);
 
     for (int i = 0; i < MAX_LIGHTS; i++){
-        if (i >= numLights){
+        if (i >= maskLights){
             continue;
         }
 
@@ -913,7 +1055,7 @@ void RenderSystem::updateSpotMaskAtlas(int numLights){
     }
 
     auto applyCommittedReadiness = [&](){
-        for (int i = 0; i < numLights; i++){
+        for (int i = 0; i < maskLights; i++){
             LightComponent& light = lights->getComponentFromIndex(activeLights[i]);
             const bool ready =
                 spotMaskAtlasCreated &&
@@ -1035,7 +1177,7 @@ void RenderSystem::updateSpotMaskAtlas(int numLights){
 
     // The atlas owns its resampled copy, so honor the source Texture's normal
     // release-after-upload policy instead of retaining full-resolution pixels.
-    for (int i = 0; i < numLights; i++){
+    for (int i = 0; i < maskLights; i++){
         LightComponent& light = lights->getComponentFromIndex(activeLights[i]);
         if (sourceOwners[i] && light.spotMask.isReleaseDataAfterLoad()){
             sourceOwners[i]->at(0).releaseImageData();
@@ -1074,18 +1216,36 @@ void RenderSystem::processLights(int numLights, CameraComponent& camera, Transfo
                             light.cameras[c].nearFar.x,
                             light.cameras[c].nearFar.y);
                     }else{
-                        shadowProjection.lightViewProjectionMatrix[light.shadowMapIndex+c] = light.cameras[c].lightViewProjectionMatrix;
+                        const int logicalPage = light.shadowMapIndex + c;
+                        if (logicalPage < 0 || logicalPage >= MAX_SHADOW_ATLAS_SLOTS)
+                            continue;
+                        shadowProjection.logicalLightViewProjectionMatrix[logicalPage] =
+                            light.cameras[c].lightViewProjectionMatrix;
 
-                        float projScale = std::max(std::abs(light.cameras[c].lightProjectionMatrix[0][0]),
-                                                   std::abs(light.cameras[c].lightProjectionMatrix[1][1]));
-                        float texelSizeWorld = (projScale > 0.0f) ? 2.0f / (projScale * (float)shadowAtlasSlotResolution) : 0.0f;
-                        shadowProjection.shadowParams[light.shadowMapIndex+c] = Vector4(light.shadowNormalBias * texelSizeWorld, 0.0, 0.0, 0.0);
+                        for (int tile = 0; tile < SHADOW_VIRTUAL_PAGES_PER_MAP; tile++){
+                            const int virtualPage = shadowVirtualPageIndex(logicalPage, tile);
+                            const int physicalPage = (virtualPage >= 0 && virtualPage < MAX_SHADOW_VIRTUAL_PAGES) ?
+                                shadowVirtualToPhysical[virtualPage] : -1;
+                            if (physicalPage < 0 || physicalPage >= MAX_SHADOW_ATLAS_SLOTS)
+                                continue;
 
-                        fs_shadows.bias_texSize_nearFar[light.shadowMapIndex+c] = Vector4(
-                            light.shadowBias,
-                            (float)shadowAtlasSlotResolution,
-                            light.cameras[c].nearFar.x,
-                            light.cameras[c].nearFar.y);
+                            const LightCamera tileCamera = shadowTileCamera(light, c, tile);
+                            shadowProjection.lightViewProjectionMatrix[physicalPage] =
+                                tileCamera.lightViewProjectionMatrix;
+
+                            float projScale = std::max(std::abs(tileCamera.lightProjectionMatrix[0][0]),
+                                                       std::abs(tileCamera.lightProjectionMatrix[1][1]));
+                            float texelSizeWorld = (projScale > 0.0f) ?
+                                2.0f / (projScale * (float)shadowAtlasSlotResolution) : 0.0f;
+                            shadowProjection.shadowParams[physicalPage] =
+                                Vector4(light.shadowNormalBias * texelSizeWorld, 0.0, 0.0, 0.0);
+
+                            fs_shadows.bias_texSize_nearFar[physicalPage] = Vector4(
+                                light.shadowBias,
+                                (float)shadowAtlasSlotResolution,
+                                light.cameras[c].nearFar.x,
+                                light.cameras[c].nearFar.y);
+                        }
                     }
                 }
             }
@@ -1117,8 +1277,14 @@ void RenderSystem::processLights(int numLights, CameraComponent& camera, Transfo
         auto skys = scene->getComponentArray<SkyComponent>();
         if (skys->size() > 0){
             SkyComponent& sky = skys->getComponentFromIndex(0);
+            // The same intensity that scales the constant ambient has to scale the sky
+            // cubemap too: ibl.glsl multiplies both the Lambertian and the GGX lookup by
+            // envColor.rgb, so leaving it out made "Global Illumination Intensity" a no-op
+            // for every scene with a sky, and a bright sky could not be dimmed at all.
+            float giIntensity = scene->getGlobalIlluminationIntensity();
             Vector3 linColor = Color::sRGBToLinear(Vector3(sky.color.x, sky.color.y, sky.color.z));
-            fs_lighting.envColor = Vector4(linColor.x, linColor.y, linColor.z, Angle::defaultToRad(sky.rotation));
+            fs_lighting.envColor = Vector4(linColor.x * giIntensity, linColor.y * giIntensity,
+                                           linColor.z * giIntensity, Angle::defaultToRad(sky.rotation));
         }
     }
 
@@ -1137,12 +1303,235 @@ void RenderSystem::processLights(int numLights, CameraComponent& camera, Transfo
         (vpH > 0.0f) ? 1.0f / vpH : 0.0f,
         scene->isSSAODebug() ? 1.0f : 0.0f,
         isRenderingFlipped(camera) ? 1.0f : 0.0f);
+    fs_lighting.clusterInfo = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    fs_lighting.clusterDepth = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    fs_lighting.clusterDebug = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
 
     // Setting intensity of other lights to zero
-    for (int i = numLights; i < MAX_LIGHTS; i++){
+    for (int i = numLights; i < MAX_FORWARD_LIGHTS; i++){
         fs_lighting.color_intensity[i].w = 0.0;
         fs_lighting.spotUp_maskAspect[i].w = 0.0;
     }
+}
+
+void RenderSystem::updateClusteredLightGrid(CameraComponent& camera){
+    clusteredLightGridReady = false;
+    fs_lighting.clusterInfo = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    fs_lighting.clusterDepth = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+    fs_lighting.clusterDebug = Vector4(0.0f, 0.0f, 0.0f, 0.0f);
+
+    // OpenGL 4.1 and GLES3 have no fragment-stage storage buffers. Their shader
+    // variants keep the original six-light UBO path, while the other backends
+    // use this grid.
+#if defined(SOKOL_GLCORE) || defined(SOKOL_GLES3)
+    return;
+#endif
+    if (!Engine::isViewLoaded() || activeLights.empty())
+        return;
+
+    float viewportWidth = Engine::getViewRect().getWidth();
+    float viewportHeight = Engine::getViewRect().getHeight();
+    if (isFixedResolutionActive() && !camera.renderToTexture){
+        viewportWidth = (float)scene->getFixedResolutionWidth();
+        viewportHeight = (float)scene->getFixedResolutionHeight();
+    }
+    if (viewportWidth <= 0.0f || viewportHeight <= 0.0f)
+        return;
+
+    // The grid depends only on the camera projection/pose, viewport and the
+    // light volumes. Avoid touching the storage buffer on a completely static
+    // frame; this also keeps sokol's one-update-per-buffer-per-frame contract
+    // quiet when the editor redraws the same scene repeatedly.
+    uint64_t gridKey = 1469598103934665603ULL;
+    auto hashValue = [&gridKey](uint64_t value){
+        gridKey ^= value;
+        gridKey *= 1099511628211ULL;
+    };
+    auto hashFloat = [&hashValue](float value){
+        uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        hashValue(bits);
+    };
+    hashFloat(viewportWidth);
+    hashFloat(viewportHeight);
+    hashValue(camera.renderToTexture ? 1ULL : 0ULL);
+    hashFloat(camera.nearClip);
+    hashFloat(camera.farClip);
+    for (int row = 0; row < 4; row++){
+        for (int column = 0; column < 4; column++)
+            hashFloat(camera.viewProjectionMatrix[row][column]);
+    }
+
+    auto lights = scene->getComponentArray<LightComponent>();
+    hashValue(static_cast<uint64_t>(activeLights.size()));
+    for (size_t i = 0; i < activeLights.size(); i++){
+        const size_t lightIndex = activeLights[i];
+        const LightComponent& light = lights->getComponentFromIndex(lightIndex);
+        hashValue(static_cast<uint64_t>(lightIndex));
+        hashValue(static_cast<uint64_t>(light.type));
+        hashFloat(light.range);
+        hashFloat(light.intensity);
+        hashFloat(light.worldDirection.x);
+        hashFloat(light.worldDirection.y);
+        hashFloat(light.worldDirection.z);
+        Transform* transform = scene->findComponent<Transform>(lights->getEntity(lightIndex));
+        if (transform){
+            hashFloat(transform->worldPosition.x);
+            hashFloat(transform->worldPosition.y);
+            hashFloat(transform->worldPosition.z);
+        }else{
+            hashValue(0ULL);
+            hashValue(0ULL);
+            hashValue(0ULL);
+        }
+    }
+
+    if (clusteredLightGridReady && clusteredLightGridKey == gridKey && clusteredLightGridBuffer.isCreated()){
+        clusteredLightGridReady = true;
+        fs_lighting.clusterInfo = clusteredLightGridInfo;
+        fs_lighting.clusterDepth = clusteredLightGridDepth;
+        fs_lighting.clusterDebug = Vector4(showClusteredLightGrid ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+        return;
+    }
+
+    // Keep the worst-case grid bounded at very high resolutions. The actual tile
+    // size is passed in the UBO, so 4K does not allocate hundreds of megabytes.
+    const unsigned int tileSize = std::max((unsigned int)CLUSTER_TILE_SIZE,
+        (unsigned int)std::ceil(std::max(viewportWidth, viewportHeight) / 96.0f));
+    const unsigned int gridWidth = std::max(1u, (unsigned int)std::ceil(viewportWidth / (float)tileSize));
+    const unsigned int gridHeight = std::max(1u, (unsigned int)std::ceil(viewportHeight / (float)tileSize));
+    const unsigned int depthSlices = (unsigned int)CLUSTER_Z_SLICES;
+    const unsigned int stride = 1u + (unsigned int)MAX_CLUSTER_LIGHTS_PER_TILE;
+    const unsigned int clusterCount = gridWidth * gridHeight * depthSlices;
+    const size_t wordCount = static_cast<size_t>(clusterCount) * stride;
+    clusteredLightGridData.assign(wordCount, 0u);
+
+    auto appendLight = [&](unsigned int tile, unsigned int lightIndex){
+        uint32_t* entry = clusteredLightGridData.data() + static_cast<size_t>(tile) * stride;
+        const unsigned int count = std::min(entry[0], (uint32_t)MAX_CLUSTER_LIGHTS_PER_TILE);
+        for (unsigned int i = 0; i < count; i++){
+            if (entry[1u + i] == lightIndex)
+                return;
+        }
+        if (count < (unsigned int)MAX_CLUSTER_LIGHTS_PER_TILE){
+            entry[1u + count] = lightIndex;
+            entry[0] = count + 1u;
+        }
+    };
+
+    auto addAllTiles = [&](unsigned int lightIndex){
+        for (unsigned int cluster = 0; cluster < clusterCount; cluster++)
+            appendLight(cluster, lightIndex);
+    };
+
+    const float nearDepth = std::max(std::abs(camera.nearClip), 0.001f);
+    const float farDepth = std::max(std::abs(camera.farClip), nearDepth + 0.001f);
+    const float logDepthRange = std::max(std::log2(farDepth / nearDepth), 0.001f);
+    auto depthSlice = [&](float depth){
+        const float normalized = std::log2(std::max(depth, nearDepth) / nearDepth) / logDepthRange;
+        return std::clamp((int)std::floor(normalized * (float)depthSlices), 0, (int)depthSlices - 1);
+    };
+
+    const bool renderingFlipped = isRenderingFlipped(camera);
+    auto project = [&](const Vector3& position, float& pixelX, float& pixelY, float& clipW){
+        const Vector4 clip = camera.viewProjectionMatrix * Vector4(position.x, position.y, position.z, 1.0f);
+        clipW = clip.w;
+        if (clip.w <= 0.0001f)
+            return false;
+        float ndcX = clip.x / clip.w;
+        float ndcY = clip.y / clip.w;
+        if (renderingFlipped)
+            ndcY = -ndcY;
+        pixelX = (ndcX * 0.5f + 0.5f) * viewportWidth;
+        pixelY = (ndcY * 0.5f + 0.5f) * viewportHeight;
+        return true;
+    };
+
+    for (unsigned int slot = 0; slot < activeLights.size(); slot++){
+        const LightComponent& light = lights->getComponentFromIndex(activeLights[slot]);
+        if (light.type == LightType::DIRECTIONAL){
+            addAllTiles(slot);
+            continue;
+        }
+
+        // In glTF, a non-positive range means an unlimited punctual light. It
+        // cannot be conservatively represented by a finite screen-space sphere.
+        if (light.range <= 0.0f){
+            addAllTiles(slot);
+            continue;
+        }
+
+        Transform* transform = scene->findComponent<Transform>(lights->getEntity(activeLights[slot]));
+        const Vector3 position = transform ? transform->worldPosition : Vector3::ZERO;
+        float centerX = 0.0f;
+        float centerY = 0.0f;
+        float clipW = 0.0f;
+        if (!project(position, centerX, centerY, clipW)){
+            // A sphere crossing the near plane is conservative when included everywhere;
+            // a fully-behind light is harmless because its range attenuation is zero.
+            addAllTiles(slot);
+            continue;
+        }
+
+        const Vector4 viewPosition = camera.viewMatrix * Vector4(position.x, position.y, position.z, 1.0f);
+        const float viewDepth = std::max(std::abs(viewPosition.z), 0.001f);
+        const float projectionScale = std::max(std::abs(camera.projectionMatrix[0][0]),
+                                               std::abs(camera.projectionMatrix[1][1]));
+        const float radiusNdc = light.range * projectionScale / viewDepth;
+        const float radiusPixels = 0.5f * radiusNdc * std::max(viewportWidth, viewportHeight) + (float)tileSize;
+
+        int minX = (int)std::floor((centerX - radiusPixels) / (float)tileSize);
+        int maxX = (int)std::floor((centerX + radiusPixels) / (float)tileSize);
+        int minY = (int)std::floor((centerY - radiusPixels) / (float)tileSize);
+        int maxY = (int)std::floor((centerY + radiusPixels) / (float)tileSize);
+        minX = std::max(0, minX);
+        minY = std::max(0, minY);
+        maxX = std::min((int)gridWidth - 1, maxX);
+        maxY = std::min((int)gridHeight - 1, maxY);
+        const float minDepth = std::max(nearDepth, viewDepth - light.range);
+        const float maxDepth = std::min(farDepth, viewDepth + light.range);
+        if (maxDepth < nearDepth || minDepth > farDepth)
+            continue;
+        const int minZ = depthSlice(minDepth);
+        const int maxZ = depthSlice(maxDepth);
+        for (int z = minZ; z <= maxZ; z++){
+            for (int y = minY; y <= maxY; y++){
+                for (int x = minX; x <= maxX; x++){
+                    const unsigned int cluster = ((unsigned int)z * gridHeight + (unsigned int)y) * gridWidth + (unsigned int)x;
+                    appendLight(cluster, slot);
+                }
+            }
+        }
+    }
+
+    const unsigned int byteSize = static_cast<unsigned int>(clusteredLightGridData.size() * sizeof(uint32_t));
+    if (clusteredLightGridBuffer.isCreated()){
+        if (clusteredLightGridWidth != gridWidth || clusteredLightGridHeight != gridHeight){
+            clusteredLightGridBuffer.destroyBuffer();
+        }
+    }
+    bool uploaded = true;
+    if (!clusteredLightGridBuffer.isCreated()){
+        uploaded = clusteredLightGridBuffer.createBuffer(byteSize, clusteredLightGridData.data(),
+                                                         BufferType::STORAGE_BUFFER, BufferUsage::STREAM);
+    }else{
+        clusteredLightGridBuffer.updateBuffer(byteSize, clusteredLightGridData.data());
+    }
+    if (!uploaded)
+        return;
+
+    clusteredLightGridWidth = gridWidth;
+    clusteredLightGridHeight = gridHeight;
+    clusteredLightGridDepthSlices = depthSlices;
+    clusteredLightGridReady = true;
+    clusteredLightGridKey = gridKey;
+    clusteredLightGridInfo = Vector4((float)tileSize, (float)gridWidth,
+                                     (float)gridHeight, (float)depthSlices);
+    clusteredLightGridDepth = Vector4(nearDepth, farDepth, logDepthRange, 1.0f);
+    fs_lighting.clusterInfo = Vector4((float)tileSize, (float)gridWidth,
+                                      (float)gridHeight, (float)depthSlices);
+    fs_lighting.clusterDepth = Vector4(nearDepth, farDepth, logDepthRange, 1.0f);
+    fs_lighting.clusterDebug = Vector4(showClusteredLightGrid ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
 }
 
 bool RenderSystem::loadLights2D(){
@@ -1276,7 +1665,17 @@ bool RenderSystem::loadAndProcessFog(){
 
     FogComponent* fog = disableFog ? nullptr : scene->findComponentFromIndex<FogComponent>(0);
     hasFog = false;
-    if (fog){
+
+    // The analytic pass integrates the same density along the whole view ray and reaches the
+    // skybox as well, which mesh.frag never does, so leaving the per-material term on would fog
+    // every surface twice. Handing aerial perspective to the pass is a variant change.
+    const bool analyticFog = fog && fog->heightFog;
+    if (analyticFog != hasHeightFog){
+        hasHeightFog = analyticFog;
+        needReloadMeshes();
+    }
+
+    if (fog && !analyticFog){
         hasFog = true;
 
         int fogTypeI;
@@ -1885,6 +2284,7 @@ bool RenderSystem::ensureShadowAtlas(unsigned int slotResolution, int usedSlots)
     shadowAtlasUsedSlots = usedSlots;
     initShadowAtlasRects();
     needUpdateShadowAtlas = false;
+    shadowAtlasContentDirty = true;
     hasShadowAtlas = true;
     needUpdateShadowBindings = true;
     return true;
@@ -1918,6 +2318,7 @@ bool RenderSystem::ensureShadowPointAtlas(unsigned int slotResolution){
 
     shadowPointAtlasSlotResolution = slotResolution;
     needUpdateShadowPointAtlas = false;
+    shadowPointAtlasContentDirty = true;
     hasShadowPointAtlas = true;
     needUpdateShadowBindings = true;
     return true;
@@ -1949,7 +2350,8 @@ bool RenderSystem::checkPBRFrabebufferUpdate(Material& material){
         material.metallicRoughnessTexture.isFramebufferOutdated() ||
         material.normalTexture.isFramebufferOutdated() ||
         material.occlusionTexture.isFramebufferOutdated() ||
-        material.emissiveTexture.isFramebufferOutdated() );
+        material.emissiveTexture.isFramebufferOutdated() ||
+        material.heightTexture.isFramebufferOutdated() );
 }
 
 bool RenderSystem::checkPBRTextures(Material& material, bool receiveLights){
@@ -1960,7 +2362,10 @@ bool RenderSystem::checkPBRTextures(Material& material, bool receiveLights){
         hasOtherPBRTextures = !material.metallicRoughnessTexture.empty() ||
                               !material.normalTexture.empty() ||
                               !material.occlusionTexture.empty() ||
-                              !material.emissiveTexture.empty();
+                              !material.emissiveTexture.empty() ||
+                              // the height map needs the UV set compiled in, exactly
+                              // like the maps it displaces
+                              !material.heightTexture.empty();
     } else if (hasLights2D && receiveLights) {
         // the 2D light path samples only the normal map from the PBR set
         hasOtherPBRTextures = !material.normalTexture.empty();
@@ -2043,6 +2448,24 @@ bool RenderSystem::loadPBRTextures(Material& material, ShaderData& shaderData, O
         loadSpotMaskTexture(shaderData, render);
     }
 
+    // HAS_HEIGHT (property bit 29) only exists on the lit path: the march needs the
+    // eye position from u_fs_lighting, which an unlit variant does not declare. The
+    // slot lookup returns (-1, -1) for a variant compiled without the map, so binding
+    // here is a no-op for every plain material. A white fallback is the flat top of a
+    // height field, which yields a zero offset while the real map is still loading.
+    if (hasLights && receiveLights){
+        textureRender = material.heightTexture.getRender(&emptyWhite);
+        slotTex = shaderData.getTextureIndex(TextureShaderType::MATERIALHEIGHT);
+        if (textureRender){
+            if (!textureRender->isCreated()){
+                return false;
+            }
+            render.addTexture(slotTex, ShaderStageType::FRAGMENT, textureRender);
+        }else{
+            render.addTexture(slotTex, ShaderStageType::FRAGMENT, &emptyWhite);
+        }
+    }
+
     return true;
 }
 
@@ -2090,6 +2513,10 @@ void RenderSystem::loadShadowTextures(ShaderData& shaderData, ObjectRender& rend
         render.addTexture(slotTex, ShaderStageType::FRAGMENT,
                           hasShadowAtlas ? &shadowAtlasFramebuffer.getDepthTexture() : &emptyShadowDepth);
 
+        slotTex = shaderData.getTextureIndex(TextureShaderType::SHADOWPAGETABLE);
+        render.addTexture(slotTex, ShaderStageType::FRAGMENT,
+                          shadowPageTableCreated ? &shadowPageTable : &emptyWhite);
+
         slotTex = shaderData.getTextureIndex(TextureShaderType::SHADOWPOINTATLAS);
         render.addTexture(slotTex, ShaderStageType::FRAGMENT,
                           hasShadowPointAtlas ? &shadowPointAtlasFramebuffer.getColorTexture() : &emptyWhite);
@@ -2103,6 +2530,125 @@ void RenderSystem::loadShadow2DTexture(ShaderData& shaderData, ObjectRender& ren
         render.addTexture(slotTex, ShaderStageType::FRAGMENT,
                           hasShadow2DAtlas ? &shadow2DAtlasFramebuffer.getColorTexture() : &emptyWhite);
     }
+}
+
+void RenderSystem::updateShadowPageTable(){
+    std::array<unsigned char, MAX_SHADOW_VIRTUAL_PAGES * 4> pixels{};
+
+    // The logical shadow index is deliberately kept stable for the shader arrays. The
+    // page table is the indirection point that lets the allocator remap it to a
+    // resident physical atlas slot without changing material bindings.
+    auto lights = scene->getComponentArray<LightComponent>();
+    for (size_t i = 0; i < activeLights.size(); i++){
+        LightComponent& light = lights->getComponentFromIndex(activeLights[i]);
+        if (!light.shadows || light.shadowMapIndex < 0 || light.type == LightType::POINT){
+            continue;
+        }
+
+        int numPages = (light.type == LightType::DIRECTIONAL) ? light.numShadowCascades : 1;
+        for (int c = 0; c < numPages; c++){
+            const int logicalPage = light.shadowMapIndex + c;
+            if (logicalPage < 0 || logicalPage >= MAX_SHADOW_ATLAS_SLOTS)
+                continue;
+            for (int tile = 0; tile < SHADOW_VIRTUAL_PAGES_PER_MAP; tile++){
+                const int virtualPage = shadowVirtualPageIndex(logicalPage, tile);
+                const int physicalPage = shadowVirtualToPhysical[virtualPage];
+                if (physicalPage < 0 || physicalPage >= shadowAtlasUsedSlots)
+                    continue;
+
+                // R stores physicalSlot + 1 normalized to [0, 1]. G is residency.
+                const size_t offset = static_cast<size_t>(virtualPage) * 4;
+                pixels[offset] = static_cast<unsigned char>(std::round(
+                    (static_cast<float>(physicalPage + 1) / static_cast<float>(MAX_SHADOW_ATLAS_SLOTS)) * 255.0f));
+                pixels[offset + 1] = 255;
+                pixels[offset + 3] = 255;
+            }
+        }
+    }
+
+    if (!shadowPageTableCreated){
+        if (!shadowPageTable.createDynamicTexture(
+                "shadow|virtual|page-table", MAX_SHADOW_VIRTUAL_PAGES, 1,
+                TextureFilter::NEAREST, TextureFilter::NEAREST)){
+            return;
+        }
+        shadowPageTableCreated = true;
+        needUpdateShadowBindings = true;
+    }
+
+    if (pixels != shadowPageTablePixels){
+        shadowPageTable.updateTexture(pixels.data(), pixels.size());
+        shadowPageTablePixels = pixels;
+    }
+}
+
+void RenderSystem::rebuildShadowPageMapping(int usedSlots){
+    usedSlots = std::clamp(usedSlots, 0, MAX_SHADOW_ATLAS_SLOTS);
+
+    std::array<int, MAX_SHADOW_VIRTUAL_PAGES> newVirtualToPhysical;
+    std::array<uint64_t, MAX_SHADOW_ATLAS_SLOTS> newPhysicalPageKeys{};
+    std::array<uint64_t, MAX_SHADOW_VIRTUAL_PAGES> virtualPageKeys{};
+    std::array<bool, MAX_SHADOW_ATLAS_SLOTS> physicalClaimed{};
+    newVirtualToPhysical.fill(-1);
+
+    auto lights = scene->getComponentArray<LightComponent>();
+    for (size_t i = 0; i < activeLights.size(); i++){
+        LightComponent& light = lights->getComponentFromIndex(activeLights[i]);
+        if (!light.shadows || light.type == LightType::POINT || light.shadowMapIndex < 0)
+            continue;
+
+        const int numPages = (light.type == LightType::DIRECTIONAL) ? (int)light.numShadowCascades : 1;
+        const uint64_t entityKey = static_cast<uint64_t>(lights->getEntity(activeLights[i])) + 1ULL;
+        for (int c = 0; c < numPages; c++){
+            const int logicalPage = light.shadowMapIndex + c;
+            if (logicalPage < 0 || logicalPage >= MAX_SHADOW_ATLAS_SLOTS)
+                continue;
+            for (int tile = 0; tile < SHADOW_VIRTUAL_PAGES_PER_MAP; tile++){
+                const int virtualPage = shadowVirtualPageIndex(logicalPage, tile);
+                // Cascade and tile are part of the key, so a light changing its
+                // cascade count cannot inherit another page's depth data.
+                virtualPageKeys[virtualPage] = (entityKey << 8) |
+                    (static_cast<uint64_t>(c + 1) << 4) | static_cast<uint64_t>(tile + 1);
+            }
+        }
+    }
+
+    // Preserve resident pages first. Reordering lights therefore changes only the
+    // page table, while new pages receive deterministic free physical slots.
+    for (int virtualPage = 0; virtualPage < MAX_SHADOW_VIRTUAL_PAGES; virtualPage++){
+        const uint64_t key = virtualPageKeys[virtualPage];
+        if (key == 0)
+            continue;
+        for (int physicalPage = 0; physicalPage < usedSlots; physicalPage++){
+            if (!physicalClaimed[physicalPage] && shadowPhysicalPageKeys[physicalPage] == key){
+                newVirtualToPhysical[virtualPage] = physicalPage;
+                newPhysicalPageKeys[physicalPage] = key;
+                physicalClaimed[physicalPage] = true;
+                break;
+            }
+        }
+    }
+
+    for (int virtualPage = 0; virtualPage < MAX_SHADOW_VIRTUAL_PAGES; virtualPage++){
+        if (virtualPageKeys[virtualPage] == 0 || newVirtualToPhysical[virtualPage] >= 0)
+            continue;
+        for (int physicalPage = 0; physicalPage < usedSlots; physicalPage++){
+            if (!physicalClaimed[physicalPage]){
+                newVirtualToPhysical[virtualPage] = physicalPage;
+                newPhysicalPageKeys[physicalPage] = virtualPageKeys[virtualPage];
+                physicalClaimed[physicalPage] = true;
+                break;
+            }
+        }
+    }
+
+    if (shadowVirtualToPhysical != newVirtualToPhysical || shadowPhysicalPageKeys != newPhysicalPageKeys){
+        // A remap changes which camera owns a tile. The next cache write must redraw
+        // every affected tile; updateShadowPageTable uploads the indirection itself.
+        shadowAtlasContentDirty = true;
+    }
+    shadowVirtualToPhysical = newVirtualToPhysical;
+    shadowPhysicalPageKeys = newPhysicalPageKeys;
 }
 
 // Merges every enabled Occluder2D into occluder2DSegments as a world-space line
@@ -2344,6 +2890,9 @@ RenderSystem::TerrainDetailArray* RenderSystem::getTerrainDetailArray(Entity ent
     }
 
     if (!anySource){
+        // The layers are set but carry no path, so there is nothing to bake. A script that
+        // assigned a texture of the wrong kind lands here with a silent flat terrain.
+        Log::warn("Terrain has %d surface layers but none of them names a file", (int)layerCount);
         destroyTerrainDetailArray(entity);
         return NULL;
     }
@@ -2391,6 +2940,7 @@ RenderSystem::TerrainDetailArray* RenderSystem::getTerrainDetailArray(Entity ent
 
     // A map shared by several layers is read once, and the array takes the largest of them
     std::map<std::string, TextureData> sources;
+    std::vector<std::string> missing;
     int width = 0;
     int height = 0;
     auto source = [&](const Texture& texture) -> TextureData* {
@@ -2402,6 +2952,7 @@ RenderSystem::TerrainDetailArray* RenderSystem::getTerrainDetailArray(Entity ent
         if (found == sources.end()){
             found = sources.emplace(key, TextureData()).first;
             if (!found->second.loadTextureFromFile(key.c_str())){
+                missing.push_back(key);
                 return NULL;
             }
             // stb hands over the pixels, and nothing else will free them
@@ -2441,6 +2992,10 @@ RenderSystem::TerrainDetailArray* RenderSystem::getTerrainDetailArray(Entity ent
     }
 
     if (width == 0){
+        // A terrain whose layers cannot be read is drawn as if it were unpainted, so this has to
+        // say so: without it the only symptom is a flat-coloured island and no trace of why.
+        Log::warn("Terrain detail array has no readable layer map (%d of %d slices), first one tried: %s",
+                  (int)sliceKeys.size(), (int)layerCount, missing.empty() ? "(no path)" : missing.front().c_str());
         remember(true);
         return NULL;
     }
@@ -2497,9 +3052,16 @@ RenderSystem::TerrainDetailArray* RenderSystem::getTerrainDetailArray(Entity ent
             ColorFormat::RGBA, TextureType::TEXTURE_ARRAY, (int)sliceKeys.size(), data.data(), size.data(),
             minFilter, sampled->getMagFilter(), sampled->getWrapU(), sampled->getWrapV())){
         detail.failed = true;
+        Log::warn("Terrain detail array of %d slices at %dx%d could not be created; the painted layers are ignored",
+                  (int)sliceKeys.size(), width, height);
         return NULL;
     }
 
+    Log::verbose("Terrain detail array: %d slices at %dx%d, %d painted blend maps available",
+                 (int)sliceKeys.size(), width, height, detail.colorSlices / 3);
+    for (size_t m = 0; m < terrain.blendMaps.size(); m++){
+        Log::verbose("  blend map %d: %s", (int)m, terrainSourceKey(terrain.blendMaps[m]).c_str());
+    }
     return &detail;
 }
 
@@ -2572,19 +3134,31 @@ bool RenderSystem::loadTerrainTextures(Entity entity, TerrainComponent& terrain,
 
     // The rest bind black, which weights none of their layers
     const int coveredMaps = arrayCreated ? detail->colorSlices / 3 : 0;
+    int dbgIndex[2 * MAX_TERRAIN_BLENDMAPS];
+    bool dbgBlack[MAX_TERRAIN_BLENDMAPS];
     for (int m = 0; m < MAX_TERRAIN_BLENDMAPS; m++){
         const bool covered = m < coveredMaps && m < static_cast<int>(terrain.blendMaps.size());
         textureRender = covered ? terrain.blendMaps[m].getRender(&emptyBlack) : NULL;
         slotTex = shaderData.getTextureIndex(static_cast<TextureShaderType>(static_cast<int>(TextureShaderType::BLENDMAP) + m));
+        dbgIndex[m * 2] = slotTex.first;
+        dbgIndex[m * 2 + 1] = slotTex.second;
         if (textureRender){
             if (!textureRender->isCreated()){
                 return false;
             }
+            dbgBlack[m] = (textureRender == &emptyBlack);
             render.addTexture(slotTex, ShaderStageType::FRAGMENT, textureRender);
         }else{
+            dbgBlack[m] = true;
             render.addTexture(slotTex, ShaderStageType::FRAGMENT, &emptyBlack);
         }
     }
+
+    Log::verbose("Terrain bind: array=%d covered=%d maps=%d | %d:%d black=%d, %d:%d black=%d, %d:%d black=%d",
+                 (int)arrayCreated, coveredMaps, (int)terrain.blendMaps.size(),
+                 dbgIndex[0], dbgIndex[1], (int)dbgBlack[0],
+                 dbgIndex[2], dbgIndex[3], (int)dbgBlack[1],
+                 dbgIndex[4], dbgIndex[5], (int)dbgBlack[2]);
 
     return true;
 }
@@ -2686,6 +3260,10 @@ void RenderSystem::setDisableUnderwater(bool disableUnderwater){
     this->disableUnderwater = disableUnderwater;
 }
 
+void RenderSystem::setShowClusteredLightGrid(bool showClusteredLightGrid){
+    this->showClusteredLightGrid = showClusteredLightGrid;
+}
+
 void RenderSystem::setDisableFixedResolution(bool disableFixedResolution){
     // No reload needed: the editor always renders through Engine::getFramebuffer(),
     // so the PIP_RTT pipeline is already baked whether fixed resolution is on or off.
@@ -2694,6 +3272,15 @@ void RenderSystem::setDisableFixedResolution(bool disableFixedResolution){
 
 void RenderSystem::setWaterPaused(bool waterPaused){
     this->waterPaused = waterPaused;
+}
+
+// A mesh carrying no vertex data, no index data and no external buffer has nothing the GPU could
+// be given: loadMesh() can only fail on it. Such a component is a container waiting for content
+// (a tilemap with no tiles yet, a mesh a script is about to fill), not a load in progress, so
+// both the retry loop and the load counter have to step aside - otherwise it burns an attempt
+// every 30 frames, inflates the mesh-load stats, and holds isAllLoaded() false for the session.
+static bool meshHasNothingToLoad(const MeshComponent& mesh){
+    return mesh.buffer.getSize() == 0 && mesh.indices.getSize() == 0 && mesh.numExternalBuffers == 0;
 }
 
 bool RenderSystem::loadMesh(Entity entity, MeshComponent& mesh, uint16_t pipelines, InstancedMeshComponent* instmesh, TerrainComponent* terrain){
@@ -2713,6 +3300,8 @@ bool RenderSystem::loadMesh(Entity entity, MeshComponent& mesh, uint16_t pipelin
         // transparent flag when a model is reloaded with OPAQUE/MASK materials.
         mesh.transparent = false;
     }
+
+    Engine::addMeshLoadStats();
 
     std::map<std::string, Buffer*> buffers;
     std::map<std::string, BufferRender*> bufferNameToRender;
@@ -2994,13 +3583,21 @@ bool RenderSystem::loadMesh(Entity entity, MeshComponent& mesh, uint16_t pipelin
         // Opted in per field, not per band, so emptying the band (editor preview) neither
         // rebuilds the shader nor drops the variant from an export.
         const bool p_instanceFade = instmesh && instmesh->distanceFade;
+        // Parallax displaces the sampled UVs, so it needs a lit variant that has a UV
+        // set to displace. Terrain is excluded: it already displaces its own surface in
+        // the vertex shader from its height map, and its fragment UVs are generated.
+        const bool p_height = !p_unlit && !terrain && p_hasTexture1 &&
+                              !mesh.submeshes[i].material.heightTexture.empty();
+        const bool p_materialExtensions = !p_unlit &&
+            hasMaterialExtensions(mesh.submeshes[i].material);
         mesh.submeshes[i].shaderProperties = ShaderPool::getMeshProperties(
                         p_unlit, p_hasTexture1, p_hasTexture2, p_punctual,
                         p_receiveShadows, p_hasNormal, p_hasNormalMap,
                         p_hasTangent, mesh.submeshes[i].hasVertexColor3, mesh.submeshes[i].hasVertexColor4, mesh.submeshes[i].hasTextureRect,
                         hasFog, mesh.submeshes[i].hasSkinning, mesh.submeshes[i].hasMorphTarget, mesh.submeshes[i].hasMorphNormal, mesh.submeshes[i].hasMorphTangent,
                         (terrain)?true:false, (instmesh)?true:false, p_ibl, p_mirror, p_ssao, p_light2d, p_shadows2d,
-                        p_alphaMask, p_alphaOpaque, p_instanceFade, p_terrainSurface);
+                        p_alphaMask, p_alphaOpaque, p_instanceFade, p_terrainSurface, p_height,
+                        p_materialExtensions);
         // a user-forked main shader overrides the built-in Mesh shader; the variant
         // (#define) system, depth/gbuffer passes and bind-slots are unchanged.
         // Priority: component customShader > scene default shader > built-in (empty)
@@ -3012,11 +3609,16 @@ bool RenderSystem::loadMesh(Entity entity, MeshComponent& mesh, uint16_t pipelin
             mesh.submeshes[i].shaderProperties |= 1u << 28;
         }
         mesh.submeshes[i].shader = ShaderPool::get(ShaderType::MESH, mesh.submeshes[i].shaderProperties, mesh.submeshes[i].customShaderId);
-        // the depth shader feeds shadow maps (casters) and the SSAO depth pre-pass
-        // (SSR uses its own G-buffer shader, built below). A depth fork is built even
+        // the depth shader feeds shadow maps (casters), the SSAO depth pre-pass, DOF's
+        // CoC, the atmosphere pass and SSR's G-buffer consumers (SSR itself uses its own
+        // G-buffer shader, built below). A depth fork is built even
         // without a pass, so its uniforms and build errors show up in the editor.
+        // Every pass listed here draws with PIP_DEPTH: leaving DOF out would hand the
+        // pre-pass an unset depth pipeline, and a failed beginDraw marks the mesh
+        // needReload, so the scene would rebuild all its geometry every frame and draw none.
         const bool needPrepass = scene->isDepthPrepassEnabled();
-        bool needDepthPass = (hasShadows && mesh.castShadows) || scene->isSSAOEnabled() || needPrepass || hasWaterDepth;
+        bool needDepthPass = (hasShadows && mesh.castShadows) || scene->isSSAOEnabled() ||
+                needPrepass || hasWaterDepth || scene->isDOFEnabled() || atmosphereRequested();
         if (needDepthPass || !mesh.customDepthShader.empty()){
             mesh.submeshes[i].depthShaderProperties = ShaderPool::getDepthMeshProperties(
                 p_depthTexture, mesh.submeshes[i].hasSkinning, mesh.submeshes[i].hasMorphTarget,
@@ -3081,8 +3683,15 @@ bool RenderSystem::loadMesh(Entity entity, MeshComponent& mesh, uint16_t pipelin
 
         mesh.submeshes[i].slotVSParams = shaderData.getUniformBlockIndex(UniformBlockType::PBR_VS_PARAMS);
         mesh.submeshes[i].slotFSParams = shaderData.getUniformBlockIndex(UniformBlockType::PBR_FS_PARAMS);
+        if (p_materialExtensions){
+            mesh.submeshes[i].slotFSMaterialExtensions = shaderData.getUniformBlockIndex(
+                UniformBlockType::PBR_FS_MATERIAL_EXTENSIONS);
+        }
         if (p_hasTexture2){
             mesh.submeshes[i].slotFSTexCoordSets = shaderData.getUniformBlockIndex(UniformBlockType::PBR_FS_TEXCOORDSETS);
+        }
+        if (p_height){
+            mesh.submeshes[i].slotFSHeight = shaderData.getUniformBlockIndex(UniformBlockType::PBR_FS_HEIGHT);
         }
         if (p_instanceFade){
             mesh.submeshes[i].slotVSFade = shaderData.getUniformBlockIndex(UniformBlockType::PBR_VS_FADE);
@@ -3739,12 +4348,13 @@ void RenderSystem::updateMainLodView(CameraComponent& camera, Transform& cameraT
         view.constant = std::abs(camera.topClip - camera.bottomClip) / viewHeight;
     }
 
+    // Every input here is the player's own view: what the lights see is unaffected by the camera
+    // moving or by its pixels per world unit changing.
     if (view.enabled != mainLodView.enabled || view.threshold != mainLodView.threshold ||
         view.origin != mainLodView.origin || view.perUnit != mainLodView.perUnit || view.constant != mainLodView.constant){
-        instanceViewsDirty = true;
+        mainInstanceViewDirty = true;
     }
-    mainLodView = view;
-}
+    mainLodView = view;}
 
 unsigned int RenderSystem::selectMeshLod(const MeshComponent& mesh, const LodView* view, float distance, float worldScale) const{
     if (!view || !view->enabled || !mesh.lodEnabled || mesh.numLods < 2)
@@ -3760,17 +4370,30 @@ unsigned int RenderSystem::selectMeshLod(const MeshComponent& mesh, const LodVie
     return level;
 }
 
-RenderSystem::LodView RenderSystem::shadowLodView(const LightComponent& light, int cameraIndex, int slot) const{
+LightCamera RenderSystem::shadowTileCamera(const LightComponent& light, int cameraIndex, int tile){
+    LightCamera camera = light.cameras[cameraIndex];
+    if (tile < 0 || tile >= SHADOW_VIRTUAL_PAGES_PER_MAP || light.type == LightType::POINT)
+        return camera;
+
+    const Matrix4 crop = shadowTileCrop(tile);
+    camera.lightProjectionMatrix = crop * camera.lightProjectionMatrix;
+    camera.lightViewProjectionMatrix = crop * camera.lightViewProjectionMatrix;
+    updateCameraFrustumPlanes(camera.lightViewProjectionMatrix, camera.frustumPlanes);
+    return camera;
+}
+
+RenderSystem::LodView RenderSystem::shadowLodView(const LightComponent& light, int cameraIndex, int slot, int tile){
     LodView view;
     view.enabled = scene->isMeshLodEnabled();
     view.threshold = SHADOW_LOD_TEXELS;
 
-    const Matrix4& projection = light.cameras[cameraIndex].lightProjectionMatrix;
+    const LightCamera camera = shadowTileCamera(light, cameraIndex, tile);
+    const Matrix4& projection = camera.lightProjectionMatrix;
     float texel = 2.0f / (std::abs(projection[1][1]) * std::max(getShadowAtlasSlotRect(slot).getHeight(), 1.0f));
     if (light.type == LightType::DIRECTIONAL){
         view.constant = texel;
     }else{
-        view.origin = light.cameras[cameraIndex].lightViewMatrix.inverse() * Vector3(0, 0, 0);
+        view.origin = camera.lightViewMatrix.inverse() * Vector3(0, 0, 0);
         view.perUnit = texel;
     }
     return view;
@@ -3789,9 +4412,14 @@ std::vector<RenderSystem::ShadowSlot> RenderSystem::collectShadowSlots(){
             continue;
         int numShadowCameras = (light.type == LightType::DIRECTIONAL) ? (int)light.numShadowCascades : 1;
         for (int c = 0; c < numShadowCameras; c++){
-            int slot = light.shadowMapIndex + c;
-            if (slot >= 0 && slot < shadowAtlasUsedSlots)
-                slots.push_back({slot, &light, c});
+            const int logicalPage = light.shadowMapIndex + c;
+            for (int tile = 0; tile < SHADOW_VIRTUAL_PAGES_PER_MAP; tile++){
+                const int virtualPage = shadowVirtualPageIndex(logicalPage, tile);
+                const int physicalPage = (virtualPage >= 0 && virtualPage < MAX_SHADOW_VIRTUAL_PAGES) ?
+                    shadowVirtualToPhysical[virtualPage] : -1;
+                if (physicalPage >= 0 && physicalPage < shadowAtlasUsedSlots)
+                    slots.push_back({physicalPage, &light, c, tile});
+            }
         }
     }
     return slots;
@@ -3800,19 +4428,41 @@ std::vector<RenderSystem::ShadowSlot> RenderSystem::collectShadowSlots(){
 // culled slice of every instanced mesh for the main camera and each shadow slot;
 // runs when a list or a camera changed, so a still frame uploads nothing
 void RenderSystem::buildInstanceViews(CameraComponent& mainCamera, Transform& mainCameraTransform){
-    if (!instanceViewsDirty)
+    if (!instanceViewsDirty && !mainInstanceViewDirty && !shadowInstanceViewsDirty)
         return;
+
+    // Walking around the scene changes what the player sees, not what the lights see, and moving
+    // a light is the mirror case. Rebuilding both together re-culled and re-sorted every shadow
+    // cascade for every instanced mesh on every frame the camera turned.
+    const bool rebuildMain = instanceViewsDirty || mainInstanceViewDirty;
+    const bool rebuildShadow = instanceViewsDirty || shadowInstanceViewsDirty;
     instanceViewsDirty = false;
+    mainInstanceViewDirty = false;
+    shadowInstanceViewsDirty = false;
 
     std::vector<ShadowSlot> shadowSlots = collectShadowSlots();
-    for (InstanceView& view : instanceViews){
-        view.data.clear();
+    if (rebuildMain){
+        instanceViews[0].data.clear();
+    }
+    if (rebuildShadow){
+        for (int v = 1; v < 1 + MAX_SHADOW_ATLAS_SLOTS; v++){
+            instanceViews[v].data.clear();
+        }
     }
 
     // hidden entities are built too: the passes skip them, but their slices must stay valid
     auto instmeshes = scene->getComponentArray<InstancedMeshComponent>();
     for (int i = 0; i < instmeshes->size(); i++){
         InstancedMeshComponent& instmesh = instmeshes->getComponentFromIndex(i);
+
+        // A slot that stopped being a shadow slot is not rebuilt below, so its slice has to be
+        // dropped here: its data was just cleared and a stale range would index past it.
+        if (rebuildShadow){
+            for (int v = 1; v < 1 + MAX_SHADOW_ATLAS_SLOTS; v++){
+                instmesh.views[v] = InstanceViewRange();
+            }
+        }
+
         MeshComponent* mesh = scene->findComponent<MeshComponent>(instmeshes->getEntity(i));
         Transform* transform = scene->findComponent<Transform>(instmeshes->getEntity(i));
         if (!mesh || !transform || !mesh->loaded){
@@ -3821,27 +4471,35 @@ void RenderSystem::buildInstanceViews(CameraComponent& mainCamera, Transform& ma
             continue;
         }
 
-        // the main camera keeps the order where it is the layering: blended batches and 2D
-        bool keepOrder = mesh->transparent || !sortsByDistance(mainCamera);
-        const Vector3& eye = mainCameraTransform.worldPosition;
-        buildInstanceView(0, instmesh, *mesh, *transform, mainCamera.farClip, mainCamera.frustumPlanes, mainLodView,
-            eye, eye, Vector3::ZERO, keepOrder);
+        if (rebuildMain){
+            // the main camera keeps the order where it is the layering: blended batches and 2D
+            bool keepOrder = mesh->transparent || !sortsByDistance(mainCamera);
+            const Vector3& eye = mainCameraTransform.worldPosition;
+            buildInstanceView(0, instmesh, *mesh, *transform, mainCamera.effectiveFarClip, mainCamera.frustumPlanes, mainLodView,
+                eye, eye, Vector3::ZERO, keepOrder);
+        }
+
+        if (!rebuildShadow)
+            continue;
 
         for (const ShadowSlot& shadow : shadowSlots){
             if (!mesh->castShadows){
                 instmesh.views[1 + shadow.slot] = InstanceViewRange();
                 continue;
             }
-            const LightCamera& lightCamera = shadow.light->cameras[shadow.cameraIndex];
-            LodView lodView = shadowLodView(*shadow.light, shadow.cameraIndex, shadow.slot);
+            const LightCamera lightCamera = shadowTileCamera(*shadow.light, shadow.cameraIndex, shadow.tile);
+            LodView lodView = shadowLodView(*shadow.light, shadow.cameraIndex, shadow.slot, shadow.tile);
             Vector3 direction = (shadow.light->type == LightType::DIRECTIONAL) ? shadow.light->worldDirection : Vector3::ZERO;
             buildInstanceView(1 + shadow.slot, instmesh, *mesh, *transform, lightCamera.nearFar.y, lightCamera.frustumPlanes, lodView,
-                eye, lodView.origin, direction, false);
+                mainCameraTransform.worldPosition, lodView.origin, direction, false);
         }
     }
 
-    for (InstanceView& view : instanceViews){
-        view.needUpload = !view.data.empty();
+    for (int v = 0; v < 1 + MAX_SHADOW_ATLAS_SLOTS; v++){
+        const bool rebuilt = (v == 0) ? rebuildMain : rebuildShadow;
+        if (rebuilt){
+            instanceViews[v].needUpload = !instanceViews[v].data.empty();
+        }
     }
 }
 
@@ -4079,7 +4737,7 @@ bool RenderSystem::drawMesh(Entity entity, MeshComponent& mesh, Transform& trans
             }
 
             // per-chunk culling: skip the submesh entirely when no chunk is visible
-            if (tilemap && !selectTilemapChunks(*tilemap, i, camera.farClip, camera.frustumPlanes))
+            if (tilemap && !selectTilemapChunks(*tilemap, i, camera.effectiveFarClip, camera.frustumPlanes))
                 continue;
 
             ObjectRender& render = mesh.submeshes[i].render;
@@ -4138,6 +4796,10 @@ bool RenderSystem::drawMesh(Entity entity, MeshComponent& mesh, Transform& trans
                 ShaderData& lightingShaderData = mesh.submeshes[i].shader.get()->shaderData;
                 loadSpotMaskTexture(lightingShaderData, render);
                 render.applyUniformBlock(mesh.submeshes[i].slotFSLighting, sizeof(fs_lighting_t), &fs_lighting);
+                const int lightGridSlot = lightingShaderData.getStorageBufferIndex(StorageBufferType::FS_LIGHT_GRID);
+                if (lightGridSlot != -1 && clusteredLightGridReady){
+                    render.addStorageBuffer(lightGridSlot, ShaderStageType::FRAGMENT, &clusteredLightGridBuffer);
+                }
                 if (hasShadows && (mesh.submeshes[i].shaderProperties & (1u << 4))){
                     render.applyUniformBlock(mesh.submeshes[i].slotVSShadows, sizeof(shadow_projection_t), &shadowProjection);
                     render.applyUniformBlock(mesh.submeshes[i].slotFSShadowProjection, sizeof(shadow_projection_t), &shadowProjection);
@@ -4185,17 +4847,51 @@ bool RenderSystem::drawMesh(Entity entity, MeshComponent& mesh, Transform& trans
                 render.applyUniformBlock(mesh.submeshes[i].slotFSParams, sizeof(float) * 4, &mesh.submeshes[i].material);
             }
 
+            if (mesh.submeshes[i].slotFSMaterialExtensions != -1){
+                const Material& material = mesh.submeshes[i].material;
+                fs_material_extensions_t extensions;
+                extensions.clearcoat = Vector4(
+                    std::clamp(material.clearcoatFactor, 0.0f, 1.0f),
+                    std::clamp(material.clearcoatRoughness, 0.0f, 1.0f), 0.0f, 0.0f);
+                extensions.sheen = Vector4(
+                    std::max(material.sheenColorFactor.x, 0.0f),
+                    std::max(material.sheenColorFactor.y, 0.0f),
+                    std::max(material.sheenColorFactor.z, 0.0f),
+                    std::clamp(material.sheenRoughnessFactor, 0.0f, 1.0f));
+                extensions.transmission = Vector4(
+                    std::clamp(material.transmissionFactor, 0.0f, 1.0f),
+                    std::max(material.thicknessFactor, 0.0f),
+                    std::max(material.attenuationDistance, 0.0f), 1.5f);
+                extensions.attenuation = Vector4(
+                    std::max(material.attenuationColor.x, 0.0f),
+                    std::max(material.attenuationColor.y, 0.0f),
+                    std::max(material.attenuationColor.z, 0.0f), 0.0f);
+                extensions.anisotropy = Vector4(
+                    std::clamp(material.anisotropyStrength, -1.0f, 1.0f),
+                    material.anisotropyRotation, 0.0f, 0.0f);
+                render.applyUniformBlock(mesh.submeshes[i].slotFSMaterialExtensions,
+                                         sizeof(extensions), &extensions);
+            }
+
             if (mesh.submeshes[i].slotVSFade != -1 && instmesh){
                 applyInstanceFadeUniform(render, mesh.submeshes[i].slotVSFade, *instmesh);
             }
 
+            if (mesh.submeshes[i].slotFSHeight != -1){
+                // heightScale, minLayers, maxLayers and the zeroed pad are four
+                // contiguous floats at the head of the material's height block
+                render.applyUniformBlock(mesh.submeshes[i].slotFSHeight, sizeof(float) * 4,
+                                         &mesh.submeshes[i].material.heightScale);
+            }
+
             if (mesh.submeshes[i].slotFSTexCoordSets != -1){
                 // per-texture UV set selector (0 = a_texcoord1, 1 = a_texcoord2):
-                // set0 = baseColor, metallicRoughness, occlusion, emissive; set1.x = normal
+                // set0 = baseColor, metallicRoughness, occlusion, emissive;
+                // set1.x = normal, set1.y = height
                 const Material& mat = mesh.submeshes[i].material;
                 int32_t texCoordSets[8] = {
                     mat.baseColorTexCoord, mat.metallicRoughnessTexCoord, mat.occlusionTexCoord, mat.emissiveTexCoord,
-                    mat.normalTexCoord, 0, 0, 0
+                    mat.normalTexCoord, mat.heightTexCoord, 0, 0
                 };
                 render.applyUniformBlock(mesh.submeshes[i].slotFSTexCoordSets, sizeof(texCoordSets), &texCoordSets);
             }
@@ -4546,6 +5242,295 @@ void RenderSystem::renderSSAO(CameraComponent& camera, TextureRender* sharedDept
     currentSSAOTexture = &ssaoBlurFramebuffer.getRender().getColorTexture();
 }
 
+void RenderSystem::loadContactShadows(){
+    if (contactShadowsLoaded)
+        return;
+
+    contactShadowsShader = ShaderPool::get(ShaderType::CONTACT_SHADOWS, 0);
+    if (!contactShadowsShader || !contactShadowsShader->isCreated())
+        return;
+
+    contactShadowsRender.beginLoad(PrimitiveType::TRIANGLES);
+    contactShadowsRender.setShader(contactShadowsShader.get());
+    contactShadowsSlotParams = contactShadowsShader->shaderData.getUniformBlockIndex(
+        UniformBlockType::CONTACT_SHADOWS_FS_PARAMS);
+    if (!contactShadowsRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    contactShadowsLoaded = true;
+}
+
+void RenderSystem::destroyContactShadows(){
+    if (contactShadowsLoaded)
+        contactShadowsRender.destroy();
+    if (contactShadowsShader){
+        contactShadowsShader.reset();
+        ShaderPool::remove(ShaderType::CONTACT_SHADOWS, 0);
+    }
+
+    contactShadowsFramebuffer.destroy();
+    contactShadowsLoaded = false;
+    contactShadowsHDR = false;
+    contactShadowsWidth = 0;
+    contactShadowsHeight = 0;
+    contactShadowsSlotParams = -1;
+}
+
+bool RenderSystem::ensureContactShadowsFramebuffer(unsigned int width, unsigned int height, bool hdr){
+    if (width == 0 || height == 0)
+        return false;
+
+    if (contactShadowsFramebuffer.isCreated() && contactShadowsWidth == width &&
+            contactShadowsHeight == height && contactShadowsHDR == hdr)
+        return true;
+
+    contactShadowsFramebuffer.destroy();
+    const ColorFormat format = hdr ? ColorFormat::RGBA16F : ColorFormat::RGBA;
+    contactShadowsFramebuffer.setColorAttachments(1, &format);
+    contactShadowsFramebuffer.setWidth(width);
+    contactShadowsFramebuffer.setHeight(height);
+    contactShadowsFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    contactShadowsFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    contactShadowsFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    contactShadowsFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    contactShadowsFramebuffer.create();
+
+    contactShadowsWidth = width;
+    contactShadowsHeight = height;
+    contactShadowsHDR = hdr && contactShadowsFramebuffer.isCreated();
+    return contactShadowsFramebuffer.isCreated() && (!hdr || contactShadowsHDR);
+}
+
+void RenderSystem::renderContactShadows(CameraComponent& camera, Transform& cameraTransform,
+        Framebuffer* sceneColorTarget, TextureRender* depthTexture){
+    if (!contactShadowsLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() ||
+            !depthTexture || !contactShadowsFramebuffer.isCreated())
+        return;
+
+    auto lights = scene->getComponentArray<LightComponent>();
+    const LightComponent* strongestDirectional = nullptr;
+    float strongestScore = 0.0f;
+    for (int i = 0; i < lights->size(); i++){
+        const LightComponent& light = lights->getComponentFromIndex(i);
+        if (light.type != LightType::DIRECTIONAL || light.intensity <= 0.0f)
+            continue;
+        const float score = light.intensity * std::max(0.1f, light.color.length());
+        if (!strongestDirectional || score > strongestScore){
+            strongestDirectional = &light;
+            strongestScore = score;
+        }
+    }
+    if (!strongestDirectional)
+        return;
+
+    Vector3 lightDirection = -strongestDirectional->worldDirection;
+    if (lightDirection.squaredLength() < 0.000001f)
+        return;
+    lightDirection.normalize();
+
+    fs_contactShadows.viewProjection = camera.viewProjectionMatrix;
+    fs_contactShadows.invViewProjection = camera.viewProjectionMatrix.inverse();
+    fs_contactShadows.cameraPosition = Vector4(cameraTransform.worldPosition.x,
+                                               cameraTransform.worldPosition.y,
+                                               cameraTransform.worldPosition.z, 1.0f);
+    fs_contactShadows.lightDirection = Vector4(lightDirection.x, lightDirection.y, lightDirection.z, 0.0f);
+    fs_contactShadows.params = Vector4(scene->getContactShadowLength(),
+                                       (float)scene->getContactShadowSteps(),
+                                       scene->getContactShadowThickness(),
+                                       scene->getContactShadowIntensity());
+
+    contactShadowsPassRender.setClearColor(scene->getBackgroundColor());
+    contactShadowsPassRender.startRenderPass(&contactShadowsFramebuffer.getRender());
+    if (contactShadowsRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = contactShadowsShader->shaderData;
+        contactShadowsRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE),
+                                        ShaderStageType::FRAGMENT,
+                                        &sceneColorTarget->getRender().getColorTexture());
+        contactShadowsRender.addTexture(sd.getTextureIndex(TextureShaderType::DEPTHTEXTURE),
+                                        ShaderStageType::FRAGMENT, depthTexture);
+        contactShadowsRender.applyUniformBlock(contactShadowsSlotParams,
+                                               sizeof(fs_contact_shadows_t), &fs_contactShadows);
+        contactShadowsRender.draw(0, 3, 1);
+    }
+    contactShadowsPassRender.endRenderPass();
+
+    loadBlit();
+    if (blitLoaded){
+        renderBlit(&contactShadowsFramebuffer.getRender().getColorTexture(),
+                   &sceneColorTarget->getRender(), nullptr);
+    }
+}
+
+void RenderSystem::loadSSGI(){
+    if (ssgiLoaded)
+        return;
+
+    ssgiShader = ShaderPool::get(ShaderType::SSGI, 0);
+    if (!ssgiShader || !ssgiShader->isCreated())
+        return;
+
+    ssgiRender.beginLoad(PrimitiveType::TRIANGLES);
+    ssgiRender.setShader(ssgiShader.get());
+    ssgiSlotParams = ssgiShader->shaderData.getUniformBlockIndex(UniformBlockType::SSGI_FS_PARAMS);
+    if (!ssgiRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    ssgiLoaded = true;
+}
+
+void RenderSystem::destroySSGI(){
+    if (ssgiLoaded)
+        ssgiRender.destroy();
+    if (ssgiShader){
+        ssgiShader.reset();
+        ShaderPool::remove(ShaderType::SSGI, 0);
+    }
+
+    ssgiFramebuffer.destroy();
+    ssgiLoaded = false;
+    ssgiHDR = false;
+    ssgiWidth = 0;
+    ssgiHeight = 0;
+    ssgiSlotParams = -1;
+}
+
+bool RenderSystem::ensureSSGIFramebuffer(unsigned int width, unsigned int height, bool hdr){
+    if (width == 0 || height == 0)
+        return false;
+
+    if (ssgiFramebuffer.isCreated() && ssgiWidth == width && ssgiHeight == height && ssgiHDR == hdr)
+        return true;
+
+    ssgiFramebuffer.destroy();
+    const ColorFormat format = hdr ? ColorFormat::RGBA16F : ColorFormat::RGBA;
+    ssgiFramebuffer.setColorAttachments(1, &format);
+    ssgiFramebuffer.setWidth(width);
+    ssgiFramebuffer.setHeight(height);
+    ssgiFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    ssgiFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    ssgiFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    ssgiFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    ssgiFramebuffer.create();
+
+    ssgiWidth = width;
+    ssgiHeight = height;
+    ssgiHDR = hdr && ssgiFramebuffer.isCreated();
+    return ssgiFramebuffer.isCreated() && (!hdr || ssgiHDR);
+}
+
+void RenderSystem::renderSSGI(CameraComponent& camera, Framebuffer* sceneColorTarget, TextureRender* depthTexture){
+    if (!ssgiLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() ||
+            !depthTexture || !ssgiFramebuffer.isCreated())
+        return;
+
+    fsSSGI.projection = camera.projectionMatrix;
+    fsSSGI.invProjection = camera.projectionMatrix.inverse();
+    fsSSGI.params0 = Vector4(scene->getSSGIRadius(), (float)scene->getSSGISteps(),
+                             scene->getSSGIIntensity(), scene->getSSGIThickness());
+    fsSSGI.params1 = Vector4(1.0f / (float)ssgiWidth, 1.0f / (float)ssgiHeight,
+                             std::fmod(frameTime * 0.73f, 6.2831853f), 0.0f);
+
+    ssgiPassRender.setClearColor(scene->getBackgroundColor());
+    ssgiPassRender.startRenderPass(&ssgiFramebuffer.getRender());
+    if (ssgiRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = ssgiShader->shaderData;
+        ssgiRender.addTexture(sd.getTextureIndexByName("u_sceneColorTexture"),
+                              ShaderStageType::FRAGMENT,
+                              &sceneColorTarget->getRender().getColorTexture());
+        ssgiRender.addTexture(sd.getTextureIndexByName("u_depthTexture"),
+                              ShaderStageType::FRAGMENT, depthTexture);
+        ssgiRender.applyUniformBlock(ssgiSlotParams, sizeof(fs_ssgi_t), &fsSSGI);
+        ssgiRender.draw(0, 3, 1);
+    }
+    ssgiPassRender.endRenderPass();
+
+    loadBlit();
+    if (blitLoaded){
+        renderBlit(&ssgiFramebuffer.getRender().getColorTexture(),
+                   &sceneColorTarget->getRender(), nullptr);
+    }
+}
+
+void RenderSystem::loadDecals(bool hdr){
+    if (decalsLoaded && decalsHDR == hdr)
+        return;
+    if (decalsLoaded)
+        destroyDecals();
+
+    decalShader = ShaderPool::get(ShaderType::DECAL, 0);
+    if (!decalShader || !decalShader->isCreated())
+        return;
+
+    decalRender.beginLoad(PrimitiveType::TRIANGLES);
+    decalRender.setShader(decalShader.get());
+    decalRender.setRenderTargetColorFormat(hdr ? ColorFormat::RGBA16F : ColorFormat::RGBA);
+    decalSlotParams = decalShader->shaderData.getUniformBlockIndex(UniformBlockType::DECAL_FS_PARAMS);
+    if (!decalRender.endLoad(PIP_RTT_NODEPTH, false, false, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    decalPassRender.setLoadActionLoad();
+    decalsHDR = hdr;
+    decalsLoaded = true;
+}
+
+void RenderSystem::destroyDecals(){
+    if (decalsLoaded)
+        decalRender.destroy();
+    if (decalShader){
+        decalShader.reset();
+        ShaderPool::remove(ShaderType::DECAL, 0);
+    }
+    decalsLoaded = false;
+    decalsHDR = false;
+    decalSlotParams = -1;
+}
+
+void RenderSystem::renderDecals(CameraComponent& camera, Framebuffer* sceneColorTarget,
+        TextureRender* depthTexture){
+    if (!decalsLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() || !depthTexture)
+        return;
+
+    auto decals = scene->getComponentArray<DecalComponent>();
+    if (!decals || decals->size() == 0)
+        return;
+
+    fsDecal.invViewProjection = camera.viewProjectionMatrix.inverse();
+    decalPassRender.startRenderPass(&sceneColorTarget->getRender());
+    if (decalRender.beginDraw(PIP_RTT_NODEPTH)){
+        ShaderData& shaderData = decalShader->shaderData;
+        const std::pair<int, int> depthSlot = shaderData.getTextureIndex(TextureShaderType::DEPTHTEXTURE);
+        const std::pair<int, int> decalTextureSlot = shaderData.getTextureIndex(TextureShaderType::DECALTEXTURE);
+        decalRender.addTexture(depthSlot, ShaderStageType::FRAGMENT, depthTexture);
+
+        for (size_t i = 0; i < decals->size(); i++){
+            DecalComponent& decal = decals->getComponentFromIndex(i);
+            if (!decal.enabled || decal.opacity <= 0.0f ||
+                    std::abs(decal.size.x) < 0.0001f || std::abs(decal.size.y) < 0.0001f ||
+                    std::abs(decal.size.z) < 0.0001f)
+                continue;
+
+            Transform* transform = scene->findComponent<Transform>(decals->getEntity(i));
+            if (!transform || !transform->visible)
+                continue;
+
+            if (!decal.texture.empty())
+                decal.texture.load();
+            decalRender.addTexture(decalTextureSlot, ShaderStageType::FRAGMENT,
+                                   decal.texture.empty() ? &emptyWhite : decal.texture.getRender(&emptyWhite));
+
+            const Matrix4 decalModel = transform->modelMatrix * Matrix4::scaleMatrix(decal.size);
+            fsDecal.inverseDecalModel = decalModel.inverse();
+            fsDecal.colorOpacity = Vector4(decal.color.x, decal.color.y, decal.color.z,
+                                           std::clamp(decal.opacity, 0.0f, 1.0f));
+            fsDecal.params = Vector4(std::max(0.0f, decal.depthFade),
+                                     isRenderingFlipped(camera) ? 1.0f : 0.0f, 0.0f, 0.0f);
+            decalRender.applyUniformBlock(decalSlotParams, sizeof(fs_decal_t), &fsDecal);
+            decalRender.draw(0, 3, 1);
+        }
+    }
+    decalPassRender.endRenderPass();
+}
+
 void RenderSystem::renderDepthPrePass(CameraComponent& camera){
     // Logical (un-flipped) matrices: flipY reverses winding but PIP_DEPTH does not
     // compensate (only PIP_RTT reverses winding on GL). The depth buffer therefore
@@ -4574,7 +5559,7 @@ void RenderSystem::renderDepthPrePass(CameraComponent& camera){
         TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(entity);
 
         vs_depth_t params = {transform.modelMatrix, renderVP, renderVP * transform.modelMatrix};
-        drawMeshDepth(mesh, transform, camera.farClip, camera.frustumPlanes, params, instmesh, terrain, tilemap, true, PIP_DEPTH, 0, &mainLodView);
+        drawMeshDepth(mesh, transform, camera.effectiveFarClip, camera.frustumPlanes, params, instmesh, terrain, tilemap, true, PIP_DEPTH, 0, &mainLodView);
     }
     ssaoPassRender.endRenderPass();
 
@@ -4750,7 +5735,7 @@ void RenderSystem::renderGBufferPass(CameraComponent& camera){
         Matrix4 normalMatrix = viewModel.inverse().transpose();
 
         vs_gbuffer_t params = {transform.modelMatrix, renderVP, normalMatrix};
-        drawMeshGBuffer(entity, mesh, transform, camera.farClip, camera.frustumPlanes, params, hasLocalProbe, instmesh, terrain, tilemap, 0, &mainLodView);
+        drawMeshGBuffer(entity, mesh, transform, camera.effectiveFarClip, camera.frustumPlanes, params, hasLocalProbe, instmesh, terrain, tilemap, 0, &mainLodView);
     }
     gbufferPassRender.endRenderPass();
 }
@@ -4814,9 +5799,11 @@ void RenderSystem::destroySSR(){
     sceneColorFramebuffer.destroy();
     ssrFramebuffer.destroy();
     ssrBlurFramebuffer.destroy();
+    ssrCompositeFramebuffer.destroy();
 
     ssrWidth = 0;
     ssrHeight = 0;
+    ssrCompositeHDR = false;
     ssrSlotParams = -1;
     ssrBlurSlotParams = -1;
     compositeSlotParams = -1;
@@ -4828,13 +5815,27 @@ bool RenderSystem::ensureSceneColorFramebuffer(unsigned int width, unsigned int 
     if (width == 0 || height == 0)
         return false;
 
-    if (sceneColorFramebuffer.isCreated() && sceneColorFramebuffer.getWidth() == width && sceneColorFramebuffer.getHeight() == height)
+    // The chain is decided from the setting, not from hdrLoaded: a toggle rebuilds the target
+    // once, while a mid-frame dependency on the load would drop the scene color of the frame
+    // that loads the shaders.
+    const bool wantHDR = scene && scene->isHdrEnabled();
+
+    if (sceneColorFramebuffer.isCreated() && sceneColorFramebuffer.getWidth() == width &&
+            sceneColorFramebuffer.getHeight() == height && sceneColorHDR == wantHDR)
         return true;
 
     sceneColorFramebuffer.destroy();
 
     // offscreen opaque scene color (sampled bilinearly by ssr.frag); has a depth
-    // attachment so the redirected main color pass can depth-test normally.
+    // attachment so the redirected main color pass can depth-test normally - the MRT path
+    // taken to get a pixel format attaches depth too (SokolFramebuffer.cpp:143).
+    //
+    // With the chain on, the attachment is 16-bit float. mesh.frag still closes in
+    // linearTosRGB (no mesh variant is compiled without it), but a float target does not
+    // clamp an emissive or a 2D light above 1.0, so the bright pass and the tone map read
+    // the real range instead of a wall at white, at 16-bit precision instead of 8.
+    ColorFormat format = wantHDR ? ColorFormat::RGBA16F : ColorFormat::RGBA;
+    sceneColorFramebuffer.setColorAttachments(1, &format);
     sceneColorFramebuffer.setWidth(width);
     sceneColorFramebuffer.setHeight(height);
     sceneColorFramebuffer.setMinFilter(TextureFilter::LINEAR);
@@ -4843,18 +5844,32 @@ bool RenderSystem::ensureSceneColorFramebuffer(unsigned int width, unsigned int 
     sceneColorFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
     sceneColorFramebuffer.create();
 
-    return sceneColorFramebuffer.isCreated();
+    sceneColorHDR = wantHDR && sceneColorFramebuffer.isCreated();
+
+    if (wantHDR && !sceneColorHDR){
+        Log::error("HDR scene color target could not be created as RGBA16F at %ux%u; the HDR chain is disabled for this target",
+                   width, height);
+    }
+
+    // once per (re)build, so a headless run can prove which target it drew into
+    Log::verbose("scene color target: %s at %ux%u", sceneColorHDR ? "RGBA16F" : "RGBA8",
+                 width, height);
+
+    return sceneColorFramebuffer.isCreated() && (!wantHDR || sceneColorHDR);
 }
 
 bool RenderSystem::ensureSSRFramebuffers(unsigned int width, unsigned int height){
     if (!ensureSceneColorFramebuffer(width, height))
         return false;
 
-    if (ssrFramebuffer.isCreated() && ssrBlurFramebuffer.isCreated() && ssrWidth == width && ssrHeight == height)
+    if (ssrFramebuffer.isCreated() && ssrBlurFramebuffer.isCreated() &&
+            ssrCompositeFramebuffer.isCreated() && ssrWidth == width && ssrHeight == height &&
+            ssrCompositeHDR == sceneColorHDR)
         return true;
 
     ssrFramebuffer.destroy();
     ssrBlurFramebuffer.destroy();
+    ssrCompositeFramebuffer.destroy();
 
     // reflection color + mask
     ssrFramebuffer.setWidth(width);
@@ -4874,13 +5889,26 @@ bool RenderSystem::ensureSSRFramebuffers(unsigned int width, unsigned int height
     ssrBlurFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
     ssrBlurFramebuffer.create();
 
+    const ColorFormat compositeFormat = sceneColorHDR ? ColorFormat::RGBA16F : ColorFormat::RGBA;
+    ssrCompositeFramebuffer.setColorAttachments(1, &compositeFormat);
+    ssrCompositeFramebuffer.setWidth(width);
+    ssrCompositeFramebuffer.setHeight(height);
+    ssrCompositeFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    ssrCompositeFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    ssrCompositeFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    ssrCompositeFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    ssrCompositeFramebuffer.create();
+
     ssrWidth = width;
     ssrHeight = height;
+    ssrCompositeHDR = sceneColorHDR && ssrCompositeFramebuffer.isCreated();
 
-    return ssrFramebuffer.isCreated() && ssrBlurFramebuffer.isCreated();
+    return ssrFramebuffer.isCreated() && ssrBlurFramebuffer.isCreated() &&
+        ssrCompositeFramebuffer.isCreated();
 }
 
-void RenderSystem::renderSSR(CameraComponent& camera, FramebufferRender* destination){
+void RenderSystem::renderSSR(CameraComponent& camera, FramebufferRender* destination,
+                             bool compositeIntoSceneColor){
     unsigned int w = ssrWidth;
     unsigned int h = ssrHeight;
     if (w == 0 || h == 0)
@@ -4946,7 +5974,13 @@ void RenderSystem::renderSSR(CameraComponent& camera, FramebufferRender* destina
 
     // the GL swapchain keeps row 0 at the bottom while the offscreen sources do not,
     // so a swapchain destination samples them flipped (renderBlit does the same)
-    float flipDest = (!destination && Engine::isOpenGL()) ? 1.0f : 0.0f;
+    // HDR must receive SSR before bloom and tone mapping. The dedicated target also
+    // avoids sampling and writing the same scene-color texture in one pass.
+    FramebufferRender* compositeDestination = destination;
+    if (compositeIntoSceneColor){
+        compositeDestination = &ssrCompositeFramebuffer.getRender();
+    }
+    float flipDest = (!compositeDestination && Engine::isOpenGL()) ? 1.0f : 0.0f;
     fs_composite.params = Vector4(scene->getSSRIntensity(), flipGL, (float)scene->getSSRDebugMode(), flipDest);
 
     // environment color/rotation, matching mesh.frag's lighting.envColor; the prefiltered
@@ -4960,15 +5994,17 @@ void RenderSystem::renderSSR(CameraComponent& camera, FramebufferRender* destina
             if (sky.prefilteredMap){
                 prefilteredTexture = sky.prefilteredMap.get();
                 Vector3 linColor = Color::sRGBToLinear(Vector3(sky.color.x, sky.color.y, sky.color.z));
-                fs_composite.envColor = Vector4(linColor.x, linColor.y, linColor.z, Angle::defaultToRad(sky.rotation));
+                float giIntensity = scene->getGlobalIlluminationIntensity();
+                fs_composite.envColor = Vector4(linColor.x * giIntensity, linColor.y * giIntensity,
+                                                linColor.z * giIntensity, Angle::defaultToRad(sky.rotation));
             }
         }
     }
 
     ssrPassRender.setClearColor(scene->getBackgroundColor());
     PipelineType compositePip;
-    if (destination){
-        ssrPassRender.startRenderPass(destination);
+    if (compositeDestination){
+        ssrPassRender.startRenderPass(compositeDestination);
         compositePip = PIP_RTT;
     }else{
         ssrPassRender.startRenderPass();
@@ -4987,6 +6023,14 @@ void RenderSystem::renderSSR(CameraComponent& camera, FramebufferRender* destina
         compositeRender.draw(0, 3, 1);
     }
     ssrPassRender.endRenderPass();
+
+    if (compositeIntoSceneColor){
+        loadBlit();
+        if (blitLoaded){
+            renderBlit(&ssrCompositeFramebuffer.getRender().getColorTexture(),
+                       &sceneColorFramebuffer.getRender(), nullptr);
+        }
+    }
 }
 
 void RenderSystem::loadBlit(){
@@ -5084,9 +6128,10 @@ void RenderSystem::drawBlit(TextureRender* source, PipelineType pipeline, bool f
     }
 }
 
-void RenderSystem::renderFixedResolutionBlit(){
-    FramebufferRender* destination = nullptr;
-    if (Engine::getFramebuffer()){
+void RenderSystem::renderFixedResolutionBlit(FramebufferRender* destination){
+    // an explicit destination (the FXAA target) wins over the captured framebuffer, which is
+    // what the chain presents when no anti-aliasing pass follows the upscale
+    if (!destination && Engine::getFramebuffer()){
         if (!Engine::getFramebuffer()->isCreated()){
             Engine::getFramebuffer()->create();
         }
@@ -5325,6 +6370,1207 @@ void RenderSystem::renderPostProcess(FramebufferRender* destination){
     }
 }
 
+// Bloom + tone map. One load for the whole HDR chain: a pass whose shader is still
+// building (async in the editor) aborts the attempt, so a half-built chain is never drawn.
+void RenderSystem::loadHDR(){
+    if (hdrLoaded)
+        return;
+
+    bloomThresholdShader = ShaderPool::get(ShaderType::BLOOM_THRESHOLD, 0);
+    bloomDownsampleShader = ShaderPool::get(ShaderType::BLOOM_DOWNSAMPLE, 0);
+    bloomUpsampleShader = ShaderPool::get(ShaderType::BLOOM_UPSAMPLE, 0);
+    bloomCompositeShader = ShaderPool::get(ShaderType::BLOOM_COMPOSITE, 0);
+    tonemapShader = ShaderPool::get(ShaderType::TONEMAP, 0);
+
+    if (!bloomThresholdShader || !bloomThresholdShader->isCreated() ||
+            !bloomDownsampleShader || !bloomDownsampleShader->isCreated() ||
+            !bloomUpsampleShader || !bloomUpsampleShader->isCreated() ||
+            !bloomCompositeShader || !bloomCompositeShader->isCreated())
+        return;
+
+    // every bloom pass writes an offscreen level
+    ColorFormat bloomTarget = ColorFormat::RGBA16F;
+    bloomThresholdRender.setRenderTargetColorFormat(bloomTarget);
+    bloomThresholdRender.beginLoad(PrimitiveType::TRIANGLES);
+    bloomThresholdRender.setShader(bloomThresholdShader.get());
+    bloomThresholdSlotParams = bloomThresholdShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::BLOOM_THRESHOLD_FS_PARAMS);
+    if (!bloomThresholdRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    bloomDownsampleRender.setRenderTargetColorFormat(bloomTarget);
+    bloomDownsampleRender.beginLoad(PrimitiveType::TRIANGLES);
+    bloomDownsampleRender.setShader(bloomDownsampleShader.get());
+    bloomDownsampleSlotParams = bloomDownsampleShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::BLOOM_DOWNSAMPLE_FS_PARAMS);
+    if (!bloomDownsampleRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    bloomUpsampleRender.setRenderTargetColorFormat(bloomTarget);
+    bloomUpsampleRender.beginLoad(PrimitiveType::TRIANGLES);
+    bloomUpsampleRender.setShader(bloomUpsampleShader.get());
+    bloomUpsampleSlotParams = bloomUpsampleShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::BLOOM_UPSAMPLE_FS_PARAMS);
+    if (!bloomUpsampleRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    bloomCompositeRender.setRenderTargetColorFormat(bloomTarget);
+    bloomCompositeRender.beginLoad(PrimitiveType::TRIANGLES);
+    bloomCompositeRender.setShader(bloomCompositeShader.get());
+    bloomCompositeSlotParams = bloomCompositeShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::BLOOM_COMPOSITE_FS_PARAMS);
+    if (!bloomCompositeRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    if (!tonemapShader || !tonemapShader->isCreated())
+        return;
+
+    // the tone map ends the chain: an offscreen destination or the swapchain
+    tonemapRender.beginLoad(PrimitiveType::TRIANGLES);
+    tonemapRender.setShader(tonemapShader.get());
+    tonemapSlotParams = tonemapShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::TONEMAP_FS_PARAMS);
+    if (!tonemapRender.endLoad(PIP_RTT | PIP_DEFAULT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    // Eye adaptation writes one 1x1 texel that the tone map samples. It is optional: a scene
+    // that never turns auto exposure on does not run it, and a failed load must not take the
+    // bloom chain down with it.
+    exposureShader = ShaderPool::get(ShaderType::EXPOSURE, 0);
+    if (exposureShader && exposureShader->isCreated()){
+        exposureRender.setRenderTargetColorFormat(ColorFormat::R16F);
+        exposureRender.beginLoad(PrimitiveType::TRIANGLES);
+        exposureRender.setShader(exposureShader.get());
+        exposureSlotParams = exposureShader->shaderData.getUniformBlockIndex(UniformBlockType::EXPOSURE_FS_PARAMS);
+        exposureLoaded = exposureRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW);
+    }
+
+    bloomLoaded = true;
+    tonemapLoaded = true;
+    hdrLoaded = true;
+}
+
+void RenderSystem::destroyHDR(){
+    if (hdrLoaded){
+        bloomThresholdRender.destroy();
+        bloomDownsampleRender.destroy();
+        bloomUpsampleRender.destroy();
+        bloomCompositeRender.destroy();
+        tonemapRender.destroy();
+        if (exposureLoaded)
+            exposureRender.destroy();
+    }
+
+    if (lut3DLoaded)
+        lut3DTexture.destroyTexture();
+    lut3DLoaded = false;
+    lut3DSize = 0;
+    lut3DPath.clear();
+    lut3DPixels.clear();
+    if (bloomThresholdShader){
+        bloomThresholdShader.reset();
+        ShaderPool::remove(ShaderType::BLOOM_THRESHOLD, 0);
+    }
+    if (bloomDownsampleShader){
+        bloomDownsampleShader.reset();
+        ShaderPool::remove(ShaderType::BLOOM_DOWNSAMPLE, 0);
+    }
+    if (bloomUpsampleShader){
+        bloomUpsampleShader.reset();
+        ShaderPool::remove(ShaderType::BLOOM_UPSAMPLE, 0);
+    }
+    if (bloomCompositeShader){
+        bloomCompositeShader.reset();
+        ShaderPool::remove(ShaderType::BLOOM_COMPOSITE, 0);
+    }
+    if (tonemapShader){
+        tonemapShader.reset();
+        ShaderPool::remove(ShaderType::TONEMAP, 0);
+    }
+    if (exposureShader){
+        exposureShader.reset();
+        ShaderPool::remove(ShaderType::EXPOSURE, 0);
+    }
+
+    bloomThresholdFramebuffer.destroy();
+    for (int i = 0; i < MAX_BLOOM_LEVELS; i++){
+        bloomDownsampleFramebuffers[i].destroy();
+        bloomUpsampleFramebuffers[i].destroy();
+    }
+    hdrFramebuffer.destroy();
+    for (int i = 0; i < 2; i++)
+        exposureFramebuffers[i].destroy();
+
+    bloomWidth = 0;
+    bloomHeight = 0;
+    hdrWidth = 0;
+    hdrHeight = 0;
+    activeBloomMipLevels = 0;
+    bloomThresholdSlotParams = -1;
+    bloomDownsampleSlotParams = -1;
+    bloomUpsampleSlotParams = -1;
+    bloomCompositeSlotParams = -1;
+    tonemapSlotParams = -1;
+    exposureSlotParams = -1;
+    exposureWriteIndex = 0;
+    bloomLoaded = false;
+    tonemapLoaded = false;
+    exposureLoaded = false;
+    hdrLoaded = false;
+}
+
+// level k of the chain: k = 0 is the half-resolution bright pass, k >= 1 halves again
+static void bloomLevelSize(unsigned int width, unsigned int height, int k, unsigned int& outWidth, unsigned int& outHeight){
+    outWidth = width;
+    outHeight = height;
+    for (int i = 0; i <= k; i++){
+        outWidth = outWidth > 2 ? outWidth / 2 : 1;
+        outHeight = outHeight > 2 ? outHeight / 2 : 1;
+    }
+}
+
+bool RenderSystem::ensureHDRFramebuffers(unsigned int width, unsigned int height, int levels){
+    if (width == 0 || height == 0 || levels < 1)
+        return false;
+
+    if (levels > MAX_BLOOM_LEVELS)
+        levels = MAX_BLOOM_LEVELS;
+
+    if (hdrFramebuffer.isCreated() && hdrWidth == width && hdrHeight == height && activeBloomMipLevels == levels)
+        return true;
+
+    hdrFramebuffer.destroy();
+    for (int i = 0; i < MAX_BLOOM_LEVELS; i++){
+        bloomDownsampleFramebuffers[i].destroy();
+        bloomUpsampleFramebuffers[i].destroy();
+    }
+
+    // the bloom targets are sampled with a magnifying filter, which is the cheap half
+    // of the upsample; float format because the bright pass is not clamped to 1.0
+    ColorFormat hdr = ColorFormat::RGBA16F;
+
+    bloomThresholdFramebuffer.setColorAttachments(1, &hdr);
+    bloomLevelSize(width, height, 0, bloomWidth, bloomHeight);
+    bloomThresholdFramebuffer.setWidth(bloomWidth);
+    bloomThresholdFramebuffer.setHeight(bloomHeight);
+    bloomThresholdFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    bloomThresholdFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    bloomThresholdFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    bloomThresholdFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    bloomThresholdFramebuffer.create();
+
+    for (int k = 1; k < levels; k++){
+        unsigned int lw, lh, pw, ph;
+        bloomLevelSize(width, height, k, lw, lh);
+        bloomLevelSize(width, height, k - 1, pw, ph);
+
+        Framebuffer* down = &bloomDownsampleFramebuffers[k - 1];
+        down->setColorAttachments(1, &hdr);
+        down->setWidth(lw);
+        down->setHeight(lh);
+        down->setMinFilter(TextureFilter::LINEAR);
+        down->setMagFilter(TextureFilter::LINEAR);
+        down->setWrapU(TextureWrap::CLAMP_TO_EDGE);
+        down->setWrapV(TextureWrap::CLAMP_TO_EDGE);
+        down->create();
+
+        // the accumulated level of the upsample chain, at the size it writes into,
+        // which is the level above the one being read (up[k-1] holds level k-1)
+        Framebuffer* up = &bloomUpsampleFramebuffers[k - 1];
+        up->setColorAttachments(1, &hdr);
+        up->setWidth(pw);
+        up->setHeight(ph);
+        up->setMinFilter(TextureFilter::LINEAR);
+        up->setMagFilter(TextureFilter::LINEAR);
+        up->setWrapU(TextureWrap::CLAMP_TO_EDGE);
+        up->setWrapV(TextureWrap::CLAMP_TO_EDGE);
+        up->create();
+    }
+
+    hdrFramebuffer.setColorAttachments(1, &hdr);
+    hdrFramebuffer.setWidth(width);
+    hdrFramebuffer.setHeight(height);
+    hdrFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    hdrFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    hdrFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    hdrFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    hdrFramebuffer.create();
+
+    hdrWidth = width;
+    hdrHeight = height;
+    activeBloomMipLevels = levels;
+
+    // once per (re)build, so a headless run can prove the chain really exists by its log
+    Log::verbose("HDR chain ready: %d bloom levels at %ux%u", levels, width, height);
+    hdrFeatureMask = 0;
+
+    return hdrFramebuffer.isCreated() && bloomThresholdFramebuffer.isCreated();
+}
+
+bool RenderSystem::ensureColorGradingLUT(){
+    const std::string& path = scene->getColorGradingLUTPath();
+    if (path == lut3DPath)
+        return lut3DLoaded;
+
+    if (lut3DLoaded)
+        lut3DTexture.destroyTexture();
+    lut3DLoaded = false;
+    lut3DSize = 0;
+    lut3DPath = path;
+    lut3DPixels.clear();
+
+    if (path.empty())
+        return false;
+
+    TextureData source(path.c_str());
+    const int size = source.getHeight();
+    const int width = source.getWidth();
+    if (!source.getData() || source.getColorFormat() != ColorFormat::RGBA ||
+            source.getChannels() != 4 || size < 2 || width != size * size || size > 64){
+        Log::error("Color grading LUT must be an RGBA strip with dimensions N*N x N (2 <= N <= 64): %s",
+                   path.c_str());
+        return false;
+    }
+
+    const unsigned char* sourcePixels = static_cast<const unsigned char*>(source.getData());
+    const size_t sliceBytes = static_cast<size_t>(size) * static_cast<size_t>(size) * 4u;
+    lut3DPixels.resize(sliceBytes * static_cast<size_t>(size));
+    for (int blue = 0; blue < size; blue++){
+        unsigned char* destination = lut3DPixels.data() + sliceBytes * static_cast<size_t>(blue);
+        for (int green = 0; green < size; green++){
+            for (int red = 0; red < size; red++){
+                const size_t sourceIndex = (static_cast<size_t>(green) * static_cast<size_t>(width) +
+                    static_cast<size_t>(blue * size + red)) * 4u;
+                const size_t destinationIndex = (static_cast<size_t>(green) * static_cast<size_t>(size) +
+                    static_cast<size_t>(red)) * 4u;
+                std::copy_n(sourcePixels + sourceIndex, 4u, destination + destinationIndex);
+            }
+        }
+    }
+
+    std::vector<void*> slices(static_cast<size_t>(size));
+    std::vector<size_t> sliceSizes(static_cast<size_t>(size), sliceBytes);
+    for (int blue = 0; blue < size; blue++)
+        slices[static_cast<size_t>(blue)] = lut3DPixels.data() + sliceBytes * static_cast<size_t>(blue);
+
+    lut3DLoaded = lut3DTexture.createTexture("scene|color-grading|" + path, size, size,
+        ColorFormat::RGBA, TextureType::TEXTURE_ARRAY, size, slices.data(), sliceSizes.data(),
+        TextureFilter::LINEAR, TextureFilter::LINEAR, TextureWrap::CLAMP_TO_EDGE,
+        TextureWrap::CLAMP_TO_EDGE);
+    if (!lut3DLoaded){
+        lut3DSize = 0;
+        lut3DPixels.clear();
+        Log::error("Failed to upload color grading LUT: %s", path.c_str());
+    }else{
+        lut3DSize = size;
+        Log::verbose("Color grading LUT ready: %s (%dx%dx%d)", path.c_str(), size, size, size);
+    }
+    return lut3DLoaded;
+}
+
+// Two 1x1 targets, swapped every frame: the adaptation pass reads the previous frame's texel and
+// writes the next one's, so eye adaptation needs no CPU readback and no third buffer to copy into.
+bool RenderSystem::ensureExposureFramebuffers(){
+    if (exposureFramebuffers[0].isCreated() && exposureFramebuffers[1].isCreated())
+        return true;
+
+    ColorFormat format = ColorFormat::R16F;
+    for (int i = 0; i < 2; i++){
+        Framebuffer* fbo = &exposureFramebuffers[i];
+        if (fbo->isCreated())
+            continue;
+        fbo->setColorAttachments(1, &format);
+        fbo->setWidth(1);
+        fbo->setHeight(1);
+        fbo->setMinFilter(TextureFilter::NEAREST);
+        fbo->setMagFilter(TextureFilter::NEAREST);
+        fbo->setWrapU(TextureWrap::CLAMP_TO_EDGE);
+        fbo->setWrapV(TextureWrap::CLAMP_TO_EDGE);
+        fbo->create();
+    }
+    const bool ready = exposureFramebuffers[0].isCreated() && exposureFramebuffers[1].isCreated();
+    if (ready)
+        Log::verbose("eye adaptation ready: 1x1 meter over two ping-pong targets");
+    return ready;
+}
+
+// sceneColorFramebuffer -> bloom chain -> HDR target -> tone map -> destination
+void RenderSystem::renderHDR(FramebufferRender* destination){
+    if (!hdrLoaded || !bloomLoaded || !sceneColorFramebuffer.isCreated())
+        return;
+
+    const int levels = activeBloomMipLevels;
+    TextureRender* sceneColor = &sceneColorFramebuffer.getRender().getColorTexture();
+
+    // The four HDR features switch independently and the frame loop would otherwise print every
+    // frame: log the set only when it changes, so a headless probe gets one line per toggle.
+    const unsigned featureMask = (scene->isBloomEnabled() ? 1u : 0u)
+        | (scene->isTonemapEnabled() ? 2u : 0u)
+        | (scene->isColorGradingEnabled() ? 4u : 0u)
+        | (scene->isAutoExposureEnabled() ? 8u : 0u);
+    if (featureMask != hdrFeatureMask){
+        hdrFeatureMask = featureMask;
+        Log::verbose("HDR features: bloom %d tone map %d grading %d auto exposure %d",
+                    scene->isBloomEnabled() ? 1 : 0, scene->isTonemapEnabled() ? 1 : 0,
+                    scene->isColorGradingEnabled() ? 1 : 0, scene->isAutoExposureEnabled() ? 1 : 0);
+    }
+
+    const bool hasLUT = scene->isColorGradingEnabled() && ensureColorGradingLUT();
+
+    // The scene target is sRGB-encoded whatever its pixel format: mesh.frag ends in
+    // linearTosRGB and no mesh variant without it is compiled, so the chain decodes on entry
+    // and the tone map re-encodes on exit. The float target does not change that - it only
+    // stops an encoded value above 1.0 from clamping (see ensureSceneColorFramebuffer), which
+    // is why this is not sceneColorHDR ? 0.0f : 1.0f.
+    const float srgbSource = 1.0f;
+
+    bloomPassRender.setClearColor(Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+
+    if (scene->isBloomEnabled() && levels > 0){
+        // bright pass, straight into level 0
+        fs_bloom_threshold.params = Vector4(scene->getBloomThreshold(), scene->getBloomSoftKnee(),
+                                             srgbSource, 0.0f);
+        bloomPassRender.startRenderPass(&bloomThresholdFramebuffer.getRender());
+        if (bloomThresholdRender.beginDraw(PIP_RTT)){
+            ShaderData& sd = bloomThresholdShader.get()->shaderData;
+            bloomThresholdRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT, sceneColor);
+            bloomThresholdRender.applyUniformBlock(bloomThresholdSlotParams, sizeof(fs_bloom_threshold_t), &fs_bloom_threshold);
+            bloomThresholdRender.draw(0, 3, 1);
+        }
+        bloomPassRender.endRenderPass();
+
+        // level k reads level k-1
+        for (int k = 1; k < levels; k++){
+            unsigned int sw, sh;
+            bloomLevelSize(sceneColorFramebuffer.getWidth(), sceneColorFramebuffer.getHeight(), k - 1, sw, sh);
+            fs_bloom_downsample.texelSize = Vector4(1.0f / (float)sw, 1.0f / (float)sh, 0.0f, 0.0f);
+
+            Framebuffer* src = k - 1 == 0 ? &bloomThresholdFramebuffer : &bloomDownsampleFramebuffers[k - 2];
+            bloomPassRender.startRenderPass(&bloomDownsampleFramebuffers[k - 1].getRender());
+            if (bloomDownsampleRender.beginDraw(PIP_RTT)){
+                ShaderData& sd = bloomDownsampleShader.get()->shaderData;
+                bloomDownsampleRender.addTexture(sd.getTextureIndex(TextureShaderType::BLOOMTEXTURE0), ShaderStageType::FRAGMENT,
+                                                 &src->getRender().getColorTexture());
+                bloomDownsampleRender.applyUniformBlock(bloomDownsampleSlotParams, sizeof(fs_bloom_downsample_t), &fs_bloom_downsample);
+                bloomDownsampleRender.draw(0, 3, 1);
+            }
+            bloomPassRender.endRenderPass();
+        }
+
+        // accumulate from the smallest level up: the result of the previous step is the
+        // wide source, the downsampled level of this size is the detail added to it
+        for (int k = levels - 2; k >= 0; k--){
+            unsigned int sw, sh;
+            Framebuffer* wide;
+            if (k == levels - 2){
+                wide = levels == 1 ? &bloomThresholdFramebuffer : &bloomDownsampleFramebuffers[levels - 2];
+            }else{
+                wide = &bloomUpsampleFramebuffers[k + 1];
+            }
+            // wide is the level below this one, so its size is what the tent filter steps by
+            bloomLevelSize(sceneColorFramebuffer.getWidth(), sceneColorFramebuffer.getHeight(), k + 1, sw, sh);
+
+            Framebuffer* detail = k == 0 ? &bloomThresholdFramebuffer : &bloomDownsampleFramebuffers[k - 1];
+
+            fs_bloom_upsample.texelSize = Vector4(1.0f / (float)sw, 1.0f / (float)sh, 1.0f, 0.0f);
+
+            bloomPassRender.startRenderPass(&bloomUpsampleFramebuffers[k].getRender());
+            if (bloomUpsampleRender.beginDraw(PIP_RTT)){
+                ShaderData& sd = bloomUpsampleShader.get()->shaderData;
+                bloomUpsampleRender.addTexture(sd.getTextureIndex(TextureShaderType::BLOOMTEXTURE0), ShaderStageType::FRAGMENT,
+                                               &wide->getRender().getColorTexture());
+                bloomUpsampleRender.addTexture(sd.getTextureIndex(TextureShaderType::BLOOMTEXTURE1), ShaderStageType::FRAGMENT,
+                                                &detail->getRender().getColorTexture());
+                bloomUpsampleRender.applyUniformBlock(bloomUpsampleSlotParams, sizeof(fs_bloom_upsample_t), &fs_bloom_upsample);
+                bloomUpsampleRender.draw(0, 3, 1);
+            }
+            bloomPassRender.endRenderPass();
+        }
+    }
+
+    // composite: scene + bloom, still linear, into the HDR target
+    TextureRender* bloom = levels == 1 ? &bloomThresholdFramebuffer.getRender().getColorTexture()
+                                       : &bloomUpsampleFramebuffers[0].getRender().getColorTexture();
+
+    fs_bloom_composite.params = Vector4(scene->isBloomEnabled() ? scene->getBloomIntensity() : 0.0f,
+                                        srgbSource, scene->getBloomDirtIntensity(), 0.0f);
+
+    bloomPassRender.startRenderPass(&hdrFramebuffer.getRender());
+    if (bloomCompositeRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = bloomCompositeShader.get()->shaderData;
+        bloomCompositeRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT, sceneColor);
+        bloomCompositeRender.addTexture(sd.getTextureIndex(TextureShaderType::BLOOMTEXTURE0), ShaderStageType::FRAGMENT,
+                                        scene->isBloomEnabled() ? bloom : &emptyBlack);
+        bloomCompositeRender.applyUniformBlock(bloomCompositeSlotParams, sizeof(fs_bloom_composite_t), &fs_bloom_composite);
+        bloomCompositeRender.draw(0, 3, 1);
+    }
+    bloomPassRender.endRenderPass();
+
+    // Eye adaptation reads the finished HDR target: the exposure has to be decided on the light
+    // the scene actually emits, before the curve compresses it. It writes a 1x1 texel and the tone
+    // map samples that texel, so the loop closes on the GPU with no readback stall.
+    int exposureLatest = -1;
+    if (scene->isAutoExposureEnabled() && exposureLoaded && ensureExposureFramebuffers()){
+        const int write = exposureWriteIndex;
+        const int read = 1 - write;
+
+        fs_exposure.params = Vector4(exp2(scene->getAutoExposureMinEV()), exp2(scene->getAutoExposureMaxEV()),
+                                     scene->getAutoExposureSpeed(), scene->getExposureCompensation());
+        fs_exposure.adapt = Vector4(Engine::getDeltatime(), scene->getExposure(), 0.0f, 0.0f);
+
+        exposurePassRender.setClearColor(Vector4(scene->getExposure(), 0.0f, 0.0f, 1.0f));
+        exposurePassRender.startRenderPass(&exposureFramebuffers[write].getRender());
+        if (exposureRender.beginDraw(PIP_RTT)){
+            ShaderData& sd = exposureShader.get()->shaderData;
+            exposureRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                                      &hdrFramebuffer.getRender().getColorTexture());
+            exposureRender.addTexture(sd.getTextureIndex(TextureShaderType::EXPOSURETEXTURE), ShaderStageType::FRAGMENT,
+                                      &exposureFramebuffers[read].getRender().getColorTexture());
+            exposureRender.applyUniformBlock(exposureSlotParams, sizeof(fs_exposure_t), &fs_exposure);
+            exposureRender.draw(0, 3, 1);
+        }
+        exposurePassRender.endRenderPass();
+
+        exposureWriteIndex = read;
+        exposureLatest = write;
+    }
+
+    // tone map: linear HDR in, display-encoded out, to the real destination
+    const bool toSwapchain = destination == nullptr;
+    if (toSwapchain){
+        tonemapPassRender.setClearColor(scene->getBackgroundColor());
+        tonemapPassRender.startRenderPass();
+        tonemapPassRender.applyViewport(Engine::getViewRect());
+    }else{
+        tonemapPassRender.startRenderPass(destination);
+    }
+    if (tonemapRender.beginDraw(toSwapchain ? PIP_DEFAULT : PIP_RTT)){
+        ShaderData& sd = tonemapShader.get()->shaderData;
+        fs_tonemap.params = Vector4(scene->getExposure(),
+                                    scene->isTonemapEnabled() ? (float)scene->getTonemapMode() : -1.0f,
+                                    11.2f,
+                                    toSwapchain && Engine::isOpenGL() ? 1.0f : 0.0f);
+        fs_tonemap.grade = Vector4(scene->getColorGradingSaturation(), scene->getColorGradingContrast(),
+                                   scene->getColorGradingBrightness(), scene->getColorGradingHueShift());
+        fs_tonemap.grade2 = Vector4(scene->getColorGradingTemperature(), scene->getColorGradingTint(),
+                                    scene->isColorGradingEnabled() ? 1.0f : 0.0f,
+                                    exposureLatest >= 0 ? 1.0f : 0.0f);
+        fs_tonemap.lut = Vector4(hasLUT ? 1.0f : 0.0f, static_cast<float>(lut3DSize), 0.0f, 0.0f);
+        tonemapRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                                 &hdrFramebuffer.getRender().getColorTexture());
+        // the sampler is declared either way, so give it something inert when auto exposure is off
+        tonemapRender.addTexture(sd.getTextureIndex(TextureShaderType::EXPOSURETEXTURE), ShaderStageType::FRAGMENT,
+                                 exposureLatest >= 0 ? &exposureFramebuffers[exposureLatest].getRender().getColorTexture()
+                                                     : &emptyBlack);
+        tonemapRender.addTexture(sd.getTextureIndex(TextureShaderType::LUT3DTEXTURE), ShaderStageType::FRAGMENT,
+                                 hasLUT ? &lut3DTexture : &emptyArrayWhite);
+        tonemapRender.applyUniformBlock(tonemapSlotParams, sizeof(fs_tonemap_t), &fs_tonemap);
+        tonemapRender.draw(0, 3, 1);
+    }
+    tonemapPassRender.endRenderPass();
+}
+
+void RenderSystem::loadFXAA(){
+    if (fxaaLoaded)
+        return;
+
+    fxaaShader = ShaderPool::get(ShaderType::FXAA, 0);
+    if (!fxaaShader || !fxaaShader->isCreated())
+        return;
+
+    // like the tone map it may write an offscreen target or the swapchain, so both are built
+    fxaaRender.beginLoad(PrimitiveType::TRIANGLES);
+    fxaaRender.setShader(fxaaShader.get());
+    fxaaSlotParams = fxaaShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::FXAA_FS_PARAMS);
+    if (!fxaaRender.endLoad(PIP_RTT | PIP_DEFAULT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    fxaaLoaded = true;
+    Log::verbose("FXAA ready");
+}
+
+void RenderSystem::destroyFXAA(){
+    if (fxaaLoaded){
+        fxaaRender.destroy();
+        fxaaLoaded = false;
+    }
+    if (fxaaShader){
+        fxaaShader.reset();
+        ShaderPool::remove(ShaderType::FXAA, 0);
+    }
+
+    fxaaFramebuffer.destroy();
+    fxaaWidth = 0;
+    fxaaHeight = 0;
+    fxaaSlotParams = -1;
+}
+
+bool RenderSystem::ensureFXAAFramebuffer(unsigned int width, unsigned int height){
+    if (width == 0 || height == 0)
+        return false;
+
+    if (fxaaFramebuffer.isCreated() && fxaaWidth == width && fxaaHeight == height)
+        return true;
+
+    fxaaFramebuffer.destroy();
+
+    // The FXAA taps sit on this target's own texel grid, so the filter has to be the smooth
+    // one: along-edge samples land between texels and NEAREST would drop them onto the very
+    // pixels the pass is trying to blend.
+    fxaaFramebuffer.setWidth(width);
+    fxaaFramebuffer.setHeight(height);
+    fxaaFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    fxaaFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    fxaaFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    fxaaFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    fxaaFramebuffer.create();
+
+    fxaaWidth = width;
+    fxaaHeight = height;
+
+    return fxaaFramebuffer.isCreated();
+}
+
+// presents fxaaFramebuffer to destination (the swapchain when null)
+void RenderSystem::renderFXAA(FramebufferRender* destination){
+    if (!fxaaLoaded || !fxaaFramebuffer.isCreated())
+        return;
+
+    const bool toSwapchain = destination == nullptr;
+    if (toSwapchain){
+        fxaaPassRender.setClearColor(scene->getBackgroundColor());
+        fxaaPassRender.startRenderPass();
+        fxaaPassRender.applyViewport(Engine::getViewRect());
+    }else{
+        fxaaPassRender.startRenderPass(destination);
+    }
+    if (fxaaRender.beginDraw(toSwapchain ? PIP_DEFAULT : PIP_RTT)){
+        ShaderData& sd = fxaaShader.get()->shaderData;
+        // The scene target is top-left and the GL swapchain is bottom-left, so only the
+        // swapchain draw has to un-flip its coordinates - and the taps follow uv, not the
+        // texel grid, so the flip costs the filter nothing.
+        fs_fxaa.params = Vector4(1.0f / (float)fxaaWidth, 1.0f / (float)fxaaHeight,
+                                 scene->getFXAAIntensity(),
+                                 toSwapchain && Engine::isOpenGL() ? 1.0f : 0.0f);
+        fxaaRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                              &fxaaFramebuffer.getRender().getColorTexture());
+        fxaaRender.applyUniformBlock(fxaaSlotParams, sizeof(fs_fxaa_t), &fs_fxaa);
+        fxaaRender.draw(0, 3, 1);
+    }
+    fxaaPassRender.endRenderPass();
+}
+
+// Depth of field: circle of confusion from the shared depth pre-pass, a half-resolution
+// separable Gaussian weighted by it, then the mix back over the scene color.
+void RenderSystem::loadDOF(){
+    if (dofLoaded)
+        return;
+
+    dofCocShader = ShaderPool::get(ShaderType::DOF_COC, 0);
+    dofBlurShader = ShaderPool::get(ShaderType::DOF_BLUR, 0);
+    dofCompositeShader = ShaderPool::get(ShaderType::DOF_COMPOSITE, 0);
+
+    // a pass whose shader is still building (async in the editor) aborts the attempt, so a
+    // half-built chain is never drawn - the next frame retries
+    if (!dofCocShader || !dofCocShader->isCreated() ||
+            !dofBlurShader || !dofBlurShader->isCreated() ||
+            !dofCompositeShader || !dofCompositeShader->isCreated())
+        return;
+
+    dofCocRender.beginLoad(PrimitiveType::TRIANGLES);
+    dofCocRender.setShader(dofCocShader.get());
+    dofCocSlotParams = dofCocShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::DOF_COC_FS_PARAMS);
+    if (!dofCocRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    dofBlurRender.beginLoad(PrimitiveType::TRIANGLES);
+    dofBlurRender.setShader(dofBlurShader.get());
+    dofBlurSlotParams = dofBlurShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::DOF_BLUR_FS_PARAMS);
+    if (!dofBlurRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    // offscreen only: the result is copied back into the scene color, never presented
+    dofCompositeRender.beginLoad(PrimitiveType::TRIANGLES);
+    dofCompositeRender.setShader(dofCompositeShader.get());
+    dofCompositeSlotParams = dofCompositeShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::DOF_COMPOSITE_FS_PARAMS);
+    if (!dofCompositeRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    dofLoaded = true;
+    Log::verbose("DOF ready");
+}
+
+void RenderSystem::destroyDOF(){
+    if (dofLoaded){
+        dofCocRender.destroy();
+        dofBlurRender.destroy();
+        dofCompositeRender.destroy();
+        dofLoaded = false;
+    }
+    if (dofCocShader){
+        dofCocShader.reset();
+        ShaderPool::remove(ShaderType::DOF_COC, 0);
+    }
+    if (dofBlurShader){
+        dofBlurShader.reset();
+        ShaderPool::remove(ShaderType::DOF_BLUR, 0);
+    }
+    if (dofCompositeShader){
+        dofCompositeShader.reset();
+        ShaderPool::remove(ShaderType::DOF_COMPOSITE, 0);
+    }
+
+    dofCocFramebuffer.destroy();
+    dofBlurFramebuffer[0].destroy();
+    dofBlurFramebuffer[1].destroy();
+    dofSceneFramebuffer.destroy();
+
+    dofWidth = 0;
+    dofHeight = 0;
+    dofHalfWidth = 0;
+    dofHalfHeight = 0;
+    dofCocSlotParams = -1;
+    dofBlurSlotParams = -1;
+    dofCompositeSlotParams = -1;
+}
+
+bool RenderSystem::ensureDOFFramebuffers(unsigned int width, unsigned int height){
+    if (width == 0 || height == 0)
+        return false;
+
+    if (dofSceneFramebuffer.isCreated() && dofWidth == width && dofHeight == height)
+        return true;
+
+    dofCocFramebuffer.destroy();
+    dofBlurFramebuffer[0].destroy();
+    dofBlurFramebuffer[1].destroy();
+    dofSceneFramebuffer.destroy();
+
+    // Half the scene: a full-resolution blur would cost the window the CoC is there to
+    // limit, and the composite magnifies the result with LINEAR, which is the cheap half
+    // of the upsample. The blur reads its own target's texel grid through the CoC, so the
+    // two have to stay the same size.
+    dofHalfWidth = width > 2 ? width / 2 : 1;
+    dofHalfHeight = height > 2 ? height / 2 : 1;
+
+    Framebuffer* targets[] = {&dofCocFramebuffer, &dofBlurFramebuffer[0], &dofBlurFramebuffer[1]};
+    for (Framebuffer* target : targets){
+        target->setWidth(dofHalfWidth);
+        target->setHeight(dofHalfHeight);
+        target->setMinFilter(TextureFilter::LINEAR);
+        target->setMagFilter(TextureFilter::LINEAR);
+        target->setWrapU(TextureWrap::CLAMP_TO_EDGE);
+        target->setWrapV(TextureWrap::CLAMP_TO_EDGE);
+        target->create();
+    }
+
+    dofSceneFramebuffer.setWidth(width);
+    dofSceneFramebuffer.setHeight(height);
+    dofSceneFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    dofSceneFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    dofSceneFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    dofSceneFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    dofSceneFramebuffer.create();
+
+    dofWidth = width;
+    dofHeight = height;
+
+    return dofCocFramebuffer.isCreated() && dofBlurFramebuffer[0].isCreated()
+            && dofBlurFramebuffer[1].isCreated() && dofSceneFramebuffer.isCreated();
+}
+
+// Reads and rewrites sceneColorTarget in place, so every stage after this one keeps
+// reading the same buffer it always did. SSR is excluded: its composite writes the
+// destination rather than the scene color, so there would be nothing here to round-trip.
+void RenderSystem::renderDOF(CameraComponent& camera, Framebuffer* sceneColorTarget, TextureRender* depthTexture){
+    if (!dofLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() || !depthTexture ||
+            !dofCocFramebuffer.isCreated() || !dofBlurFramebuffer[0].isCreated() ||
+            !dofBlurFramebuffer[1].isCreated() || !dofSceneFramebuffer.isCreated())
+        return;
+
+    const float flipGL = isRenderingFlipped(camera) ? 1.0f : 0.0f;
+
+    // --- 1. circle of confusion, in scene-color space, from the pre-pass depth ---
+    fs_dof_coc.invProjection = camera.projectionMatrix.inverse();
+    fs_dof_coc.params0 = Vector4(scene->getDOFFocusDistance(), scene->getDOFAperture(),
+                                 scene->getDOFFocusRange(), scene->getDOFMaxBlur());
+    fs_dof_coc.params1 = Vector4(flipGL, 0.0f, 0.0f, 0.0f);
+
+    dofPassRender.setClearColor(Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+    dofPassRender.startRenderPass(&dofCocFramebuffer.getRender());
+    if (dofCocRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = dofCocShader.get()->shaderData;
+        dofCocRender.addTexture(sd.getTextureIndexByName("u_depthTexture"), ShaderStageType::FRAGMENT, depthTexture);
+        dofCocRender.applyUniformBlock(dofCocSlotParams, sizeof(fs_dof_coc_t), &fs_dof_coc);
+        dofCocRender.draw(0, 3, 1);
+    }
+    dofPassRender.endRenderPass();
+
+    TextureRender* cocTexture = &dofCocFramebuffer.getRender().getColorTexture();
+    TextureRender* sharpTexture = &sceneColorTarget->getRender().getColorTexture();
+    const float aspect = (float)dofWidth / (float)dofHeight;
+
+    ShaderData& blurSd = dofBlurShader.get()->shaderData;
+    const std::pair<int, int> blurSceneSlot = blurSd.getTextureIndexByName("u_sceneColorTexture");
+    const std::pair<int, int> blurDepthSlot = blurSd.getTextureIndexByName("u_depthTexture");
+
+    // --- 2. the two axes of the separable blur, each reading the previous result ---
+    // The radius cap costs nothing here: it clamps taps that are already fixed in number.
+    const float radiusCap = scene->getDOFMaxBlur();
+
+    fs_dof_blur.params = Vector4(aspect, 0.0f, radiusCap, (float)dofHalfHeight);
+    dofPassRender.startRenderPass(&dofBlurFramebuffer[0].getRender());
+    if (dofBlurRender.beginDraw(PIP_RTT)){
+        dofBlurRender.addTexture(blurSceneSlot, ShaderStageType::FRAGMENT, sharpTexture);
+        dofBlurRender.addTexture(blurDepthSlot, ShaderStageType::FRAGMENT, cocTexture);
+        dofBlurRender.applyUniformBlock(dofBlurSlotParams, sizeof(fs_dof_blur_t), &fs_dof_blur);
+        dofBlurRender.draw(0, 3, 1);
+    }
+    dofPassRender.endRenderPass();
+
+    fs_dof_blur.params = Vector4(aspect, 1.0f, radiusCap, (float)dofHalfHeight);
+    dofPassRender.startRenderPass(&dofBlurFramebuffer[1].getRender());
+    if (dofBlurRender.beginDraw(PIP_RTT)){
+        dofBlurRender.addTexture(blurSceneSlot, ShaderStageType::FRAGMENT,
+                                 &dofBlurFramebuffer[0].getRender().getColorTexture());
+        dofBlurRender.addTexture(blurDepthSlot, ShaderStageType::FRAGMENT, cocTexture);
+        dofBlurRender.applyUniformBlock(dofBlurSlotParams, sizeof(fs_dof_blur_t), &fs_dof_blur);
+        dofBlurRender.draw(0, 3, 1);
+    }
+    dofPassRender.endRenderPass();
+
+    // --- 3. mix the blurred half-res copy back over the sharp scene ---
+    ShaderData& compSd = dofCompositeShader.get()->shaderData;
+    dofPassRender.startRenderPass(&dofSceneFramebuffer.getRender());
+    if (dofCompositeRender.beginDraw(PIP_RTT)){
+        dofCompositeRender.addTexture(compSd.getTextureIndexByName("u_sceneColorTexture"), ShaderStageType::FRAGMENT, sharpTexture);
+        dofCompositeRender.addTexture(compSd.getTextureIndexByName("u_dofTexture"), ShaderStageType::FRAGMENT,
+                                      &dofBlurFramebuffer[1].getRender().getColorTexture());
+        dofCompositeRender.addTexture(compSd.getTextureIndexByName("u_depthTexture"), ShaderStageType::FRAGMENT, cocTexture);
+        // the composite only writes an offscreen target, so no swapchain flip; the far-field
+        // bias is left at a neutral 1 until the settings carry one
+        fs_dof_composite.params = Vector4(0.0f, 1.0f, 1.0f, 0.0f);
+        dofCompositeRender.applyUniformBlock(dofCompositeSlotParams, sizeof(fs_dof_composite_t), &fs_dof_composite);
+        dofCompositeRender.draw(0, 3, 1);
+    }
+    dofPassRender.endRenderPass();
+
+    // back into the scene color, which this pass read as its sharp input - the two are
+    // different textures, so neither the composite nor this copy samples what it writes
+    loadBlit();
+    if (blitLoaded){
+        renderBlit(&dofSceneFramebuffer.getRender().getColorTexture(), &sceneColorTarget->getRender(), nullptr);
+    }
+}
+
+// Atmosphere: one fullscreen pass that integrates the height fog along the view ray and
+// marches the light shafts toward the sun. Like DOF it reads the offscreen scene color and
+// the shared depth, writes its own full-res target, and blits the result back, so the
+// post-process chain, the tone map, the upscale and FXAA all keep reading the same buffer.
+void RenderSystem::loadAtmosphere(){
+    if (atmosphereLoaded)
+        return;
+
+    atmosphereShader = ShaderPool::get(ShaderType::ATMOSPHERE, 0);
+    // a pass whose shader is still building (async in the editor) aborts the attempt, so the
+    // next frame retries instead of drawing a frame with no atmosphere at all
+    if (!atmosphereShader || !atmosphereShader->isCreated())
+        return;
+
+    atmosphereRender.beginLoad(PrimitiveType::TRIANGLES);
+    atmosphereRender.setShader(atmosphereShader.get());
+    atmosphereSlotParams = atmosphereShader.get()->shaderData.getUniformBlockIndex(UniformBlockType::ATMOSPHERE_FS_PARAMS);
+    if (!atmosphereRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    atmosphereLoaded = true;
+    Log::verbose("Atmosphere ready");
+}
+
+void RenderSystem::destroyAtmosphere(){
+    if (atmosphereLoaded){
+        atmosphereRender.destroy();
+        atmosphereLoaded = false;
+    }
+    if (atmosphereShader){
+        atmosphereShader.reset();
+        ShaderPool::remove(ShaderType::ATMOSPHERE, 0);
+    }
+
+    atmosphereFramebuffer.destroy();
+    atmosphereWidth = 0;
+    atmosphereHeight = 0;
+    atmosphereSlotParams = -1;
+}
+
+bool RenderSystem::atmosphereRequested() const{
+    const FogComponent* fog = disableFog ? nullptr : scene->findComponentFromIndex<FogComponent>(0);
+    return fog && (fog->heightFog || fog->volumetricFog || fog->godRays || fog->cloudsEnabled);
+}
+
+bool RenderSystem::ensureAtmosphereFramebuffer(unsigned int width, unsigned int height){
+    if (width == 0 || height == 0)
+        return false;
+
+    if (atmosphereFramebuffer.isCreated() && atmosphereWidth == width && atmosphereHeight == height)
+        return true;
+
+    atmosphereFramebuffer.destroy();
+
+    // Full resolution: the shafts are the only screen-space effect whose edges are the
+    // feature - a half-res march would feather an occluder over metres of screen.
+    atmosphereFramebuffer.setWidth(width);
+    atmosphereFramebuffer.setHeight(height);
+    atmosphereFramebuffer.setMinFilter(TextureFilter::LINEAR);
+    atmosphereFramebuffer.setMagFilter(TextureFilter::LINEAR);
+    atmosphereFramebuffer.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+    atmosphereFramebuffer.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+    atmosphereFramebuffer.create();
+
+    atmosphereWidth = width;
+    atmosphereHeight = height;
+
+    if (atmosphereFramebuffer.isCreated())
+        Log::verbose("Atmosphere pass ready at %ux%u", width, height);
+
+    return atmosphereFramebuffer.isCreated();
+}
+
+// One closed-form integral plus the sun's own screen position, so the whole look is driven
+// from the FogComponent and the strongest directional light in the scene.
+bool RenderSystem::buildAtmosphereParams(CameraComponent& camera, Transform& cameraTransform){
+    FogComponent* fog = disableFog ? nullptr : scene->findComponentFromIndex<FogComponent>(0);
+    if (!fog || (!fog->heightFog && !fog->volumetricFog && !fog->godRays && !fog->cloudsEnabled))
+        return false;
+
+    // The sun is whichever directional light shines hardest. Shafts need a sun to point at,
+    // but a scene lit only by point lights still gets the aerial perspective, so nothing
+    // here is allowed to require one.
+    LightComponent* sun = nullptr;
+    auto lights = scene->getComponentArray<LightComponent>();
+    for (size_t i = 0; i < lights->size(); i++){
+        LightComponent& light = lights->getComponentFromIndex(i);
+        if (light.type != LightType::DIRECTIONAL || light.intensity <= 0.0f)
+            continue;
+        if (!sun || light.intensity > sun->intensity)
+            sun = &light;
+    }
+
+    const Vector3& eye = cameraTransform.worldPosition;
+
+    // The depth pre-pass stays in logical orientation (renderDepthPrePass), so this is the
+    // unprojection its own texels need; the scene-color flip is the separate fog1.w flag.
+    fs_atmosphere.invViewProjection = camera.viewProjectionMatrix.inverse();
+    fs_atmosphere.cameraPos = Vector4(eye.x, eye.y, eye.z, 1.0f);
+
+    // worldDirection is where the light travels; the phase and the sun's position want the
+    // opposite way, toward the disk.
+    Vector3 toSun = Vector3(0.0f, 1.0f, 0.0f);
+    // Saturing, not linear: a light author can set anywhere from 1 to 1000, and the in-scatter
+    // has to stay inside the range the tone map maps gracefully. Still monotonic, so a
+    // brighter sun always fogs brighter.
+    float sunWeight = 0.0f;
+    if (sun){
+        Vector3 travelled = sun->worldDirection;
+        if (travelled.length() > 1e-6f)
+            toSun = -travelled.normalized();
+        sunWeight = sun->intensity > 0.0f ? sun->intensity / (1.0f + sun->intensity) : 0.0f;
+    }
+    fs_atmosphere.sunDirection = Vector4(toSun.x, toSun.y, toSun.z, sunWeight);
+
+    // Projected as a far point because a directional light has no position. Behind the
+    // camera (w <= 0) the antipode is used, which keeps the shafts arriving from the side
+    // the sun really is on instead of from a wrapped-around coordinate.
+    {
+        Vector3 point = eye + toSun * 5000.0f;
+        Vector4 clip = camera.viewProjectionMatrix * Vector4(point.x, point.y, point.z, 1.0f);
+        if (clip.w <= 0.0f){
+            point = eye - toSun * 5000.0f;
+            clip = camera.viewProjectionMatrix * Vector4(point.x, point.y, point.z, 1.0f);
+        }
+        if (clip.w > 0.0f){
+            const float ndcX = clip.x / clip.w;
+            const float ndcY = clip.y / clip.w;
+            // into the depth target's own orientation, which is what depthUVToNDCY expects
+            const float uvY = Engine::isOpenGL() ? ndcY * 0.5f + 0.5f : 0.5f - ndcY * 0.5f;
+            fs_atmosphere.sunScreen = Vector4(std::clamp(ndcX * 0.5f + 0.5f, 0.0f, 1.0f),
+                                              std::clamp(uvY, 0.0f, 1.0f), 0.0f, 0.0f);
+        }
+    }
+
+    fs_atmosphere.fog0 = Vector4(fog->density, fog->fogHeightFalloff, fog->fogGroundHeight, fog->fogFarRange);
+    fs_atmosphere.fog1 = Vector4(fog->fogSunAmount, fog->fogScatteringG,
+                                 (fog->heightFog || fog->volumetricFog) ? 1.0f : 0.0f,
+                                 isRenderingFlipped(camera) ? 1.0f : 0.0f);
+    fs_atmosphere.fogColor = Vector4(fog->color.x, fog->color.y, fog->color.z, 0.0f);
+    fs_atmosphere.fogNoise = Vector4(fog->fogNoiseScale, fog->fogNoiseStrength,
+                                     fog->fogNoiseSpeed, fog->fogNoiseEnabled ? 1.0f : 0.0f);
+    fs_atmosphere.fogWind = Vector4(fog->fogNoiseWind.x, 0.0f, fog->fogNoiseWind.y,
+                                    (float)Engine::getSystemTime());
+    fs_atmosphere.fogVolume = Vector4(
+        fog->volumetricFog ? 1.0f : 0.0f,
+        (float)std::clamp(fog->volumetricFogSteps, 4u, 64u),
+        std::max(fog->volumetricFogIntensity, 0.0f),
+        (float)Engine::getSystemTime());
+
+    if (sun)
+        fs_atmosphere.sunColor = Vector4(sun->color.x, sun->color.y, sun->color.z, 0.0f);
+    else
+        fs_atmosphere.sunColor = Vector4(fog->fogSunColor.x, fog->fogSunColor.y, fog->fogSunColor.z, 0.0f);
+
+    fs_atmosphere.rays0 = Vector4(fog->rayIntensity, fog->rayThreshold, fog->raySoftness, fog->rayDecay);
+    fs_atmosphere.rays1 = Vector4(fog->rayDensity, fog->godRays ? 1.0f : 0.0f, 0.0f, 0.0f);
+    fs_atmosphere.clouds0 = Vector4(fog->cloudBaseHeight, fog->cloudThickness,
+                                    fog->cloudCoverage, fog->cloudDensity);
+    fs_atmosphere.clouds1 = Vector4(fog->cloudScale, fog->cloudSpeed,
+                                    fog->cloudSunAmount, fog->cloudsEnabled ? 1.0f : 0.0f);
+    fs_atmosphere.cloudWind = Vector4(fog->cloudWind.x, 0.0f, fog->cloudWind.y, 0.0f);
+    fs_atmosphere.cloudColor = Vector4(fog->cloudColor.x, fog->cloudColor.y,
+                                       fog->cloudColor.z, (float)Engine::getSystemTime());
+
+    return true;
+}
+
+void RenderSystem::renderAtmosphere(CameraComponent& camera, Transform& cameraTransform,
+        Framebuffer* sceneColorTarget, TextureRender* depthTexture){
+    if (!atmosphereLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() ||
+            !depthTexture || !atmosphereFramebuffer.isCreated())
+        return;
+
+    if (!buildAtmosphereParams(camera, cameraTransform))
+        return;
+
+    atmospherePassRender.setClearColor(Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+    atmospherePassRender.startRenderPass(&atmosphereFramebuffer.getRender());
+    if (atmosphereRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = atmosphereShader.get()->shaderData;
+        const std::pair<int, int> sceneSlot = sd.getTextureIndexByName("u_sceneColorTexture");
+        const std::pair<int, int> depthSlot = sd.getTextureIndexByName("u_depthTexture");
+        atmosphereRender.addTexture(sceneSlot, ShaderStageType::FRAGMENT,
+                                    &sceneColorTarget->getRender().getColorTexture());
+        atmosphereRender.addTexture(depthSlot, ShaderStageType::FRAGMENT, depthTexture);
+        atmosphereRender.applyUniformBlock(atmosphereSlotParams, sizeof(fs_atmosphere_t), &fs_atmosphere);
+        atmosphereRender.draw(0, 3, 1);
+    }
+    atmospherePassRender.endRenderPass();
+
+    // the pass read sceneColorTarget and wrote its own texture, so this copy is not a
+    // sample-what-you-write hazard; every later stage then sees the fogged scene
+    loadBlit();
+    if (blitLoaded){
+        renderBlit(&atmosphereFramebuffer.getRender().getColorTexture(), &sceneColorTarget->getRender(), nullptr);
+    }
+}
+
+void RenderSystem::loadTemporalEffects(){
+    if (velocityLoaded && taaLoaded && motionBlurLoaded)
+        return;
+
+    velocityShader = ShaderPool::get(ShaderType::VELOCITY, 0);
+    taaShader = ShaderPool::get(ShaderType::TAA, 0);
+    motionBlurShader = ShaderPool::get(ShaderType::MOTIONBLUR, 0);
+    if (!velocityShader || !velocityShader->isCreated() ||
+            !taaShader || !taaShader->isCreated() ||
+            !motionBlurShader || !motionBlurShader->isCreated())
+        return;
+
+    velocityRender.beginLoad(PrimitiveType::TRIANGLES);
+    velocityRender.setShader(velocityShader.get());
+    velocitySlotParams = velocityShader->shaderData.getUniformBlockIndex(UniformBlockType::VELOCITY_FS_PARAMS);
+    if (!velocityRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    taaRender.beginLoad(PrimitiveType::TRIANGLES);
+    taaRender.setShader(taaShader.get());
+    taaSlotParams = taaShader->shaderData.getUniformBlockIndex(UniformBlockType::TAA_FS_PARAMS);
+    if (!taaRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    motionBlurRender.beginLoad(PrimitiveType::TRIANGLES);
+    motionBlurRender.setShader(motionBlurShader.get());
+    motionBlurSlotParams = motionBlurShader->shaderData.getUniformBlockIndex(UniformBlockType::MOTIONBLUR_FS_PARAMS);
+    if (!motionBlurRender.endLoad(PIP_RTT, false, true, CullingMode::BACK, WindingOrder::CCW))
+        return;
+
+    velocityLoaded = true;
+    taaLoaded = true;
+    motionBlurLoaded = true;
+    Log::verbose("Temporal anti-aliasing and motion blur ready");
+}
+
+void RenderSystem::destroyTemporalEffects(){
+    if (velocityLoaded)
+        velocityRender.destroy();
+    if (taaLoaded)
+        taaRender.destroy();
+    if (motionBlurLoaded)
+        motionBlurRender.destroy();
+
+    if (velocityShader){
+        velocityShader.reset();
+        ShaderPool::remove(ShaderType::VELOCITY, 0);
+    }
+    if (taaShader){
+        taaShader.reset();
+        ShaderPool::remove(ShaderType::TAA, 0);
+    }
+    if (motionBlurShader){
+        motionBlurShader.reset();
+        ShaderPool::remove(ShaderType::MOTIONBLUR, 0);
+    }
+
+    velocityFramebuffer.destroy();
+    taaHistoryFramebuffers[0].destroy();
+    taaHistoryFramebuffers[1].destroy();
+    motionBlurFramebuffer.destroy();
+    velocityLoaded = false;
+    taaLoaded = false;
+    motionBlurLoaded = false;
+    temporalWidth = 0;
+    temporalHeight = 0;
+    temporalInputWidth = 0;
+    temporalInputHeight = 0;
+    velocitySlotParams = -1;
+    taaSlotParams = -1;
+    motionBlurSlotParams = -1;
+    taaHistoryIndex = 0;
+    taaHistoryValid = false;
+    previousViewProjectionValid = false;
+}
+
+bool RenderSystem::ensureTemporalFramebuffers(unsigned int inputWidth, unsigned int inputHeight,
+        unsigned int outputWidth, unsigned int outputHeight, bool hdr){
+    if (inputWidth == 0 || inputHeight == 0 || outputWidth == 0 || outputHeight == 0)
+        return false;
+
+    if (temporalInputWidth == inputWidth && temporalInputHeight == inputHeight &&
+            temporalWidth == outputWidth && temporalHeight == outputHeight &&
+            velocityFramebuffer.isCreated() && taaHistoryFramebuffers[0].isCreated() &&
+            taaHistoryFramebuffers[1].isCreated() && motionBlurFramebuffer.isCreated())
+        return true;
+
+    velocityFramebuffer.destroy();
+    taaHistoryFramebuffers[0].destroy();
+    taaHistoryFramebuffers[1].destroy();
+    motionBlurFramebuffer.destroy();
+
+    const ColorFormat historyFormat = hdr ? ColorFormat::RGBA16F : ColorFormat::RGBA;
+    auto configure = [](Framebuffer& target, unsigned int width, unsigned int height, ColorFormat format){
+        target.setColorAttachments(1, &format);
+        target.setWidth(width);
+        target.setHeight(height);
+        target.setMinFilter(TextureFilter::LINEAR);
+        target.setMagFilter(TextureFilter::LINEAR);
+        target.setWrapU(TextureWrap::CLAMP_TO_EDGE);
+        target.setWrapV(TextureWrap::CLAMP_TO_EDGE);
+        target.create();
+    };
+
+    configure(velocityFramebuffer, inputWidth, inputHeight, ColorFormat::RGBA);
+    configure(taaHistoryFramebuffers[0], outputWidth, outputHeight, historyFormat);
+    configure(taaHistoryFramebuffers[1], outputWidth, outputHeight, historyFormat);
+    configure(motionBlurFramebuffer, inputWidth, inputHeight, historyFormat);
+
+    temporalInputWidth = inputWidth;
+    temporalInputHeight = inputHeight;
+    temporalWidth = outputWidth;
+    temporalHeight = outputHeight;
+    taaHistoryIndex = 0;
+    taaHistoryValid = false;
+    return velocityFramebuffer.isCreated() && taaHistoryFramebuffers[0].isCreated() &&
+        taaHistoryFramebuffers[1].isCreated() && motionBlurFramebuffer.isCreated();
+}
+
+void RenderSystem::renderVelocity(CameraComponent& camera, TextureRender* depthTexture){
+    if (!velocityLoaded || !velocityFramebuffer.isCreated() || !depthTexture)
+        return;
+
+    fs_velocity.prevViewProjection = previousViewProjectionValid
+        ? previousViewProjection : camera.viewProjectionMatrix;
+    fs_velocity.invCurrentViewProjection = camera.viewProjectionMatrix.inverse();
+    fs_velocity.params = Vector4(scene->getTAAVelocityScale(), scene->getTAAVelocityClamp(), 0.0f, 0.0f);
+
+    temporalPassRender.setClearColor(Vector4(0.5f, 0.5f, 0.0f, 1.0f));
+    temporalPassRender.startRenderPass(&velocityFramebuffer.getRender());
+    if (velocityRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = velocityShader->shaderData;
+        velocityRender.addTexture(sd.getTextureIndexByName("u_depthTexture"), ShaderStageType::FRAGMENT, depthTexture);
+        velocityRender.applyUniformBlock(velocitySlotParams, sizeof(fs_velocity_t), &fs_velocity);
+        velocityRender.draw(0, 3, 1);
+    }
+    temporalPassRender.endRenderPass();
+}
+
+void RenderSystem::renderTAA(CameraComponent& camera, Framebuffer* sceneColorTarget, TextureRender* depthTexture,
+        bool copyBack){
+    if (!taaLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() || !depthTexture ||
+            !taaHistoryFramebuffers[0].isCreated() || !taaHistoryFramebuffers[1].isCreated())
+        return;
+
+    renderVelocity(camera, depthTexture);
+    const int writeIndex = 1 - taaHistoryIndex;
+    if (!taaHistoryValid){
+        loadBlit();
+        if (blitLoaded)
+            renderBlit(&sceneColorTarget->getRender().getColorTexture(),
+                       &taaHistoryFramebuffers[writeIndex].getRender(), nullptr);
+        taaHistoryIndex = writeIndex;
+        taaHistoryValid = true;
+        return;
+    }
+
+    fs_taa.params0 = Vector4(scene->getTAABlend(), scene->getTAAVelocityScale(),
+                             (float)temporalWidth, (float)temporalHeight);
+    fs_taa.params1 = Vector4((float)temporalInputWidth, (float)temporalInputHeight, 0.0f, 0.0f);
+
+    temporalPassRender.setClearColor(Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+    temporalPassRender.startRenderPass(&taaHistoryFramebuffers[writeIndex].getRender());
+    if (taaRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = taaShader->shaderData;
+        taaRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                             &sceneColorTarget->getRender().getColorTexture());
+        taaRender.addTexture(sd.getTextureIndex(TextureShaderType::DEPTHTEXTURE), ShaderStageType::FRAGMENT, depthTexture);
+        taaRender.addTexture(sd.getTextureIndex(TextureShaderType::VELOCITYTEXTURE), ShaderStageType::FRAGMENT,
+                             &velocityFramebuffer.getRender().getColorTexture());
+        taaRender.addTexture(sd.getTextureIndex(TextureShaderType::PREVSCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                             &taaHistoryFramebuffers[taaHistoryIndex].getRender().getColorTexture());
+        taaRender.applyUniformBlock(taaSlotParams, sizeof(fs_taa_t), &fs_taa);
+        taaRender.draw(0, 3, 1);
+    }
+    temporalPassRender.endRenderPass();
+
+    if (copyBack){
+        loadBlit();
+        if (blitLoaded)
+            renderBlit(&taaHistoryFramebuffers[writeIndex].getRender().getColorTexture(),
+                       &sceneColorTarget->getRender(), nullptr);
+    }
+    taaHistoryIndex = writeIndex;
+}
+
+void RenderSystem::renderMotionBlur(Framebuffer* sceneColorTarget, TextureRender* depthTexture){
+    if (!motionBlurLoaded || !sceneColorTarget || !sceneColorTarget->isCreated() || !depthTexture ||
+            !motionBlurFramebuffer.isCreated() || !velocityFramebuffer.isCreated())
+        return;
+
+    fs_motion_blur.params = Vector4(scene->getMotionBlurIntensity(),
+                                    (float)scene->getMotionBlurSamples(),
+                                    scene->getMotionBlurVelocityClamp(),
+                                    scene->getMotionBlurDepthThreshold());
+    temporalPassRender.setClearColor(Vector4(0.0f, 0.0f, 0.0f, 1.0f));
+    temporalPassRender.startRenderPass(&motionBlurFramebuffer.getRender());
+    if (motionBlurRender.beginDraw(PIP_RTT)){
+        ShaderData& sd = motionBlurShader->shaderData;
+        motionBlurRender.addTexture(sd.getTextureIndex(TextureShaderType::SCENECOLORTEXTURE), ShaderStageType::FRAGMENT,
+                                    &sceneColorTarget->getRender().getColorTexture());
+        motionBlurRender.addTexture(sd.getTextureIndex(TextureShaderType::VELOCITYTEXTURE), ShaderStageType::FRAGMENT,
+                                    &velocityFramebuffer.getRender().getColorTexture());
+        motionBlurRender.addTexture(sd.getTextureIndex(TextureShaderType::DEPTHTEXTURE), ShaderStageType::FRAGMENT, depthTexture);
+        motionBlurRender.applyUniformBlock(motionBlurSlotParams, sizeof(fs_motion_blur_t), &fs_motion_blur);
+        motionBlurRender.draw(0, 3, 1);
+    }
+    temporalPassRender.endRenderPass();
+
+    loadBlit();
+    if (blitLoaded)
+        renderBlit(&motionBlurFramebuffer.getRender().getColorTexture(), &sceneColorTarget->getRender(), nullptr);
+}
+
 void RenderSystem::presentFramebufferToSwapchain(Framebuffer* source){
     if (!source || !source->isCreated())
         return;
@@ -5345,6 +7591,8 @@ void RenderSystem::destroyMesh(Entity entity, MeshComponent& mesh, bool clearAss
 
     if (!mesh.loaded)
         return;
+
+    Engine::addMeshDropStats();
 
     for (int i = 0; i < mesh.numSubmeshes; i++){
 
@@ -5418,7 +7666,9 @@ void RenderSystem::destroyMesh(Entity entity, MeshComponent& mesh, bool clearAss
         //Shaders uniforms
         submesh.slotVSParams = -1;
         submesh.slotFSParams = -1;
+        submesh.slotFSMaterialExtensions = -1;
         submesh.slotFSTexCoordSets = -1;
+        submesh.slotFSHeight = -1;
         submesh.slotVSFade = -1;
         submesh.slotFSLighting = -1;
         submesh.slotFSReflectionProbe = -1;
@@ -5716,7 +7966,7 @@ bool RenderSystem::loadPoints(Entity entity, PointsComponent& points, uint16_t p
         }
     }
 
-    points.shaderProperties = ShaderPool::getPointsProperties(p_hasTexture, false, true, p_hasTextureRect);
+    points.shaderProperties = ShaderPool::getPointsProperties(p_hasTexture, false, true, p_hasTextureRect, points.gpuSimulation);
     const std::string& pointsShaderSrc = points.customShader.empty() ? scene->getDefaultCustomShader(ShaderType::POINTS) : points.customShader;
     points.customShaderId = ShaderPool::registerCustomShader(pointsShaderSrc);
     points.shader = ShaderPool::get(ShaderType::POINTS, points.shaderProperties, points.customShaderId);
@@ -5748,7 +7998,15 @@ bool RenderSystem::loadPoints(Entity entity, PointsComponent& points, uint16_t p
     points.buffer.addAttribute(AttributeType::POINTSIZE, 1, 7 * sizeof(float));
     points.buffer.addAttribute(AttributeType::POINTROTATION, 1, 8 * sizeof(float));
     points.buffer.addAttribute(AttributeType::TEXTURERECT, 4, 9 * sizeof(float));
-    points.buffer.setStride(13 * sizeof(float));
+    if (points.gpuSimulation){
+        points.buffer.addAttribute(AttributeType::PARTICLEVELOCITY, 3, 13 * sizeof(float));
+        points.buffer.addAttribute(AttributeType::PARTICLEACCELERATION, 3, 16 * sizeof(float));
+        points.buffer.addAttribute(AttributeType::PARTICLESPAWNTIME, 1, 19 * sizeof(float));
+        points.buffer.addAttribute(AttributeType::PARTICLELIFE, 1, 20 * sizeof(float));
+    }
+    // PointRenderData has a stable superset layout. Non-GPU points simply leave the
+    // extra attributes unused by their shader variant.
+    points.buffer.setStride(sizeof(PointRenderData));
     points.buffer.setRenderAttributes(true);
     points.buffer.setUsage(BufferUsage::STREAM);
 
@@ -5937,6 +8195,7 @@ bool RenderSystem::drawPoints(PointsComponent& points, Transform& transform, Cam
         vs_points_params_t vsParams = {};
         vsParams.mvpMatrix = transform.modelViewProjectionMatrix;
         vsParams.pointScale = computePointsScale(camera, getPointsViewportHeight(camera));
+        vsParams.simulationTime = points.gpuSimulationTime;
         render.applyUniformBlock(points.slotVSParams, sizeof(vs_points_params_t), &vsParams);
         applyCustomUniforms(render, points, scene, ShaderType::POINTS, frameTime, passResolution);
         render.draw(0, points.numVisible, 1);
@@ -6211,6 +8470,7 @@ void RenderSystem::destroySky(Entity entity, SkyComponent& sky){
 
 namespace {
     constexpr float WATER_TWO_PI = 6.2831853f;
+    constexpr float WATER_GRAVITY = 9.81f;
 
     struct WaterWave{
         Vector2 direction; // on world XZ
@@ -6218,7 +8478,146 @@ namespace {
         float wavelength;
     };
 
-    // the waves water.vert sums, from the authored wave settings
+    // --- the sea the wind raises ---------------------------------------------------------------
+    // Fetch-limited growth in the classic non-dimensional form (Sverdrup-Munk-Bretzun), written so
+    // that every number here means metres and seconds:
+    //
+    //   Hs = min(0.0016 * U * sqrt(X / g), 0.0246 * U * U)   significant wave height
+    //   Tp = min(0.72 * (g * X / U^2)^0.34 * U / g, 0.83 * U) peak period
+    //   Lp = g * Tp^2 / (2 * PI)                              its deep-water wavelength
+    //
+    // U is the wind over the water and X the fetch it blows along, so one breeze ripples a canal and
+    // heaves an ocean - which no hand-authored wave height can do on its own. The second term of each
+    // pair is the fully developed sea: past it, more fetch buys nothing but time.
+    const float SEA_GROWTH = 0.0016f;
+    const float SEA_DEVELOPED = 0.0246f;
+    const float SEA_PERIOD_GROWTH = 0.72f;
+    const float SEA_PERIOD_DEVELOPED = 0.83f;
+
+    // A water smaller than this has no room to build a wind sea at all. The growth law is honest
+    // about that: 500 m of lake under a 6 m/s breeze is a handful of centimetres, and a template that
+    // drew 0.2 m waves would answer the wind by going flat. So the shortfall is charged where it
+    // belongs - the fetch, which is what a game scene cannot state - and never to the height, which
+    // is then free to keep its physical scaling. 18 km is the fetch at which the law returns the
+    // 0.4 m sea that the authored default of 0.2 m crest-to-crest is drawn against.
+    const float SEA_MIN_FETCH = 18000.0f;
+
+    // Seconds to close most of the gap to the sea the wind could sustain, and most of the way back
+    // down. A real swell outlives the weather that raised it by hours; this is the same story told
+    // inside a scene - long enough that a two-second lull changes nothing anybody can see.
+    const float SEA_RISE_TIME = 4.0f;
+    const float SEA_FALL_TIME = 24.0f;
+
+    // The wind the water feels, smoothed only enough that one frame's spike is not weather. It keeps
+    // its own short constant because whitecaps are the part of a gust that arrives with it: run this
+    // through the swell's clock and a squall would foam up minutes after it had passed.
+    const float SEA_WIND_TIME = 2.0f;
+
+    // Whitecaps: the foam a wind tears off its own crests. They start where waves begin to spill,
+    // around 8 m/s, and cover the sea by 20. They follow the wind and not the swell, because that is
+    // what a whitecap is - it arrives with the gust and is gone behind it.
+    float getWhitecapFactor(float windSpeed){
+        return std::clamp((windSpeed - 8.0f) / 12.0f, 0.0f, 1.0f);
+    }
+
+    // an angle has no middle until the way round it is picked: the short arc, so a wind veering from
+    // 350 to 10 degrees turns the sea that way rather than spinning it through the year
+    float mixAngle(float from, float to, float share){
+        float delta = to - from;
+        while (delta > WATER_TWO_PI * 0.5f)
+            delta -= WATER_TWO_PI;
+        while (delta < -WATER_TWO_PI * 0.5f)
+            delta += WATER_TWO_PI;
+        return from + delta * share;
+    }
+
+    float mixValue(float from, float to, float share){
+        return from + (to - from) * share;
+    }
+
+    // how far a value walks toward a target in `seconds`, at the rate the sea does when it is
+    // rising (fast) or when the wind has dropped (slow) - which is the whole of D2
+    float seaApproach(float current, float target, float seconds){
+        const float tau = (target > current) ? SEA_RISE_TIME : SEA_FALL_TIME;
+        return current + (target - current) * (1.0f - std::exp(-seconds / tau));
+    }
+
+    // The sea state the scene's wind is building under this water, integrated in place. Called from
+    // the frame step only, so the shader upload, the CPU surface sample that floats bodies, the
+    // bounds and the foam all read one answer instead of each asking the weather again.
+    void advanceWindSea(Scene& scene, WaterComponent& water, float seconds, float elapsed){
+        const float influence = std::clamp(water.windInfluence, 0.0f, 1.0f);
+        const bool windOn = scene.isWindEnabled() && influence > 0.0f;
+
+        float targetWind = 0.0f;
+        float targetAngle = water.seaAngle;
+        float targetHeight = 0.0f;
+        float targetLength = 0.0f;
+
+        if (windOn){
+            // one sample at the middle of the water: the sea state is one number per water, and the
+            // gusts that cross it are already in the waves' own sum
+            const Vector3 centre = water.worldAABB.getCenter();
+            const Vector2 blow = Wind::sample(scene, Vector2(centre.x, centre.z), elapsed);
+            targetWind = blow.length();
+
+            if (targetWind > 0.001f){
+                targetAngle = std::atan2(-blow.y, blow.x); // the same reading as Vector2(cos a, -sin a)
+
+                // what the wind blows over: the extent along it, unless the author knew better
+                float fetch = water.fetch;
+                if (fetch <= 0.0f){
+                    const float along = std::fabs(water.size.x * std::cos(targetAngle)) +
+                            std::fabs(water.size.y * std::sin(targetAngle));
+                    fetch = std::max(along, 1.0f);
+                }
+                fetch = std::max(fetch, SEA_MIN_FETCH);
+
+                const float fetchNumber = WATER_GRAVITY * fetch / (targetWind * targetWind);
+                targetHeight = std::min(SEA_GROWTH * targetWind * std::sqrt(fetch / WATER_GRAVITY),
+                        SEA_DEVELOPED * targetWind * targetWind);
+                const float period = std::min(SEA_PERIOD_GROWTH * std::pow(fetchNumber, 0.34f) *
+                        targetWind / WATER_GRAVITY, SEA_PERIOD_DEVELOPED * targetWind);
+                targetLength = WATER_GRAVITY * period * period / WATER_TWO_PI;
+            }
+        }
+
+        water.seaWind = water.seaWind + (targetWind - water.seaWind) * (1.0f - std::exp(-seconds / SEA_WIND_TIME));
+        water.seaHeight = seaApproach(water.seaHeight, targetHeight, seconds);
+        water.seaLength = seaApproach(water.seaLength, targetLength, seconds);
+        water.seaAngle = mixAngle(water.seaAngle, targetAngle, 1.0f - std::exp(-seconds / SEA_RISE_TIME));
+        water.seaMix = seaApproach(water.seaMix, windOn ? influence : 0.0f, seconds);
+    }
+
+    // The wave numbers as they are drawn: the author's, mixed toward the wind sea by the smoothed
+    // influence. Everything that reads a wave goes through these four, so none of them can disagree
+    // with the others - which is the contract water.vert and sumWaterWaves have always had.
+    float getDrawnWaveHeight(const WaterComponent& water){
+        const float share = std::clamp(water.seaMix, 0.0f, 1.0f);
+        // Hs is the crest-to-trough of the biggest few waves of a real sea; the contract of the wave
+        // array is that its four Gerstner sums, in phase, reach `height`, so the wind sea enters at
+        // half its height.
+        return std::max(mixValue(water.waveHeight, water.seaHeight * 0.5f, share), 0.0f);
+    }
+
+    float getDrawnWaveLength(const WaterComponent& water){
+        const float share = std::clamp(water.seaMix, 0.0f, 1.0f);
+        return std::max(mixValue(water.waveLength, water.seaLength, share), 0.01f);
+    }
+
+    float getDrawnWaveAngle(const WaterComponent& water){
+        const float share = std::clamp(water.seaMix, 0.0f, 1.0f);
+        return mixAngle(Angle::defaultToRad(water.waveDirection), water.seaAngle, share);
+    }
+
+    float getDrawnWaveSpeed(const WaterComponent& water){
+        const float share = std::clamp(water.seaMix, 0.0f, 1.0f);
+        // with the wind in charge the dispersion is the whole story - sqrt(g*k) is how fast a wave of
+        // that length travels - so waveSpeed, a taste multiplier, goes to 1.0 instead of doubling it
+        return mixValue(water.waveSpeed, 1.0f, share);
+    }
+
+    // the waves water.vert sums, from the authored wave settings and the sea the wind is raising
     void getWaterWaves(const WaterComponent& water, WaterWave (&waves)[WATER_WAVE_COUNT]){
         static const float lengthScale[WATER_WAVE_COUNT] = {1.0f, 0.61f, 0.38f, 0.24f};
         static const float angleOffset[WATER_WAVE_COUNT] = {0.0f, 0.47f, -0.39f, 0.83f}; // radians
@@ -6228,9 +8627,9 @@ namespace {
             scaleSum += lengthScale[i];
         }
 
-        const float baseAngle = Angle::defaultToRad(water.waveDirection);
-        const float length = std::max(water.waveLength, 0.01f);
-        const float height = std::max(water.waveHeight, 0.0f);
+        const float baseAngle = getDrawnWaveAngle(water);
+        const float length = getDrawnWaveLength(water);
+        const float height = getDrawnWaveHeight(water);
 
         for (int i = 0; i < WATER_WAVE_COUNT; i++){
             const float angle = baseAngle + angleOffset[i];
@@ -6247,14 +8646,16 @@ namespace {
             slope += (WATER_TWO_PI / waves[i].wavelength) * waves[i].amplitude;
         }
 
-        const float steepness = std::clamp(water.waveSteepness, 0.0f, 1.0f);
+        // a blow pinches the crests as it raises them, up to the shape a storm sea keeps
+        const float windShare = getWhitecapFactor(water.seaWind) * std::clamp(water.seaMix, 0.0f, 1.0f);
+        const float steepness = std::clamp(mixValue(water.waveSteepness, 0.9f, windShare), 0.0f, 1.0f);
         return (slope > 0.0f) ? std::min(steepness, 1.0f / slope) : steepness;
     }
 
     // deep water dispersion: longer waves travel faster
     float getWaterWaveFrequency(const WaterComponent& water, const WaterWave& wave){
         const float k = WATER_TWO_PI / wave.wavelength;
-        return std::sqrt(9.81f * k) * water.waveSpeed;
+        return std::sqrt(WATER_GRAVITY * k) * getDrawnWaveSpeed(water);
     }
 
     // the wave sum of water.vert at the world point p: the surface offset, and its slopes along x and z
@@ -6344,8 +8745,9 @@ namespace {
     }
 }
 
-// the surface offset over the world point (x, z), from the grid point the waves move onto it
-Vector3 RenderSystem::getWaterSurfaceOffset(const WaterComponent& water, float x, float z, Vector3* normal){
+// the surface offset over the world point (x, z), from the grid point the waves move onto it,
+// plus the depth field where the water simulates
+Vector3 RenderSystem::getWaterSurfaceOffset(const WaterComponent& water, float x, float z, Vector3* normal, float* depth){
     WaterWave waves[WATER_WAVE_COUNT];
     getWaterWaves(water, waves);
     const float steepness = getWaterSteepness(water, waves);
@@ -6371,6 +8773,26 @@ Vector3 RenderSystem::getWaterSurfaceOffset(const WaterComponent& water, float x
 
     if (normal){
         *normal = binormal.crossProduct(tangent).normalized();
+    }
+    // a level plane holds water everywhere inside its rect
+    if (depth)
+        *depth = std::numeric_limits<float>::max();
+
+    if (WaterSystem::isSimulated(water)){
+        float standing = 0.0f;
+        Vector3 fieldNormal(0.0f, 1.0f, 0.0f);
+        float field = 0.0f;
+        // dry, or past the field: the plane it would have been, and nothing to float on
+        if (WaterSystem::getSimSurface(water, x, z, field, fieldNormal, standing)){
+            offset.y += field;
+            if (normal)
+                *normal = Vector3(normal->x + fieldNormal.x, normal->y, normal->z + fieldNormal.z).normalized();
+        }else{
+            offset.y = 0.0f;
+            standing = 0.0f;
+        }
+        if (depth)
+            *depth = standing;
     }
 
     return offset;
@@ -6479,6 +8901,32 @@ std::shared_ptr<TextureRender> RenderSystem::getDefaultWaterNormalMap(){
     return render;
 }
 
+// One texel per cell of the field, filtered linear so a drawn grid finer than the field
+// still reads a smooth surface. It starts dry, so a water whose first step has not run
+// shows no surface instead of whatever the allocator left in the image.
+bool RenderSystem::updateWaterField(WaterComponent& water){
+    if (!water.simulate){
+        if (water.simTextureCells != 0){
+            water.simTexture.destroyTexture();
+            water.simTextureCells = 0;
+        }
+        return true;
+    }
+
+    const unsigned int cells = WaterSystem::resolutionOf(water);
+    if (water.simTextureCells != cells || !water.simTexture.isCreated()){
+        water.simTexture.destroyTexture();
+        if (!water.simTexture.createDynamicTexture("water-field", (int)cells, (int)cells,
+                TextureFilter::LINEAR, TextureFilter::LINEAR)){
+            water.simTextureCells = 0;
+            return false;
+        }
+        water.simTextureCells = cells;
+        water.simDirty = true;
+    }
+    return true;
+}
+
 bool RenderSystem::loadWater(Entity entity, WaterComponent& water, uint16_t pipelines){
 
     if (!Engine::isViewLoaded())
@@ -6489,7 +8937,7 @@ bool RenderSystem::loadWater(Entity entity, WaterComponent& water, uint16_t pipe
     render.beginLoad(PrimitiveType::TRIANGLES);
 
     const bool receiveShadows = hasLights && hasShadows && water.receiveShadows;
-    water.shaderProperties = ShaderPool::getWaterProperties(hasFog, water.depthEffects, water.planarReflection, receiveShadows, water.refraction);
+    water.shaderProperties = ShaderPool::getWaterProperties(hasFog, water.depthEffects, water.planarReflection, receiveShadows, water.refraction, water.simulate);
     const std::string& waterShaderSrc = water.customShader.empty() ? scene->getDefaultCustomShader(ShaderType::WATER) : water.customShader;
     water.customShaderId = ShaderPool::registerCustomShader(waterShaderSrc);
     water.shader = ShaderPool::get(ShaderType::WATER, water.shaderProperties, water.customShaderId);
@@ -6518,6 +8966,12 @@ bool RenderSystem::loadWater(Entity entity, WaterComponent& water, uint16_t pipe
     water.needUpdateTexture = false;
 
     water.slotVSParams = shaderData.getUniformBlockIndex(UniformBlockType::WATER_VS_PARAMS);
+    water.slotVSSimParams = -1;
+    if (water.simulate){
+        if (!updateWaterField(water))
+            return false;
+        water.slotVSSimParams = shaderData.getUniformBlockIndex(UniformBlockType::WATER_SIM_VS_PARAMS);
+    }
     water.slotFSParams = shaderData.getUniformBlockIndex(UniformBlockType::WATER_FS_PARAMS);
     // fields are only appended, so a fork of an older version gets the ones it knows
     unsigned int fsParamsSize = 0;
@@ -6614,6 +9068,9 @@ bool RenderSystem::loadWater(Entity entity, WaterComponent& water, uint16_t pipe
 }
 
 void RenderSystem::advanceWater(WaterComponent& water, float seconds){
+    // the sea first: the phases below advance with the wavelengths the wind is leaving behind
+    advanceWindSea(*scene, water, seconds, water.time + seconds);
+
     WaterWave waves[WATER_WAVE_COUNT];
     getWaterWaves(water, waves);
 
@@ -6655,7 +9112,7 @@ void RenderSystem::updateWater(Entity entity, WaterComponent& water, Transform& 
     // the variant follows the scene fog and shadows, and the water switches
     if (water.loaded && !water.needReload &&
             water.shaderProperties != ShaderPool::getWaterProperties(hasFog, water.depthEffects, water.planarReflection,
-                hasLights && hasShadows && water.receiveShadows, water.refraction)){
+                hasLights && hasShadows && water.receiveShadows, water.refraction, water.simulate)){
         water.needReload = true;
     }
 
@@ -6670,17 +9127,32 @@ void RenderSystem::updateWater(Entity entity, WaterComponent& water, Transform& 
         loadUnderwater(water);
     }
 
-    // bounds grow by the wave height up, down and sideways
-    const float height = std::max(water.waveHeight, 0.0f);
+    // the resolution is authored at runtime too, so the texel grid follows it
+    if (water.loaded)
+        updateWaterField(water);
+
+    // bounds grow by the wave height up, down and sideways, and by the ground a field
+    // lifts the surface onto
+    const float waves = getDrawnWaveHeight(water);
+    float top = waves;
+    float bottom = -waves;
+    if (water.simulate){
+        const float ripple = std::max(water.simRippleStrength, 0.0f);
+        top = water.simFloorMax + water.simWaterMax + waves + ripple;
+        bottom = std::min(water.simFloorMin, 0.0f) - waves - ripple;
+    }
+
     const float halfWidth = std::abs(water.size.x) * 0.5f;
     const float halfDepth = std::abs(water.size.y) * 0.5f;
-    water.aabb = AABB(-halfWidth, -height, -halfDepth, halfWidth, height, halfDepth);
+    water.aabb = AABB(-halfWidth, bottom, -halfDepth, halfWidth, top, halfDepth);
 
-    AABB flat(-halfWidth, 0.0f, -halfDepth, halfWidth, 0.0f, halfDepth);
+    AABB flat(-halfWidth, bottom, -halfDepth, halfWidth, top, halfDepth);
     water.worldAABB = transform.modelMatrix * flat;
+    // a body is still found by the grid point the waves move onto it, which is off by up
+    // to the steepness times the amplitude
     water.worldAABB.setExtents(
-        water.worldAABB.getMinimum() - Vector3(height, height, height),
-        water.worldAABB.getMaximum() + Vector3(height, height, height));
+        water.worldAABB.getMinimum() - Vector3(waves, 0.0f, waves),
+        water.worldAABB.getMaximum() + Vector3(waves, 0.0f, waves));
 }
 
 bool RenderSystem::drawWater(Entity entity, WaterComponent& water, Transform& transform, CameraComponent& camera, Transform& camTransform, PipelineType pipType, bool mainCamera){
@@ -6728,7 +9200,10 @@ bool RenderSystem::drawWater(Entity entity, WaterComponent& water, Transform& tr
             iblAmbient = true;
         }
         Vector3 linColor = Color::sRGBToLinear(Vector3(sky.color.x, sky.color.y, sky.color.z));
-        envColor = Vector4(linColor.x, linColor.y, linColor.z, Angle::defaultToRad(sky.rotation));
+        // water mirrors the sky, so it dims with the same indirect-light knob the meshes use
+        float giIntensity = scene->getGlobalIlluminationIntensity();
+        envColor = Vector4(linColor.x * giIntensity, linColor.y * giIntensity,
+                           linColor.z * giIntensity, Angle::defaultToRad(sky.rotation));
     }else{
         // no sky, reflects the background color
         Vector4 background = scene->getBackgroundColor();
@@ -6763,6 +9238,31 @@ bool RenderSystem::drawWater(Entity entity, WaterComponent& water, Transform& tr
     WaterWave waves[WATER_WAVE_COUNT];
     getWaterWaves(water, waves);
 
+    vs_water_sim_t vsSim;
+    if (water.simulate){
+        if (!water.simTexture.isCreated() && !updateWaterField(water))
+            return false;
+
+        const size_t texels = (size_t)water.simTextureCells * water.simTextureCells * 4;
+        if (water.simDirty && water.simTexels.size() == texels){
+            water.simTexture.updateTexture(water.simTexels.data(), texels * sizeof(float));
+            water.simDirty = false;
+        }
+
+        const float cells = std::max(water.simTextureCells, 1u);
+        const Vector2 span = water.simCell * Vector2(cells, cells);
+        vsSim.simMap = Vector4(1.0f / std::max(span.x, 0.001f), 1.0f / std::max(span.y, 0.001f),
+                1.0f / cells, 1.0f / cells);
+        vsSim.simOrigin = Vector4(water.simOrigin.x, water.simOrigin.y, 0.0f, 0.0f);
+        vsSim.simCell = Vector4(water.simCell.x, water.simCell.y, std::max(water.simDryDepth, 0.0001f), 0.0f);
+        vsSim.simTune = Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+
+        std::pair<int, int> slotTex = shaderData.getTextureIndex(TextureShaderType::WATERFIELD);
+        if (slotTex.first == -1)
+            return false;
+        render.addTexture(slotTex, ShaderStageType::VERTEX, &water.simTexture);
+    }
+
     vs_water_t vsParams;
     vsParams.modelMatrix = transform.modelMatrix;
     vsParams.viewProjectionMatrix = camera.viewProjectionMatrix;
@@ -6782,7 +9282,12 @@ bool RenderSystem::drawWater(Entity entity, WaterComponent& water, Transform& tr
     fsParams.shallowColor = Vector4(water.shallowColor.x, water.shallowColor.y, water.shallowColor.z, water.depthFade);
     fsParams.deepColor = Vector4(water.deepColor.x, water.deepColor.y, water.deepColor.z, currentSceneDepthTexture ? 1.0f : 0.0f);
     fsParams.foamColor = Vector4(water.foamColor.x, water.foamColor.y, water.foamColor.z, water.shoreFoam);
-    fsParams.ripples = Vector4(1.0f / std::max(water.normalScale, 0.01f), water.normalStrength, water.waveHeight, std::clamp(water.crestFoam, 0.0f, 1.0f));
+    // the wind's own foam, on top of whatever the author drew: whitecaps come with the gust, so this
+    // reads the smoothed wind speed and not the slow swell. The fragment scales crestFoam by three
+    // before it clamps, so half a whitecap is already a sea going over.
+    const float windFoam = getWhitecapFactor(water.seaWind) * std::clamp(water.seaMix, 0.0f, 1.0f);
+    fsParams.ripples = Vector4(1.0f / std::max(water.normalScale, 0.01f), water.normalStrength, getDrawnWaveHeight(water),
+            std::clamp(water.crestFoam + 0.5f * windFoam, 0.0f, 1.0f));
     fsParams.rippleOffsets = Vector4(water.rippleOffset[0].x, water.rippleOffset[0].y, water.rippleOffset[1].x, water.rippleOffset[1].y);
     fsParams.surface = Vector4(water.reflectivity, water.specularIntensity, std::clamp(water.roughness, 0.0f, 1.0f), water.reflectionDistortion);
     fsParams.envColor = envColor;
@@ -6795,12 +9300,18 @@ bool RenderSystem::drawWater(Entity entity, WaterComponent& water, Transform& tr
     fsParams.refraction = Vector4(water.refractionDistortion, (water.refraction && currentSceneCopy) ? 1.0f : 0.0f, 0.0f, 0.0f);
     fsParams.refractionRect = currentSceneCopyRect;
     fsParams.caustics = Vector4(std::max(water.caustics, 0.0f), 1.0f / std::max(water.causticsScale, 0.01f), 0.0f, 0.0f);
-    fsParams.waveScale = Vector4(std::max(water.waveLength, 0.01f), 0.0f, 0.0f, 0.0f);
+    fsParams.waveScale = Vector4(getDrawnWaveLength(water), 0.0f, 0.0f, 0.0f);
     setWaterExclusionParams(water, camTransform.worldPosition, fsParams);
 
     render.applyUniformBlock(water.slotVSParams, sizeof(vs_water_t), &vsParams);
+    if (water.simulate)
+        render.applyUniformBlock(water.slotVSSimParams, sizeof(vs_water_sim_t), &vsSim);
     render.applyUniformBlock(water.slotFSParams, water.fsParamsSize, &fsParams);
     render.applyUniformBlock(water.slotFSLighting, sizeof(fs_lighting_t), &fs_lighting);
+    const int lightGridSlot = shaderData.getStorageBufferIndex(StorageBufferType::FS_LIGHT_GRID);
+    if (lightGridSlot != -1 && clusteredLightGridReady){
+        render.addStorageBuffer(lightGridSlot, ShaderStageType::FRAGMENT, &clusteredLightGridBuffer);
+    }
     if (water.slotFSFog != -1){
         render.applyUniformBlock(water.slotFSFog, sizeof(float) * 8, &fs_fog);
     }
@@ -6834,6 +9345,8 @@ void RenderSystem::destroyWater(Entity entity, WaterComponent& water){
 
         //Destroy texture
         water.normalTexture.destroy();
+        water.simTexture.destroyTexture();
+        water.simTextureCells = 0;
 
         // the pool keeps the built-in ripples while another water still uses them
         if (water.defaultNormalMap){
@@ -6860,6 +9373,7 @@ void RenderSystem::destroyWater(Entity entity, WaterComponent& water){
 
     //Shaders uniforms
     water.slotVSParams = -1;
+    water.slotVSSimParams = -1;
     water.slotFSParams = -1;
     water.fsParamsSize = 0;
     water.slotFSLighting = -1;
@@ -6889,7 +9403,10 @@ bool RenderSystem::isBehindWater(const std::vector<WaterRenderData>& waters, con
 
         // the surface this pass draws under the box center
         const Vector3 center = box.getCenter();
-        const float surface = waterData.transform->worldPosition.y + getWaterSurfaceOffset(*waterData.water, center.x, center.z).y;
+        float depth = 0.0f;
+        const float surface = waterData.transform->worldPosition.y + getWaterSurfaceOffset(*waterData.water, center.x, center.z, nullptr, &depth).y;
+        if (depth <= 0.0f)
+            continue; // the field ran dry under the box, so it sorts as if there were no water
         if (waterData.eyeAbove ? (box.getMaximum().y < surface) : (box.getMinimum().y > surface))
             return true;
     }
@@ -6919,7 +9436,10 @@ WaterComponent* RenderSystem::findUnderwater(const Vector3& eye){
                 eye.z < area.getMinimum().z || eye.z > area.getMaximum().z)
             continue;
 
-        if (eye.y < transform->worldPosition.y + getWaterSurfaceOffset(water, eye.x, eye.z).y)
+        float depth = 0.0f;
+        const float surface = transform->worldPosition.y + getWaterSurfaceOffset(water, eye.x, eye.z, nullptr, &depth).y;
+        // standing in the dry part of a field is not being inside the water
+        if (depth > 0.0f && eye.y < surface)
             return &water;
     }
 
@@ -7264,10 +9784,18 @@ void RenderSystem::updateCamera(CameraComponent& camera, Transform& transform){
     //Update ProjectionMatrix
     if (camera.type == CameraType::CAMERA_UI){
         camera.projectionMatrix = Matrix4::orthoMatrix(camera.leftClip, camera.rightClip, camera.topClip, camera.bottomClip, camera.nearClip, camera.farClip);
+        camera.effectiveFarClip = camera.farClip;
     }else if (camera.type == CameraType::CAMERA_ORTHO) {
         camera.projectionMatrix = Matrix4::orthoMatrix(camera.leftClip, camera.rightClip, camera.bottomClip, camera.topClip, camera.nearClip, camera.farClip);
+        camera.effectiveFarClip = camera.farClip;
     }else if (camera.type == CameraType::CAMERA_PERSPECTIVE){
-        Vector2 nearFar = getCameraNearFar(camera);
+        // Capping the projection is what makes the scene render distance a culling distance:
+        // the frustum planes are built from this matrix below, so the far plane moves in with
+        // it and geometry past it stops reaching the draw calls at all.
+        Vector2 nearFar = getRenderedNearFar(camera, scene->getEffectiveRenderDistance());
+        // a farClip of 0 is the culling tests' "no far plane" sentinel; capping it here would
+        // hand them a near-zero one instead
+        camera.effectiveFarClip = camera.farClip == 0.0f ? 0.0f : nearFar.y;
         camera.projectionMatrix = Matrix4::perspectiveMatrix(camera.yfov, camera.aspect, nearFar.x, nearFar.y);
     }
 
@@ -7572,7 +10100,17 @@ void RenderSystem::updatePoints(PointsComponent& points, Transform& transform, C
             renderPoint.size = points.points[i].size * worldScale;
             renderPoint.rotation = points.points[i].rotation;
             renderPoint.textureRect = points.points[i].textureRect;
+            renderPoint.particleVelocity = points.points[i].particleVelocity;
+            renderPoint.particleAcceleration = points.points[i].particleAcceleration;
+            renderPoint.particleSpawnTime = points.points[i].particleSpawnTime;
+            renderPoint.particleLife = points.points[i].particleLife;
             points.aabb.merge(renderPoint.position);
+            if (points.gpuSimulation){
+                const float life = std::max(0.0f, renderPoint.particleLife);
+                const Vector3 endPosition = renderPoint.position + renderPoint.particleVelocity * life +
+                    renderPoint.particleAcceleration * (0.5f * life * life);
+                points.aabb.merge(endPosition);
+            }
             points.numVisible++;
         }
     }
@@ -7782,12 +10320,12 @@ bool RenderSystem::isInsideCamera(const float cameraFar, const Plane frustumPlan
 }
 
 bool RenderSystem::isInsideCamera(CameraComponent& camera, const AABB& box){
-    return isInsideCamera(camera.farClip, camera.frustumPlanes, box);
+    return isInsideCamera(camera.effectiveFarClip, camera.frustumPlanes, box);
 }
 
 bool RenderSystem::isInsideCamera(CameraComponent& camera, const Vector3& point){
     for (int plane = 0; plane < 6; ++plane){
-        if (plane == FRUSTUM_PLANE_FAR && camera.farClip == 0)
+        if (plane == FRUSTUM_PLANE_FAR && camera.effectiveFarClip == 0)
             continue;
 
         if (camera.frustumPlanes[plane].getSide(point) == Plane::Side::NEGATIVE_SIDE){
@@ -7799,7 +10337,7 @@ bool RenderSystem::isInsideCamera(CameraComponent& camera, const Vector3& point)
 }
 
 bool RenderSystem::isInsideCamera(CameraComponent& camera, const Vector3& center, const float& radius){
-    return isInsideCamera(camera.farClip, camera.frustumPlanes, center, radius);
+    return isInsideCamera(camera.effectiveFarClip, camera.frustumPlanes, center, radius);
 }
 
 bool RenderSystem::isInsideCamera(const float cameraFar, const Plane frustumPlanes[6], const Vector3& center, const float& radius){
@@ -7832,6 +10370,8 @@ void RenderSystem::needReloadLines() {
 }
 
 void RenderSystem::needReloadMeshes() {
+    shadowAtlasContentDirty = true;
+    shadowPointAtlasContentDirty = true;
     auto meshes = scene->getComponentArray<MeshComponent>();
     for (int i = 0; i < meshes->size(); i++) {
         MeshComponent& mesh = meshes->getComponentFromIndex(i);
@@ -7887,8 +10427,14 @@ void RenderSystem::getLoadCount(size_t& loaded, size_t& total) const{
         const MeshComponent& mesh = meshes->getComponentFromIndex(i);
         // An empty tilemap never loads: loadMesh() has no buffers to create until a tile is added.
         if (!mesh.loaded) {
-            const TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(meshes->getEntity(i));
+            Entity meshEntity = meshes->getEntity(i);
+            const TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(meshEntity);
             if (tilemap && tilemap->numTiles == 0)
+                continue;
+            // Same reasoning for every other mesh that carries no data yet - there is no load
+            // waiting to finish, and counting it would keep isAllLoaded() false forever, which
+            // stops the editor from ever idling and holds the scene behind the loading gate.
+            if (!scene->findComponent<TerrainComponent>(meshEntity) && meshHasNothingToLoad(mesh))
                 continue;
         }
         count(mesh.loaded);
@@ -8062,12 +10608,27 @@ void RenderSystem::updateInstancedMesh(InstancedMeshComponent& instmesh, MeshCom
             bounds.radius = localRadius * bounds.scale;
             instmesh.renderBounds.push_back(bounds);
 
-            mesh.aabb.merge(instanceMatrix * mesh.verticesAABB);
+            // Not instanceMatrix * mesh.verticesAABB: that transforms eight corners, a full matrix
+            // multiply each, and it measured 0.2 us per instance - 26 ms a frame over the 30k of a
+            // grass scatter. The instance's circumradius contains its rotated box, so two point
+            // merges give a box that is looser but still conservative, and this box is only ever a
+            // reject test.
+            if (hasBounds){
+                const Vector3 corner(bounds.radius, bounds.radius, bounds.radius);
+                mesh.aabb.merge(bounds.center - corner);
+                mesh.aabb.merge(bounds.center + corner);
+            }
         }
     }
 
     mesh.needUpdateAABB = true;
     instanceViewsDirty = true;
+
+    // The circumradius merge above only bounds a finite box. An infinite verticesAABB is not a
+    // bound to transform but a standing "never cull me", which the old per-instance merge of an
+    // unchanged infinite box used to leave behind.
+    if (instmesh.numVisible > 0 && !hasBounds && mesh.verticesAABB.isInfinite())
+        mesh.aabb.setInfinite();
 
     if (mesh.loaded)
         instmesh.needUpdateBuffer = true;
@@ -8115,9 +10676,20 @@ Vector2 RenderSystem::getCameraNearFar(const CameraComponent& camera){
     return Vector2(nearClip, farClip);
 }
 
+Vector2 RenderSystem::getRenderedNearFar(const CameraComponent& camera, float renderDistance){
+    Vector2 nearFar = getCameraNearFar(camera);
+    // A capped far below the near would flip the projection, so the cap never bites that hard.
+    if (renderDistance <= 0.0f || camera.type != CameraType::CAMERA_PERSPECTIVE || camera.farClip == 0.0f)
+        return nearFar;
+    nearFar.y = std::min(nearFar.y, std::max(nearFar.x + 0.001f, renderDistance));
+    return nearFar;
+}
+
 void RenderSystem::configureLightShadowNearFar(LightComponent& light, const CameraComponent& camera){
     if (light.automaticShadowCamera){
-        Vector2 nearFar = getCameraNearFar(camera);
+        // Keep the shadow volume inside what is actually drawn: a far plane that reaches past
+        // the render distance would spread the same map over ground nothing shows.
+        Vector2 nearFar = getRenderedNearFar(camera, scene->getEffectiveRenderDistance());
         light.shadowCameraNearFar.x = nearFar.x;
         if (light.range == 0.0){
             light.shadowCameraNearFar.y = nearFar.y;
@@ -8185,6 +10757,23 @@ Matrix4 RenderSystem::getDirLightProjection(const Matrix4& viewMatrix, const Mat
     maxY += paddingY;
     minZ -= paddingZ;
     maxZ += paddingZ;
+
+    // Keep the orthographic projection locked to shadow texels. Without this
+    // quantisation, sub-pixel camera motion moves the whole cascade through the
+    // atlas and makes otherwise static shadows shimmer. The atlas slot is square
+    // for every directional cascade, so the same texel density applies to both
+    // light-space axes.
+    const unsigned int resolution = std::max(1u, shadowAtlasSlotResolution);
+    const float extentX = std::max(maxX - minX, 0.0001f);
+    const float extentY = std::max(maxY - minY, 0.0001f);
+    const float texelX = extentX / static_cast<float>(resolution);
+    const float texelY = extentY / static_cast<float>(resolution);
+    const float centerX = std::floor(((minX + maxX) * 0.5f) / texelX + 0.5f) * texelX;
+    const float centerY = std::floor(((minY + maxY) * 0.5f) / texelY + 0.5f) * texelY;
+    minX = centerX - extentX * 0.5f;
+    maxX = centerX + extentX * 0.5f;
+    minY = centerY - extentY * 0.5f;
+    maxY = centerY + extentY * 0.5f;
 
     return Matrix4::orthoMatrix(minX, maxX, minY, maxY, -maxZ, -minZ);
 }
@@ -8596,6 +11185,84 @@ void RenderSystem::updateSwapchainRedirect(){
                     && ensurePostProcessFramebuffers(w, h);
         }
 
+        // Bloom and the tone map read the scene color offscreen too. Without this branch the
+        // chain only ever runs in the editor or at a fixed resolution: an exported build draws
+        // straight to the swapchain, so a scene that asks for bloom would silently get none.
+        if (!redirect && scene->isHdrEnabled() && !scene->isSSREnabled()){
+            loadHDR();
+            redirect = hdrLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureHDRFramebuffers(w, h, scene->getBloomLevels());
+        }
+
+        // Depth of field reads the scene color and the depth pre-pass offscreen, so an
+        // exported build needs the same redirect. The blit carries its own result back
+        // into the scene color.
+        if (!redirect && scene->isDOFEnabled() && !scene->isSSREnabled()){
+            loadDOF();
+            loadBlit();
+            redirect = dofLoaded && blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureDOFFramebuffers(w, h) && ensureDepthPrePassFramebuffer(w, h);
+        }
+
+        // Height fog and light shafts read the scene color and the depth pre-pass exactly
+        // like DOF does, so they need the same redirect and the same blit to put the result
+        // back. SSR is excluded for the same reason: its composite writes the destination.
+        if (!redirect && atmosphereRequested() && !scene->isSSREnabled()){
+            loadAtmosphere();
+            loadBlit();
+            redirect = atmosphereLoaded && blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureAtmosphereFramebuffer(w, h) && ensureDepthPrePassFramebuffer(w, h);
+        }
+
+        if (!redirect && scene->isSSGIEnabled() && scene->getPostProcessPasses().empty()){
+            loadSSGI();
+            loadBlit();
+            redirect = ssgiLoaded && blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureSSGIFramebuffer(w, h, sceneColorHDR)
+                    && ensureDepthPrePassFramebuffer(w, h);
+        }
+
+        if (!redirect && scene->isContactShadowsEnabled() && !scene->isSSREnabled()
+                && scene->getPostProcessPasses().empty()){
+            loadContactShadows();
+            loadBlit();
+            redirect = contactShadowsLoaded && blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureContactShadowsFramebuffer(w, h, sceneColorHDR)
+                    && ensureDepthPrePassFramebuffer(w, h);
+        }
+
+        if (!redirect && !scene->isSSREnabled() &&
+                (scene->isTAAEnabled() || scene->isMotionBlurEnabled())){
+            loadTemporalEffects();
+            redirect = velocityLoaded && taaLoaded && motionBlurLoaded &&
+                ensureSceneColorFramebuffer(w, h) &&
+                ensureTemporalFramebuffers(w, h, w, h, sceneColorHDR) &&
+                ensureDepthPrePassFramebuffer(w, h);
+        }
+
+        // Projected decals sample the packed depth pre-pass and composite over
+        // the scene color. Exported/direct-swapchain runs need the same offscreen
+        // redirect as the other screen-space passes or the decal branch is never
+        // selected and the component is silently ignored.
+        if (!redirect && !scene->isSSREnabled()){
+            auto decals = scene->getComponentArray<DecalComponent>();
+            if (decals && decals->size() > 0){
+                loadBlit();
+                redirect = blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureDepthPrePassFramebuffer(w, h);
+            }
+        }
+
+        // FXAA runs on the finished image, so the scene has to be offscreen for it as well.
+        // The blit is required because a scene with no bloom, no tone map and no post chain
+        // still has to move its color buffer into the anti-aliased target.
+        if (!redirect && scene->isFXAAEnabled()){
+            loadBlit();
+            loadFXAA();
+            redirect = fxaaLoaded && blitLoaded && ensureSceneColorFramebuffer(w, h)
+                    && ensureFXAAFramebuffer(w, h);
+        }
+
         bool copyingWater = false;
         auto waters = scene->getComponentArray<WaterComponent>();
         for (int i = 0; i < waters->size(); i++){
@@ -8610,6 +11277,8 @@ void RenderSystem::updateSwapchainRedirect(){
 
     if (redirect != swapchainRedirect){
         swapchainRedirect = redirect;
+        taaHistoryValid = false;
+        previousViewProjectionValid = false;
         // the flip is baked in the MVP matrices
         scene->getComponent<CameraComponent>(scene->getRenderCamera()).needUpdate = true;
     }
@@ -8833,6 +11502,12 @@ void RenderSystem::update(double dt){
     uint16_t pipelines = getScenePipelines();
 
     hasMultipleCameras = false;
+    // The cap lives inside the projection, and a projection is only rebuilt when its camera is
+    // dirty - so moving the scene's render distance has to dirty them, or the distance would
+    // take effect only the next time something else moves the camera.
+    const float renderDistance = scene->getEffectiveRenderDistance();
+    const bool renderDistanceChanged = renderDistance != appliedRenderDistance;
+    appliedRenderDistance = renderDistance;
     for (int i = 0; i < cameras->size(); i++){
         CameraComponent& camera = cameras->getComponentFromIndex(i);
         Entity cameraEntity = cameras->getEntity(i);
@@ -8883,6 +11558,10 @@ void RenderSystem::update(double dt){
             hasMultipleCameras = true;
         }
 
+        if (renderDistanceChanged){
+            camera.needUpdate = true;
+        }
+
         if (cameraTransform.needUpdate){
             camera.needUpdate = true;
         }
@@ -8910,7 +11589,7 @@ void RenderSystem::update(double dt){
 
     updateMainLodView(mainCamera, mainCameraTransform);
     if (mainCamera.needUpdate){
-        instanceViewsDirty = true;
+        mainInstanceViewDirty = true;
     }
 
     // while extra cameras render, draw() rewrites the shared MVP and sky matrices
@@ -9014,14 +11693,36 @@ void RenderSystem::update(double dt){
 
     updateWaterExclusions();
 
+    // Read once for the whole scan: each of these is a guarded function-static plus a vector
+    // subscript, and this loop runs them for every entity in the scene every frame.
+    const ComponentId cidMesh = scene->getComponentId<MeshComponent>();
+    const ComponentId cidTilemap = scene->getComponentId<TilemapComponent>();
+    const ComponentId cidUI = scene->getComponentId<UIComponent>();
+    const ComponentId cidText = scene->getComponentId<TextComponent>();
+    const ComponentId cidPoints = scene->getComponentId<PointsComponent>();
+    const ComponentId cidLines = scene->getComponentId<LinesComponent>();
+    const ComponentId cidLight = scene->getComponentId<LightComponent>();
+    const ComponentId cidTerrain = scene->getComponentId<TerrainComponent>();
+    const ComponentId cidSound = scene->getComponentId<SoundComponent>();
+    const ComponentId cidModel = scene->getComponentId<ModelComponent>();
+    const ComponentId cidBone = scene->getComponentId<BoneComponent>();
+
     for (int i = 0; i < transforms->size(); i++){
         Transform& transform = transforms->getComponentFromIndex(i);
 
         Entity entity = transforms->getEntity(i);
         Signature signature = scene->getSignature(entity);
 
-        if (signature.test(scene->getComponentId<MeshComponent>())){
+        if (signature.test(cidMesh)){
             MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
+
+            // A resident shadow atlas is safe to reuse only while its casters and
+            // projection are stable. Loading/reloading a caster or rebuilding its
+            // bounds invalidates both atlas families.
+            if (mesh.castShadows && (transform.needUpdate || !mesh.loaded || mesh.needReload || mesh.needUpdateAABB)){
+                shadowAtlasContentDirty = true;
+                shadowPointAtlasContentDirty = true;
+            }
 
             TerrainComponent* terrain = scene->findComponent<TerrainComponent>(entity);
 
@@ -9039,8 +11740,12 @@ void RenderSystem::update(double dt){
                 bool sortTransparentInstances = mesh.transparent && batchSort;
 
                 const float cullEnd = instanceFadeCullEnd(*instmesh, mesh, *scene);
-                const bool eyeMoved = instmesh->fadeEyeLocal.x != instmesh->lastFadeCullEye.x ||
-                                      instmesh->fadeEyeLocal.z != instmesh->lastFadeCullEye.z;
+                // An exact compare rebuilds every scatter on any frame the camera moves, which is
+                // every frame while it walks. Only an eye move that can carry an instance across a
+                // boundary is worth that, and the boundary is a fade measured in tens of metres.
+                const float eyeTolerance = 0.02f * std::max(0.0f, std::max(cullEnd, cullNear));
+                const bool eyeMoved = std::abs(instmesh->fadeEyeLocal.x - instmesh->lastFadeCullEye.x) > eyeTolerance ||
+                                      std::abs(instmesh->fadeEyeLocal.z - instmesh->lastFadeCullEye.z) > eyeTolerance;
                 const bool fadeSelectionChanged = cullEnd != instmesh->lastFadeCullEnd || cullNear != instmesh->lastCullNear ||
                     ((cullEnd >= 0.0f || cullNear > 0.0f) && eyeMoved);
                 bool instancesNeedUpdate = instmesh->needUpdateInstances || mesh.needUpdateAABB ||
@@ -9171,8 +11876,28 @@ void RenderSystem::update(double dt){
             if (mesh.loaded && mesh.needReload){
                 destroyMesh(entity, mesh);
             }
-            if (!mesh.loadCalled){
-                loadMesh(entity, mesh, pipelines, instmesh, terrain);
+            // A terrain builds its buffers from the heightmap, so an empty terrain mesh is a load
+            // waiting on data rather than one with no data - keep retrying that one.
+            const bool nothingToLoad = !terrain && meshHasNothingToLoad(mesh);
+            if (!mesh.loadCalled && !nothingToLoad){
+                constexpr int STUCK_ATTEMPTS = 8;
+                constexpr int RETRY_FRAMES = 30;
+
+                if (mesh.loadRetryDelay > 0){
+                    mesh.loadRetryDelay--;
+                }else if (loadMesh(entity, mesh, pipelines, instmesh, terrain)){
+                    mesh.loadRetries = 0;
+                }else{
+                    // An async shader still compiling fails the same way, so the wait is paced
+                    // rather than abandoned - and a mesh that never loads says which it is.
+                    mesh.loadRetries++;
+                    if (mesh.loadRetries == STUCK_ATTEMPTS){
+                        Log::warn("Mesh of '%s' has failed to load %i times, retrying every %i frames",
+                                  scene->getEntityName(entity).c_str(), STUCK_ATTEMPTS, RETRY_FRAMES);
+                    }
+                    if (mesh.loadRetries >= STUCK_ATTEMPTS)
+                        mesh.loadRetryDelay = RETRY_FRAMES;
+                }
             }
             if (mesh.needUpdateAABB || transform.needUpdate){
                 // Bones cancel out this mesh's model matrix, so the shader draws at
@@ -9207,18 +11932,18 @@ void RenderSystem::update(double dt){
                 // Tilemap chunk bounds are refreshed with the mesh AABB: rebuilding a
                 // tilemap recalculates that AABB, and MeshSystem updates before this
                 // system, so new chunks are always current before draw().
-                if (signature.test(scene->getComponentId<TilemapComponent>())){
+                if (signature.test(cidTilemap)){
                     TilemapComponent& tilemap = scene->getComponent<TilemapComponent>(entity);
                     for (TilemapChunk& chunk : tilemap.chunks){
                         chunk.worldAABB = transform.modelMatrix * chunk.aabb;
                     }
                 }
             }
-        }else if (signature.test(scene->getComponentId<UIComponent>())){
+        }else if (signature.test(cidUI)){
             UIComponent& ui = scene->getComponent<UIComponent>(entity);
 
             bool isText = false;
-            if (signature.test(scene->getComponentId<TextComponent>())){
+            if (signature.test(cidText)){
                 isText = true;
             }
 
@@ -9245,7 +11970,7 @@ void RenderSystem::update(double dt){
                 ui.worldAABB = transform.modelMatrix * ui.aabb;
                 ui.needUpdateAABB = false;
             }
-        }else if (signature.test(scene->getComponentId<PointsComponent>())){
+        }else if (signature.test(cidPoints)){
             PointsComponent& points = scene->getComponent<PointsComponent>(entity);
 
             if (points.needUpdateTexture){
@@ -9291,7 +12016,7 @@ void RenderSystem::update(double dt){
             if (points.loaded){
                 points.needUpdate = false;
             }
-        }else if (signature.test(scene->getComponentId<LinesComponent>())){
+        }else if (signature.test(cidLines)){
             LinesComponent& lines = scene->getComponent<LinesComponent>(entity);
             if (lines.loaded && lines.needReload){
                 destroyLines(entity, lines);
@@ -9300,15 +12025,24 @@ void RenderSystem::update(double dt){
                 loadLines(entity, lines, pipelines);
             }
 
-        }else if (signature.test(scene->getComponentId<LightComponent>())){
+        }else if (signature.test(cidLight)){
             LightComponent& light = scene->getComponent<LightComponent>(entity);
 
             if (mainCamera.needUpdate || transform.needUpdate || light.needUpdateShadowCamera){
+                const bool shadowCameraDirty = transform.needUpdate || light.needUpdateShadowCamera ||
+                    (mainCamera.needUpdate && light.type == LightType::DIRECTIONAL);
                 // need to be updated ONLY for main camera
                 updateLightFromScene(light, transform, mainCamera, mainCameraTransform);
 
+                if (light.shadows && shadowCameraDirty){
+                    if (light.type == LightType::POINT){
+                        shadowPointAtlasContentDirty = true;
+                    }else{
+                        shadowAtlasContentDirty = true;
+                    }
+                }
                 light.needUpdateShadowCamera = false;
-                instanceViewsDirty = true;
+                shadowInstanceViewsDirty = true;
             }
         }
 
@@ -9322,13 +12056,13 @@ void RenderSystem::update(double dt){
             // Select the main camera's CDLOD cut (view 0) once per frame; both the
             // shadow depth pass and the main color pass use it. Render-to-texture
             // cameras select their own views (1..N-1) during draw().
-            if (signature.test(scene->getComponentId<TerrainComponent>())){
+            if (signature.test(cidTerrain)){
                 TerrainComponent& terrain = scene->getComponent<TerrainComponent>(entity);
 
                 updateTerrain(terrain, transform, mainCamera, mainCameraTransform, 0);
             }
             
-            if (signature.test(scene->getComponentId<SoundComponent>())){
+            if (signature.test(cidSound)){
                 SoundComponent& audio = scene->getComponent<SoundComponent>(entity);
 
                 audio.needUpdate = true;
@@ -9338,13 +12072,13 @@ void RenderSystem::update(double dt){
 
         if (transform.needUpdate){
 
-            if (signature.test(scene->getComponentId<ModelComponent>())){
+            if (signature.test(cidModel)){
                 ModelComponent& model = scene->getComponent<ModelComponent>(entity);
 
                 model.inverseDerivedTransform = transform.modelMatrix.inverse();
             }
 
-            if (signature.test(scene->getComponentId<BoneComponent>())){
+            if (signature.test(cidBone)){
                 BoneComponent& bone = scene->getComponent<BoneComponent>(entity);
 
                 if (bone.model != NULL_ENTITY && bone.index >= 0){
@@ -9391,6 +12125,8 @@ void RenderSystem::update(double dt){
     }
 
     processLights(numLights, mainCamera, mainCameraTransform);
+    updateClusteredLightGrid(mainCamera);
+    updateShadowPageTable();
     if (hasLights2D){
         processLights2D();
     }
@@ -9441,8 +12177,9 @@ void RenderSystem::draw(){
         auto meshes = scene->getComponentArray<MeshComponent>();
 
         // a projective slot has its own culled instance view; point faces draw everything
-        auto drawShadowCasters = [&](LightComponent& light, int cameraIndex, PipelineType pipelineType, int instanceView){
-            const LodView shadowLod = (instanceView >= 0) ? shadowLodView(light, cameraIndex, instanceView - 1) : LodView();
+        auto drawShadowCasters = [&](LightComponent& light, int cameraIndex, int tile, PipelineType pipelineType, int instanceView){
+            const LightCamera shadowCamera = shadowTileCamera(light, cameraIndex, tile);
+            const LodView shadowLod = (instanceView >= 0) ? shadowLodView(light, cameraIndex, instanceView - 1, tile) : LodView();
             const LodView* lodView = (instanceView >= 0) ? &shadowLod : nullptr;
 
             // skip casters that cannot shadow the main view (not when other cameras or probes
@@ -9464,17 +12201,20 @@ void RenderSystem::draw(){
                 }
 
                 InstancedMeshComponent* instmesh = scene->findComponent<InstancedMeshComponent>(entity);
-                TerrainComponent* terrain = scene->findComponent<TerrainComponent>(entity);
-                TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(entity);
 
+                // Culling a caster off its own AABB is the common outcome in a big scene, so the
+                // terrain/tilemap lookups wait until it is known the mesh really draws.
                 if (numReceiverPlanes > 0 && !transform->billboard && cullsBatch(mesh, instmesh) &&
                         !isInsidePlanes(receiverPlanes, numReceiverPlanes, mesh.worldAABB)){
                     continue;
                 }
 
+                TerrainComponent* terrain = scene->findComponent<TerrainComponent>(entity);
+                TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(entity);
+
                 vs_depth_t vsDepthParams;
                 if (transform->billboard && mesh.shadowsBillboard){
-                    Matrix4 modelViewMatrix = light.cameras[cameraIndex].lightViewMatrix * transform->modelMatrix;
+                    Matrix4 modelViewMatrix = shadowCamera.lightViewMatrix * transform->modelMatrix;
 
                     modelViewMatrix.set(0, 0, transform->worldScale.x);
                     modelViewMatrix.set(0, 1, 0.0);
@@ -9490,18 +12230,18 @@ void RenderSystem::draw(){
                     modelViewMatrix.set(2, 1, 0.0);
                     modelViewMatrix.set(2, 2, transform->worldScale.z);
 
-                    const Matrix4& projection = light.cameras[cameraIndex].lightProjectionMatrix;
+                    const Matrix4& projection = shadowCamera.lightProjectionMatrix;
                     vsDepthParams = {modelViewMatrix, projection, projection * modelViewMatrix};
                 }else{
-                    const Matrix4& lightVP = light.cameras[cameraIndex].lightViewProjectionMatrix;
+                    const Matrix4& lightVP = shadowCamera.lightViewProjectionMatrix;
                     vsDepthParams = {transform->modelMatrix, lightVP, lightVP * transform->modelMatrix};
                 }
 
                 drawMeshDepth(
                     mesh,
                     *transform,
-                    light.cameras[cameraIndex].nearFar.y,
-                    light.cameras[cameraIndex].frustumPlanes,
+                    shadowCamera.nearFar.y,
+                    shadowCamera.frustumPlanes,
                     vsDepthParams,
                     instmesh,
                     terrain,
@@ -9514,8 +12254,10 @@ void RenderSystem::draw(){
         };
 
         // All projective slots share one pass: clear once, then viewport/scissor per slot.
-        bool projectivePassStarted = false;
-        for (size_t l = 0; l < lights->size(); l++){
+        // Static scenes keep the resident atlas and skip this entire pass.
+        if (shadowAtlasContentDirty){
+            bool projectivePassStarted = false;
+            for (size_t l = 0; l < lights->size(); l++){
             LightComponent& light = lights->getComponentFromIndex(l);
             if (light.type == LightType::POINT ||
                 light.intensity <= 0 || !light.shadows ||
@@ -9526,32 +12268,39 @@ void RenderSystem::draw(){
             int numShadowCameras =
                 (light.type == LightType::DIRECTIONAL) ? (int)light.numShadowCascades : 1;
             for (int c = 0; c < numShadowCameras; c++){
-                int slotIndex = light.shadowMapIndex +
+                const int logicalPage = light.shadowMapIndex +
                     ((light.type == LightType::DIRECTIONAL) ? c : 0);
-                if (slotIndex < 0 || slotIndex >= shadowAtlasUsedSlots){
-                    continue;
-                }
+                for (int tile = 0; tile < SHADOW_VIRTUAL_PAGES_PER_MAP; tile++){
+                    const int virtualPage = shadowVirtualPageIndex(logicalPage, tile);
+                    const int slotIndex = (virtualPage >= 0 && virtualPage < MAX_SHADOW_VIRTUAL_PAGES) ?
+                        shadowVirtualToPhysical[virtualPage] : -1;
+                    if (slotIndex < 0 || slotIndex >= shadowAtlasUsedSlots)
+                        continue;
 
-                if (!projectivePassStarted){
-                    shadowAtlasPassRender.setClearDepth(1.0f);
-                    shadowAtlasPassRender.startRenderPass(&shadowAtlasFramebuffer);
-                    projectivePassStarted = true;
-                }
+                    if (!projectivePassStarted){
+                        shadowAtlasPassRender.setClearDepth(1.0f);
+                        shadowAtlasPassRender.startRenderPass(&shadowAtlasFramebuffer);
+                        projectivePassStarted = true;
+                    }
 
-                Rect slotRect = getShadowAtlasSlotRect(slotIndex);
-                shadowAtlasPassRender.applyViewport(slotRect);
-                shadowAtlasPassRender.applyScissor(slotRect);
-                passResolution = Vector2(slotRect.getWidth(), slotRect.getHeight());
-                drawShadowCasters(light, c, PIP_SHADOW_DEPTH, 1 + slotIndex);
+                    Rect slotRect = getShadowAtlasSlotRect(slotIndex);
+                    shadowAtlasPassRender.applyViewport(slotRect);
+                    shadowAtlasPassRender.applyScissor(slotRect);
+                    passResolution = Vector2(slotRect.getWidth(), slotRect.getHeight());
+                    drawShadowCasters(light, c, tile, PIP_SHADOW_DEPTH, 1 + slotIndex);
+                }
             }
-        }
-        if (projectivePassStarted){
-            shadowAtlasPassRender.endRenderPass();
+            }
+            if (projectivePassStarted){
+                shadowAtlasPassRender.endRenderPass();
+            }
+            shadowAtlasContentDirty = false;
         }
 
         // Point shadows keep the packed-color depth per-face pass (PIP_DEPTH).
-        bool pointAtlasSlotWritten = false;
-        for (size_t l = 0; l < lights->size(); l++){
+        if (shadowPointAtlasContentDirty){
+            bool pointAtlasSlotWritten = false;
+            for (size_t l = 0; l < lights->size(); l++){
             LightComponent& light = lights->getComponentFromIndex(l);
             if (light.type != LightType::POINT ||
                 light.intensity <= 0 || !light.shadows ||
@@ -9578,9 +12327,11 @@ void RenderSystem::draw(){
                 pointAtlasSlotWritten = true;
 
                 passResolution = Vector2(slotRect.getWidth(), slotRect.getHeight());
-                drawShadowCasters(light, c, PIP_DEPTH, -1);
+                drawShadowCasters(light, c, -1, PIP_DEPTH, -1);
                 shadowPointAtlasPassRender.endRenderPass();
             }
+            }
+            shadowPointAtlasContentDirty = false;
         }
     }
 
@@ -9689,6 +12440,10 @@ void RenderSystem::draw(){
         fs_lighting = mainLighting;
         if (!isMainCamera){
             applyViewLights(cameraTransform.worldPosition);
+            // The grid is built for the main camera. Render-to-texture/reflection
+            // views keep the compatibility light selection until their own grid
+            // becomes available, rather than sampling the main view's culling.
+            fs_lighting.clusterDepth.w = 0.0f;
         }
 
         int terrainView = 0;
@@ -9772,6 +12527,101 @@ void RenderSystem::draw(){
             }
         }
 
+        // HDR chain (bloom, then tone map) reads the scene color offscreen. SSR feeds
+        // this target through its dedicated HDR-safe composite framebuffer.
+        bool useHDR = false;
+        FramebufferRender* hdrDestination = nullptr;
+        if (isMainCamera && scene->isHdrEnabled() && !useSSR &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            loadHDR();
+            unsigned int hw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int hh = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                hw = fixedResWidth;
+                hh = fixedResHeight;
+            }
+            if (hdrLoaded && ensureSceneColorFramebuffer(hw, hh) &&
+                    ensureHDRFramebuffers(hw, hh, scene->getBloomLevels())){
+                useHDR = true;
+            }
+        }
+
+        bool useContactShadows = false;
+        bool useSSGI = false;
+        bool useTAA = false;
+        bool useTAAU = false;
+        bool useMotionBlur = false;
+        if (isMainCamera && !useSSR && (scene->isTAAEnabled() || scene->isMotionBlurEnabled()) &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            loadTemporalEffects();
+            unsigned int tw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int th = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                tw = fixedResWidth;
+                th = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                tw = camera.framebuffer->getWidth();
+                th = camera.framebuffer->getHeight();
+            }
+            unsigned int temporalOutputWidth = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int temporalOutputHeight = (unsigned int)Engine::getViewRect().getHeight();
+            if (camera.renderToTexture && camera.framebuffer){
+                temporalOutputWidth = camera.framebuffer->getWidth();
+                temporalOutputHeight = camera.framebuffer->getHeight();
+            }
+            const bool wantsTAAU = useFixedRes && scene->isTAAEnabled();
+            if (velocityLoaded && taaLoaded && motionBlurLoaded && ensureSceneColorFramebuffer(tw, th) &&
+                    ensureTemporalFramebuffers(tw, th,
+                        wantsTAAU ? temporalOutputWidth : tw,
+                        wantsTAAU ? temporalOutputHeight : th, sceneColorHDR)){
+                useTAAU = wantsTAAU;
+                useTAA = scene->isTAAEnabled() && !useTAAU;
+                useMotionBlur = scene->isMotionBlurEnabled();
+            }
+        }
+
+        if (isMainCamera && scene->isContactShadowsEnabled() &&
+                scene->getPostProcessPasses().empty() &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            loadContactShadows();
+            loadBlit();
+            unsigned int cw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int ch = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                cw = fixedResWidth;
+                ch = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                cw = camera.framebuffer->getWidth();
+                ch = camera.framebuffer->getHeight();
+            }
+            if (contactShadowsLoaded && blitLoaded && ensureSceneColorFramebuffer(cw, ch) &&
+                    ensureContactShadowsFramebuffer(cw, ch, sceneColorHDR)){
+                useContactShadows = true;
+            }
+        }
+
+        if (isMainCamera && scene->isSSGIEnabled() &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            loadSSGI();
+            loadBlit();
+            unsigned int sw = useSSR ? ssrWidth : (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int sh = useSSR ? ssrHeight : (unsigned int)Engine::getViewRect().getHeight();
+            if (usePostProcess){
+                sw = postProcessWidth;
+                sh = postProcessHeight;
+            }
+            if (useFixedRes){
+                sw = fixedResWidth;
+                sh = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                sw = camera.framebuffer->getWidth();
+                sh = camera.framebuffer->getHeight();
+            }
+            const bool ssgiHDRTarget = useHDR && !usePostProcess && sceneColorHDR;
+            if (ssgiLoaded && blitLoaded && ensureSSGIFramebuffer(sw, sh, ssgiHDRTarget))
+                useSSGI = true;
+        }
+
         // Screen-space AO is produced once for the main camera before its color pass.
         // When SSR is active its G-buffer already holds the camera depth (color[0]), so
         // SSAO reuses it instead of running a second geometry pre-pass. Other cameras
@@ -9807,6 +12657,177 @@ void RenderSystem::draw(){
             }
         }
 
+        // Depth of field (main camera only). It needs the scene color in an offscreen
+        // buffer and a depth source, and it is decided after SSAO and the water pre-pass
+        // so it can reuse the depth they already drew instead of paying for a third one.
+        // SSR is excluded: its composite writes the destination, not the scene color.
+        bool useDOF = false;
+        TextureRender* dofDepthTexture = nullptr;
+        TextureRender* temporalDepthTexture = nullptr;
+        TextureRender* contactDepthTexture = nullptr;
+        TextureRender* ssgiDepthTexture = nullptr;
+        if (isMainCamera && useContactShadows && !useSSR && !depthPrePassRendered){
+            unsigned int cw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int ch = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                cw = fixedResWidth;
+                ch = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                cw = camera.framebuffer->getWidth();
+                ch = camera.framebuffer->getHeight();
+            }
+            if (ensureDepthPrePassFramebuffer(cw, ch))
+                renderDepthPrePass(camera);
+        }
+        if (isMainCamera && useContactShadows && useSSR)
+            contactDepthTexture = &gbufferFramebuffer.getRender().getColorAttachmentTexture(0);
+        else if (isMainCamera && useContactShadows && depthPrePassRendered)
+            contactDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+        if (isMainCamera && useSSGI && !useSSR && !depthPrePassRendered){
+            unsigned int sw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int sh = (unsigned int)Engine::getViewRect().getHeight();
+            if (usePostProcess){
+                sw = postProcessWidth;
+                sh = postProcessHeight;
+            }else if (useFixedRes){
+                sw = fixedResWidth;
+                sh = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                sw = camera.framebuffer->getWidth();
+                sh = camera.framebuffer->getHeight();
+            }
+            if (ensureDepthPrePassFramebuffer(sw, sh))
+                renderDepthPrePass(camera);
+        }
+        if (isMainCamera && useSSGI){
+            if (useSSR)
+                ssgiDepthTexture = &gbufferFramebuffer.getRender().getColorAttachmentTexture(0);
+            else if (depthPrePassRendered)
+                ssgiDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+        }
+        if (isMainCamera && (useTAA || useTAAU || useMotionBlur) && !depthPrePassRendered){
+            unsigned int tw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int th = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                tw = fixedResWidth;
+                th = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                tw = camera.framebuffer->getWidth();
+                th = camera.framebuffer->getHeight();
+            }
+            if (ensureDepthPrePassFramebuffer(tw, th))
+                renderDepthPrePass(camera);
+        }
+        if (isMainCamera && (useTAA || useTAAU || useMotionBlur) && depthPrePassRendered)
+            temporalDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+        if (isMainCamera && scene->isDOFEnabled() && !useSSR &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            unsigned int dw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int dh = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                dw = fixedResWidth;
+                dh = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                dw = camera.framebuffer->getWidth();
+                dh = camera.framebuffer->getHeight();
+            }else if (Engine::getFramebuffer()){
+                dw = (unsigned int)Engine::getFramebuffer()->getWidth();
+                dh = (unsigned int)Engine::getFramebuffer()->getHeight();
+            }
+
+            loadDOF();
+            if (dofLoaded && ensureSceneColorFramebuffer(dw, dh) && ensureDOFFramebuffers(dw, dh)){
+                if (depthPrePassRendered){
+                    dofDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+                    useDOF = ssaoDepthFramebuffer.isCreated();
+                }else if (ensureDepthPrePassFramebuffer(dw, dh)){
+                    renderDepthPrePass(camera);
+                    dofDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+                    useDOF = depthPrePassRendered;
+                }
+            }
+        }
+
+        // Atmosphere (main camera only) reads the same two offscreen buffers, so it is decided
+        // after DOF and reuses the depth DOF may just have forced.
+        bool useAtmosphere = false;
+        TextureRender* atmosphereDepthTexture = dofDepthTexture;
+        if (isMainCamera && !useSSR && atmosphereRequested() &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            unsigned int aw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int ah = (unsigned int)Engine::getViewRect().getHeight();
+            if (useFixedRes){
+                aw = fixedResWidth;
+                ah = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                aw = camera.framebuffer->getWidth();
+                ah = camera.framebuffer->getHeight();
+            }else if (Engine::getFramebuffer()){
+                aw = (unsigned int)Engine::getFramebuffer()->getWidth();
+                ah = (unsigned int)Engine::getFramebuffer()->getHeight();
+            }
+
+            loadAtmosphere();
+            loadBlit();
+            if (atmosphereLoaded && blitLoaded && ensureSceneColorFramebuffer(aw, ah)
+                    && ensureAtmosphereFramebuffer(aw, ah)){
+                if (!atmosphereDepthTexture && ensureDepthPrePassFramebuffer(aw, ah)){
+                    renderDepthPrePass(camera);
+                    if (depthPrePassRendered)
+                        atmosphereDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+                }
+                useAtmosphere = atmosphereDepthTexture != nullptr;
+            }
+        }
+
+        // Decals share the packed opaque depth with the other screen-space passes.
+        // They are deliberately scheduled before post-processing so their albedo is
+        // graded, bloomed and tone-mapped together with the receiver.
+        bool useDecals = false;
+        TextureRender* decalDepthTexture = nullptr;
+        auto decals = scene->getComponentArray<DecalComponent>();
+        if (isMainCamera && decals && decals->size() > 0 &&
+                (Engine::getFramebuffer() || camera.renderToTexture || useFixedRes || swapchainRedirect)){
+            unsigned int dw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int dh = (unsigned int)Engine::getViewRect().getHeight();
+            if (useSSR){
+                dw = ssrWidth;
+                dh = ssrHeight;
+            }else if (usePostProcess){
+                dw = postProcessWidth;
+                dh = postProcessHeight;
+            }else if (useFixedRes){
+                dw = fixedResWidth;
+                dh = fixedResHeight;
+            }else if (camera.renderToTexture && camera.framebuffer){
+                dw = camera.framebuffer->getWidth();
+                dh = camera.framebuffer->getHeight();
+            }else if (Engine::getFramebuffer()){
+                dw = (unsigned int)Engine::getFramebuffer()->getWidth();
+                dh = (unsigned int)Engine::getFramebuffer()->getHeight();
+            }
+
+            if (!useSSR && !depthPrePassRendered && ensureDepthPrePassFramebuffer(dw, dh))
+                renderDepthPrePass(camera);
+            if (useSSR)
+                decalDepthTexture = &gbufferFramebuffer.getRender().getColorAttachmentTexture(0);
+            else if (depthPrePassRendered)
+                decalDepthTexture = &ssaoDepthFramebuffer.getRender().getColorTexture();
+
+            bool decalColorReady = false;
+            if (useSSR)
+                decalColorReady = sceneColorFramebuffer.isCreated();
+            else if (usePostProcess)
+                decalColorReady = postProcessFramebuffer[0].isCreated();
+            else if (useFixedRes)
+                decalColorReady = fixedResFramebuffer.isCreated();
+            else
+                decalColorReady = ensureSceneColorFramebuffer(dw, dh);
+
+            loadDecals(sceneColorHDR && !usePostProcess && !useFixedRes);
+            useDecals = decalColorReady && decalsLoaded && decalDepthTexture != nullptr;
+        }
+
         // the waters this pass draws: transparencies across them go before them, the rest after
         std::vector<WaterRenderData> passWaters;
         std::vector<TransparentRenderData> afterWaterRenders; // in submission order
@@ -9835,9 +12856,42 @@ void RenderSystem::draw(){
         const bool useSceneTarget = isMainCamera && swapchainRedirect && !useSSR && !usePostProcess
                 && !camera.renderToTexture && sceneColorFramebuffer.isCreated();
 
+        // the HDR chain reads the scene color, so it needs the same redirect the
+        // swapchain blit uses - but it presents the finished image itself
+        const bool colorToSceneTarget = useSceneTarget || useHDR || useContactShadows || useSSGI || useTAA || useTAAU || useMotionBlur || useDecals;
+
+        // FXAA is the last stage of the frame: the pass that would have presented is
+        // redirected into fxaaFramebuffer and only the anti-aliased result reaches the real
+        // destination. That needs the finished image in a texture, so it is available whenever
+        // an offscreen stage already ran - not when the color pass draws straight into the
+        // headless capture framebuffer or a render-to-texture camera with nothing after it.
+        bool useFXAA = false;
+        FramebufferRender* fxaaSource = nullptr;
+        if (isMainCamera && scene->isFXAAEnabled() &&
+                (useSSR || usePostProcess || useHDR || useContactShadows || useSSGI || useTAA || useTAAU || useMotionBlur || useFixedRes || useSceneTarget || useDOF || useAtmosphere || useDecals)){
+            unsigned int fw = (unsigned int)Engine::getViewRect().getWidth();
+            unsigned int fh = (unsigned int)Engine::getViewRect().getHeight();
+            if (camera.renderToTexture && camera.framebuffer){
+                fw = camera.framebuffer->getWidth();
+                fh = camera.framebuffer->getHeight();
+            }else if (Engine::getFramebuffer()){
+                fw = (unsigned int)Engine::getFramebuffer()->getWidth();
+                fh = (unsigned int)Engine::getFramebuffer()->getHeight();
+            }
+            loadFXAA();
+            useFXAA = fxaaLoaded && ensureFXAAFramebuffer(fw, fh);
+            if (useFXAA){
+                // where the anti-aliased image goes when no offscreen stage captured one
+                if (camera.renderToTexture && camera.framebuffer)
+                    fxaaSource = &camera.framebuffer->getRender();
+                else if (Engine::getFramebuffer())
+                    fxaaSource = &Engine::getFramebuffer()->getRender();
+            }
+        }
+
         // whether this camera's color pass targets an offscreen framebuffer
         // (selects PIP_RTT pipelines and flipped rendering on GL)
-        bool offscreenTarget = camera.renderToTexture || Engine::getFramebuffer() || useFixedRes || useSSR || usePostProcess || useSceneTarget;
+        bool offscreenTarget = camera.renderToTexture || Engine::getFramebuffer() || useFixedRes || useSSR || usePostProcess || colorToSceneTarget;
         PipelineType colorPip = colorPipeline(camera, offscreenTarget);
         bool distanceSort = sortsByDistance(camera);
 
@@ -9865,7 +12919,7 @@ void RenderSystem::draw(){
         // the offscreen framebuffer the pass draws into, null for the swapchain
         Framebuffer* colorTarget = nullptr;
 
-        if (useSSR || usePostProcess){
+        if (useSSR || usePostProcess || useHDR || useContactShadows || useSSGI || useTAA || useTAAU || useMotionBlur || useDecals){
             // capture the real destination for the composite / post-process chain, then
             // redirect the scene into the offscreen color buffer
             FramebufferRender* destination = nullptr;
@@ -9883,6 +12937,15 @@ void RenderSystem::draw(){
                 destination = &Engine::getFramebuffer()->getRender();
             }
 
+            // FXAA presents after the chain, so the chain leaves its finished image in
+            // fxaaFramebuffer and only the anti-aliased result reaches the destination. With a
+            // fixed resolution the upscale is the last stage instead, and it is what runs into
+            // the AA target - so the chain keeps writing the fixed-size buffer.
+            if (useFXAA && !useFixedRes){
+                fxaaSource = destination;
+                destination = &fxaaFramebuffer.getRender();
+            }
+
             // the chain samples its input, so whatever runs before it writes the first
             // ping-pong buffer and the chain writes the real destination
             if (usePostProcess){
@@ -9892,12 +12955,27 @@ void RenderSystem::draw(){
                 ssrDestination = destination;
             }
 
+            // the tone map ends the chain at the real destination, so the post-process
+            // chain hands it the scene color instead of presenting it
+            if (useHDR){
+                if (usePostProcess){
+                    postDestination = &sceneColorFramebuffer.getRender();
+                }
+                hdrDestination = destination;
+            }
+
             if (useSSR){
                 colorPassViewport = Rect(0, 0, (float)ssrWidth, (float)ssrHeight);
                 colorTarget = &sceneColorFramebuffer;
-            }else{
+            }else if (usePostProcess){
                 colorPassViewport = Rect(0, 0, (float)postProcessWidth, (float)postProcessHeight);
                 colorTarget = &postProcessFramebuffer[0];
+            }else if (useFixedRes && useDecals){
+                colorPassViewport = Rect(0, 0, (float)fixedResWidth, (float)fixedResHeight);
+                colorTarget = &fixedResFramebuffer;
+            }else{
+                colorPassViewport = Rect(0, 0, (float)sceneColorFramebuffer.getWidth(), (float)sceneColorFramebuffer.getHeight());
+                colorTarget = &sceneColorFramebuffer;
             }
             camera.render.startRenderPass(&colorTarget->getRender());
             camera.render.applyViewport(colorPassViewport);
@@ -9949,12 +13027,26 @@ void RenderSystem::draw(){
         // only lists them for the depth prepass
         std::vector<OpaqueRenderData> opaqueRenders;
         if (distanceSort || depthPrepass){
+            // Worst case is one entry per drawable, and without this the list reallocs and
+            // copies itself ~10 times over in a 1000-entity scene.
+            opaqueRenders.reserve(transforms->size());
+
+            const ComponentId meshId = scene->getComponentId<MeshComponent>();
+            const ComponentId cameraId = scene->getComponentId<CameraComponent>();
+
             for (int i = 0; i < transforms->size(); i++){
                 Transform& transform = transforms->getComponentFromIndex(i);
                 Entity entity = transforms->getEntity(i);
                 Signature signature = scene->getSignature(entity);
 
-                if (!signature.test(scene->getComponentId<MeshComponent>()) || signature.test(scene->getComponentId<CameraComponent>())){
+                if (signature.test(cameraId)){
+                    continue;
+                }
+
+                // The signature bit and the array entry are kept together, so asking the array
+                // for the mesh tests the bit and hands back the pointer in one lookup.
+                MeshComponent* mesh = scene->findComponent<MeshComponent>(entity);
+                if (!mesh || !signature.test(meshId)){
                     continue;
                 }
 
@@ -9962,8 +13054,8 @@ void RenderSystem::draw(){
                     updateMVP(i, transform, camera, cameraTransform);
                 }
 
-                MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
-                if (!transform.visible || samplesCameraTarget(camera, mesh)){
+                MeshComponent& m = *mesh;
+                if (!transform.visible || samplesCameraTarget(camera, m)){
                     continue;
                 }
 
@@ -9974,12 +13066,12 @@ void RenderSystem::draw(){
                 }
                 TilemapComponent* tilemap = scene->findComponent<TilemapComponent>(entity);
 
-                if (!mesh.transparent){
-                    const float distance = mesh.worldAABB.isNull() ? 0.0f : mesh.worldAABB.squaredDistance(cameraTransform.worldPosition);
-                    opaqueRenders.push_back({entity, &mesh, instmesh, terrain, tilemap, &transform, distance});
+                if (!m.transparent){
+                    const float distance = m.worldAABB.isNull() ? 0.0f : m.worldAABB.squaredDistance(cameraTransform.worldPosition);
+                    opaqueRenders.push_back({entity, mesh, instmesh, terrain, tilemap, &transform, distance});
                 }else if (distanceSort){
-                    auto& renders = isBehindWater(passWaters, mesh.worldAABB) ? behindWaterRenders : transparentRenders;
-                    renders.push({TransparentRenderType::MESH, entity, &mesh, nullptr, instmesh, terrain, tilemap, &transform, transform.distanceToCamera});
+                    auto& renders = isBehindWater(passWaters, m.worldAABB) ? behindWaterRenders : transparentRenders;
+                    renders.push({TransparentRenderType::MESH, entity, mesh, nullptr, instmesh, terrain, tilemap, &transform, transform.distanceToCamera});
                 }
             }
 
@@ -10003,7 +13095,7 @@ void RenderSystem::draw(){
                 if ((sceneColorFork || !opaque.mesh->customShader.empty()) && opaque.mesh->customDepthShader.empty())
                     continue;
                 vs_depth_t params = {opaque.transform->modelMatrix, renderVP, opaque.transform->modelViewProjectionMatrix};
-                drawMeshDepth(*opaque.mesh, *opaque.transform, camera.farClip, camera.frustumPlanes, params, opaque.instmesh, opaque.terrain, opaque.tilemap, true, prepassPip, instanceView, lodView);
+                drawMeshDepth(*opaque.mesh, *opaque.transform, camera.effectiveFarClip, camera.frustumPlanes, params, opaque.instmesh, opaque.terrain, opaque.tilemap, true, prepassPip, instanceView, lodView);
             }
         }
 
@@ -10027,16 +13119,27 @@ void RenderSystem::draw(){
             }
         }
 
+        // The id of each type this scan branches on, read once instead of once per entity:
+        // every one of them is a guarded static plus a vector subscript.
+        const ComponentId cidCamera = scene->getComponentId<CameraComponent>();
+        const ComponentId cidMesh = scene->getComponentId<MeshComponent>();
+        const ComponentId cidUILayout = scene->getComponentId<UILayoutComponent>();
+        const ComponentId cidImage = scene->getComponentId<ImageComponent>();
+        const ComponentId cidUI = scene->getComponentId<UIComponent>();
+        const ComponentId cidText = scene->getComponentId<TextComponent>();
+        const ComponentId cidPoints = scene->getComponentId<PointsComponent>();
+        const ComponentId cidLines = scene->getComponentId<LinesComponent>();
+
         for (int i = 0; i < transforms->size(); i++){
             Transform& transform = transforms->getComponentFromIndex(i);
             Entity entity = transforms->getEntity(i);
             Signature signature = scene->getSignature(entity);
 
-            if (signature.test(scene->getComponentId<CameraComponent>())){
+            if (signature.test(cidCamera)){
                 continue;
             }
 
-            if (distanceSort && signature.test(scene->getComponentId<MeshComponent>())){
+            if (distanceSort && signature.test(cidMesh)){
                 continue; // drawn above
             }
 
@@ -10045,7 +13148,7 @@ void RenderSystem::draw(){
             }
 
             // apply scissor on UI
-            if (signature.test(scene->getComponentId<UILayoutComponent>())){
+            if (signature.test(cidUILayout)){
                 UILayoutComponent& layout = scene->getComponent<UILayoutComponent>(entity);
 
                 Rect parentScissor;
@@ -10053,7 +13156,7 @@ void RenderSystem::draw(){
 
                 if (transform.parent != NULL_ENTITY){
                     Signature parentSignature = scene->getSignature(transform.parent);
-                    if (parentSignature.test(scene->getComponentId<UILayoutComponent>())){
+                    if (parentSignature.test(cidUILayout)){
                         UILayoutComponent& parentLayout = scene->getComponent<UILayoutComponent>(transform.parent);
 
                         parentScissorActive = parentLayout.scissorActive;
@@ -10082,7 +13185,7 @@ void RenderSystem::draw(){
                     }
                 }
 
-                if (signature.test(scene->getComponentId<ImageComponent>())){
+                if (signature.test(cidImage)){
                     ImageComponent& img = scene->getComponent<ImageComponent>(entity);
 
                     layout.scissor = getScissorRect(layout, img, transform, colorPassViewport);
@@ -10097,7 +13200,7 @@ void RenderSystem::draw(){
                     continue;
             }
 
-            if (signature.test(scene->getComponentId<MeshComponent>())){
+            if (signature.test(cidMesh)){
                 MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
 
                 if (transform.visible && !samplesCameraTarget(camera, mesh)){
@@ -10132,17 +13235,17 @@ void RenderSystem::draw(){
                     }
                 }
 
-            }else if (signature.test(scene->getComponentId<UIComponent>())){
+            }else if (signature.test(cidUI)){
                 UIComponent& ui = scene->getComponent<UIComponent>(entity);
 
                 bool isText = false;
-                if (signature.test(scene->getComponentId<TextComponent>())){
+                if (signature.test(cidText)){
                     isText = true;
                 }
                 if (transform.visible && !samplesCameraTarget(camera, ui.texture))
                     drawUI(ui, transform, colorPip);
 
-            }else if (signature.test(scene->getComponentId<PointsComponent>())){
+            }else if (signature.test(cidPoints)){
                 PointsComponent& points = scene->getComponent<PointsComponent>(entity);
 
                 // Per-camera sorting is intentionally NOT done here: the points buffer is
@@ -10166,7 +13269,7 @@ void RenderSystem::draw(){
                     }
                 }
 
-            }else if (signature.test(scene->getComponentId<LinesComponent>())){
+            }else if (signature.test(cidLines)){
                 LinesComponent& lines = scene->getComponent<LinesComponent>(entity);
 
                 if (transform.visible)
@@ -10262,6 +13365,56 @@ void RenderSystem::draw(){
 
         passRender->endRenderPass();
 
+        if (useDecals && decalDepthTexture){
+            const double started = Engine::getSystemTime();
+            renderDecals(camera, colorTarget, decalDepthTexture);
+            Engine::addSystemStats("decals", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
+        if (useSSGI && ssgiDepthTexture){
+            const double started = Engine::getSystemTime();
+            renderSSGI(camera, colorTarget, ssgiDepthTexture);
+            Engine::addSystemStats("ssgi", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
+        // DOF: blur the offscreen scene color and put it back, so the stages below - the
+        // scene-target blit, the post-process chain, the tone map, the upscale and FXAA -
+        // all read the blurred image without knowing this ran.
+        if (useDOF){
+            const double started = Engine::getSystemTime();
+            renderDOF(camera, colorTarget, dofDepthTexture);
+            Engine::addSystemStats("dof", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
+        // Atmosphere: fog the whole frame along the view ray, then light shafts. It runs
+        // with DOF because both are already finished, and before everything that follows
+        // because its in-scatter has to be tone mapped with the scene it lights.
+        if (useAtmosphere){
+            const double started = Engine::getSystemTime();
+            renderAtmosphere(camera, cameraTransform, colorTarget, atmosphereDepthTexture);
+            Engine::addSystemStats("atmosphere", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
+        if (useContactShadows && contactDepthTexture){
+            const double started = Engine::getSystemTime();
+            renderContactShadows(camera, cameraTransform, colorTarget, contactDepthTexture);
+            Engine::addSystemStats("contactShadows", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
+        if (useTAA && temporalDepthTexture){
+            const double started = Engine::getSystemTime();
+            renderTAA(camera, colorTarget, temporalDepthTexture);
+            Engine::addSystemStats("taa", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }else if (useMotionBlur && temporalDepthTexture){
+            // Motion blur still needs the velocity pass when TAA is disabled.
+            renderVelocity(camera, temporalDepthTexture);
+        }
+        if (useMotionBlur && temporalDepthTexture){
+            const double started = Engine::getSystemTime();
+            renderMotionBlur(colorTarget, temporalDepthTexture);
+            Engine::addSystemStats("motionBlur", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
         // SSR: march the offscreen scene color and composite reflections into the
         // real destination (the swapchain or the captured framebuffer). After a scene
         // copy it was composited already, and only the finished pass is left to present.
@@ -10270,13 +13423,34 @@ void RenderSystem::draw(){
                 const Rect viewport = Engine::getViewRect();
                 renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), ssrDestination, ssrDestination ? nullptr : &viewport);
             }else{
-                renderSSR(camera, ssrDestination);
+                renderSSR(camera, ssrDestination, useHDR && !usePostProcess);
             }
         }
 
-        if (useSceneTarget){
-            const Rect viewport = Engine::getViewRect();
-            renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), nullptr, &viewport);
+        if (useSceneTarget && !useHDR){
+            if (useFXAA){
+                // FXAA reads the whole target, so the scene moves into it 1:1
+                renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), &fxaaFramebuffer.getRender(), nullptr);
+            }else{
+                const Rect viewport = Engine::getViewRect();
+                renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), nullptr, &viewport);
+            }
+        }
+
+        if ((useTAA || useMotionBlur) && !useSceneTarget && !useSSR && !usePostProcess && !useHDR && !useFixedRes){
+            FramebufferRender* temporalDestination = nullptr;
+            if (camera.renderToTexture && camera.framebuffer)
+                temporalDestination = &camera.framebuffer->getRender();
+            else if (Engine::getFramebuffer())
+                temporalDestination = &Engine::getFramebuffer()->getRender();
+            if (useFXAA)
+                temporalDestination = &fxaaFramebuffer.getRender();
+            if (temporalDestination){
+                renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), temporalDestination, nullptr);
+            }else{
+                const Rect viewport = Engine::getViewRect();
+                renderBlit(&sceneColorFramebuffer.getRender().getColorTexture(), nullptr, &viewport);
+            }
         }
 
         // buffer 0 now holds the scene color (or the SSR composite)
@@ -10284,11 +13458,58 @@ void RenderSystem::draw(){
             renderPostProcess(postDestination);
         }
 
+        // bloom over the scene color, then the tone map to the real destination
+        if (useHDR){
+            renderHDR(hdrDestination);
+        }
+
+        // TAAU reconstructs the native view from the finished fixed-resolution image. It
+        // deliberately runs after post-processing and tone mapping so the history stores the
+        // exact image the player sees, while velocity and depth remain on the input grid.
+        if (useTAAU && temporalDepthTexture){
+            const double started = Engine::getSystemTime();
+            Framebuffer* temporalSource = (usePostProcess || useHDR)
+                ? &fixedResFramebuffer : &sceneColorFramebuffer;
+            renderTAA(camera, temporalSource, temporalDepthTexture, false);
+            Engine::addSystemStats("taau", (Engine::getSystemTime() - started) * 1000.0, 2);
+        }
+
         // Fixed game resolution: upscale the offscreen scene color to the view
         // rect of the real destination. Layer scenes draw after this (load
         // action), so overlaid UI scenes stay at native resolution.
         if (useFixedRes){
-            renderFixedResolutionBlit();
+            if (useTAAU && taaHistoryValid){
+                FramebufferRender* taaDestination = nullptr;
+                if (useFXAA){
+                    taaDestination = &fxaaFramebuffer.getRender();
+                }else if (Engine::getFramebuffer()){
+                    if (!Engine::getFramebuffer()->isCreated())
+                        Engine::getFramebuffer()->create();
+                    taaDestination = &Engine::getFramebuffer()->getRender();
+                }
+
+                TextureRender* history =
+                    &taaHistoryFramebuffers[taaHistoryIndex].getRender().getColorTexture();
+                if (taaDestination){
+                    renderBlit(history, taaDestination, nullptr);
+                }else{
+                    const Rect viewport = Engine::getViewRect();
+                    renderBlit(history, nullptr, &viewport);
+                }
+            }else{
+                renderFixedResolutionBlit(useFXAA ? &fxaaFramebuffer.getRender() : nullptr);
+            }
+        }
+
+        // Anti-aliasing last: it has to see the image at the size it is presented at,
+        // and its own output is what the viewer gets.
+        if (useFXAA){
+            renderFXAA(fxaaSource);
+        }
+
+        if (isMainCamera){
+            previousViewProjection = camera.viewProjectionMatrix;
+            previousViewProjectionValid = true;
         }
 
     }
@@ -10308,19 +13529,19 @@ void RenderSystem::draw(){
             shaderCliArgs = " --shader \"<shader-spec>\"";
         }
 
-        const std::string shaderCommand = "doriax-editor shaders --out \"" + shaderOutputDir + "\" --backend " + shaderBackend + shaderCliArgs;
+        const std::string shaderCommand = "quantum-editor shaders --out \"" + shaderOutputDir + "\" --backend " + shaderBackend + shaderCliArgs;
 
         Log::verbose(
             "\n"
             "-------------------\n"
-            "Doriax is missing precompiled shaders in:\n"
+            "Quantum is missing precompiled shaders in:\n"
             "%s\n"
             "\n"
             "Missing shaders:\n"
             "%s\n"
             "\n"
             "Bundle precompiled shaders for graphic backend: %s\n"
-            "To generate them manually with Doriax Editor:\n"
+            "To generate them manually with Quantum Editor:\n"
             "\n"
             "> %s\n"
             "\n"

@@ -1,10 +1,10 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef UIStyle_h
 #define UIStyle_h
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // CSS-like length used by the layout properties: points (canvas pixels),
     // percent of the parent size, or auto. Some properties give "auto" a

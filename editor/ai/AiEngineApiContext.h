@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 
 #include <string>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class AiEngineApiContext {
 public:
@@ -16,4 +16,4 @@ public:
                        int maxResults);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

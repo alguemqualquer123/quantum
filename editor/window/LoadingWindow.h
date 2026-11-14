@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include "texture/Texture.h"
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class LoadingWindow {
     private:

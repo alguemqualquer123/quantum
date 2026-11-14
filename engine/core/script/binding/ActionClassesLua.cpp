@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -25,7 +25,7 @@
 #include "action/keyframe/ScaleTracks.h"
 #include "action/keyframe/TranslateTracks.h"
 
-using namespace doriax;
+using namespace quantum;
 
 void LuaBinding::registerActionClasses(lua_State *L){
 #ifndef DISABLE_LUA_BINDINGS
@@ -147,6 +147,7 @@ void LuaBinding::registerActionClasses(lua_State *L){
         .addConstructor <void (*) (Scene*), void (*) (Scene*, Entity)> ()
         .addFunction("reset", &Particles::reset)
         .addProperty("rate", &Particles::getRate, &Particles::setRate)
+        .addProperty("maxParticles", &Particles::getMaxParticles, &Particles::setMaxParticles)
         .addProperty("maxPerUpdate", &Particles::getMaxPerUpdate, &Particles::setMaxPerUpdate)
         .addProperty("emitter", &Particles::isEmitter, &Particles::setEmitter)
         .addProperty("loop", &Particles::isLoop, &Particles::setLoop)

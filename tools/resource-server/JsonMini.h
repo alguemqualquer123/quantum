@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
-// JsonMini.h - the minimal JSON support doriax-resource-server needs: parsing
+// JsonMini.h - the minimal JSON support quantum-resource-server needs: parsing
 // one flat request object per line and escaping response strings. Standard
 // library only. Nested objects/arrays inside a request are skipped, not stored.
 
@@ -11,7 +11,7 @@
 #include <map>
 #include <string>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 struct JsonField {
     std::string text;      // string value, or the raw token for numbers/literals

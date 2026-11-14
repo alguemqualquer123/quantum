@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TEXTEDIT_H
@@ -8,8 +8,8 @@
 #include "Text.h"
 #include "Polygon.h"
 
-namespace doriax{
-    class DORIAX_API TextEdit: public Image{
+namespace quantum{
+    class QUANTUM_API TextEdit: public Image{
     private:
         void ensureText();
         bool hasCursor() const;

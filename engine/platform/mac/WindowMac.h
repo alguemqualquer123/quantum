@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // The macOS window, shared by the editor and by exported games: NSApplication
 // setup, the NSWindow, cursor and MouseMode, fullscreen, sizing and the title.
@@ -14,10 +14,10 @@
 #include <functional>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
     struct WindowMacConfig {
-        std::string title = "Doriax";
+        std::string title = "Quantum";
         int width = 960;
         int height = 540;
         bool resizable = true;

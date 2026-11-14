@@ -1,16 +1,18 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Catalog.h"
 
 #include "Stream.h"
+#include "component/AutoColliderComponent.h"
+#include "component/AnimatorControllerComponent.h"
 
 #include <cctype>
 
 namespace {
 
-    using namespace doriax;
-    using namespace doriax::editor;
+    using namespace quantum;
+    using namespace quantum::editor;
 
     using FastDefGetter = void* (*)();
     using FastRefGetter = void* (*)(void*);
@@ -143,6 +145,10 @@ namespace {
         {"material.metallicRoughnessTexture", SubmeshOverride_MetallicRoughnessTexture},
         {"material.occlusionTexture", SubmeshOverride_OcclusionTexture},
         {"material.normalTexture", SubmeshOverride_NormalTexture},
+        {"material.heightTexture", SubmeshOverride_HeightTexture},
+        {"material.heightScale", SubmeshOverride_HeightScale},
+        {"material.heightMinLayers", SubmeshOverride_HeightMinLayers},
+        {"material.heightMaxLayers", SubmeshOverride_HeightMaxLayers},
         {"faceCulling", SubmeshOverride_FaceCulling},
         {"textureShadow", SubmeshOverride_TextureShadow},
         {"primitiveType", SubmeshOverride_PrimitiveType}
@@ -413,6 +419,14 @@ namespace {
         makeFastProperty<AnimationComponent, float, &AnimationComponent::defaultFadeTime>("defaultFadeTime", PropertyType::Float, UpdateFlags_None),
     };
 
+    static const FastPropertyDescriptor kAnimatorControllerProperties[] = {
+        makeFastProperty<AnimatorControllerComponent, bool, &AnimatorControllerComponent::enabled>("enabled", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<AnimatorControllerComponent, std::string, &AnimatorControllerComponent::controllerAsset>("controllerAsset", PropertyType::String, UpdateFlags_None),
+        makeFastProperty<AnimatorControllerComponent, bool, &AnimatorControllerComponent::rootMotionEnabled>("rootMotionEnabled", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<AnimatorControllerComponent, Entity, &AnimatorControllerComponent::rootMotionTarget>("rootMotionTarget", PropertyType::Entity, UpdateFlags_None),
+        makeFastProperty<AnimatorControllerComponent, float, &AnimatorControllerComponent::rootMotionScale>("rootMotionScale", PropertyType::Float, UpdateFlags_None),
+    };
+
     static const FastPropertyDescriptor kLightProperties[] = {
         makeFastPropertyNoDefault<LightComponent, LightType, &LightComponent::type>("type", PropertyType::Enum, UpdateFlags_LightShadowMap | UpdateFlags_LightShadowCamera | UpdateFlags_Scene_Mesh_Reload),
         makeFastProperty<LightComponent, Vector3, &LightComponent::direction>("direction", PropertyType::Vector3, UpdateFlags_Transform),
@@ -456,6 +470,37 @@ namespace {
         makeFastProperty<FogComponent, float, &FogComponent::density>("density", PropertyType::Float, UpdateFlags_None),
         makeFastProperty<FogComponent, float, &FogComponent::linearStart>("linearStart", PropertyType::Float, UpdateFlags_None),
         makeFastProperty<FogComponent, float, &FogComponent::linearEnd>("linearEnd", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, bool, &FogComponent::heightFog>("heightFog", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogHeightFalloff>("fogHeightFalloff", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogGroundHeight>("fogGroundHeight", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogSunAmount>("fogSunAmount", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogFarRange>("fogFarRange", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogScatteringG>("fogScatteringG", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, Vector3, &FogComponent::fogSunColor>("fogSunColor", PropertyType::Vector3, UpdateFlags_None),
+        makeFastProperty<FogComponent, bool, &FogComponent::fogNoiseEnabled>("fogNoiseEnabled", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogNoiseScale>("fogNoiseScale", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogNoiseStrength>("fogNoiseStrength", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::fogNoiseSpeed>("fogNoiseSpeed", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, Vector2, &FogComponent::fogNoiseWind>("fogNoiseWind", PropertyType::Vector2, UpdateFlags_None),
+        makeFastProperty<FogComponent, bool, &FogComponent::volumetricFog>("volumetricFog", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<FogComponent, unsigned int, &FogComponent::volumetricFogSteps>("volumetricFogSteps", PropertyType::UInt, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::volumetricFogIntensity>("volumetricFogIntensity", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, bool, &FogComponent::godRays>("godRays", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::rayIntensity>("rayIntensity", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::rayThreshold>("rayThreshold", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::raySoftness>("raySoftness", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::rayDecay>("rayDecay", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::rayDensity>("rayDensity", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, bool, &FogComponent::cloudsEnabled>("cloudsEnabled", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudBaseHeight>("cloudBaseHeight", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudThickness>("cloudThickness", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudCoverage>("cloudCoverage", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudDensity>("cloudDensity", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudScale>("cloudScale", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudSpeed>("cloudSpeed", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, float, &FogComponent::cloudSunAmount>("cloudSunAmount", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<FogComponent, Vector2, &FogComponent::cloudWind>("cloudWind", PropertyType::Vector2, UpdateFlags_None),
+        makeFastProperty<FogComponent, Vector3, &FogComponent::cloudColor>("cloudColor", PropertyType::Vector3, UpdateFlags_None),
     };
 
     static const FastPropertyDescriptor kMirrorProperties[] = {
@@ -476,6 +521,15 @@ namespace {
         makeFastProperty<ReflectionProbeComponent, float, &ReflectionProbeComponent::updateInterval>("updateInterval", PropertyType::Float, UpdateFlags_Reflection_Probe_Sampling),
         makeFastProperty<ReflectionProbeComponent, bool, &ReflectionProbeComponent::includeSky>("includeSky", PropertyType::Bool, UpdateFlags_Reflection_Probe_Capture),
         makeFastProperty<ReflectionProbeComponent, Texture, &ReflectionProbeComponent::texture>("texture", PropertyType::Texture, UpdateFlags_Reflection_Probe_Capture),
+    };
+
+    static const FastPropertyDescriptor kDecalProperties[] = {
+        makeFastProperty<DecalComponent, bool, &DecalComponent::enabled>("enabled", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<DecalComponent, Vector3, &DecalComponent::color>("color", PropertyType::Vector3, UpdateFlags_None),
+        makeFastProperty<DecalComponent, Vector3, &DecalComponent::size>("size", PropertyType::Vector3, UpdateFlags_None),
+        makeFastProperty<DecalComponent, float, &DecalComponent::opacity>("opacity", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<DecalComponent, float, &DecalComponent::depthFade>("depthFade", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<DecalComponent, Texture, &DecalComponent::texture>("texture", PropertyType::Texture, UpdateFlags_None),
     };
 
     static const FastPropertyDescriptor kCameraProperties[] = {
@@ -504,6 +558,7 @@ namespace {
     static const FastPropertyDescriptor kSoundProperties[] = {
         makeFastProperty<SoundComponent, SoundState, &SoundComponent::state>("state", PropertyType::Enum, UpdateFlags_Sound),
         makeFastProperty<SoundComponent, std::string, &SoundComponent::filename>("filename", PropertyType::String, UpdateFlags_Sound),
+        makeFastProperty<SoundComponent, std::string, &SoundComponent::bus>("bus", PropertyType::String, UpdateFlags_Sound),
         makeFastProperty<SoundComponent, bool, &SoundComponent::enableClocked>("enableClocked", PropertyType::Bool, UpdateFlags_Sound),
         makeFastProperty<SoundComponent, double, &SoundComponent::volume>("volume", PropertyType::Double, UpdateFlags_Sound),
         makeFastProperty<SoundComponent, float, &SoundComponent::speed>("speed", PropertyType::Float, UpdateFlags_Sound),
@@ -543,6 +598,8 @@ namespace {
         makeFastProperty<WaterComponent, Vector3, &WaterComponent::foamColor>("foamColor", PropertyType::Vector3, UpdateFlags_None),
         makeFastProperty<WaterComponent, float, &WaterComponent::shoreFoam>("shoreFoam", PropertyType::Float, UpdateFlags_None),
         makeFastProperty<WaterComponent, float, &WaterComponent::crestFoam>("crestFoam", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::windInfluence>("windInfluence", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::fetch>("fetch", PropertyType::Float, UpdateFlags_None),
         makeFastProperty<WaterComponent, bool, &WaterComponent::receiveShadows>("receiveShadows", PropertyType::Bool, UpdateFlags_None),
         makeFastProperty<WaterComponent, bool, &WaterComponent::depthEffects>("depthEffects", PropertyType::Bool, UpdateFlags_None),
         makeFastProperty<WaterComponent, bool, &WaterComponent::planarReflection>("planarReflection", PropertyType::Bool, UpdateFlags_None),
@@ -554,6 +611,18 @@ namespace {
         makeFastProperty<WaterComponent, bool, &WaterComponent::underwater>("underwater", PropertyType::Bool, UpdateFlags_None),
         makeFastProperty<WaterComponent, bool, &WaterComponent::buoyancy>("buoyancy", PropertyType::Bool, UpdateFlags_None),
         makeFastProperty<WaterComponent, float, &WaterComponent::buoyancyDepth>("buoyancyDepth", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, bool, &WaterComponent::simulate>("simulate", PropertyType::Bool, UpdateFlags_Water),
+        makeFastProperty<WaterComponent, unsigned int, &WaterComponent::simResolution>("simResolution", PropertyType::UInt, UpdateFlags_Water),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simDepth>("simDepth", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simFlow>("simFlow", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simRain>("simRain", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simEvaporation>("simEvaporation", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simDryDepth>("simDryDepth", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, bool, &WaterComponent::simEdgeDrain>("simEdgeDrain", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<WaterComponent, bool, &WaterComponent::simRipples>("simRipples", PropertyType::Bool, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simRippleSpeed>("simRippleSpeed", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simRippleDamping>("simRippleDamping", PropertyType::Float, UpdateFlags_None),
+        makeFastProperty<WaterComponent, float, &WaterComponent::simRippleStrength>("simRippleStrength", PropertyType::Float, UpdateFlags_None),
         makeFastProperty<WaterComponent, std::string, &WaterComponent::customShader>("customShader", PropertyType::String, UpdateFlags_Shader_Reload),
         makeFastProperty<WaterComponent, std::string, &WaterComponent::customUnderwaterShader>("customUnderwaterShader", PropertyType::String, UpdateFlags_Shader_Reload),
         makeFastProperty<WaterComponent, ShaderUniformValues, &WaterComponent::shaderUniforms>("shaderUniforms", PropertyType::Custom, UpdateFlags_Shader_Uniforms),
@@ -631,6 +700,22 @@ namespace {
         makeFastProperty<Joint3DComponent, Vector3, &Joint3DComponent::pathPosition>("pathPosition", PropertyType::Vector3, UpdateFlags_Joint3D),
         makeFastProperty<Joint3DComponent, bool, &Joint3DComponent::isLooping>("isLooping", PropertyType::Bool, UpdateFlags_Joint3D),
         makeFastProperty<Joint3DComponent, bool, &Joint3DComponent::autoAnchors>("autoAnchors", PropertyType::Bool, UpdateFlags_Joint3D),
+    };
+
+    static const FastPropertyDescriptor kAutoColliderProperties[] = {
+        makeFastProperty<AutoColliderComponent, AutoColliderType, &AutoColliderComponent::type>("type", PropertyType::Enum, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::radius>("radius", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::width>("width", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::height>("height", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::depth>("depth", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::halfHeight>("halfHeight", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, Vector3, &AutoColliderComponent::center>("center", PropertyType::Vector3, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, bool, &AutoColliderComponent::sensor>("sensor", PropertyType::Bool, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, float, &AutoColliderComponent::density>("density", PropertyType::Float, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, uint16_t, &AutoColliderComponent::categoryBits>("categoryBits", PropertyType::UInt, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, uint16_t, &AutoColliderComponent::maskBits>("maskBits", PropertyType::UInt, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, Entity, &AutoColliderComponent::sourceEntity>("sourceEntity", PropertyType::Entity, UpdateFlags_Body3D),
+        makeFastProperty<AutoColliderComponent, bool, &AutoColliderComponent::needUpdate>("needUpdate", PropertyType::Bool, UpdateFlags_None),
     };
 
     static const FastPropertyDescriptor kMeshTopProperties[] = {
@@ -739,6 +824,18 @@ namespace {
             }
             if (propertyName.compare(matFieldPos, 13, "normalTexture") == 0 && matFieldPos + 13 == propertyName.size()) {
                 return {PropertyType::Texture, UpdateFlags_Mesh_Texture, (void*)&defSub.material.normalTexture, (void*)&sub.material.normalTexture};
+            }
+            if (propertyName.compare(matFieldPos, 13, "heightTexture") == 0 && matFieldPos + 13 == propertyName.size()) {
+                return {PropertyType::Texture, UpdateFlags_Mesh_Texture | UpdateFlags_Mesh_Reload, (void*)&defSub.material.heightTexture, (void*)&sub.material.heightTexture};
+            }
+            if (propertyName.compare(matFieldPos, 11, "heightScale") == 0 && matFieldPos + 11 == propertyName.size()) {
+                return {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightScale, (void*)&sub.material.heightScale};
+            }
+            if (propertyName.compare(matFieldPos, 15, "heightMinLayers") == 0 && matFieldPos + 15 == propertyName.size()) {
+                return {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightMinLayers, (void*)&sub.material.heightMinLayers};
+            }
+            if (propertyName.compare(matFieldPos, 15, "heightMaxLayers") == 0 && matFieldPos + 15 == propertyName.size()) {
+                return {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightMaxLayers, (void*)&sub.material.heightMaxLayers};
             }
             return PropertyData();
         }
@@ -1014,7 +1111,7 @@ namespace {
         return PropertyData();
     }
 
-    doriax::editor::PropertyData getBody3DPropertyFast(doriax::Body3DComponent* comp, const std::string& propertyName) {
+    quantum::editor::PropertyData getBody3DPropertyFast(quantum::Body3DComponent* comp, const std::string& propertyName) {
         Body3DComponent& defaultBody3D = getDefaultComponent<Body3DComponent>();
 
         if (!comp) {
@@ -1032,6 +1129,12 @@ namespace {
         }
         if (propertyName == "gravityFactor") {
             return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultBody3D.gravityFactor, (void*)&comp->gravityFactor};
+        }
+        if (propertyName == "linearDamping") {
+            return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultBody3D.linearDamping, (void*)&comp->linearDamping};
+        }
+        if (propertyName == "angularDamping") {
+            return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultBody3D.angularDamping, (void*)&comp->angularDamping};
         }
         if (propertyName == "buoyancy") {
             return {PropertyType::Float, UpdateFlags_None, (void*)&defaultBody3D.buoyancy, (void*)&comp->buoyancy};
@@ -1113,6 +1216,12 @@ namespace {
         if (propertyName.compare(fieldPos, 7, "density") == 0 && fieldPos + 7 == propertyName.size()) {
             return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultShape.density, (void*)&shape.density};
         }
+        if (propertyName.compare(fieldPos, 8, "friction") == 0 && fieldPos + 8 == propertyName.size()) {
+            return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultShape.friction, (void*)&shape.friction};
+        }
+        if (propertyName.compare(fieldPos, 11, "restitution") == 0 && fieldPos + 11 == propertyName.size()) {
+            return {PropertyType::Float, UpdateFlags_Body3D, (void*)&defaultShape.restitution, (void*)&shape.restitution};
+        }
         if (propertyName.compare(fieldPos, 6, "source") == 0 && fieldPos + 6 == propertyName.size()) {
             return {PropertyType::Enum, UpdateFlags_Body3D, (void*)&defaultShape.source, (void*)&shape.source};
         }
@@ -1145,6 +1254,34 @@ namespace {
         }
 
         return PropertyData();
+    }
+
+    PropertyData resolveAutoColliderPropertyFast(void* comp, const std::string& propertyName) {
+        return resolveDirectProperties(static_cast<AutoColliderComponent*>(comp), propertyName, kAutoColliderProperties);
+    }
+
+    PropertyData resolveNetworkPropertyFast(void* compRef, const std::string& propertyName) {
+        NetworkComponent* comp = static_cast<NetworkComponent*>(compRef);
+        NetworkComponent& def = getDefaultComponent<NetworkComponent>();
+        if (!comp) return PropertyData();
+        if (propertyName == "netId") return {PropertyType::UInt, UpdateFlags_None, &def.netId, &comp->netId};
+        if (propertyName == "replicateTransform") return {PropertyType::Bool, UpdateFlags_None, &def.replicateTransform, &comp->replicateTransform};
+        if (propertyName == "ownerId") return {PropertyType::UInt, UpdateFlags_None, &def.ownerId, &comp->ownerId};
+        if (propertyName == "interestGroup") return {PropertyType::UInt, UpdateFlags_None, &def.interestGroup, &comp->interestGroup};
+        if (propertyName == "interestRadius") return {PropertyType::Float, UpdateFlags_None, &def.interestRadius, &comp->interestRadius};
+        if (propertyName == "serverAuthority") return {PropertyType::Bool, UpdateFlags_None, &def.serverAuthority, &comp->serverAuthority};
+        return PropertyData();
+    }
+
+    void enumerateNetworkProperties(void* compRef, std::map<std::string, PropertyData>& ps) {
+        NetworkComponent* comp = static_cast<NetworkComponent*>(compRef);
+        NetworkComponent& def = getDefaultComponent<NetworkComponent>();
+        ps["netId"] = {PropertyType::UInt, UpdateFlags_None, &def.netId, comp ? &comp->netId : nullptr};
+        ps["replicateTransform"] = {PropertyType::Bool, UpdateFlags_None, &def.replicateTransform, comp ? &comp->replicateTransform : nullptr};
+        ps["ownerId"] = {PropertyType::UInt, UpdateFlags_None, &def.ownerId, comp ? &comp->ownerId : nullptr};
+        ps["interestGroup"] = {PropertyType::UInt, UpdateFlags_None, &def.interestGroup, comp ? &comp->interestGroup : nullptr};
+        ps["interestRadius"] = {PropertyType::Float, UpdateFlags_None, &def.interestRadius, comp ? &comp->interestRadius : nullptr};
+        ps["serverAuthority"] = {PropertyType::Bool, UpdateFlags_None, &def.serverAuthority, comp ? &comp->serverAuthority : nullptr};
     }
 
     // ── Resolve wrappers (single-property lookup) ──
@@ -1481,6 +1618,10 @@ namespace {
         return resolveDirectProperties(static_cast<ReflectionProbeComponent*>(comp), propertyName, kReflectionProbeProperties);
     }
 
+    PropertyData resolveDecalPropertyFast(void* comp, const std::string& propertyName) {
+        return resolveDirectProperties(static_cast<DecalComponent*>(comp), propertyName, kDecalProperties);
+    }
+
     PropertyData resolveLight2DPropertyFast(void* comp, const std::string& propertyName) {
         return resolveDirectProperties(static_cast<Light2DComponent*>(comp), propertyName, kLight2DProperties);
     }
@@ -1564,6 +1705,12 @@ namespace {
         if (propertyName == "emitter") return {PropertyType::Bool, UpdateFlags_None, &def.emitter, &comp->emitter};
         if (propertyName == "loop") return {PropertyType::Bool, UpdateFlags_None, &def.loop, &comp->loop};
         if (propertyName == "localSpace") return {PropertyType::Bool, UpdateFlags_None, &def.localSpace, &comp->localSpace};
+        if (propertyName == "gpuSimulation") return {PropertyType::Bool, UpdateFlags_Points, &def.gpuSimulation, &comp->gpuSimulation};
+        if (propertyName == "collisionEnabled") return {PropertyType::Bool, UpdateFlags_None, &def.collisionEnabled, &comp->collisionEnabled};
+        if (propertyName == "collisionBounce") return {PropertyType::Float, UpdateFlags_None, &def.collisionBounce, &comp->collisionBounce};
+        if (propertyName == "collisionFriction") return {PropertyType::Float, UpdateFlags_None, &def.collisionFriction, &comp->collisionFriction};
+        if (propertyName == "trailsEnabled") return {PropertyType::Bool, UpdateFlags_Lines, &def.trailsEnabled, &comp->trailsEnabled};
+        if (propertyName == "trailLength") return {PropertyType::UInt, UpdateFlags_Lines, &def.trailLength, &comp->trailLength};
         if (propertyName == "rate") return {PropertyType::Int, UpdateFlags_None, &def.rate, &comp->rate};
         if (propertyName == "maxPerUpdate") return {PropertyType::Int, UpdateFlags_None, &def.maxPerUpdate, &comp->maxPerUpdate};
         if (propertyName == "bursts") return {PropertyType::Custom, UpdateFlags_None, &def.bursts, &comp->bursts};
@@ -2302,6 +2449,71 @@ namespace {
         }
     }
 
+    PropertyData resolveAnimatorControllerPropertyFast(void* compRef, const std::string& propertyName){
+        AnimatorControllerComponent* comp = static_cast<AnimatorControllerComponent*>(compRef);
+        if(!comp) return PropertyData();
+        PropertyData result = resolveDirectProperties(comp, propertyName, kAnimatorControllerProperties);
+        if(result.ref) return result;
+
+        // parameters[i].name/.type/.defaultValue/.boolValue, for the inspector table
+        if (propertyName.compare(0, 12, "parameters[") == 0) {
+            size_t pos = 12;
+            size_t index = 0;
+            if (!parseIndex(propertyName, pos, index) || pos >= propertyName.size() || propertyName[pos] != ']') {
+                return PropertyData();
+            }
+            if (index >= comp->parameters.size()) {
+                return PropertyData();
+            }
+            AnimatorParameter& parameter = comp->parameters[index];
+            std::string field = propertyName.substr(pos + 1);
+            static std::string defName;
+            static float defValue = 0.0f;
+            static bool defBool = false;
+            static int defType = 0;
+            if (field == ".name") return {PropertyType::String, UpdateFlags_None, (void*)&defName, (void*)&parameter.name};
+            if (field == ".type") return {PropertyType::Enum, UpdateFlags_None, (void*)&defType, (void*)&parameter.type};
+            if (field == ".defaultValue") return {PropertyType::Float, UpdateFlags_None, (void*)&defValue, (void*)&parameter.defaultValue};
+            if (field == ".boolValue") return {PropertyType::Bool, UpdateFlags_None, (void*)&defBool, (void*)&parameter.boolValue};
+        }
+
+        return PropertyData();
+    }
+
+    void enumerateAnimatorControllerProperties(void* compRef, std::map<std::string, PropertyData>& ps){
+        AnimatorControllerComponent* comp = static_cast<AnimatorControllerComponent*>(compRef);
+        if(!comp) return;
+        enumerateFromDescriptors(compRef, ps, kAnimatorControllerProperties);
+        // parameters as indexed properties
+        static std::string defName; static float defVal; static bool defBool; static int defType;
+        for(size_t i = 0; i < comp->parameters.size(); ++i){
+            std::string base = "parameters[" + std::to_string(i) + "]";
+            ps[base + ".name"] = {PropertyType::String, UpdateFlags_None, (void*)&defName, (void*)&comp->parameters[i].name};
+            ps[base + ".type"] = {PropertyType::Enum, UpdateFlags_None, (void*)&defType, (void*)&comp->parameters[i].type};
+            ps[base + ".defaultValue"] = {PropertyType::Float, UpdateFlags_None, (void*)&defVal, (void*)&comp->parameters[i].defaultValue};
+            ps[base + ".boolValue"] = {PropertyType::Bool, UpdateFlags_None, (void*)&defBool, (void*)&comp->parameters[i].boolValue};
+        }
+        // states as indexed properties
+        static std::string sName; static float sX; static float sY; static bool sDefault;
+        for(size_t i = 0; i < comp->states.size(); ++i){
+            std::string base = "states[" + std::to_string(i) + "]";
+            ps[base + ".name"] = {PropertyType::String, UpdateFlags_None, (void*)&sName, (void*)&comp->states[i].name};
+            ps[base + ".x"] = {PropertyType::Float, UpdateFlags_None, (void*)&sX, (void*)&comp->states[i].x};
+            ps[base + ".y"] = {PropertyType::Float, UpdateFlags_None, (void*)&sY, (void*)&comp->states[i].y};
+            ps[base + ".isDefault"] = {PropertyType::Bool, UpdateFlags_None, (void*)&sDefault, (void*)&comp->states[i].isDefault};
+        }
+        // transitions as indexed properties
+        static std::string tName; static uint32_t tFrom; static uint32_t tTo; static float tExit; static float tDur;
+        for(size_t i = 0; i < comp->transitions.size(); ++i){
+            std::string base = "transitions[" + std::to_string(i) + "]";
+            ps[base + ".name"] = {PropertyType::String, UpdateFlags_None, (void*)&tName, (void*)&comp->transitions[i].name};
+            ps[base + ".fromState"] = {PropertyType::UInt, UpdateFlags_None, (void*)&tFrom, (void*)&comp->transitions[i].fromState};
+            ps[base + ".toState"] = {PropertyType::UInt, UpdateFlags_None, (void*)&tTo, (void*)&comp->transitions[i].toState};
+            ps[base + ".exitTime"] = {PropertyType::Float, UpdateFlags_None, (void*)&tExit, (void*)&comp->transitions[i].exitTime};
+            ps[base + ".transitionDuration"] = {PropertyType::Float, UpdateFlags_None, (void*)&tDur, (void*)&comp->transitions[i].transitionDuration};
+        }
+    }
+
     void enumerateTransformProperties(void* comp, std::map<std::string, PropertyData>& ps) {
         enumerateFromDescriptors(comp, ps, kTransformProperties);
     }
@@ -2480,6 +2692,10 @@ namespace {
         enumerateFromDescriptors(comp, ps, kReflectionProbeProperties);
     }
 
+    void enumerateDecalProperties(void* comp, std::map<std::string, PropertyData>& ps) {
+        enumerateFromDescriptors(comp, ps, kDecalProperties);
+    }
+
     void enumerateLight2DProperties(void* comp, std::map<std::string, PropertyData>& ps) {
         enumerateFromDescriptors(comp, ps, kLight2DProperties);
     }
@@ -2573,6 +2789,10 @@ namespace {
         ps["motionQuality"] = {PropertyType::Enum, UpdateFlags_Body3D, (void*)&def.motionQuality, compRef ? (void*)&comp->motionQuality : nullptr};
         ps["sensor"] = {PropertyType::Bool, UpdateFlags_Body3D, (void*)&def.sensor, compRef ? (void*)&comp->sensor : nullptr};
         ps["gravityFactor"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.gravityFactor, compRef ? (void*)&comp->gravityFactor : nullptr};
+        ps["linearDamping"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.linearDamping, compRef ? (void*)&comp->linearDamping : nullptr};
+        ps["angularDamping"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.angularDamping, compRef ? (void*)&comp->angularDamping : nullptr};
+        ps["categoryBits"] = {PropertyType::UInt, UpdateFlags_Body3D, (void*)&def.categoryBits, compRef ? (void*)&comp->categoryBits : nullptr};
+        ps["maskBits"] = {PropertyType::UInt, UpdateFlags_Body3D, (void*)&def.maskBits, compRef ? (void*)&comp->maskBits : nullptr};
         ps["buoyancy"] = {PropertyType::Float, UpdateFlags_None, (void*)&def.buoyancy, compRef ? (void*)&comp->buoyancy : nullptr};
         ps["waterDrag"] = {PropertyType::Float, UpdateFlags_None, (void*)&def.waterDrag, compRef ? (void*)&comp->waterDrag : nullptr};
         ps["waterAngularDrag"] = {PropertyType::Float, UpdateFlags_None, (void*)&def.waterAngularDrag, compRef ? (void*)&comp->waterAngularDrag : nullptr};
@@ -2612,6 +2832,25 @@ namespace {
         }
     }
 
+    void enumerateAutoColliderProperties(void* compRef, std::map<std::string, PropertyData>& ps) {
+        AutoColliderComponent* comp = static_cast<AutoColliderComponent*>(compRef);
+        AutoColliderComponent& def = getDefaultComponent<AutoColliderComponent>();
+
+        ps["type"] = {PropertyType::Enum, UpdateFlags_Body3D, (void*)&def.type, compRef ? (void*)&comp->type : nullptr};
+        ps["radius"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.radius, compRef ? (void*)&comp->radius : nullptr};
+        ps["width"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.width, compRef ? (void*)&comp->width : nullptr};
+        ps["height"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.height, compRef ? (void*)&comp->height : nullptr};
+        ps["depth"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.depth, compRef ? (void*)&comp->depth : nullptr};
+        ps["halfHeight"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.halfHeight, compRef ? (void*)&comp->halfHeight : nullptr};
+        ps["center"] = {PropertyType::Vector3, UpdateFlags_Body3D, (void*)&def.center, compRef ? (void*)&comp->center : nullptr};
+        ps["sensor"] = {PropertyType::Bool, UpdateFlags_Body3D, (void*)&def.sensor, compRef ? (void*)&comp->sensor : nullptr};
+        ps["density"] = {PropertyType::Float, UpdateFlags_Body3D, (void*)&def.density, compRef ? (void*)&comp->density : nullptr};
+        ps["categoryBits"] = {PropertyType::UInt, UpdateFlags_Body3D, (void*)&def.categoryBits, compRef ? (void*)&comp->categoryBits : nullptr};
+        ps["maskBits"] = {PropertyType::UInt, UpdateFlags_Body3D, (void*)&def.maskBits, compRef ? (void*)&comp->maskBits : nullptr};
+        ps["sourceEntity"] = {PropertyType::Entity, UpdateFlags_Body3D, (void*)&def.sourceEntity, compRef ? (void*)&comp->sourceEntity : nullptr};
+        ps["needUpdate"] = {PropertyType::Bool, UpdateFlags_None, (void*)&def.needUpdate, compRef ? (void*)&comp->needUpdate : nullptr};
+    }
+
     void enumerateMeshProperties(void* compRef, std::map<std::string, PropertyData>& ps) {
         MeshComponent* comp = static_cast<MeshComponent*>(compRef);
         MeshComponent& def = getDefaultComponent<MeshComponent>();
@@ -2638,6 +2877,12 @@ namespace {
             ps["submeshes[" + idx + "].material.metallicRoughnessTexture"] = {PropertyType::Texture, UpdateFlags_Mesh_Texture, (void*)&defSub.material.metallicRoughnessTexture, compRef ? (void*)&sub.material.metallicRoughnessTexture : nullptr};
             ps["submeshes[" + idx + "].material.occlusionTexture"] = {PropertyType::Texture, UpdateFlags_Mesh_Texture, (void*)&defSub.material.occlusionTexture, compRef ? (void*)&sub.material.occlusionTexture : nullptr};
             ps["submeshes[" + idx + "].material.normalTexture"] = {PropertyType::Texture, UpdateFlags_Mesh_Texture, (void*)&defSub.material.normalTexture, compRef ? (void*)&sub.material.normalTexture : nullptr};
+            // the height map is a shader variant bit (HAS_HEIGHT), so it needs a reload
+            // as well as a texture update to reach the GPU
+            ps["submeshes[" + idx + "].material.heightTexture"] = {PropertyType::Texture, UpdateFlags_Mesh_Texture | UpdateFlags_Mesh_Reload, (void*)&defSub.material.heightTexture, compRef ? (void*)&sub.material.heightTexture : nullptr};
+            ps["submeshes[" + idx + "].material.heightScale"] = {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightScale, compRef ? (void*)&sub.material.heightScale : nullptr};
+            ps["submeshes[" + idx + "].material.heightMinLayers"] = {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightMinLayers, compRef ? (void*)&sub.material.heightMinLayers : nullptr};
+            ps["submeshes[" + idx + "].material.heightMaxLayers"] = {PropertyType::Float, UpdateFlags_None, (void*)&defSub.material.heightMaxLayers, compRef ? (void*)&sub.material.heightMaxLayers : nullptr};
 
             ps["submeshes[" + idx + "].primitiveType"] = {PropertyType::Enum, UpdateFlags_Mesh_Reload, (void*)&defSub.primitiveType, compRef ? (void*)&sub.primitiveType : nullptr};
             ps["submeshes[" + idx + "].faceCulling"] = {PropertyType::Bool, UpdateFlags_Mesh_Reload, (void*)&defSub.faceCulling, compRef ? (void*)&sub.faceCulling : nullptr};
@@ -2749,6 +2994,12 @@ namespace {
         ps["emitter"] = {PropertyType::Bool, UpdateFlags_None, &def.emitter, comp ? &comp->emitter : nullptr};
         ps["loop"] = {PropertyType::Bool, UpdateFlags_None, &def.loop, comp ? &comp->loop : nullptr};
         ps["localSpace"] = {PropertyType::Bool, UpdateFlags_None, &def.localSpace, comp ? &comp->localSpace : nullptr};
+        ps["gpuSimulation"] = {PropertyType::Bool, UpdateFlags_Points, &def.gpuSimulation, comp ? &comp->gpuSimulation : nullptr};
+        ps["collisionEnabled"] = {PropertyType::Bool, UpdateFlags_None, &def.collisionEnabled, comp ? &comp->collisionEnabled : nullptr};
+        ps["collisionBounce"] = {PropertyType::Float, UpdateFlags_None, &def.collisionBounce, comp ? &comp->collisionBounce : nullptr};
+        ps["collisionFriction"] = {PropertyType::Float, UpdateFlags_None, &def.collisionFriction, comp ? &comp->collisionFriction : nullptr};
+        ps["trailsEnabled"] = {PropertyType::Bool, UpdateFlags_Lines, &def.trailsEnabled, comp ? &comp->trailsEnabled : nullptr};
+        ps["trailLength"] = {PropertyType::UInt, UpdateFlags_Lines, &def.trailLength, comp ? &comp->trailLength : nullptr};
         ps["rate"] = {PropertyType::Int, UpdateFlags_None, &def.rate, comp ? &comp->rate : nullptr};
         ps["maxPerUpdate"] = {PropertyType::Int, UpdateFlags_None, &def.maxPerUpdate, comp ? &comp->maxPerUpdate : nullptr};
         ps["bursts"] = {PropertyType::Custom, UpdateFlags_None, &def.bursts, comp ? &comp->bursts : nullptr};
@@ -3161,6 +3412,7 @@ namespace {
         {ComponentType::FogComponent, &findComponentPtr<FogComponent>, &resolveFogPropertyFast, &enumerateFogProperties},
         {ComponentType::MirrorComponent, &findComponentPtr<MirrorComponent>, &resolveMirrorPropertyFast, &enumerateMirrorProperties},
         {ComponentType::ReflectionProbeComponent, &findComponentPtr<ReflectionProbeComponent>, &resolveReflectionProbePropertyFast, &enumerateReflectionProbeProperties},
+        {ComponentType::DecalComponent, &findComponentPtr<DecalComponent>, &resolveDecalPropertyFast, &enumerateDecalProperties},
         {ComponentType::Light2DComponent, &findComponentPtr<Light2DComponent>, &resolveLight2DPropertyFast, &enumerateLight2DProperties},
         {ComponentType::Occluder2DComponent, &findComponentPtr<Occluder2DComponent>, &resolveOccluder2DPropertyFast, &enumerateOccluder2DProperties},
         {ComponentType::CameraComponent, &findComponentPtr<CameraComponent>, &resolveCameraPropertyFast, &enumerateCameraProperties},
@@ -3174,6 +3426,7 @@ namespace {
         {ComponentType::Joint3DComponent, &findComponentPtr<Joint3DComponent>, &resolveJoint3DPropertyFast, &enumerateJoint3DProperties},
         {ComponentType::Body2DComponent, &findComponentPtr<Body2DComponent>, &resolveBody2DPropertyFast, &enumerateBody2DProperties},
         {ComponentType::Body3DComponent, &findComponentPtr<Body3DComponent>, &resolveBody3DPropertyFast, &enumerateBody3DProperties},
+        {ComponentType::AutoColliderComponent, &findComponentPtr<AutoColliderComponent>, &resolveAutoColliderPropertyFast, &enumerateAutoColliderProperties},
         {ComponentType::InstancedMeshComponent, &findComponentPtr<InstancedMeshComponent>, &resolveInstancedMeshPropertyFast, &enumerateInstancedMeshProperties},
         {ComponentType::ParticlesComponent, &findComponentPtr<ParticlesComponent>, &resolveParticlesPropertyFast, &enumerateParticlesProperties},
         {ComponentType::PointsComponent, &findComponentPtr<PointsComponent>, &resolvePointsPropertyFast, &enumeratePointsProperties},
@@ -3187,6 +3440,8 @@ namespace {
         {ComponentType::AlphaActionComponent, &findComponentPtr<AlphaActionComponent>, &resolveAlphaActionPropertyFast, &enumerateAlphaActionProperties},
         {ComponentType::SpriteAnimationComponent, &findComponentPtr<SpriteAnimationComponent>, &resolveSpriteAnimationPropertyFast, &enumerateSpriteAnimationProperties},
         {ComponentType::AnimationComponent, &findComponentPtr<AnimationComponent>, &resolveAnimationPropertyFast, &enumerateAnimationProperties},
+        {ComponentType::AnimatorControllerComponent, &findComponentPtr<AnimatorControllerComponent>, &resolveAnimatorControllerPropertyFast, &enumerateAnimatorControllerProperties},
+        {ComponentType::NetworkComponent, &findComponentPtr<NetworkComponent>, &resolveNetworkPropertyFast, &enumerateNetworkProperties},
         {ComponentType::ModelComponent, &findComponentPtr<ModelComponent>, &resolveModelPropertyFast, &enumerateModelProperties},
         {ComponentType::BundleComponent, &findComponentPtr<BundleComponent>, &resolveBundlePropertyFast, &enumerateBundleProperties},
         {ComponentType::BoneComponent, &findComponentPtr<BoneComponent>, &resolveBonePropertyFast, &enumerateBoneProperties},
@@ -3238,7 +3493,7 @@ namespace {
 
 }
 
-using namespace doriax;
+using namespace quantum;
 
 editor::Catalog::Catalog(){
 }
@@ -3267,6 +3522,10 @@ std::string editor::Catalog::getComponentName(ComponentType component, bool remo
         name = "AlphaActionComponent";
     }else if(component == ComponentType::AnimationComponent){
         name = "AnimationComponent";
+    }else if(component == ComponentType::AnimatorControllerComponent){
+        name = "AnimatorControllerComponent";
+    }else if(component == ComponentType::NetworkComponent){
+        name = "NetworkComponent";
     }else if(component == ComponentType::SoundComponent){
         name = "SoundComponent";
     }else if(component == ComponentType::Body2DComponent){
@@ -3289,6 +3548,8 @@ std::string editor::Catalog::getComponentName(ComponentType component, bool remo
         name = "MirrorComponent";
     }else if(component == ComponentType::ReflectionProbeComponent){
         name = "ReflectionProbeComponent";
+    }else if(component == ComponentType::DecalComponent){
+        name = "DecalComponent";
     }else if(component == ComponentType::WaterComponent){
         name = "WaterComponent";
     }else if(component == ComponentType::WaterExclusionComponent){
@@ -3299,6 +3560,8 @@ std::string editor::Catalog::getComponentName(ComponentType component, bool remo
         name = "Occluder2DComponent";
     }else if(component == ComponentType::ImageComponent){
         name = "ImageComponent";
+    }else if(component == ComponentType::AutoColliderComponent){
+        name = "AutoColliderComponent";
     }else if(component == ComponentType::InstancedMeshComponent){
         name = "InstancedMeshComponent";
     }else if(component == ComponentType::Joint2DComponent){
@@ -3382,7 +3645,7 @@ std::string editor::Catalog::getComponentName(ComponentType component, bool remo
 }
 
 ComponentId editor::Catalog::getComponentId(const EntityRegistry* registry, ComponentType compType) {
-    using namespace doriax;
+    using namespace quantum;
     switch (compType) {
         case ComponentType::Transform:
             return registry->getComponentId<Transform>();
@@ -3398,6 +3661,10 @@ ComponentId editor::Catalog::getComponentId(const EntityRegistry* registry, Comp
             return registry->getComponentId<AlphaActionComponent>();
         case ComponentType::AnimationComponent:
             return registry->getComponentId<AnimationComponent>();
+        case ComponentType::AnimatorControllerComponent:
+            return registry->getComponentId<AnimatorControllerComponent>();
+        case ComponentType::NetworkComponent:
+            return registry->getComponentId<NetworkComponent>();
         case ComponentType::SoundComponent:
             return registry->getComponentId<SoundComponent>();
         case ComponentType::Body2DComponent:
@@ -3420,10 +3687,14 @@ ComponentId editor::Catalog::getComponentId(const EntityRegistry* registry, Comp
             return registry->getComponentId<MirrorComponent>();
         case ComponentType::ReflectionProbeComponent:
             return registry->getComponentId<ReflectionProbeComponent>();
+        case ComponentType::DecalComponent:
+            return registry->getComponentId<DecalComponent>();
         case ComponentType::WaterComponent:
             return registry->getComponentId<WaterComponent>();
         case ComponentType::WaterExclusionComponent:
             return registry->getComponentId<WaterExclusionComponent>();
+        case ComponentType::AutoColliderComponent:
+            return registry->getComponentId<AutoColliderComponent>();
         case ComponentType::Light2DComponent:
             return registry->getComponentId<Light2DComponent>();
         case ComponentType::Occluder2DComponent:
@@ -3506,6 +3777,10 @@ editor::ComponentType editor::Catalog::getComponentType(const std::string& compo
         return ComponentType::AlphaActionComponent;
     }else if(normalizedName == "animation"){
         return ComponentType::AnimationComponent;
+    }else if(normalizedName == "animatorcontroller"){
+        return ComponentType::AnimatorControllerComponent;
+    }else if(normalizedName == "network"){
+        return ComponentType::NetworkComponent;
     }else if(normalizedName == "sound" || normalizedName == "audio"){ // Backward compatibility: "audio" is the old name, remove it in a future release
         return ComponentType::SoundComponent;
     }else if(normalizedName == "body2d"){
@@ -3528,10 +3803,14 @@ editor::ComponentType editor::Catalog::getComponentType(const std::string& compo
         return ComponentType::MirrorComponent;
     }else if(normalizedName == "reflectionprobe"){
         return ComponentType::ReflectionProbeComponent;
+    }else if(normalizedName == "decal"){
+        return ComponentType::DecalComponent;
     }else if(normalizedName == "water"){
         return ComponentType::WaterComponent;
     }else if(normalizedName == "waterexclusion"){
         return ComponentType::WaterExclusionComponent;
+    }else if(normalizedName == "autocollider"){
+        return ComponentType::AutoColliderComponent;
     }else if(normalizedName == "light2d"){
         return ComponentType::Light2DComponent;
     }else if(normalizedName == "occluder2d"){
@@ -3634,16 +3913,16 @@ Signature editor::Catalog::componentMaskToSignature(const EntityRegistry* regist
 
 editor::PropertyType editor::Catalog::scriptPropertyTypeToPropertyType(ScriptPropertyType scriptType) {
     switch (scriptType) {
-        case doriax::ScriptPropertyType::Bool: return editor::PropertyType::Bool;
-        case doriax::ScriptPropertyType::Int: return editor::PropertyType::Int;
-        case doriax::ScriptPropertyType::Float: return editor::PropertyType::Float;
-        case doriax::ScriptPropertyType::String: return editor::PropertyType::String;
-        case doriax::ScriptPropertyType::Vector2: return editor::PropertyType::Vector2;
-        case doriax::ScriptPropertyType::Vector3: return editor::PropertyType::Vector3;
-        case doriax::ScriptPropertyType::Vector4: return editor::PropertyType::Vector4;
-        case doriax::ScriptPropertyType::Color3: return editor::PropertyType::Vector3;
-        case doriax::ScriptPropertyType::Color4: return editor::PropertyType::Vector4;
-        case doriax::ScriptPropertyType::EntityReference: return PropertyType::EntityReference;
+        case quantum::ScriptPropertyType::Bool: return editor::PropertyType::Bool;
+        case quantum::ScriptPropertyType::Int: return editor::PropertyType::Int;
+        case quantum::ScriptPropertyType::Float: return editor::PropertyType::Float;
+        case quantum::ScriptPropertyType::String: return editor::PropertyType::String;
+        case quantum::ScriptPropertyType::Vector2: return editor::PropertyType::Vector2;
+        case quantum::ScriptPropertyType::Vector3: return editor::PropertyType::Vector3;
+        case quantum::ScriptPropertyType::Vector4: return editor::PropertyType::Vector4;
+        case quantum::ScriptPropertyType::Color3: return editor::PropertyType::Vector3;
+        case quantum::ScriptPropertyType::Color4: return editor::PropertyType::Vector4;
+        case quantum::ScriptPropertyType::EntityReference: return PropertyType::EntityReference;
         default: return editor::PropertyType::Custom;
     }
 }
@@ -3665,6 +3944,9 @@ std::vector<editor::ComponentType> editor::Catalog::findComponents(EntityRegistr
     }
     if (registry->findComponent<AnimationComponent>(entity)){
         ret.push_back(ComponentType::AnimationComponent);
+    }
+    if (registry->findComponent<NetworkComponent>(entity)){
+        ret.push_back(ComponentType::NetworkComponent);
     }
     if (registry->findComponent<SoundComponent>(entity)){
         ret.push_back(ComponentType::SoundComponent);
@@ -3699,11 +3981,17 @@ std::vector<editor::ComponentType> editor::Catalog::findComponents(EntityRegistr
     if (registry->findComponent<ReflectionProbeComponent>(entity)){
         ret.push_back(ComponentType::ReflectionProbeComponent);
     }
+    if (registry->findComponent<DecalComponent>(entity)){
+        ret.push_back(ComponentType::DecalComponent);
+    }
     if (registry->findComponent<WaterComponent>(entity)){
         ret.push_back(ComponentType::WaterComponent);
     }
     if (registry->findComponent<WaterExclusionComponent>(entity)){
         ret.push_back(ComponentType::WaterExclusionComponent);
+    }
+    if (registry->findComponent<AutoColliderComponent>(entity)){
+        ret.push_back(ComponentType::AutoColliderComponent);
     }
     if (registry->findComponent<Light2DComponent>(entity)){
         ret.push_back(ComponentType::Light2DComponent);
@@ -3929,6 +4217,8 @@ uint64_t editor::Catalog::getComponentStructuralUpdateFlags(ComponentType compTy
         // into meshes, so they must reload
         case ComponentType::MirrorComponent:
         case ComponentType::ReflectionProbeComponent:
+            return UpdateFlags_Scene_Mesh_Reload;
+        case ComponentType::DecalComponent:
             return UpdateFlags_Scene_Mesh_Reload;
         default:
             return UpdateFlags_None;
@@ -4485,6 +4775,12 @@ void editor::Catalog::copyComponent(EntityRegistry* sourceRegistry, Entity sourc
             break;
         }
 
+        case ComponentType::DecalComponent: {
+            YAML::Node encoded = Stream::encodeDecalComponent(sourceRegistry->getComponent<DecalComponent>(sourceEntity));
+            targetRegistry->getComponent<DecalComponent>(targetEntity) = Stream::decodeDecalComponent(encoded);
+            break;
+        }
+
         case ComponentType::Light2DComponent: {
             YAML::Node encoded = Stream::encodeLight2DComponent(sourceRegistry->getComponent<Light2DComponent>(sourceEntity));
             targetRegistry->getComponent<Light2DComponent>(targetEntity) = Stream::decodeLight2DComponent(encoded);
@@ -4639,6 +4935,12 @@ void editor::Catalog::copyComponent(EntityRegistry* sourceRegistry, Entity sourc
         case ComponentType::AnimationComponent: {
             YAML::Node encoded = Stream::encodeAnimationComponent(sourceRegistry->getComponent<AnimationComponent>(sourceEntity));
             targetRegistry->getComponent<AnimationComponent>(targetEntity) = Stream::decodeAnimationComponent(encoded);
+            break;
+        }
+
+        case ComponentType::AnimatorControllerComponent: {
+            YAML::Node encoded = Stream::encodeAnimatorControllerComponent(sourceRegistry->getComponent<AnimatorControllerComponent>(sourceEntity));
+            targetRegistry->getComponent<AnimatorControllerComponent>(targetEntity) = Stream::decodeAnimatorControllerComponent(encoded);
             break;
         }
 

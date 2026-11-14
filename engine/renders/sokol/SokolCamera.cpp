@@ -1,15 +1,16 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolCamera.h"
 
 #include "System.h"
 #include "SokolCmdQueue.h"
+#include "SokolObject.h"
 
 #include "sokol_gfx.h"
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 SokolCamera::SokolCamera(){
     pass = {0};
@@ -55,7 +56,7 @@ void SokolCamera::startRenderPass(FramebufferRender* framebuffer, size_t face){
     pass.swapchain = {};
     pass.attachments = framebuffer->backend.get(face);
     //SokolCmdQueue::add_command_begin_pass(pass);
-    sg_begin_pass(pass);
+    SokolObject::beginPass(pass);
 }
 
 void SokolCamera::startRenderPass(int width, int height){
@@ -64,14 +65,14 @@ void SokolCamera::startRenderPass(int width, int height){
     pass.swapchain.width = width;
     pass.swapchain.height = height;
     //SokolCmdQueue::add_command_begin_pass(pass);
-    sg_begin_pass(pass);
+    SokolObject::beginPass(pass);
 }
 
 void SokolCamera::startRenderPass(){
     pass.attachments = {};
     pass.swapchain = System::instance().getSokolSwapchain();
     //SokolCmdQueue::add_command_begin_pass(pass);
-    sg_begin_pass(pass);
+    SokolObject::beginPass(pass);
 }
 
 void SokolCamera::applyViewport(Rect rect){

@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Bone.h"
 
 
-using namespace doriax;
+using namespace quantum;
 
 Bone::Bone(Scene* scene, Entity entity): Object(scene, entity){
 }

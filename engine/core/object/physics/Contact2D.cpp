@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Contact2D.h"
 
 #include "box2d/box2d.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Contact2D::Contact2D(Scene* scene, b2ContactData contact){
     this->scene = scene;

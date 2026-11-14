@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -7,7 +7,7 @@
 #include <string>
 #include "imgui.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
     class UIUtils {
     public:
         // Draw a search input field with a magnifying glass icon button

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AddComponentCmd.h"
@@ -7,7 +7,7 @@
 #include "util/CameraTextureLink.h"
 #include "util/ProjectUtils.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::AddComponentCmd::AddComponentCmd(Project* project, size_t sceneId, Entity entity, ComponentType componentType){
     this->project = project;

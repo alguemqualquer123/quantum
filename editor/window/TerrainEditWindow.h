@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     enum class TerrainBrushMode{
         Raise,
@@ -105,6 +105,9 @@ namespace doriax::editor{
         int workingHeight = 0;
         // Texels written so far, cut into the undo patch when the stroke ends
         TerrainMapRegion dirtyRegion;
+        // Texels written by the brush event being stamped now, so the engine can re-derive only
+        // the CDLOD leaves under it instead of walking the whole map
+        TerrainMapRegion stampRegion;
         // Placement strokes write entities instead of a map, so none of the texture state applies
         bool placement = false;
         // Fixed at stroke start, cleared if the asset turns out not to be instanceable
@@ -152,6 +155,16 @@ namespace doriax::editor{
         float flattenHeight;
         int terraceSteps;
         float noiseSize;
+
+        // Procedural heightmap generator dialog (the map settings row opens it)
+        bool generateOpen;
+        TerrainMapRef generateRef;
+        int generateMode;       // 0 flat, 1 middle, 2 value noise, 3 fractal noise
+        int generateSeed;
+        int generateOctaves;
+        float generateFrequency;
+        float generateBaseHeight;
+        float generateAmplitude;
 
         // Grayscale falloff for every brush, and the relief the Stamp brush lays down
         std::string brushMaskPath;
@@ -261,8 +274,10 @@ namespace doriax::editor{
         void clearStroke();
         void loadSettings();
 
-        bool createMapForTarget(const TerrainMapRef& ref, int width, int height);
+        bool createMapForTarget(const TerrainMapRef& ref, int width, int height, const std::vector<unsigned char>* initialPixels = nullptr);
         bool deleteMapForTarget(const TerrainMapRef& ref);
+        std::vector<unsigned char> makeProceduralHeightPixels(int width, int height);
+        void drawGenerateMapPopup(const TerrainMapRef& ref, bool mapPresent, int mapWidth, int mapHeight, int& resolution);
         bool setFoliageLayers(const std::vector<TerrainFoliageLayer>& layers);
         template<typename T> bool setFoliageLayerProperty(const char* field, const T& value);
 

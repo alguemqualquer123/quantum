@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BUNDLEMANAGER_H
@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace doriax {
+namespace quantum {
 
     class Scene;
 
@@ -38,7 +38,7 @@ namespace doriax {
     // An instance's scripts start in createBundle and stop in destroyBundle, which also removes
     // what was parented under the instance.
 
-    class DORIAX_API BundleManager {
+    class QUANTUM_API BundleManager {
     private:
         struct BundleEntry {
             uint32_t id;
@@ -124,6 +124,6 @@ namespace doriax {
         static bool isStopping(Scene* scene, Entity entity);
     };
 
-} // namespace doriax
+} // namespace quantum
 
 #endif // BUNDLEMANAGER_H

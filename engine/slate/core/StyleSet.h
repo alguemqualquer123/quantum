@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateStyleSet_h
@@ -13,7 +13,7 @@
 #include "math/Vector4.h"
 #include "slate/core/SlateTypes.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     class Widget;
 
@@ -86,6 +86,8 @@ namespace doriax::slate {
 
         NamedStyle& defineStyle(const std::string& name);
         const NamedStyle* findStyle(const std::string& name) const;
+        void registerRule(const std::string& selector, const std::string& styleName);
+        const WidgetStyle& resolveFor(const Widget& widget, WidgetVisualState state);
 
         //Flattens parent + base + state override into the values a widget uses.
         //Cached per (style, state) pair; the cache is dropped when a style is
@@ -103,6 +105,7 @@ namespace doriax::slate {
         std::map<std::string, SlateBrush> brushes;
         std::map<std::string, Vector4> colors;
         std::map<std::string, NamedStyle> styles;
+        std::map<std::string, std::string> rules;
         //key = style name + state index
         std::map<std::string, Resolved> resolvedCache;
         Vector4 missingColor;

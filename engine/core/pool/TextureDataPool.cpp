@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "TextureDataPool.h"
@@ -11,7 +11,7 @@
 #include <filesystem>
 #include <vector>
 
-using namespace doriax;
+using namespace quantum;
 
 std::unordered_map<std::string, std::future<TextureBuildResult>> TextureDataPool::pendingBuilds;
 std::mutex TextureDataPool::cacheMutex;

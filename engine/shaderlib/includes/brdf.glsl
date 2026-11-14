@@ -20,26 +20,27 @@ vec3 F_Schlick(vec3 f0, vec3 f90, float VdotH){
 // see Real-Time Rendering. Page 331 to 336.
 // see https://google.github.io/filament/Filament.md.html#materialsystem/specularbrdf/geometricshadowing(specularg)
 float V_GGX(float NdotL, float NdotV, float alphaRoughness){
+    NdotL = clamp(NdotL, 0.0, 1.0);
+    NdotV = clamp(NdotV, 0.0, 1.0);
+    alphaRoughness = clamp(alphaRoughness, 0.001, 1.0);
     float alphaRoughnessSq = alphaRoughness * alphaRoughness;
 
     float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
     float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - alphaRoughnessSq) + alphaRoughnessSq);
 
     float GGX = GGXV + GGXL;
-    if (GGX > 0.0)
-    {
-        return 0.5 / GGX;
-    }
-    return 0.0;
+    return 0.5 / max(GGX, 1e-5);
 }
 
 // The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
 // Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
 // Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
 float D_GGX(float NdotH, float alphaRoughness){
+    NdotH = clamp(NdotH, 0.0, 1.0);
+    alphaRoughness = clamp(alphaRoughness, 0.001, 1.0);
     float alphaRoughnessSq = alphaRoughness * alphaRoughness;
     float f = (NdotH * NdotH) * (alphaRoughnessSq - 1.0) + 1.0;
-    return alphaRoughnessSq / (M_PI * f * f);
+    return alphaRoughnessSq / (M_PI * max(f * f, 1e-5));
 }
 
 float lambdaSheenNumericHelper(float x, float alphaG){
@@ -96,6 +97,36 @@ vec3 BRDF_specularGGX(vec3 f0, vec3 f90, float alphaRoughness, float VdotH, floa
     float Vis = V_GGX(NdotL, NdotV, alphaRoughness);
     float D = D_GGX(NdotH, alphaRoughness);
 
+    return F * Vis * D;
+}
+
+// Anisotropic GGX for brushed metals and satin materials. The tangent frame is
+// rotated by the authored angle before stretching the distribution along its axes.
+float D_GGXAnisotropic(vec3 n, vec3 h, vec3 t, vec3 b, float alphaX, float alphaY){
+    float NdotH = clampedDot(n, h);
+    float HdotT = dot(h, t);
+    float HdotB = dot(h, b);
+    float alphaX2 = max(alphaX * alphaX, 0.000001);
+    float alphaY2 = max(alphaY * alphaY, 0.000001);
+    float denominator = (HdotT * HdotT) / alphaX2 +
+                        (HdotB * HdotB) / alphaY2 + NdotH * NdotH;
+    return 1.0 / max(M_PI * alphaX * alphaY * denominator * denominator, 0.000001);
+}
+
+vec3 BRDF_specularGGXAnisotropic(vec3 f0, vec3 f90, float alphaRoughness,
+                                 float anisotropy, float rotation,
+                                 vec3 n, vec3 t, vec3 b, vec3 h,
+                                 float VdotH, float NdotL, float NdotV){
+    float stretch = clamp(anisotropy, -0.95, 0.95);
+    float alphaX = alphaRoughness * sqrt(1.0 + stretch);
+    float alphaY = alphaRoughness / sqrt(1.0 + stretch);
+    float c = cos(rotation);
+    float s = sin(rotation);
+    vec3 rotatedT = normalize(t * c + b * s);
+    vec3 rotatedB = normalize(cross(n, rotatedT));
+    vec3 F = F_Schlick(f0, f90, VdotH);
+    float Vis = V_GGX(NdotL, NdotV, alphaRoughness);
+    float D = D_GGXAnisotropic(n, h, rotatedT, rotatedB, alphaX, alphaY);
     return F * Vis * D;
 }
 

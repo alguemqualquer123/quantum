@@ -1,15 +1,16 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 #include <deque>
 #include <mutex>
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
     enum class NotificationLevel {
         Info,
         Success,
@@ -43,7 +44,7 @@ namespace doriax::editor {
 
         bool windowOpen;
         bool focusRequested;
-        bool hasNotification;
+        std::atomic_bool hasNotification{false};
 
         void drainIncoming();
         void drawHistoryWindow();

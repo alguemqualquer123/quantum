@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaScript.h"
@@ -9,7 +9,7 @@
 
 #include "LuaBinding.h"
 
-using namespace doriax;
+using namespace quantum;
 
 void LuaScript::setObject(const std::string& global, Object* object){
     lua_State *L = LuaBinding::getLuaState();

@@ -1,17 +1,18 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "imgui.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class Theme {
     public:
         enum class Preset {
-            Dark,
+            Gray,
             Light,
+            Dark,
         };
 
         struct Colors {

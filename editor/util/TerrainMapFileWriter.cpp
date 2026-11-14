@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "util/TerrainMapFileWriter.h"
@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <utility>
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 namespace fs = std::filesystem;
 

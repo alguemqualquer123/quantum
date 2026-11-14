@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateButton_h
@@ -9,7 +9,7 @@
 #include "Export.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Text and/or icon button. All four looks (normal, hovered, pressed,
     // disabled) come from the named style, which is why the click routing is not
@@ -24,6 +24,7 @@ namespace doriax::slate {
 
         Button& setText(std::string text);
         const std::string& getText() const;
+        const char* getTypeName() const override;
         Button& setIcon(const std::string& brushName);
         //True puts the icon before the text, false after it.
         Button& setIconFirst(bool first);

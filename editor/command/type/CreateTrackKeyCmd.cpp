@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateTrackKeyCmd.h"
@@ -9,7 +9,7 @@
 #include "component/ScaleTracksComponent.h"
 #include "component/TranslateTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

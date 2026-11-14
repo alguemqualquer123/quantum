@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateRenderer_h
@@ -11,11 +11,11 @@
 #include "math/Vector2.h"
 #include "slate/core/Geometry.h"
 
-namespace doriax {
+namespace quantum {
     class Framebuffer;
 }
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // Backend interface. Implementations live in render/<backend>; no sokol or GL
     // type is allowed to leak through it, so the Slate module can be unit tested
@@ -28,7 +28,7 @@ namespace doriax::slate {
         //screen region it maps to (letterbox aware), target the offscreen
         //framebuffer or nullptr for the swapchain (world-space UI passes one).
         virtual void render(const SlateMesh& mesh, Vector2 canvasSize, const Rect& viewRect,
-                            doriax::Framebuffer* target) = 0;
+                            quantum::Framebuffer* target) = 0;
     };
 
     std::unique_ptr<ISlateRenderer> createSlateRenderer();

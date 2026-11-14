@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 // SceneSaveDialog.cpp
@@ -9,7 +9,7 @@
 #include <utility>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
 void SceneSaveDialog::open(const fs::path& projectPath, const fs::path& initialDirectory, const std::string& defaultName,
@@ -287,4 +287,4 @@ void SceneSaveDialog::displayDirectoryTree(const fs::path& rootPath, const fs::p
 }
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

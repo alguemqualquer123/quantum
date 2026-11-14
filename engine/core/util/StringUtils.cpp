@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "StringUtils.h"
@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <limits>
 
-using namespace doriax;
+using namespace quantum;
 
 std::string StringUtils::toUTF8(wchar_t codepoint){
     uint32_t cp = static_cast<uint32_t>(codepoint);

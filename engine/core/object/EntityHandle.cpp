@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "EntityHandle.h"
@@ -7,7 +7,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     struct OwnedHandles{

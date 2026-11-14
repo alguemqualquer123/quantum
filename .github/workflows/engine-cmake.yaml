@@ -5,10 +5,10 @@ on: push
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Debug
-  # The one build tree name; scripts/doriax-build-dir.bat carries the same
+  # The one build tree name; scripts/quantum-build-dir.bat carries the same
   # default, so CI and a developer's shell configure the same folder.
-  DORIAX_BUILD_DIR: build
-  TARGET: doriax-project
+  QUANTUM_BUILD_DIR: build
+  TARGET: quantum-project
 
 jobs:
   build:
@@ -101,7 +101,7 @@ jobs:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
         run: |
-          mkdir "$DORIAX_BUILD_DIR"
+          mkdir "$QUANTUM_BUILD_DIR"
           mkdir instdir
           BACKEND_FLAG=""
           if [ -n "${{ matrix.config.graphic_backend }}" ]; then
@@ -109,7 +109,7 @@ jobs:
           fi
           cmake \
             -S engine \
-            -B "$DORIAX_BUILD_DIR" \
+            -B "$QUANTUM_BUILD_DIR" \
             -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
             -G "${{ matrix.config.generators }}" \
             -DCMAKE_INSTALL_PREFIX:PATH=instdir \
@@ -120,11 +120,11 @@ jobs:
         env:
           CC: ${{ matrix.config.cc }}
           CXX: ${{ matrix.config.cxx }}
-        run: cmake --build "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target ${{env.TARGET}}
+        run: cmake --build "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --target ${{env.TARGET}}
 
       - name: Install Strip
         shell: bash
-        run: cmake --install "$DORIAX_BUILD_DIR" --config ${{env.BUILD_TYPE}} --strip
+        run: cmake --install "$QUANTUM_BUILD_DIR" --config ${{env.BUILD_TYPE}} --strip
         
       - name: List directories
         shell: bash

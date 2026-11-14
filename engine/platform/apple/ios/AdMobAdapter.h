@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import <Foundation/Foundation.h>
 
-// Google Mobile Ads and UMP for doriax::AdMob; the ints are its enums
+// Google Mobile Ads and UMP for quantum::AdMob; the ints are its enums
 @interface AdMobAdapter : NSObject
 
 - (void)initializeAdMob;
@@ -32,22 +32,22 @@
 
 @end
 
-// Engine callbacks, implemented in DoriaxApple.mm
+// Engine callbacks, implemented in QuantumApple.mm
 #ifdef __cplusplus
 extern "C" {
 #endif
-void DoriaxAdMobInitialized(void);
-void DoriaxAdMobConsentUpdated(int errorCode, const char *_Nonnull message);
-void DoriaxAdMobAdLoaded(int format, int generation, int width, int height);
-void DoriaxAdMobAdFailedToLoad(int format, int generation, int errorCode, const char *_Nonnull message);
-void DoriaxAdMobAdShown(int format);
-void DoriaxAdMobAdFailedToShow(int format, int errorCode, const char *_Nonnull message);
-void DoriaxAdMobAdDismissed(int format);
-void DoriaxAdMobAdClicked(int format);
-void DoriaxAdMobAdImpression(int format);
-void DoriaxAdMobAdPaid(int format, long long valueMicros, const char *_Nonnull currencyCode, int precision);
-void DoriaxAdMobUserEarnedReward(int format, const char *_Nonnull type, int amount);
-void DoriaxAdMobAdInspectorClosed(int errorCode, const char *_Nonnull message);
+void QuantumAdMobInitialized(void);
+void QuantumAdMobConsentUpdated(int errorCode, const char *_Nonnull message);
+void QuantumAdMobAdLoaded(int format, int generation, int width, int height);
+void QuantumAdMobAdFailedToLoad(int format, int generation, int errorCode, const char *_Nonnull message);
+void QuantumAdMobAdShown(int format);
+void QuantumAdMobAdFailedToShow(int format, int errorCode, const char *_Nonnull message);
+void QuantumAdMobAdDismissed(int format);
+void QuantumAdMobAdClicked(int format);
+void QuantumAdMobAdImpression(int format);
+void QuantumAdMobAdPaid(int format, long long valueMicros, const char *_Nonnull currencyCode, int precision);
+void QuantumAdMobUserEarnedReward(int format, const char *_Nonnull type, int amount);
+void QuantumAdMobAdInspectorClosed(int errorCode, const char *_Nonnull message);
 #ifdef __cplusplus
 }
 #endif

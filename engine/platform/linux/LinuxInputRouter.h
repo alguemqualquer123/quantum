@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LinuxInputRouter_h
@@ -8,7 +8,7 @@
 
 #include "Input.h"
 
-namespace doriax {
+namespace quantum {
 
     // X11 input-event translation. The editor and a game cannot share an event
     // loop -- the editor is its own ImGui platform backend, with viewports, IME,

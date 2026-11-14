@@ -1,7 +1,7 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 //
-// doriax-ui-demo: development executable for the retained-mode UI module
+// quantum-ui-demo: development executable for the retained-mode UI module
 // (engine/core/ui). Fase 2a: the demo tree is laid out by the flexbox engine
 // (Yoga) through the UMG-style panels, with only the top cards pinned to
 // absolute positions. Runs windowed by default; --headless builds the same
@@ -21,18 +21,18 @@
 #include "ui/layout/Panels.h"
 
 #if defined(_WIN32)
-    #include "DoriaxWin.h"
+    #include "QuantumWin.h"
     #include "WindowWin.h"
 #elif defined(__APPLE__)
-    #include "DoriaxMac.h"
+    #include "QuantumMac.h"
     #include "WindowMac.h"
 #else
-    #include "DoriaxLinux.h"
+    #include "QuantumLinux.h"
     #include "WindowLinux.h"
 #endif
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 namespace {
 
@@ -82,7 +82,7 @@ namespace {
         styleCard(main, 14.0f, kPanelBackground, kPanelBorder, 2.0f);
 
         Label* title = main->addChild<Label>("title");
-        title->setText("Doriax UI - Fase 2a");
+        title->setText("Quantum UI - Fase 2a");
         title->setFontSize(24);
         title->setTextColor(Vector4(1.0f, 1.0f, 1.0f, 1.0f));
 
@@ -201,7 +201,7 @@ namespace {
 
 // Registered like the runner/exported games (Engine.h:135-144); the engine
 // fires it inside Engine::systemInit.
-DORIAX_INIT void init() {
+QUANTUM_INIT void init() {
     bootScene();
 }
 
@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
         const double elapsedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 
         const UIRuntime::Stats& stats = UIRuntime::getStats();
-        std::printf("doriax-ui-demo (headless)\n");
+        std::printf("quantum-ui-demo (headless)\n");
         std::printf("  elements   : %u\n", stats.elements);
         std::printf("  commands   : %u\n", stats.commands);
         std::printf("  glyph quads: %u\n", stats.glyphQuads);
@@ -259,17 +259,17 @@ int main(int argc, char** argv) {
     }
 
     // The platform init owns the frame loop and shuts the engine down on
-    // window close (DoriaxWin::init, engine/platform/win/DoriaxWin.cpp).
+    // window close (QuantumWin::init, engine/platform/win/QuantumWin.cpp).
 #if defined(_WIN32)
-    const int result = DoriaxWin::init(argc, argv);
+    const int result = QuantumWin::init(argc, argv);
 #elif defined(__APPLE__)
-    const int result = DoriaxMac::init(argc, argv);
+    const int result = QuantumMac::init(argc, argv);
 #else
-    const int result = DoriaxLinux::init(argc, argv);
+    const int result = QuantumLinux::init(argc, argv);
 #endif
 
     const UIRuntime::Stats& stats = UIRuntime::getStats();
-    std::printf("doriax-ui-demo finished (code %d): %u elements, %u commands, %u ranges\n",
+    std::printf("quantum-ui-demo finished (code %d): %u elements, %u commands, %u ranges\n",
                 result, stats.elements, stats.commands, stats.ranges);
     return result;
 }

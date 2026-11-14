@@ -1,8 +1,8 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-#include "DoriaxLinux.h"
+#include "QuantumLinux.h"
 
 int main(int argc, char* argv[]) {
-    return DoriaxLinux::init(argc, argv);
+    return QuantumLinux::init(argc, argv);
 }

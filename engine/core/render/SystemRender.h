@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SystemRender_h
@@ -7,8 +7,8 @@
 #include "Export.h"
 #include <stdint.h>
 
-namespace doriax{
-    class DORIAX_API SystemRender{
+namespace quantum{
+    class QUANTUM_API SystemRender{
     public:
         static void setup();
         static void commitQueue();

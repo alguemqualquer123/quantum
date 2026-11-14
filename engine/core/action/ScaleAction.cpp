@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ScaleAction.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ScaleAction::ScaleAction(Scene* scene): TimedAction(scene){
     addComponent<ScaleActionComponent>();

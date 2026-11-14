@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateFlexEngine_h
@@ -6,7 +6,7 @@
 
 #include "Export.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     class Widget;
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SokolShader_h
@@ -8,7 +8,7 @@
 #include "shader/ShaderData.h"
 #include "sokol_gfx.h"
 
-namespace doriax{
+namespace quantum{
 
     // textures and storage buffers share the sg_bindings.views[] bindspace, but
     // shader reflection (ShaderData) keeps independent slot counters for each type,

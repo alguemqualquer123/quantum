@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 
@@ -189,7 +189,7 @@
 #include <string>
 #include "math/Vector2.h"
 
-namespace doriax {
+namespace quantum {
 
     typedef struct Touch{
         int pointer;
@@ -203,9 +203,32 @@ namespace doriax {
         std::map<int,float> axisValue;
     } Gamepad;
 
-    class DORIAX_API Input {
+    enum class GestureType : int {
+        Tap = 0,
+        Swipe = 1,
+        LongPress = 2
+    };
+
+    struct GestureEvent {
+        GestureType type = GestureType::Tap;
+        int pointer = 0;
+        Vector2 start;
+        Vector2 end;
+        float duration = 0.0f;
+    };
+
+    class QUANTUM_API Input {
 
         friend class Engine;
+
+    public:
+        // Deterministic input injection for headless tests, replay tools and automation.
+        // Platform backends continue to use Engine's system callbacks.
+        static void injectKeyState(int key, bool pressed, int mods = 0);
+        static void injectTouchStart(int pointer, float x, float y);
+        static void injectTouchMove(int pointer, float x, float y);
+        static void injectTouchEnd(int pointer, float x, float y, float durationSeconds = -1.0f);
+        static std::vector<GestureEvent> consumeGestureEvents();
 
     private:
 
@@ -261,6 +284,10 @@ namespace doriax {
         static std::string getGamepadName(int id);
         static bool isGamepadButtonPressed(int id, int button);
         static float getGamepadAxis(int id, int axis);
+        // Sets left/right motor strength in [0, 1]. Returns false when the
+        // platform backend cannot address the requested gamepad.
+        static bool setGamepadVibration(int id, float lowFrequency, float highFrequency);
+        static bool stopGamepadVibration(int id);
 
         static std::vector<Gamepad> getGamepads();
         static size_t numGamepads();

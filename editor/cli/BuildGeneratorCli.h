@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -8,11 +8,11 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor::cli {
+namespace quantum::editor::cli {
 
     namespace fs = std::filesystem;
 
-    // doriax-build-generator subcommands. None of them open a window or touch
+    // quantum-build-generator subcommands. None of them open a window or touch
     // the graphics backend; they drive the same Generator / Exporter / CommandRunner
     // code the editor's Play and Export paths use, headlessly, for CI and automation.
 

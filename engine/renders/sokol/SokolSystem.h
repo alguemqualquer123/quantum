@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef sokolsystem_h
@@ -6,7 +6,7 @@
 
 #include <stdint.h>
 
-namespace doriax{
+namespace quantum{
     class SokolSystem{
 
     public:

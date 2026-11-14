@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SCENESETTINGS_H
@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     enum class LightState {
         OFF,
@@ -58,11 +58,17 @@ namespace doriax{
         ShadowQuality shadowQuality = ShadowQuality::LOW;
 
         // off builds no levels at all; a detail level is drawn once its error projects below this many pixels
-        bool meshLodEnabled = false;
+        bool meshLodEnabled = true;
         float meshLodThreshold = 1.0f;
 
         // depth-only pass before the opaque draws; pays off with heavy overdraw
         bool depthPrepassEnabled = false;
+
+        // How far the scene is drawn, in metres. 0 = unlimited (whatever each camera's own far
+        // clip says). A positive value caps the perspective projection, so the frustum's far
+        // plane - which is what culls - moves in with it: geometry beyond it stops being drawn
+        // and the depth buffer spends its precision on the range actually visible.
+        float renderDistance = 0.0f;
 
         LightState lightState = LightState::AUTO;
         Vector3 globalIllumColor = Vector3(1.0, 1.0, 1.0);    // stored linear
@@ -79,6 +85,29 @@ namespace doriax{
         float ssaoBias = 0.025f;
         bool ssaoDebug = false;
 
+        // Screen-space contact shadows for the main directional light. They are kept
+        // separate from SSAO because contact shadows affect direct light visibility.
+        bool contactShadowsEnabled = false;
+        float contactShadowLength = 0.35f;
+        int contactShadowSteps = 12;
+        float contactShadowThickness = 0.025f;
+        float contactShadowIntensity = 0.65f;
+
+        // Screen-space diffuse bounce. It is deliberately opt-in because the pass is
+        // resolution and material dependent, while SSAO remains the cheaper baseline.
+        bool ssgiEnabled = false;
+        float ssgiRadius = 2.5f;
+        float ssgiIntensity = 0.35f;
+        int ssgiSteps = 12;
+        float ssgiThickness = 0.25f;
+
+        // --- depth of field ---
+        bool dofEnabled = false;
+        float dofFocusDistance = 8.0f;   // world units from the camera
+        float dofAperture = 2.0f;        // blur strength scale, 0..16 in practice
+        float dofFocusRange = 4.0f;      // width of the in-focus band, both sides
+        float dofMaxBlur = 0.02f;        // max circle of confusion, normalized [0..1] of screen height
+
         bool ssrEnabled = false;
         float ssrMaxDistance = 8.0f;   // max ray length in view-space units
         float ssrThickness = 0.5f;     // depth-compare tolerance (view-space units)
@@ -87,9 +116,21 @@ namespace doriax{
         float ssrBlur = 0.0f;          // glossy blur amount [0..1] (0 = sharp/mirror)
         int ssrDebugMode = 0;          // 0=off,1=reflection,2=normal,3=roughness,4=metallic,5=albedo,6=IBL specular
 
+        // Temporal reconstruction. Both passes are opt-in because history is only meaningful
+        // for the main camera and needs an offscreen scene color target.
+        bool taaEnabled = false;
+        float taaBlend = 0.90f;        // history weight at zero motion
+        float taaVelocityScale = 1.0f; // scale applied to generated UV motion
+        float taaVelocityClamp = 0.25f;
+        bool motionBlurEnabled = false;
+        float motionBlurIntensity = 1.0f;
+        int motionBlurSamples = 8;
+        float motionBlurVelocityClamp = 0.08f;
+        float motionBlurDepthThreshold = 0.5f;
+
         // HDR Bloom
         bool bloomEnabled = false;
-        float bloomThreshold = 1.0f;     // luminance threshold for bright pixel extraction
+        float bloomThreshold = 0.75f;    // luminance threshold for bright pixel extraction (the scene target is 0..1 until an HDR variant runs)
         float bloomIntensity = 1.0f;     // bloom strength multiplier
         float bloomSoftKnee = 0.5f;      // soft knee for threshold (0=hard, 1=smooth)
         int bloomMipLevels = 5;          // number of downsample/upsample mip levels (1-5)
@@ -103,6 +144,7 @@ namespace doriax{
         float autoExposureSpeed = 1.0f;  // adaptation speed
         float autoExposureMinEV = -2.0f; // minimum exposure value
         float autoExposureMaxEV = 8.0f;  // maximum exposure value
+        float exposureCompensation = 0.0f; // EV offset the meter keys to (0 = middle grey)
 
         // Color Grading
         bool colorGradingEnabled = false;
@@ -114,10 +156,25 @@ namespace doriax{
         float colorGradingTint = 0.0f;        // -1=green, 0=neutral, 1=magenta
         std::string colorGradingLUTPath;      // path to 3D LUT texture (empty = use built-in adjustments)
 
+        // Anti-aliasing: FXAA over the finished image, after the tone map and after any
+        // fixed-resolution upscale, so it runs at display resolution.
+        bool fxaaEnabled = false;
+        float fxaaIntensity = 1.0f;        // blend of the AA result with its own input [0..1]
+
         // Initial physics gravity. The live value is owned by PhysicsSystem (it must be pushed
         // to the Box2D/Jolt worlds on change); this is the default it initializes from.
         Vector2 gravity2D = Vector2(0.0f, -9.81f);
         Vector3 gravity3D = Vector3(0.0f, -9.81f, 0.0f);
+
+        // --- wind ---
+        // The movement of the air over the whole world, written in metres and seconds like the
+        // water field. Off by default: a scene authored before this existed keeps its water, its
+        // foam and its frame times exactly as they were. A WindZone multiplies it locally.
+        bool windEnabled = false;
+        float windSpeed = 6.0f;        // metres per second, the mean wind over the surface
+        float windDirection = 0.0f;    // around Y, 0 = +X, the same convention as waveDirection
+        float windGustiness = 0.35f;   // 0 = steady air, 1 = gusts take the speed from calm to double
+        float windChange = 0.2f;       // how fast the gust pattern renews, cycles per second
 
         // fixed game resolution: when enabled and this scene is the Engine main scene, the main
         // camera renders into an offscreen framebuffer of this size, upscaled to the view rect

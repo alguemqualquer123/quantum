@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ActionSystem.h"
@@ -7,8 +7,15 @@
 #include "util/Color.h"
 #include "util/Angle.h"
 #include "math/Interpolation.h"
+#include "math/Ray.h"
 #include "subsystem/MeshSystem.h"
 #include "subsystem/UISystem.h"
+#include "action/Animation.h"
+#include "component/SoundComponent.h"
+#include "component/AnimatorControllerComponent.h"
+#include "script/graph/GraphRuntime.h"
+#include "script/graph/GraphValue.h"
+#include "script/graph/GraphTypes.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -16,7 +23,7 @@
 #include <functional>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 float ActionSystem::getParticleInverseScale(float value){
     if (value == 0.0f)
@@ -122,6 +129,81 @@ void ActionSystem::updateParticleTargetCache(ParticlesComponent& particles, Tran
         getParticleInverseScale(targetTransform->worldScale.x),
         getParticleInverseScale(targetTransform->worldScale.y),
         getParticleInverseScale(targetTransform->worldScale.z));
+}
+
+bool ActionSystem::resolveParticleCollision(ParticlesComponent& particles, Vector3& position,
+    Vector3& velocity, Transform* targetTransform, float dt){
+    if (!particles.collisionEnabled || dt <= 0.0f) return false;
+    const Vector3 worldStart = getParticleSimulationPosition(particles, targetTransform, position);
+    const bool worldSpace = isParticleWorldSpace(particles, targetTransform);
+    Vector3 worldVelocity = getParticleSimulationDirection(particles, targetTransform, velocity);
+    const Vector3 worldDelta = worldVelocity * dt;
+    if (worldDelta.squaredLength() <= 0.0000001f) return false;
+
+    const RayReturn hit = Ray(worldStart, worldDelta).intersects(scene, RayFilter::BODY_3D, true);
+    if (!hit) return false;
+
+    const Vector3 worldPosition = hit.point + hit.normal * 0.001f;
+    position = isParticleWorldSpace(particles, targetTransform)
+        ? particles.cachedTargetModelInv * worldPosition : worldPosition;
+    const float normalSpeed = worldVelocity.dotProduct(hit.normal);
+    if (normalSpeed < 0.0f){
+        worldVelocity -= hit.normal * (normalSpeed * (1.0f + std::clamp(particles.collisionBounce, 0.0f, 1.0f)));
+    }
+    const float friction = std::clamp(particles.collisionFriction, 0.0f, 1.0f);
+    worldVelocity *= (1.0f - friction);
+    velocity = worldSpace ? particles.cachedTargetWorldRotInv * worldVelocity : worldVelocity;
+    return true;
+}
+
+void ActionSystem::clearParticleTrail(size_t index, ParticlesComponent& particles){
+    if (index < particles.trailHistory.size())
+        particles.trailHistory[index].clear();
+    if (!particles.trailsEnabled || particles.trailTarget == NULL_ENTITY) return;
+    LinesComponent* lines = scene->findComponent<LinesComponent>(particles.trailTarget);
+    if (!lines) return;
+    const size_t segments = particles.trailLength > 1 ? particles.trailLength - 1 : 0;
+    const size_t first = index * segments;
+    for (size_t i = 0; i < segments && first + i < lines->lines.size(); ++i){
+        lines->lines[first + i].colorA.w = 0.0f;
+        lines->lines[first + i].colorB.w = 0.0f;
+    }
+    lines->needUpdateBuffer = true;
+}
+
+void ActionSystem::updateParticleTrail(size_t index, ParticlesComponent& particles,
+    Transform* targetTransform, const Vector3& position){
+    if (!particles.trailsEnabled || particles.trailTarget == NULL_ENTITY) return;
+    LinesComponent* lines = scene->findComponent<LinesComponent>(particles.trailTarget);
+    if (!lines) return;
+    const size_t length = std::clamp<size_t>(particles.trailLength, 2, 64);
+    if (particles.trailHistory.size() < particles.particles.size())
+        particles.trailHistory.resize(particles.particles.size());
+    std::vector<Vector3>& history = particles.trailHistory[index];
+    history.push_back(getParticleDisplayPosition(particles, targetTransform, position));
+    if (history.size() > length)
+        history.erase(history.begin(), history.end() - static_cast<std::ptrdiff_t>(length));
+
+    const size_t segments = length - 1;
+    const size_t required = particles.particles.size() * segments;
+    if (lines->lines.size() < required) lines->lines.resize(required);
+    if (lines->maxLines < required) lines->maxLines = static_cast<unsigned int>(required);
+    const size_t first = index * segments;
+    for (size_t i = 0; i < segments; ++i){
+        LineData& line = lines->lines[first + i];
+        const size_t a = i;
+        const size_t b = i + 1;
+        if (b < history.size()){
+            line.pointA = history[a];
+            line.pointB = history[b];
+            line.colorA.w = static_cast<float>(a + 1) / static_cast<float>(segments);
+            line.colorB.w = static_cast<float>(b + 1) / static_cast<float>(segments);
+        }else{
+            line.colorA.w = 0.0f;
+            line.colorB.w = 0.0f;
+        }
+    }
+    lines->needUpdateBuffer = true;
 }
 
 Vector3 ActionSystem::samplePositionInitializer(ParticlePositionInitializer& init){
@@ -497,6 +579,9 @@ void ActionSystem::animationUpdate(double dt, Entity entity, ActionComponent& ac
 
                 iaction.timecount = iaction.phase + timeDiff * iaction.speed;
                 iaction.weight = animcomp.weight;
+                iaction.blendLayer = animcomp.blendLayer;
+                iaction.blendLayerWeight = animcomp.blendLayerWeight;
+                iaction.blendLayerAdditive = animcomp.blendLayerAdditive;
 
                 float frameDuration = getFrameDuration(animcomp.actions[i]) / iaction.speed;
                 actionsEnd = std::max(actionsEnd, animcomp.actions[i].startTime + frameDuration);
@@ -1064,6 +1149,7 @@ void ActionSystem::advanceParticle(size_t idx, float dt, ParticlesComponent& par
 
     if (life <= time){
         instmesh.instances[idx].visible = false;
+        clearParticleTrail(idx, particles);
         return;
     }
 
@@ -1076,6 +1162,8 @@ void ActionSystem::advanceParticle(size_t idx, float dt, ParticlesComponent& par
     velocity += acceleration * dt * 0.5f;
     position += velocity * dt;
     velocity += acceleration * dt * 0.5f;
+    resolveParticleCollision(particles, position, velocity, targetTransform, dt);
+    updateParticleTrail(idx, particles, targetTransform, position);
     time += dt;
 
     particles.particles[idx].time = time;
@@ -1094,10 +1182,21 @@ void ActionSystem::advanceParticle(size_t idx, float dt, ParticlesComponent& par
 
     if (life <= time){
         points.points[idx].visible = false;
+        clearParticleTrail(idx, particles);
         return;
     }
 
     applyParticleModifiers(idx, particles, points, targetTransform);
+
+    if (points.gpuSimulation){
+        // The vertex shader integrates the immutable spawn velocity and acceleration.
+        // Lifetime and color/size modifiers still advance here so the existing editor
+        // controls remain useful without paying the per-particle position integration.
+        particles.particles[idx].time = time + dt;
+        points.points[idx].visible = true;
+        points.needUpdate = true;
+        return;
+    }
 
     Vector3 velocity = particles.particles[idx].velocity;
     Vector3 position = particles.particles[idx].position;
@@ -1106,6 +1205,8 @@ void ActionSystem::advanceParticle(size_t idx, float dt, ParticlesComponent& par
     velocity += acceleration * dt * 0.5f;
     position += velocity * dt;
     velocity += acceleration * dt * 0.5f;
+    resolveParticleCollision(particles, position, velocity, targetTransform, dt);
+    updateParticleTrail(idx, particles, targetTransform, position);
     time += dt;
 
     particles.particles[idx].time = time;
@@ -1121,6 +1222,7 @@ void ActionSystem::advanceParticle(size_t idx, float dt, ParticlesComponent& par
 void ActionSystem::particleActionStart(ParticlesComponent& particles, InstancedMeshComponent& instmesh, MeshComponent& mesh){
     // Creating particles
     particles.particles.clear();
+    particles.trailHistory.clear();
     instmesh.instances.clear();
     for (int i = 0; i < particles.maxParticles; i++){
         particles.particles.push_back({});
@@ -1156,6 +1258,19 @@ void ActionSystem::particleActionStart(ParticlesComponent& particles, PointsComp
 
     // Creating particles
     particles.particles.clear();
+    particles.trailHistory.clear();
+    particles.gpuSimulationTime = 0.0f;
+    const bool hasTrajectoryModifiers =
+        particles.positionModifier.fromTime != particles.positionModifier.toTime ||
+        particles.velocityModifier.fromTime != particles.velocityModifier.toTime ||
+        particles.accelerationModifier.fromTime != particles.accelerationModifier.toTime;
+    const bool compatibleGpuSimulation = particles.gpuSimulation && !particles.collisionEnabled &&
+        !particles.trailsEnabled && !hasTrajectoryModifiers;
+    const bool gpuSimulationChanged = points.gpuSimulation != compatibleGpuSimulation;
+    points.gpuSimulation = compatibleGpuSimulation;
+    points.gpuSimulationTime = 0.0f;
+    if (gpuSimulationChanged)
+        points.needReload = points.loadCalled;
     points.points.clear();
     for (int i = 0; i < particles.maxParticles; i++){
         particles.particles.push_back({});
@@ -1200,6 +1315,7 @@ void ActionSystem::particleActionReset(Entity entity){
     particles->lastUsedParticle = 0;
     particles->currentBurst = 0;
     particles->emitter = false;
+    particles->gpuSimulationTime = 0.0f;
 
     if (action->target == NULL_ENTITY) {
         return;
@@ -1209,6 +1325,8 @@ void ActionSystem::particleActionReset(Entity entity){
         points->points.clear();
         points->renderPoints.clear();
         points->numVisible = 0;
+        points->gpuSimulation = false;
+        points->gpuSimulationTime = 0.0f;
         points->needUpdate = true;
         points->needUpdateBuffer = true;
     }
@@ -1226,6 +1344,7 @@ void ActionSystem::particleActionReset(Entity entity){
 void ActionSystem::particlesActionUpdate(double dt, Entity entity, Entity target, ActionComponent& action, ParticlesComponent& particles, InstancedMeshComponent& instmesh){
     SpriteComponent* sprite = scene->findComponent<SpriteComponent>(target);
     Transform* targetTransform = scene->findComponent<Transform>(target);
+    particles.trailTarget = particles.trailsEnabled ? target : NULL_ENTITY;
     updateParticleTargetCache(particles, targetTransform);
 
     bool existParticles = false;
@@ -1299,7 +1418,23 @@ void ActionSystem::particlesActionUpdate(double dt, Entity entity, Entity target
 
 void ActionSystem::particlesActionUpdate(double dt, Entity entity, Entity target, ActionComponent& action, ParticlesComponent& particles, PointsComponent& points){
     Transform* targetTransform = scene->findComponent<Transform>(target);
+    particles.trailTarget = particles.trailsEnabled ? target : NULL_ENTITY;
     updateParticleTargetCache(particles, targetTransform);
+
+    const bool hasTrajectoryModifiers =
+        particles.positionModifier.fromTime != particles.positionModifier.toTime ||
+        particles.velocityModifier.fromTime != particles.velocityModifier.toTime ||
+        particles.accelerationModifier.fromTime != particles.accelerationModifier.toTime;
+    const bool gpuSimulation = particles.gpuSimulation && !particles.collisionEnabled &&
+        !particles.trailsEnabled && !hasTrajectoryModifiers;
+    if (points.gpuSimulation != gpuSimulation){
+        points.gpuSimulation = gpuSimulation;
+        points.needReload = points.loadCalled;
+    }
+    if (gpuSimulation){
+        particles.gpuSimulationTime += (float)dt;
+        points.gpuSimulationTime = particles.gpuSimulationTime;
+    }
 
     bool existParticles = false;
     for(int i=0; i<particles.particles.size(); i++){
@@ -1441,7 +1576,7 @@ static Vector3 sampleVectorTrack(const KeyframeTracksComponent& keyframe, const 
     return previous + keyframe.interpolation * (tracks.values[keyframe.index] - previous);
 }
 
-void ActionSystem::translateTracksUpdate(KeyframeTracksComponent& keyframe, TranslateTracksComponent& translatetracks, Entity target, float weight){
+void ActionSystem::translateTracksUpdate(KeyframeTracksComponent& keyframe, TranslateTracksComponent& translatetracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive){
     if (weight <= 0.0f || !trackIndexValid(keyframe, translatetracks))
         return;
 
@@ -1451,11 +1586,20 @@ void ActionSystem::translateTracksUpdate(KeyframeTracksComponent& keyframe, Tran
     }
 
     TransformBlendAccum& accum = transformBlend[target];
-    accum.positionSum = accum.positionSum + value * weight;
-    accum.positionWeight += weight;
+    if (layer == 0){
+        accum.positionSum = accum.positionSum + value * weight;
+        accum.positionWeight += weight;
+    }else if (layer < MAX_ANIMATOR_LAYERS){
+        auto& sample = accum.layers[layer];
+        sample.positionSum = sample.positionSum + value * weight;
+        sample.positionWeight += weight;
+        sample.influence = std::max(sample.influence, std::clamp(layerWeight, 0.0f, 1.0f));
+        sample.additive = additive;
+        sample.configured = true;
+    }
 }
 
-void ActionSystem::scaleTracksUpdate(KeyframeTracksComponent& keyframe, ScaleTracksComponent& scaletracks, Entity target, float weight){
+void ActionSystem::scaleTracksUpdate(KeyframeTracksComponent& keyframe, ScaleTracksComponent& scaletracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive){
     if (weight <= 0.0f || !trackIndexValid(keyframe, scaletracks))
         return;
 
@@ -1465,11 +1609,20 @@ void ActionSystem::scaleTracksUpdate(KeyframeTracksComponent& keyframe, ScaleTra
     }
 
     TransformBlendAccum& accum = transformBlend[target];
-    accum.scaleSum = accum.scaleSum + value * weight;
-    accum.scaleWeight += weight;
+    if (layer == 0){
+        accum.scaleSum = accum.scaleSum + value * weight;
+        accum.scaleWeight += weight;
+    }else if (layer < MAX_ANIMATOR_LAYERS){
+        auto& sample = accum.layers[layer];
+        sample.scaleSum = sample.scaleSum + value * weight;
+        sample.scaleWeight += weight;
+        sample.influence = std::max(sample.influence, std::clamp(layerWeight, 0.0f, 1.0f));
+        sample.additive = additive;
+        sample.configured = true;
+    }
 }
 
-void ActionSystem::rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateTracksComponent& rotatetracks, Entity target, float weight){
+void ActionSystem::rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateTracksComponent& rotatetracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive){
     if (weight <= 0.0f || !trackIndexValid(keyframe, rotatetracks))
         return;
 
@@ -1497,6 +1650,22 @@ void ActionSystem::rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateT
     }
 
     TransformBlendAccum& accum = transformBlend[target];
+    if (layer > 0){
+        if (layer >= MAX_ANIMATOR_LAYERS) return;
+        auto& sample = accum.layers[layer];
+        if (!sample.hasRotationRef){
+            sample.rotationRef = value;
+            sample.hasRotationRef = true;
+        } else if (sample.rotationRef.dot(value) < 0.0f){
+            value = -value;
+        }
+        sample.rotationSum = sample.rotationSum + value * weight;
+        sample.rotationWeight += weight;
+        sample.influence = std::max(sample.influence, std::clamp(layerWeight, 0.0f, 1.0f));
+        sample.additive = additive;
+        sample.configured = true;
+        return;
+    }
     // Weighted quaternion average (nlerp-style): align each sample to the first
     // sample's hemisphere so the shortest arc is taken, sum, then normalize on flush.
     if (!accum.hasRotationRef){
@@ -1509,7 +1678,7 @@ void ActionSystem::rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateT
     accum.rotationWeight += weight;
 }
 
-void ActionSystem::morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTracksComponent& morpthtracks, Entity target, float weight){
+void ActionSystem::morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTracksComponent& morpthtracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive){
     if (weight <= 0.0f || !trackIndexValid(keyframe, morpthtracks))
         return;
 
@@ -1521,6 +1690,14 @@ void ActionSystem::morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTra
                      morpthtracks.inTangents[keyframe.index].size() == morpthtracks.values[keyframe.index].size();
         float td = cubic ? keyframe.times[keyframe.index] - keyframe.times[keyframe.index-1] : 0;
         MorphBlendAccum& accum = morphBlend[target];
+        if (layer >= MAX_ANIMATOR_LAYERS) return;
+        auto* sums = layer == 0 ? accum.sums : accum.layers[layer].sums;
+        auto* weights = layer == 0 ? accum.weights : accum.layers[layer].weights;
+        if (layer > 0){
+            accum.layers[layer].influence = std::max(accum.layers[layer].influence, std::clamp(layerWeight, 0.0f, 1.0f));
+            accum.layers[layer].additive = additive;
+            accum.layers[layer].configured = true;
+        }
         for (int morphIndex = 0; morphIndex < morpthtracks.values[keyframe.index].size() && morphIndex < MAX_MORPHTARGETS; morphIndex++) {
             float value;
             if (cubic){
@@ -1530,8 +1707,8 @@ void ActionSystem::morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTra
             }else{
                 value = previousMorph[morphIndex] + keyframe.interpolation * (morpthtracks.values[keyframe.index][morphIndex] - previousMorph[morphIndex]);
             }
-            accum.sums[morphIndex] += value * weight;
-            accum.weights[morphIndex] += weight;
+            sums[morphIndex] += value * weight;
+            weights[morphIndex] += weight;
         }
     }else{
         Log::error("MorphTrack of index %i is different size than index %i", keyframe.index, keyframe.index-1);
@@ -1541,6 +1718,143 @@ void ActionSystem::morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTra
 void ActionSystem::clearPoseBlend(){
     transformBlend.clear();
     morphBlend.clear();
+}
+
+void ActionSystem::applyRootMotion(){
+    auto animators = scene->getComponentArray<AnimatorControllerComponent>();
+    for (int i = 0; i < animators->size(); i++){
+        Entity entity = animators->getEntity(i);
+        AnimatorControllerComponent& animator = animators->getComponentFromIndex(i);
+        if (!animator.enabled || !animator.isPlaying || !animator.rootMotionEnabled){
+            animator.rootMotionHasSample = false;
+            continue;
+        }
+
+        Entity source = animator.rootMotionTarget;
+        if (source == NULL_ENTITY || !scene->isEntityCreated(source)){
+            source = entity;
+        }
+        auto found = transformBlend.find(source);
+        if (found == transformBlend.end() || found->second.positionWeight <= 0.0f){
+            continue;
+        }
+
+        Transform* controllerTransform = scene->findComponent<Transform>(entity);
+        Transform* sourceTransform = scene->findComponent<Transform>(source);
+        if (!controllerTransform || !sourceTransform){
+            continue;
+        }
+
+        TransformBlendAccum& accum = found->second;
+        Vector3 sample = accum.positionSum * (1.0f / accum.positionWeight);
+        bool reset = !animator.rootMotionHasSample ||
+            animator.rootMotionState != animator.currentState ||
+            animator.currentStateTime + 0.0001f < animator.rootMotionTime;
+        Vector3 delta = reset ? Vector3::ZERO : sample - animator.rootMotionPrevious;
+        animator.rootMotionPrevious = sample;
+        animator.rootMotionState = animator.currentState;
+        animator.rootMotionTime = animator.currentStateTime;
+        animator.rootMotionHasSample = true;
+        if (reset){
+            continue;
+        }
+
+        float scale = std::isfinite(animator.rootMotionScale) ? animator.rootMotionScale : 1.0f;
+        Vector3 motion = delta * scale;
+        if (source == entity){
+            accum.positionSum = (controllerTransform->position + motion) * accum.positionWeight;
+        }else{
+            controllerTransform->position += controllerTransform->rotation * motion;
+            controllerTransform->needUpdate = true;
+            // Keep the animated root at its authored pose after consuming its delta.
+            accum.positionSum = sourceTransform->position * accum.positionWeight;
+        }
+    }
+}
+
+void ActionSystem::applyAnimatorIK(){
+    const auto rotationBetween = [](const Vector3& from, const Vector3& to){
+        const Vector3 source = from.normalized();
+        const Vector3 destination = to.normalized();
+        const float dot = std::clamp(source.dotProduct(destination), -1.0f, 1.0f);
+        if (dot > 1.0f - FLT_EPSILON) return Quaternion::IDENTITY;
+        if (dot < -1.0f + FLT_EPSILON){
+            Vector3 axis = source.crossProduct(Vector3::UNIT_X);
+            if (axis.length() <= FLT_EPSILON) axis = source.crossProduct(Vector3::UNIT_Y);
+            axis.normalize();
+            return Quaternion(Angle::defaultToRad(180.0f), axis);
+        }
+        const Vector3 cross = source.crossProduct(destination);
+        const float scale = std::sqrt((1.0f + dot) * 2.0f);
+        const float inverseScale = 1.0f / scale;
+        return Quaternion(scale * 0.5f, cross.x * inverseScale, cross.y * inverseScale, cross.z * inverseScale).normalized();
+    };
+    auto animators = scene->getComponentArray<AnimatorControllerComponent>();
+    for (int i = 0; i < animators->size(); i++){
+        AnimatorControllerComponent& animator = animators->getComponentFromIndex(i);
+        if (!animator.enabled) continue;
+        for (const AnimatorIKChain& chain : animator.ikChains){
+            if (!chain.enabled || chain.weight <= 0.0f ||
+                chain.root == NULL_ENTITY || chain.middle == NULL_ENTITY ||
+                chain.tip == NULL_ENTITY || chain.target == NULL_ENTITY ||
+                !scene->isEntityCreated(chain.root) || !scene->isEntityCreated(chain.middle) ||
+                !scene->isEntityCreated(chain.tip) || !scene->isEntityCreated(chain.target)){
+                continue;
+            }
+            Transform* root = scene->findComponent<Transform>(chain.root);
+            Transform* middle = scene->findComponent<Transform>(chain.middle);
+            Transform* tip = scene->findComponent<Transform>(chain.tip);
+            Transform* target = scene->findComponent<Transform>(chain.target);
+            if (!root || !middle || !tip || !target) continue;
+
+            const Vector3 rootPosition = root->position;
+            const Vector3 middlePosition = middle->position;
+            const Vector3 tipPosition = tip->position;
+            const float upperLength = (middlePosition - rootPosition).length();
+            const float lowerLength = (tipPosition - middlePosition).length();
+            if (upperLength <= FLT_EPSILON || lowerLength <= FLT_EPSILON) continue;
+
+            Vector3 toTarget = target->position - rootPosition;
+            float distance = toTarget.length();
+            if (distance <= FLT_EPSILON) continue;
+            const float minDistance = std::fabs(upperLength - lowerLength);
+            const float maxDistance = upperLength + lowerLength;
+            distance = std::clamp(distance, minDistance, maxDistance);
+            const Vector3 direction = toTarget.normalized();
+
+            Vector3 bend = middlePosition - rootPosition;
+            if (chain.pole != NULL_ENTITY && scene->isEntityCreated(chain.pole)){
+                if (Transform* pole = scene->findComponent<Transform>(chain.pole)){
+                    bend = pole->position - rootPosition;
+                }
+            }
+            bend = bend - direction * direction.dotProduct(bend);
+            if (bend.length() <= FLT_EPSILON){
+                bend = direction.crossProduct(Vector3::UNIT_Y);
+                if (bend.length() <= FLT_EPSILON) bend = direction.crossProduct(Vector3::UNIT_X);
+            }
+            bend.normalize();
+
+            const float cosine = std::clamp((upperLength * upperLength + distance * distance - lowerLength * lowerLength) /
+                                            (2.0f * upperLength * distance), -1.0f, 1.0f);
+            const float sine = std::sqrt(std::max(0.0f, 1.0f - cosine * cosine));
+            const Vector3 solvedMiddle = rootPosition + direction * (upperLength * cosine) + bend * (upperLength * sine);
+            const float weight = std::clamp(chain.weight, 0.0f, 1.0f);
+            middle->position = middlePosition + (solvedMiddle - middlePosition) * weight;
+            tip->position = tipPosition + (target->position - tipPosition) * weight;
+            if (chain.orientBones){
+                const Vector3 rootDirection = (solvedMiddle - rootPosition).normalized();
+                const Vector3 middleDirection = (target->position - solvedMiddle).normalized();
+                const Quaternion rootRotation = rotationBetween(root->rotation * Vector3::UNIT_Z, rootDirection) * root->rotation;
+                const Quaternion middleRotation = rotationBetween(middle->rotation * Vector3::UNIT_Z, middleDirection) * middle->rotation;
+                root->rotation = Quaternion::slerp(weight, root->rotation, rootRotation);
+                middle->rotation = Quaternion::slerp(weight, middle->rotation, middleRotation);
+                root->needUpdate = true;
+            }
+            middle->needUpdate = true;
+            tip->needUpdate = true;
+        }
+    }
 }
 
 void ActionSystem::flushPoseBlend(){
@@ -1556,8 +1870,14 @@ void ActionSystem::flushPoseBlend(){
             continue;
 
         bool changed = false;
+        Vector3 position = transform->position;
+        Vector3 scale = transform->scale;
+        Quaternion rotation = transform->rotation;
+        bool positionChanged = false;
+        bool scaleChanged = false;
+        bool rotationChanged = false;
         if (accum.positionWeight > 0.0f){
-            Vector3 position = accum.positionSum * (1.0f / accum.positionWeight);
+            position = accum.positionSum * (1.0f / accum.positionWeight);
             // the layout places an anchored element from its offset every frame
             UILayoutComponent* layout = scene->findComponent<UILayoutComponent>(target);
             if (layout && layout->usingAnchors){
@@ -1565,15 +1885,47 @@ void ActionSystem::flushPoseBlend(){
                 layout->positionOffset += uisystem->parentToLayoutSpace(target, Vector2(position.x, position.y)) -
                                           uisystem->parentToLayoutSpace(target, Vector2(transform->position.x, transform->position.y));
             }
+            positionChanged = true;
+        }
+        if (accum.scaleWeight > 0.0f){
+            scale = accum.scaleSum * (1.0f / accum.scaleWeight);
+            scaleChanged = true;
+        }
+        if (accum.rotationWeight > 0.0f){
+            rotation = accum.rotationSum.normalized();
+            rotationChanged = true;
+        }
+        for (uint32_t layerIndex = 1; layerIndex < MAX_ANIMATOR_LAYERS; layerIndex++){
+            auto& sample = accum.layers[layerIndex];
+            if (!sample.configured) continue;
+            const float influence = std::clamp(sample.influence, 0.0f, 1.0f);
+            if (sample.positionWeight > 0.0f){
+                Vector3 value = sample.positionSum * (1.0f / sample.positionWeight);
+                position = sample.additive ? position + value * influence : position + (value - position) * influence;
+                positionChanged = true;
+            }
+            if (sample.scaleWeight > 0.0f){
+                Vector3 value = sample.scaleSum * (1.0f / sample.scaleWeight);
+                scale = sample.additive ? scale + (value - Vector3(1, 1, 1)) * influence : scale + (value - scale) * influence;
+                scaleChanged = true;
+            }
+            if (sample.rotationWeight > 0.0f){
+                Quaternion value = sample.rotationSum.normalized();
+                rotation = sample.additive ? rotation * Quaternion::slerp(influence, Quaternion::IDENTITY, value)
+                                           : Quaternion::slerp(influence, rotation, value);
+                rotationChanged = true;
+            }
+        }
+        if (positionChanged){
             transform->position = position;
             changed = true;
         }
-        if (accum.scaleWeight > 0.0f){
-            transform->scale = accum.scaleSum * (1.0f / accum.scaleWeight);
+        if (scaleChanged){
+            transform->scale = scale;
             changed = true;
         }
-        if (accum.rotationWeight > 0.0f){
-            transform->rotation = accum.rotationSum.normalized();
+        if (rotationChanged){
+            transform->rotation = rotation;
             changed = true;
         }
         if (changed){
@@ -1595,6 +1947,18 @@ void ActionSystem::flushPoseBlend(){
         for (int i = 0; i < MAX_MORPHTARGETS; i++){
             if (accum.weights[i] > 0.0f){
                 mesh->morphWeights[i] = accum.sums[i] / accum.weights[i];
+            }
+        }
+        for (uint32_t layerIndex = 1; layerIndex < MAX_ANIMATOR_LAYERS; layerIndex++){
+            auto& layer = accum.layers[layerIndex];
+            if (!layer.configured) continue;
+            const float influence = std::clamp(layer.influence, 0.0f, 1.0f);
+            for (int i = 0; i < MAX_MORPHTARGETS; i++){
+                if (layer.weights[i] <= 0.0f) continue;
+                const float value = layer.sums[i] / layer.weights[i];
+                mesh->morphWeights[i] = layer.additive
+                    ? mesh->morphWeights[i] + value * influence
+                    : mesh->morphWeights[i] + (value - mesh->morphWeights[i]) * influence;
             }
         }
     }
@@ -1854,7 +2218,7 @@ void ActionSystem::processRunningAction(double dt, Entity entity, ActionComponen
             TranslateTracksComponent& translatetracks = scene->getComponent<TranslateTracksComponent>(entity);
 
             if (targetSignature.test(scene->getComponentId<Transform>())){
-                translateTracksUpdate(keyframe, translatetracks, action.target, action.weight);
+                translateTracksUpdate(keyframe, translatetracks, action.target, action.weight, action.blendLayer, action.blendLayerWeight, action.blendLayerAdditive);
             }
         }
 
@@ -1862,7 +2226,7 @@ void ActionSystem::processRunningAction(double dt, Entity entity, ActionComponen
             RotateTracksComponent& rotatetracks = scene->getComponent<RotateTracksComponent>(entity);
 
             if (targetSignature.test(scene->getComponentId<Transform>())){
-                rotateTracksUpdate(keyframe, rotatetracks, action.target, action.weight);
+                rotateTracksUpdate(keyframe, rotatetracks, action.target, action.weight, action.blendLayer, action.blendLayerWeight, action.blendLayerAdditive);
             }
         }
 
@@ -1870,7 +2234,7 @@ void ActionSystem::processRunningAction(double dt, Entity entity, ActionComponen
             ScaleTracksComponent& scaletracks = scene->getComponent<ScaleTracksComponent>(entity);
 
             if (targetSignature.test(scene->getComponentId<Transform>())){
-                scaleTracksUpdate(keyframe, scaletracks, action.target, action.weight);
+                scaleTracksUpdate(keyframe, scaletracks, action.target, action.weight, action.blendLayer, action.blendLayerWeight, action.blendLayerAdditive);
             }
         }
 
@@ -1878,7 +2242,7 @@ void ActionSystem::processRunningAction(double dt, Entity entity, ActionComponen
             MorphTracksComponent& morpthtracks = scene->getComponent<MorphTracksComponent>(entity);
 
             if (targetSignature.test(scene->getComponentId<MeshComponent>())){
-                morphTracksUpdate(keyframe, morpthtracks, action.target, action.weight);
+        morphTracksUpdate(keyframe, morpthtracks, action.target, action.weight, action.blendLayer, action.blendLayerWeight, action.blendLayerAdditive);
             }
         }
 
@@ -2029,7 +2393,7 @@ void ActionSystem::updateAnimationPreview(double dt, const std::vector<Entity>& 
     }
 
     previewing = false;
-    flushPoseBlend();
+		flushPoseBlend();
 }
 
 void ActionSystem::updateActionPreview(double dt, Entity entity){
@@ -2063,6 +2427,15 @@ void ActionSystem::update(double dt){
     }
 
     clearPoseBlend();
+
+    //Animator controllers decide which clips are active this frame, so run them
+    //before the animation pass: a fade started here is picked up by the loop below.
+    {
+        auto animators = scene->getComponentArray<AnimatorControllerComponent>();
+        for (int i = 0; i < animators->size(); i++){
+            animatorUpdate(dt, animators->getEntity(i), animators->getComponentFromIndex(i));
+        }
+    }
 
     //Animations actions
     auto animations = scene->getComponentArray<AnimationComponent>();
@@ -2098,8 +2471,421 @@ void ActionSystem::update(double dt){
 
 	}
 
-    // Write the blended (weighted-average) pose to each animated target.
+	// Consume root translation before writing the blended (weighted-average) pose.
+	applyRootMotion();
+
+	// Write the blended (weighted-average) pose to each animated target.
     flushPoseBlend();
+    applyAnimatorIK();
+}
+
+// --- Animator controller (state machine) runtime ---
+
+AnimatorState* ActionSystem::animatorResolveState(AnimatorControllerComponent& animator, uint32_t id){
+    // Entry / Exit / Any State are graph nodes with no state data of their own.
+    if (id == ANIMATOR_ENTRY_STATE || id == ANIMATOR_EXIT_STATE || id == ANIMATOR_ANY_STATE){
+        return nullptr;
+    }
+    for (AnimatorState& state : animator.states){
+        if (state.id == id){
+            return &state;
+        }
+    }
+    return nullptr;
+}
+
+void ActionSystem::animatorInitParameters(AnimatorControllerComponent& animator){
+    for (AnimatorParameter& parameter : animator.parameters){
+        parameter.runtimeValue = (parameter.type == AnimatorParameter::Type::Bool)
+            ? (parameter.boolValue ? 1.0f : 0.0f)
+            : parameter.defaultValue;
+        parameter.triggerPending = false;
+    }
+}
+
+bool ActionSystem::animatorConditionMet(const AnimatorControllerComponent& animator, const AnimatorTransition::Condition& condition){
+    const AnimatorParameter* parameter = animator.findParameter(condition.parameter);
+    if (!parameter){
+        return false;
+    }
+
+    if (parameter->type == AnimatorParameter::Type::Trigger){
+        // A trigger reads true only while pending; the transition consumes it.
+        return parameter->triggerPending;
+    }
+
+    if (parameter->type == AnimatorParameter::Type::Bool){
+        if (condition.mode == AnimatorTransition::Condition::Mode::Equals)
+            return parameter->boolValue == condition.boolValue;
+        if (condition.mode == AnimatorTransition::Condition::Mode::NotEqual)
+            return parameter->boolValue != condition.boolValue;
+        return false;
+    }
+
+    const bool isInt = parameter->type == AnimatorParameter::Type::Int;
+    const float value = parameter->runtimeValue;
+    const float target = condition.value;
+
+    switch (condition.mode){
+        case AnimatorTransition::Condition::Mode::Greater:  return isInt ? ((int)value  > (int)target) : (value  > target);
+        case AnimatorTransition::Condition::Mode::Less:     return isInt ? ((int)value  < (int)target) : (value  < target);
+        case AnimatorTransition::Condition::Mode::Equals:   return isInt ? ((int)value == (int)target) : (value == target);
+        case AnimatorTransition::Condition::Mode::NotEqual: return isInt ? ((int)value != (int)target) : (value != target);
+    }
+    return false;
+}
+
+float ActionSystem::animatorStateDuration(const AnimatorState& state){
+    float duration = 0.0f;
+    for (const AnimatorClip& clip : state.clips){
+        if (clip.animation == NULL_ENTITY || !scene->isEntityCreated(clip.animation)){
+            continue;
+        }
+        AnimationComponent* animcomp = scene->findComponent<AnimationComponent>(clip.animation);
+        if (!animcomp){
+            continue;
+        }
+        float clipDuration = animcomp->duration >= 0.0f ? animcomp->duration : getDuration(clip.animation);
+        duration = std::max(duration, clipDuration);
+    }
+    return duration;
+}
+
+void ActionSystem::animatorPlayState(Entity entity, AnimatorControllerComponent& animator, AnimatorState& state, float fadeTime){
+    for (AnimatorClip& clip : state.clips){
+        // -1 sentinel: the first crossing pass then also fires events at time 0.
+        clip.runtimePrevEventTime = -1.0f;
+
+        if (clip.animation != NULL_ENTITY && scene->isEntityCreated(clip.animation)){
+            Signature signature = scene->getSignature(clip.animation);
+            if (signature.test(scene->getComponentId<AnimationComponent>()) &&
+                signature.test(scene->getComponentId<ActionComponent>())){
+                AnimationComponent& animcomp = scene->getComponent<AnimationComponent>(clip.animation);
+                ActionComponent& action = scene->getComponent<ActionComponent>(clip.animation);
+                animcomp.loop = clip.loop;
+                animcomp.blendLayer = std::min(clip.layer, MAX_ANIMATOR_LAYERS - 1);
+                animcomp.blendLayerWeight = 1.0f;
+                animcomp.blendLayerAdditive = false;
+                if (animator.layers.size() > animcomp.blendLayer){
+                    const AnimatorLayer& layer = animator.layers[animcomp.blendLayer];
+                    animcomp.blendLayerWeight = layer.enabled ? layer.weight : 0.0f;
+                    animcomp.blendLayerAdditive = layer.additive;
+                }
+                action.speed = clip.speed;
+                action.startOffset = clip.offset;
+                Animation(scene, clip.animation).fadeIn(fadeTime);
+            }
+        }
+
+        if (clip.audio != NULL_ENTITY && scene->isEntityCreated(clip.audio)){
+            SoundComponent* sound = scene->findComponent<SoundComponent>(clip.audio);
+            if (sound){
+                sound->startTrigger = true;
+                sound->stopTrigger = false;
+                sound->pauseTrigger = false;
+            }
+        }
+    }
+}
+
+void ActionSystem::animatorStopState(AnimatorState& state, float fadeTime){
+    for (AnimatorClip& clip : state.clips){
+        if (clip.animation != NULL_ENTITY && scene->isEntityCreated(clip.animation)){
+            Signature signature = scene->getSignature(clip.animation);
+            if (signature.test(scene->getComponentId<AnimationComponent>()) &&
+                signature.test(scene->getComponentId<ActionComponent>())){
+                Animation(scene, clip.animation).fadeOut(fadeTime);
+            }
+        }
+
+        if (clip.audio != NULL_ENTITY && scene->isEntityCreated(clip.audio)){
+            SoundComponent* sound = scene->findComponent<SoundComponent>(clip.audio);
+            if (sound){
+                sound->stopTrigger = true;
+            }
+        }
+    }
+}
+
+// Crossfade out of `state` but leave untouched the clips the incoming `keep`
+// state also plays: fading a shared clip out and back in the same frame would
+// drop its weight toward 0 before the fade-in re-arms it.
+void ActionSystem::animatorStopStateExcept(AnimatorState& state, const AnimatorState& keep, float fadeTime){
+    for (AnimatorClip& clip : state.clips){
+        bool animationShared = false;
+        bool audioShared = false;
+        for (const AnimatorClip& keepClip : keep.clips){
+            if (clip.animation != NULL_ENTITY && keepClip.animation == clip.animation){
+                animationShared = true;
+            }
+            if (clip.audio != NULL_ENTITY && keepClip.audio == clip.audio){
+                audioShared = true;
+            }
+        }
+
+        if (!animationShared && clip.animation != NULL_ENTITY && scene->isEntityCreated(clip.animation)){
+            Signature signature = scene->getSignature(clip.animation);
+            if (signature.test(scene->getComponentId<AnimationComponent>()) &&
+                signature.test(scene->getComponentId<ActionComponent>())){
+                Animation(scene, clip.animation).fadeOut(fadeTime);
+            }
+        }
+
+        if (!audioShared && clip.audio != NULL_ENTITY && scene->isEntityCreated(clip.audio)){
+            SoundComponent* sound = scene->findComponent<SoundComponent>(clip.audio);
+            if (sound){
+                sound->stopTrigger = true;
+            }
+        }
+    }
+}
+
+void ActionSystem::animatorFireClipEvents(Entity entity, AnimatorControllerComponent& animator, AnimatorState& state, double dt){
+    for (AnimatorClip& clip : state.clips){
+        if (clip.events.empty() || clip.animation == NULL_ENTITY || !scene->isEntityCreated(clip.animation)){
+            continue;
+        }
+        ActionComponent* action = scene->findComponent<ActionComponent>(clip.animation);
+        if (!action || action->state != ActionState::Running){
+            continue;
+        }
+
+        AnimationComponent* animation = scene->findComponent<AnimationComponent>(clip.animation);
+        const float duration = animation
+            ? (animation->duration >= 0.0f ? animation->duration : getDuration(clip.animation))
+            : 0.0f;
+        const float prev = clip.runtimePrevEventTime;
+        const float delta = static_cast<float>(dt) * action->speed;
+        float t = action->timecount + delta;
+        bool wrapped = false;
+        if (duration > 0.0f && clip.loop && delta >= 0.0f && t >= duration){
+            t = std::fmod(t, duration);
+            wrapped = prev >= 0.0f;
+        }else if (duration > 0.0f && !clip.loop){
+            t = std::min(t, duration);
+        }
+
+        for (const AnimatorClip::Event& event : clip.events){
+            if (event.functionName.empty()){
+                continue;
+            }
+            const bool crossed = wrapped
+                ? (event.time > prev || event.time <= t)
+                : (event.time > prev && event.time <= t);
+            if (!crossed){
+                continue;
+            }
+
+            animator.onEvent.call(event.functionName, event.parameter);
+            std::vector<graph::GraphValue> args;
+            args.push_back(graph::GraphValue::makeString(event.parameter));
+            graph::GraphBinding::dispatchEvent(scene, entity,
+                std::string(graph::GRAPH_CUSTOM_EVENT_PREFIX) + event.functionName, args);
+        }
+
+        clip.runtimePrevEventTime = t;
+    }
+}
+
+bool ActionSystem::animatorTransitionReady(const AnimatorControllerComponent& animator, const AnimatorState& state, const AnimatorTransition& transition, float stateDuration){
+    if (transition.fromState == transition.toState && !transition.canTransitionToSelf){
+        return false;
+    }
+
+    for (const AnimatorTransition::Condition& condition : transition.conditions){
+        if (!animatorConditionMet(animator, condition)){
+            return false;
+        }
+    }
+
+    if (transition.hasExitTime){
+        const float normalized = stateDuration > 0.0f ? animator.currentStateTime / stateDuration : 1.0f;
+        if (normalized < transition.exitTime){
+            return false;
+        }
+    }
+
+    // A transition with neither conditions nor exit time would fire the frame it
+    // is evaluated, then again every frame; require at least a condition.
+    return !transition.conditions.empty() || transition.hasExitTime;
+}
+
+bool ActionSystem::animatorTryTransition(AnimatorControllerComponent& animator, const AnimatorState& state, const AnimatorTransition*& outTransition, float stateDuration){
+    outTransition = nullptr;
+    for (const AnimatorTransition& transition : animator.transitions){
+        const bool fromCurrent = transition.fromState == state.id;
+        const bool fromAny = transition.fromState == ANIMATOR_ANY_STATE;
+        if (!fromCurrent && !fromAny){
+            continue;
+        }
+        if (animatorTransitionReady(animator, state, transition, stateDuration)){
+            outTransition = &transition;
+            return true;
+        }
+    }
+    return false;
+}
+
+void ActionSystem::animatorUpdate(double dt, Entity entity, AnimatorControllerComponent& animator){
+    if (animator.states.empty()){
+        animator.isPlaying = false;
+        return;
+    }
+
+    AnimatorState* state = animatorResolveState(animator, animator.currentState);
+
+    if (!animator.enabled){
+        if (animator.isPlaying){
+            if (state){
+                animatorStopState(*state, 0.0f);
+            }
+            animator.isPlaying = false;
+        }
+        return;
+    }
+
+    // First frame (or a restart after disable/exit): seed parameters and enter
+    // the state the Entry transition points at, else the default state.
+    if (!animator.isPlaying){
+        animatorInitParameters(animator);
+
+        AnimatorState* initial = nullptr;
+        for (const AnimatorTransition& transition : animator.transitions){
+            if (transition.fromState == ANIMATOR_ENTRY_STATE && transition.conditions.empty()){
+                initial = animatorResolveState(animator, transition.toState);
+                if (initial){
+                    break;
+                }
+            }
+        }
+        if (!initial){
+            initial = animator.getDefaultState();
+        }
+        if (!initial){
+            return;
+        }
+
+        animator.currentState = initial->id;
+        animator.currentStateTime = 0.0f;
+        animator.isPlaying = true;
+        state = initial;
+        animatorPlayState(entity, animator, *state, 0.0f);
+    }
+
+    if (!state){
+        animator.isPlaying = false;
+        return;
+    }
+
+    animator.currentStateTime += (float)dt;
+
+    animatorFireClipEvents(entity, animator, *state, dt);
+
+    const float stateDuration = animatorStateDuration(*state);
+
+    const AnimatorTransition* transition = nullptr;
+    if (!animatorTryTransition(animator, *state, transition, stateDuration)){
+        return;
+    }
+
+    // Triggers are consumed by the transition that used them, like Unity.
+    for (const AnimatorTransition::Condition& condition : transition->conditions){
+        AnimatorParameter* parameter = animator.findParameter(condition.parameter);
+        if (parameter && parameter->type == AnimatorParameter::Type::Trigger){
+            parameter->triggerPending = false;
+            parameter->boolValue = false;
+            parameter->runtimeValue = 0.0f;
+        }
+    }
+
+    const float fadeTime = transition->transitionDuration > 0.0f ? transition->transitionDuration : 0.0f;
+    const std::string previousName = state->name;
+
+    AnimatorState* next = animatorResolveState(animator, transition->toState);
+    if (!next){
+        // Exit: stop and idle until something plays the controller again.
+        animatorStopState(*state, fadeTime);
+        animator.isPlaying = false;
+        animator.onStateChange.call(previousName, std::string());
+        return;
+    }
+
+    animatorStopStateExcept(*state, *next, fadeTime);
+    animator.currentState = next->id;
+    // Transition offset is normalized into the destination timeline; it shifts
+    // the state clock (and so exit-time timing), the clip itself starts at its
+    // own authored offset.
+    animator.currentStateTime = transition->offset > 0.0f ? transition->offset * animatorStateDuration(*next) : 0.0f;
+    animatorPlayState(entity, animator, *next, fadeTime);
+
+    animator.onStateChange.call(previousName, next->name);
+}
+
+bool ActionSystem::animatorPlay(Entity entity){
+    AnimatorControllerComponent* animator = scene->findComponent<AnimatorControllerComponent>(entity);
+    if (!animator || animator->states.empty()){
+        return false;
+    }
+
+    if (animator->isPlaying){
+        AnimatorState* state = animatorResolveState(*animator, animator->currentState);
+        if (state){
+            animatorStopState(*state, 0.0f);
+        }
+    }
+
+    // isPlaying false makes the next animatorUpdate seed parameters and enter
+    // the Entry/default state, so this is a clean (re)start.
+    animator->enabled = true;
+    animator->isPlaying = false;
+    animator->currentStateTime = 0.0f;
+    return true;
+}
+
+bool ActionSystem::animatorStop(Entity entity, float fadeTime){
+    AnimatorControllerComponent* animator = scene->findComponent<AnimatorControllerComponent>(entity);
+    if (!animator){
+        return false;
+    }
+
+    if (animator->isPlaying){
+        AnimatorState* state = animatorResolveState(*animator, animator->currentState);
+        if (state){
+            animatorStopState(*state, fadeTime);
+        }
+    }
+    animator->isPlaying = false;
+    // animatorUpdate reseeds any enabled controller that stopped playing, so a stop has to
+    // clear enabled too; animatorPlay turns it back on for the clean restart.
+    animator->enabled = false;
+    return true;
+}
+
+bool ActionSystem::animatorPlayState(Entity entity, const std::string& stateName, float fadeTime){
+    AnimatorControllerComponent* animator = scene->findComponent<AnimatorControllerComponent>(entity);
+    if (!animator){
+        return false;
+    }
+
+    AnimatorState* target = animator->findStateByName(stateName);
+    if (!target){
+        Log::warn("Animator state not found: %s", stateName.c_str());
+        return false;
+    }
+
+    if (animator->isPlaying){
+        AnimatorState* current = animatorResolveState(*animator, animator->currentState);
+        if (current && current != target){
+            animatorStopStateExcept(*current, *target, fadeTime);
+        }
+    }
+
+    animator->enabled = true;
+    animator->currentState = target->id;
+    animator->currentStateTime = 0.0f;
+    animator->isPlaying = true;
+    animatorPlayState(entity, *animator, *target, fadeTime);
+    return true;
 }
 
 void ActionSystem::onComponentAdded(Entity entity, ComponentId componentId) {

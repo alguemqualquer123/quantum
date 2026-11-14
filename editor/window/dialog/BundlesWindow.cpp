@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "BundlesWindow.h"
@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 static constexpr float dialogWidth = 600.0f;
 static constexpr float dialogHeight = 420.0f;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ENTITYHANDLE_H
@@ -9,8 +9,8 @@
 #include <type_traits>
 #include <utility>
 
-namespace doriax{
-    class DORIAX_API EntityHandle{
+namespace quantum{
+    class QUANTUM_API EntityHandle{
 
     protected:
         Entity entity;

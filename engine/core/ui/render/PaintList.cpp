@@ -1,10 +1,10 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "ui/render/PaintList.h"
 
-using namespace doriax;
-using namespace doriax::ui;
+using namespace quantum;
+using namespace quantum::ui;
 
 void PaintList::clear() {
     //clear() keeps the capacity, so steady-state frames do not allocate

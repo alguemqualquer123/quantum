@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ModelRender.h"
 
 #include "Configs.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ModelRender::ModelRender(){
     scene = nullptr;
@@ -58,16 +58,22 @@ bool editor::ModelRender::loadModel(const std::string& filename){
     return model->loadModel(filename);
 }
 
-void editor::ModelRender::positionCameraForModel(){
+bool editor::ModelRender::getModelBounds(AABB& outBounds){
+    if (!scene || !model)
+        return false;
+
     // Merge local aabb from the model and all its child mesh entities
     AABB aabb;
     size_t lastIndex = scene->findBranchLastIndex(model->getEntity());
     auto transforms = scene->getComponentArray<Transform>();
+    if (!transforms)
+        return false;
+
     size_t startIndex = transforms->getIndex(model->getEntity());
 
     for (size_t i = startIndex; i <= lastIndex; i++){
         Entity entity = transforms->getEntity(i);
-        
+
         Object obj(scene, entity);
         obj.updateTransform();
 
@@ -81,11 +87,21 @@ void editor::ModelRender::positionCameraForModel(){
         }
     }
 
-    Vector3 center = aabb.getCenter();
-    Vector3 size = aabb.getSize();
+    outBounds = aabb;
+    return !aabb.isNull() && !aabb.isInfinite();
+}
+
+void editor::ModelRender::positionCameraForModel(){
+    AABB aabb;
+    Vector3 center(0.0f, 0.0f, 0.0f);
+    Vector3 size(1.0f, 1.0f, 1.0f);
+    if (getModelBounds(aabb)){
+        center = aabb.getCenter();
+        size = aabb.getSize();
+    }
 
     float maxDimension = std::max({size.x, size.y, size.z});
-    
+
     // Avoid issues if the model has a zero-size AABB
     if (maxDimension <= 0.001f) {
         maxDimension = 1.0f;
@@ -109,6 +125,38 @@ void editor::ModelRender::positionCameraForModel(){
 
     camera->setPosition(cameraPosition.x, cameraPosition.y, cameraPosition.z);
     camera->setTarget(center.x, center.y, center.z);
+    camera->setNearClip(nearClip);
+    camera->setFarClip(farClip);
+}
+
+void editor::ModelRender::setFrameSize(int width, int height){
+    if (!camera || width <= 0 || height <= 0)
+        return;
+
+    camera->setFramebufferSize(width, height);
+}
+
+void editor::ModelRender::setLightIntensity(float intensity){
+    if (light)
+        light->setIntensity(intensity);
+}
+
+void editor::ModelRender::setCameraPose(const Vector3& focus, float yaw, float pitch, float distance){
+    if (!camera)
+        return;
+
+    // The same framing the thumbnail uses, but with the angles the user dragged to
+    const float cp = std::cos(pitch);
+    Vector3 offset(std::sin(yaw) * cp, std::sin(pitch), std::cos(yaw) * cp);
+    offset = offset * distance;
+
+    // A pose that would put the eye inside or behind the model is useless, so the clip
+    // planes follow the distance rather than staying at the thumbnail's fixed pair
+    const float nearClip = std::max(0.005f, distance * 0.02f);
+    const float farClip = std::max(distance * 8.0f, 1000.0f);
+
+    camera->setPosition(focus.x + offset.x, focus.y + offset.y, focus.z + offset.z);
+    camera->setTarget(focus.x, focus.y, focus.z);
     camera->setNearClip(nearClip);
     camera->setFarClip(farClip);
 }
@@ -151,5 +199,13 @@ Scene* editor::ModelRender::getScene(){
 }
 
 Object* editor::ModelRender::getObject(){
+    return model;
+}
+
+Camera* editor::ModelRender::getCamera(){
+    return camera;
+}
+
+Model* editor::ModelRender::getModel(){
     return model;
 }

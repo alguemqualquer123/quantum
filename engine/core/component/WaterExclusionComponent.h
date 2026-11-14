@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef WATER_EXCLUSION_COMPONENT_H
@@ -13,7 +13,7 @@
 #define MAX_WATER_EXCLUSIONS 8 // per water draw, nearest to the camera first
 #define WATER_EXCLUSION_MAP_SIZE 128
 
-namespace doriax{
+namespace quantum{
 
     enum class WaterExclusionShape{
         BOX,
@@ -23,7 +23,7 @@ namespace doriax{
 
     // Volume that keeps water out, like a boat: the water surface inside it is not drawn,
     // a camera inside sees no underwater fade and the bodies inside do not float
-    struct DORIAX_API WaterExclusionComponent{
+    struct QUANTUM_API WaterExclusionComponent{
         WaterExclusionShape shape = WaterExclusionShape::HULL;
         Vector3 center = Vector3(0.0f, 0.0f, 0.0f); // of the box or sphere, local
         Vector3 size = Vector3(1.0f, 1.0f, 1.0f); // of the box or sphere, local

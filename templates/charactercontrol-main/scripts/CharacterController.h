@@ -5,7 +5,7 @@
 #include "ScriptProperty.h"
 #include "Vector2.h"
 
-class CharacterController : public doriax::ScriptBase {
+class CharacterController : public quantum::ScriptBase {
 public:
     DPROPERTY("Is Active")
     bool isActive = true;
@@ -40,7 +40,7 @@ public:
     DPROPERTY("Waiting Idle Delay")
     float waitingIdleDelay = 5.0f;
 
-    CharacterController(doriax::Scene* scene, doriax::Entity entity);
+    CharacterController(quantum::Scene* scene, quantum::Entity entity);
     ~CharacterController();
 
     void onUpdate();
@@ -48,7 +48,7 @@ public:
 private:
     int currentAnimState = -1;
     bool firstMouse = true;
-    doriax::Vector2 lastMousePos;
+    quantum::Vector2 lastMousePos;
     float camYaw = 0.0f;
     float camPitch = -30.0f;
 

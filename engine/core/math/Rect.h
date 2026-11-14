@@ -2,16 +2,16 @@
 #ifndef Rect_h
 #define Rect_h
 
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Vector2.h"
 #include "Vector4.h"
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API Rect{
+    class QUANTUM_API Rect{
     private:
         
         float x, y, width, height;

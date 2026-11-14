@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <string>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 class HttpClient {
 public:
@@ -28,4 +28,4 @@ public:
     static std::string urlEncode(const std::string& value);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

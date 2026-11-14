@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -19,7 +19,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     struct EditorInstance {
         std::unique_ptr<CustomTextEditor> editor;
@@ -117,6 +117,12 @@ namespace doriax::editor {
         void redoLastFocused();
         bool canUndoLastFocused() const;
         bool canRedoLastFocused() const;
+
+        // Comment and format commands, on the file that holds the caret
+        void toggleCommentLastFocused();
+        void toggleBlockCommentLastFocused();
+        void formatDocumentLastFocused();
+        bool canEditLastFocused() const;
 
         bool hasUnsavedChanges() const;
         bool hasLastFocusedUnsavedChanges() const;

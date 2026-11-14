@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef PARTICLES_H
@@ -7,9 +7,9 @@
 #include "Action.h"
 #include "component/ParticlesComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Particles: public Action{
+    class QUANTUM_API Particles: public Action{
     public:
         Particles(Scene* scene);
         Particles(Scene* scene, Entity entity);

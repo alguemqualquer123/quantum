@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -16,7 +16,7 @@
 #include "gizmo/Object2DGizmo.h"
 #include "gizmo/AnchorGizmo.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     class ToolsLayer{
     private:

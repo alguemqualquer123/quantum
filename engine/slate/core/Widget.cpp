@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/core/Widget.h"
@@ -9,7 +9,7 @@
 
 #include "Log.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         //Clamps a measured size against a min/max pair, style first then slot.
@@ -33,6 +33,9 @@ namespace doriax::slate {
         parent(nullptr),
         visible(true),
         enabled(true),
+        focusable(false),
+        focused(false),
+        hovered(false),
         opacity(1.0f),
         zOrder(0),
         layoutNode(nullptr),
@@ -116,6 +119,30 @@ namespace doriax::slate {
         markDirty(WidgetDirty::Style | WidgetDirty::Paint);
     }
 
+    bool Widget::isFocusable() const { return focusable; }
+
+    Widget& Widget::setFocusable(bool newFocusable) {
+        focusable = newFocusable;
+        if (!focusable) setFocused(false);
+        return *this;
+    }
+
+    bool Widget::isFocused() const { return focused; }
+
+    void Widget::setFocused(bool newFocused) {
+        if (focused == newFocused) return;
+        focused = newFocused;
+        markDirty(WidgetDirty::Style | WidgetDirty::Paint);
+    }
+
+    bool Widget::isHovered() const { return hovered; }
+
+    void Widget::setHovered(bool newHovered) {
+        if (hovered == newHovered) return;
+        hovered = newHovered;
+        markDirty(WidgetDirty::Style | WidgetDirty::Paint);
+    }
+
     void Widget::setOpacity(float newOpacity) {
         newOpacity = std::max(0.0f, std::min(1.0f, newOpacity));
         if (opacity == newOpacity) {
@@ -138,8 +165,26 @@ namespace doriax::slate {
     }
 
     WidgetVisualState Widget::getVisualState() const {
-        return enabled ? WidgetVisualState::Normal : WidgetVisualState::Disabled;
+        if (!enabled) return WidgetVisualState::Disabled;
+        if (focused) return WidgetVisualState::Focused;
+        if (hovered) return WidgetVisualState::Hovered;
+        return WidgetVisualState::Normal;
     }
+
+    const char* Widget::getTypeName() const { return "Widget"; }
+
+    bool Widget::onPointerDown(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerUp(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerMove(SlatePointerEvent&) { return false; }
+    bool Widget::onKeyDown(SlateKeyEvent&) { return false; }
+    bool Widget::onPointerDownCapture(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerUpCapture(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerMoveCapture(SlatePointerEvent&) { return false; }
+    bool Widget::onKeyDownCapture(SlateKeyEvent&) { return false; }
+    bool Widget::onPointerDownBubble(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerUpBubble(SlatePointerEvent&) { return false; }
+    bool Widget::onPointerMoveBubble(SlatePointerEvent&) { return false; }
+    bool Widget::onKeyDownBubble(SlateKeyEvent&) { return false; }
 
     Widget* Widget::getParent() const {
         return parent;
@@ -348,8 +393,8 @@ namespace doriax::slate {
         StyleSet* set = StyleSet::get();
 
         WidgetStyle next;
-        if (set != nullptr && !styleName.empty()) {
-            next = set->resolve(styleName, state);
+        if (set != nullptr) {
+            next = styleName.empty() ? set->resolveFor(*this, state) : set->resolve(styleName, state);
         }
 
         //A theme swap can restyle the same name, so the values are always

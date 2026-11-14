@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -19,12 +19,12 @@ struct Request;
 struct Response;
 }
 
-namespace doriax::editor {
+namespace quantum::editor {
 class Project;
 class ResourcesWindow;
 }
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 // MCP server on 127.0.0.1 that gives outside agents (Claude Code, Cursor, ...)
 // the editor actions of the AI chat. Tool calls run on the main thread.
@@ -78,4 +78,4 @@ private:
     void cancelCall(const Json& requestId);
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

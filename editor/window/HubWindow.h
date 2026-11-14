@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,9 +13,9 @@
 
 #include "imgui.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
-    // The Doriax Hub: the launcher shown by `doriax-editor --hub`. It lists the
+    // The Quantum Hub: the launcher shown by `quantum-editor --hub`. It lists the
     // known projects and the installed editor builds, creates new projects and
     // opens projects with the chosen build by spawning a separate editor
     // process. The Hub never loads a project itself.
@@ -25,6 +25,14 @@ namespace doriax::editor {
             std::string label;
             std::filesystem::path path;
             bool valid = false;
+        };
+
+        struct RemoteRelease {
+            std::string version;
+            std::string label;
+            std::string url;
+            std::string sha256;
+            unsigned long long size = 0;
         };
 
         // A background install copy (build folders carry ~170 MB of engine
@@ -41,8 +49,20 @@ namespace doriax::editor {
             std::string label;
             std::filesystem::path destination;
             bool missingResourceServer = false;
+            std::atomic<int> phase{0}; // 0=scan, 1=download, 2=verify, 3=extract
         };
         std::unique_ptr<InstallJob> installJob;
+
+        struct ReleaseJob {
+            std::thread worker;
+            std::atomic<bool> running{false};
+            std::atomic<bool> cancelRequested{false};
+            std::atomic<bool> success{false};
+            std::mutex mutex;
+            std::string error;
+            std::vector<RemoteRelease> releases;
+        };
+        std::unique_ptr<ReleaseJob> releaseJob;
 
         enum class Tab {
             Projects,
@@ -56,6 +76,10 @@ namespace doriax::editor {
         // Index into installs; -1 opens with the running build.
         int selectedInstall = -1;
         std::string defaultInstallLabel;
+
+        char releaseManifestUrl[512] = "";
+        std::vector<RemoteRelease> remoteReleases;
+        bool remoteReleasesRequested = false;
 
         std::vector<std::string> templates;
         bool templatesScanned = false;
@@ -85,10 +109,14 @@ namespace doriax::editor {
         void scanTemplates();
         void setStatus(const std::string& message);
 
+        void fetchRemoteReleases();
+        void pollRemoteReleases();
+
         void launchProject(const std::filesystem::path& projectPath);
         void launchCreateProject(const std::filesystem::path& projectPath, const std::string& templateName);
         void openCreateDialog();
         void startInstall(const std::filesystem::path& sourceDir, const std::string& label);
+        void startRemoteInstall(const RemoteRelease& release);
         void pollInstallJob();
         void removeInstall(int index);
 

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef FOG_H
@@ -7,9 +7,9 @@
 #include "object/EntityHandle.h"
 #include "component/FogComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-    class DORIAX_API Fog: public EntityHandle {
+    class QUANTUM_API Fog: public EntityHandle {
 
     public:
         Fog(Scene* scene);

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef FONTPOOL_H
@@ -10,11 +10,11 @@
 #include <string>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     typedef std::map< std::string, std::shared_ptr<STBText> > fonts_t;
 
-    class DORIAX_API FontPool{
+    class QUANTUM_API FontPool{
     private:
         static fonts_t& getMap();
 

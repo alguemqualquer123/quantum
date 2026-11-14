@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -10,9 +10,9 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor { class Project; }
+namespace quantum::editor { class Project; }
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 struct ConversationMeta {
     std::string id;
@@ -39,4 +39,4 @@ private:
     std::filesystem::path conversationsDir() const;
 };
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

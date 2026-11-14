@@ -1,21 +1,21 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-#ifndef DORIAX_EXPORT_H
-#define DORIAX_EXPORT_H
+#ifndef QUANTUM_EXPORT_H
+#define QUANTUM_EXPORT_H
 
 #if defined(_WIN32)
-    #ifdef DORIAX_SHARED
-        #ifdef DORIAX_EXPORTS
-            #define DORIAX_API __declspec(dllexport)
+    #ifdef QUANTUM_SHARED
+        #ifdef QUANTUM_EXPORTS
+            #define QUANTUM_API __declspec(dllexport)
         #else
-            #define DORIAX_API __declspec(dllimport)
+            #define QUANTUM_API __declspec(dllimport)
         #endif
     #else
-        #define DORIAX_API
+        #define QUANTUM_API
     #endif
 #else
-    #define DORIAX_API
+    #define QUANTUM_API
 #endif
 
-#endif // DORIAX_EXPORT_H
+#endif // QUANTUM_EXPORT_H

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SOUNDPOOL_H
@@ -18,7 +18,7 @@ namespace SoLoud{
     class Wav;
 }
 
-namespace doriax{
+namespace quantum{
 
     typedef std::map<std::string, std::shared_ptr<SoLoud::Wav>> sounds_t;
 
@@ -42,7 +42,7 @@ namespace doriax{
         }
     };
 
-    class DORIAX_API SoundPool{
+    class QUANTUM_API SoundPool{
     private:
         static sounds_t& getMap();
 

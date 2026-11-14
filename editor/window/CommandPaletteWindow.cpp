@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "CommandPaletteWindow.h"
@@ -12,7 +12,7 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 
-using namespace doriax::editor;
+using namespace quantum::editor;
 
 static char ToLowerChar(char c) {
     return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));

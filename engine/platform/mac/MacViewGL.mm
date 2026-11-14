@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import "MacViewGL.h"
@@ -53,7 +53,7 @@
 - (void)reshape {
     [super reshape];
     [[self openGLContext] update];
-    doriax::WindowMac::refreshDrawableSize();
+    quantum::WindowMac::refreshDrawableSize();
 }
 
 - (BOOL)acceptsFirstResponder { return YES; }

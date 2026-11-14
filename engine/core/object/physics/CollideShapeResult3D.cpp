@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CollideShapeResult3D.h"
@@ -7,7 +7,7 @@
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Collision/CollideShape.h"
 
-using namespace doriax;
+using namespace quantum;
 
 CollideShapeResult3D::CollideShapeResult3D(Scene* scene, const JPH::Body* body1, const JPH::Body* body2, const JPH::CollideShapeResult* collideShapeResult){
     this->scene = scene;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     struct TreeNode {
         std::string icon;
@@ -69,7 +69,7 @@ namespace doriax::editor{
         bool windowOpen;
         bool focusRequested;
 
-        // Window state the library's Begin writes while doriax only draws contents.
+        // Window state the library's Begin writes while quantum only draws contents.
         bool hostedWindow = false;
         bool hostedWasOpen = true;
 

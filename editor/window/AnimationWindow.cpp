@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AnimationWindow.h"
@@ -43,7 +43,7 @@
 #include <numeric>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 

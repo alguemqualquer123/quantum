@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ACTIONSYSTEM_H
@@ -8,6 +8,7 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <array>
 
 #include "component/Transform.h"
 #include "component/SpriteComponent.h"
@@ -24,17 +25,19 @@
 #include "component/AlphaActionComponent.h"
 #include "component/PointsComponent.h"
 #include "component/ParticlesComponent.h"
+#include "component/LinesComponent.h"
 #include "component/InstancedMeshComponent.h"
 #include "component/AnimationComponent.h"
+#include "component/AnimatorControllerComponent.h"
 #include "component/KeyframeTracksComponent.h"
 #include "component/TranslateTracksComponent.h"
 #include "component/RotateTracksComponent.h"
 #include "component/ScaleTracksComponent.h"
 #include "component/MorphTracksComponent.h"
 
-namespace doriax{
+namespace quantum{
 
-	class DORIAX_API ActionSystem : public SubSystem {
+	class QUANTUM_API ActionSystem : public SubSystem {
 
     private:
 
@@ -53,10 +56,32 @@ namespace doriax{
 			Quaternion rotationRef;
 			bool hasRotationRef = false;
 			float rotationWeight = 0.0f;
+			struct Layer {
+				Vector3 positionSum = Vector3(0, 0, 0);
+				float positionWeight = 0.0f;
+				Vector3 scaleSum = Vector3(0, 0, 0);
+				float scaleWeight = 0.0f;
+				Quaternion rotationSum = Quaternion(0, 0, 0, 0);
+				Quaternion rotationRef;
+				bool hasRotationRef = false;
+				float rotationWeight = 0.0f;
+				float influence = 0.0f;
+				bool additive = false;
+				bool configured = false;
+			};
+			std::array<Layer, MAX_ANIMATOR_LAYERS> layers;
 		};
 		struct MorphBlendAccum {
 			float sums[MAX_MORPHTARGETS] = {0};
 			float weights[MAX_MORPHTARGETS] = {0};
+			struct Layer {
+				float sums[MAX_MORPHTARGETS] = {0};
+				float weights[MAX_MORPHTARGETS] = {0};
+				float influence = 0.0f;
+				bool additive = false;
+				bool configured = false;
+			};
+			std::array<Layer, MAX_ANIMATOR_LAYERS> layers;
 		};
 		std::unordered_map<Entity, TransformBlendAccum> transformBlend;
 		std::unordered_map<Entity, MorphBlendAccum> morphBlend;
@@ -65,6 +90,8 @@ namespace doriax{
 		bool previewing = false;
 
 		void clearPoseBlend();
+		void applyRootMotion();
+		void applyAnimatorIK();
 		void flushPoseBlend();
 
 		void actionStateChange(Entity entity, ActionComponent& action);
@@ -114,6 +141,11 @@ namespace doriax{
 		Vector3 getParticleSimulationDirection(ParticlesComponent& particles, Transform* targetTransform, Vector3 direction);
 		Quaternion getParticleSimulationRotation(ParticlesComponent& particles, Transform* targetTransform, Quaternion rotation);
 		Vector3 getParticleDisplayPosition(ParticlesComponent& particles, Transform* targetTransform, Vector3 position);
+		bool resolveParticleCollision(ParticlesComponent& particles, Vector3& position,
+			Vector3& velocity, Transform* targetTransform, float dt);
+		void updateParticleTrail(size_t index, ParticlesComponent& particles,
+			Transform* targetTransform, const Vector3& position);
+		void clearParticleTrail(size_t index, ParticlesComponent& particles);
 		Quaternion getParticleDisplayRotation(ParticlesComponent& particles, Transform* targetTransform, Quaternion rotation);
 		Vector3 getParticleDisplayScale(ParticlesComponent& particles, Transform* targetTransform, Vector3 scale);
 		void syncParticleInstance(size_t idx, ParticlesComponent& particles, InstancedMeshComponent& instmesh, Transform* targetTransform);
@@ -148,12 +180,25 @@ namespace doriax{
 
 		//Keyframe
 		void keyframeUpdate(double dt, ActionComponent& action, KeyframeTracksComponent& keyframe);
-		void translateTracksUpdate(KeyframeTracksComponent& keyframe, TranslateTracksComponent& translatetracks, Entity target, float weight);
-		void scaleTracksUpdate(KeyframeTracksComponent& keyframe, ScaleTracksComponent& scaletracks, Entity target, float weight);
-		void rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateTracksComponent& rotatetracks, Entity target, float weight);
-		void morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTracksComponent& morpthtracks, Entity target, float weight);
+		void translateTracksUpdate(KeyframeTracksComponent& keyframe, TranslateTracksComponent& translatetracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive);
+		void scaleTracksUpdate(KeyframeTracksComponent& keyframe, ScaleTracksComponent& scaletracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive);
+		void rotateTracksUpdate(KeyframeTracksComponent& keyframe, RotateTracksComponent& rotatetracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive);
+		void morphTracksUpdate(KeyframeTracksComponent& keyframe, MorphTracksComponent& morpthtracks, Entity target, float weight, uint32_t layer, float layerWeight, bool additive);
 
 		void processRunningAction(double dt, Entity entity, ActionComponent& action);
+
+		// --- Animator controller (state machine) runtime ---
+		void animatorUpdate(double dt, Entity entity, AnimatorControllerComponent& animator);
+		void animatorInitParameters(AnimatorControllerComponent& animator);
+		bool animatorConditionMet(const AnimatorControllerComponent& animator, const AnimatorTransition::Condition& condition);
+		bool animatorTransitionReady(const AnimatorControllerComponent& animator, const AnimatorState& state, const AnimatorTransition& transition, float stateDuration);
+		bool animatorTryTransition(AnimatorControllerComponent& animator, const AnimatorState& state, const AnimatorTransition*& outTransition, float stateDuration);
+		AnimatorState* animatorResolveState(AnimatorControllerComponent& animator, uint32_t id);
+		float animatorStateDuration(const AnimatorState& state);
+		void animatorPlayState(Entity entity, AnimatorControllerComponent& animator, AnimatorState& state, float fadeTime);
+		void animatorStopState(AnimatorState& state, float fadeTime);
+		void animatorStopStateExcept(AnimatorState& state, const AnimatorState& keep, float fadeTime);
+		void animatorFireClipEvents(Entity entity, AnimatorControllerComponent& animator, AnimatorState& state, double dt);
 
 		float getDuration(Entity entity, int depth);
 		bool isAnimationReachable(Entity from, Entity target, std::unordered_set<Entity>& visited);
@@ -169,6 +214,15 @@ namespace doriax{
 		void updateAnimationPreview(double dt, Entity entity);
 		void updateAnimationPreview(double dt, const std::vector<Entity>& entities);
 		void updateActionPreview(double dt, Entity entity);
+
+		// Script-facing control of an entity's AnimatorControllerComponent.
+		// animatorPlay (re)starts the state machine from its Entry/default state;
+		// animatorStop fades out the running clips; animatorPlayState jumps straight
+		// to a state by name. Returns false when the entity has no controller or the
+		// state name is unknown.
+		bool animatorPlay(Entity entity);
+		bool animatorStop(Entity entity, float fadeTime);
+		bool animatorPlayState(Entity entity, const std::string& stateName, float fadeTime);
 
 		float getDuration(Entity entity);
 		float getFrameDuration(const ActionFrame& frame);

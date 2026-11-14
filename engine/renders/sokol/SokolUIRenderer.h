@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SokolUIRenderer_h
@@ -18,7 +18,7 @@
 #include "SokolCamera.h"
 #include "ui/render/UIRenderer.h"
 
-namespace doriax {
+namespace quantum {
 
     // Sokol backend of the retained-mode UI renderer. Draws the built UIMesh
     // with the three UI shader variants (solid / texture / font atlas) that

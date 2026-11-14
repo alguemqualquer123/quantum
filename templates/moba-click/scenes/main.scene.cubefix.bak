@@ -1,0 +1,1536 @@
+id: 1
+name: "Main Scene"
+sceneType: "scene_3d"
+mainCamera: 2
+maxValues:
+  maxSubmeshes: 64
+  maxTilemapTilesRect: 0
+  maxTilemapTiles: 0
+  maxExternalBuffers: 0
+  maxSpriteFrames: 0
+  maxBones: 0
+scene:
+  backgroundColor: [0.2, 0.3, 0.2, 1.0]
+  shadowQuality: "high"
+  lightState: "on"
+  globalIlluminationIntensity: 0.3
+  globalIlluminationColor: [1.0, 1.0, 1.0]
+  ambientLight2DIntensity: 1.0
+  ambientLight2DColor: [1.0, 1.0, 1.0]
+  shadow2DQuality: "low"
+  ssaoEnabled: true
+  ssaoRadius: 0.6
+  ssaoIntensity: 0.9
+  ssaoBias: 0.02
+# SSR and the HDR chain are mutually exclusive in RenderSystem::draw: the SSR composite
+# owns the destination, so an outdoor preset that wants bloom, tone map, DOF, height fog
+# and light shafts leaves it off. Turn it back on for a wet or studio scene.
+  ssrEnabled: false
+  ssrMaxDistance: 12.0
+  ssrThickness: 0.5
+  ssrMaxSteps: 64
+  ssrIntensity: 0.7
+  ssrBlur: 1.0
+  gravity2D: [0.0, -9.81]
+  gravity3D: [0.0, -9.81, 0.0]
+  fixedResolutionEnabled: false
+  fixedResolutionWidth: 640
+  fixedResolutionHeight: 360
+  fixedResolutionFilter: "nearest"
+  enableUIEvents: "enabled"
+  depthPrepassEnabled: true
+  bloomEnabled: true
+  bloomThreshold: 0.8
+  bloomSoftKnee: 0.6
+  bloomIntensity: 0.7
+  bloomDirtIntensity: 0.04
+  bloomMipLevels: 5
+  tonemapEnabled: true
+  tonemapMode: 0
+  exposure: 1.0
+  autoExposure: true
+  autoExposureSpeed: 1.5
+  autoExposureMinEV: -2.0
+  autoExposureMaxEV: 2.0
+  exposureCompensation: 0.15
+  colorGradingEnabled: true
+  colorGradingSaturation: 1.06
+  colorGradingContrast: 1.05
+  colorGradingBrightness: 0.0
+  colorGradingHueShift: 0.0
+  colorGradingTemperature: 0.06
+  colorGradingTint: 0.0
+  fxaaEnabled: true
+entities:
+  - type: "Entity"
+    entity: 1
+    name: "Sun"
+    components:
+      transform:
+        position: [0.0, 20.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      light:
+          type: "directional"
+          direction: [-0.324, -0.811, 0.487]
+          worldDirection: [-0.324, -0.811, 0.487]
+          color: [1.0, 1.0, 1.0]
+          range: 100.0
+          intensity: 4.0
+          innerConeCos: 0.76604444
+          outerConeCos: 0.64278764
+          spotMask: ~
+          shadows: true
+          automaticShadowCamera: true
+          shadowBias: 0.002
+          mapResolution: 2048
+          shadowCameraNearFar: [0.3, 100.0]
+          numShadowCascades: 3
+  - type: "Entity"
+    entity: 2
+    name: "Camera"
+    components:
+      transform:
+        position: [0.0, 18.0, 12.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      camera:
+        type: "camera_perspective"
+        target: [0.0, 0.0, 0.0]
+        up: [0.0, 1.0, 0.0]
+        leftClip: 0.0
+        rightClip: 0.0
+        bottomClip: 0.0
+        topClip: 0.0
+        yfov: 0.79.0
+        aspect: 1.778
+        nearClip: 0.1
+        farClip: 100.0
+        renderToTexture: false
+        transparentSort: false
+        useTarget: true
+        autoResize: true
+        framebufferWidth: 800
+        framebufferHeight: 450
+        framebufferFilter: "linear"
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/moba_camera.lua"
+            enabled: true
+            properties:
+              - name: "followSpeed"
+                displayName: "Follow Speed"
+                type: "Float"
+                value: 5.0
+                defaultValue: 5.0
+  - type: "Entity"
+    entity: 3
+    name: "Player"
+    components:
+      transform:
+        position: [0, 0.8, 0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1, 1, 1]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 14976
+          count: 312
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 312
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 312
+              normalized: true
+              perInstance: false
+          data: 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AAAAgM3MTD8AAAAAAAAAPwAAgD8AAACAAACAPwAAAACamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAq6oKPwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAVVUVPwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAAAAgPwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAq6oqPwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAVVU1PwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAgM3MTD8AAACAAABAPwAAgD8AAACAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAAM3MTD8AAACAq6pKPwAAgD8AAAAAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAAM3MTD8AAACAVVVVPwAAgD8AAAAAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAAM3MTD8AAACAAABgPwAAgD8AAAAAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAAM3MTD8AAACAq6pqPwAAgD8AAAAAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/AAAAAM3MTD8AAACAVVV1PwAAgD8AAAAAAACAPwAAAICamZk+zcwMP5qZWT8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 3456
+          count: 1728
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 1728
+              normalized: true
+              perInstance: false
+          data: AAABABkAAAAZABgAAQACABoAAQAaABkAAgADABsAAgAbABoAAwAEABwAAwAcABsABAAFAB0ABAAdABwABQAGAB4ABQAeAB0ABgAHAB8ABgAfAB4ABwAIACAABwAgAB8ACAAJACEACAAhACAACQAKACIACQAiACEACgALACMACgAjACIACwAMACQACwAkACMADAANACUADAAlACQADQAOACYADQAmACUADgAPACcADgAnACYADwAQACgADwAoACcAEAARACkAEAApACgAEQASACoAEQAqACkAEgATACsAEgArACoAEwAUACwAEwAsACsAFAAVAC0AFAAtACwAFQAWAC4AFQAuAC0AFgAXAC8AFgAvAC4AFwAAABgAFwAYAC8AGAAZADEAGAAxADAAGQAaADIAGQAyADEAGgAbADMAGgAzADIAGwAcADQAGwA0ADMAHAAdADUAHAA1ADQAHQAeADYAHQA2ADUAHgAfADcAHgA3ADYAHwAgADgAHwA4ADcAIAAhADkAIAA5ADgAIQAiADoAIQA6ADkAIgAjADsAIgA7ADoAIwAkADwAIwA8ADsAJAAlAD0AJAA9ADwAJQAmAD4AJQA+AD0AJgAnAD8AJgA/AD4AJwAoAEAAJwBAAD8AKAApAEEAKABBAEAAKQAqAEIAKQBCAEEAKgArAEMAKgBDAEIAKwAsAEQAKwBEAEMALAAtAEUALABFAEQALQAuAEYALQBGAEUALgAvAEcALgBHAEYALwAYADAALwAwAEcAMAAxAEkAMABJAEgAMQAyAEoAMQBKAEkAMgAzAEsAMgBLAEoAMwA0AEwAMwBMAEsANAA1AE0ANABNAEwANQA2AE4ANQBOAE0ANgA3AE8ANgBPAE4ANwA4AFAANwBQAE8AOAA5AFEAOABRAFAAOQA6AFIAOQBSAFEAOgA7AFMAOgBTAFIAOwA8AFQAOwBUAFMAPAA9AFUAPABVAFQAPQA+AFYAPQBWAFUAPgA/AFcAPgBXAFYAPwBAAFgAPwBYAFcAQABBAFkAQABZAFgAQQBCAFoAQQBaAFkAQgBDAFsAQgBbAFoAQwBEAFwAQwBcAFsARABFAF0ARABdAFwARQBGAF4ARQBeAF0ARgBHAF8ARgBfAF4ARwAwAEgARwBIAF8ASABJAGEASABhAGAASQBKAGIASQBiAGEASgBLAGMASgBjAGIASwBMAGQASwBkAGMATABNAGUATABlAGQATQBOAGYATQBmAGUATgBPAGcATgBnAGYATwBQAGgATwBoAGcAUABRAGkAUABpAGgAUQBSAGoAUQBqAGkAUgBTAGsAUgBrAGoAUwBUAGwAUwBsAGsAVABVAG0AVABtAGwAVQBWAG4AVQBuAG0AVgBXAG8AVgBvAG4AVwBYAHAAVwBwAG8AWABZAHEAWABxAHAAWQBaAHIAWQByAHEAWgBbAHMAWgBzAHIAWwBcAHQAWwB0AHMAXABdAHUAXAB1AHQAXQBeAHYAXQB2AHUAXgBfAHcAXgB3AHYAXwBIAGAAXwBgAHcAYABhAHkAYAB5AHgAYQBiAHoAYQB6AHkAYgBjAHsAYgB7AHoAYwBkAHwAYwB8AHsAZABlAH0AZAB9AHwAZQBmAH4AZQB+AH0AZgBnAH8AZgB/AH4AZwBoAIAAZwCAAH8AaABpAIEAaACBAIAAaQBqAIIAaQCCAIEAagBrAIMAagCDAIIAawBsAIQAawCEAIMAbABtAIUAbACFAIQAbQBuAIYAbQCGAIUAbgBvAIcAbgCHAIYAbwBwAIgAbwCIAIcAcABxAIkAcACJAIgAcQByAIoAcQCKAIkAcgBzAIsAcgCLAIoAcwB0AIwAcwCMAIsAdAB1AI0AdACNAIwAdQB2AI4AdQCOAI0AdgB3AI8AdgCPAI4AdwBgAHgAdwB4AI8AeAB5AJEAeACRAJAAeQB6AJIAeQCSAJEAegB7AJMAegCTAJIAewB8AJQAewCUAJMAfAB9AJUAfACVAJQAfQB+AJYAfQCWAJUAfgB/AJcAfgCXAJYAfwCAAJgAfwCYAJcAgACBAJkAgACZAJgAgQCCAJoAgQCaAJkAggCDAJsAggCbAJoAgwCEAJwAgwCcAJsAhACFAJ0AhACdAJwAhQCGAJ4AhQCeAJ0AhgCHAJ8AhgCfAJ4AhwCIAKAAhwCgAJ8AiACJAKEAiAChAKAAiQCKAKIAiQCiAKEAigCLAKMAigCjAKIAiwCMAKQAiwCkAKMAjACNAKUAjAClAKQAjQCOAKYAjQCmAKUAjgCPAKcAjgCnAKYAjwB4AJAAjwCQAKcAkACRAKkAkACpAKgAkQCSAKoAkQCqAKkAkgCTAKsAkgCrAKoAkwCUAKwAkwCsAKsAlACVAK0AlACtAKwAlQCWAK4AlQCuAK0AlgCXAK8AlgCvAK4AlwCYALAAlwCwAK8AmACZALEAmACxALAAmQCaALIAmQCyALEAmgCbALMAmgCzALIAmwCcALQAmwC0ALMAnACdALUAnAC1ALQAnQCeALYAnQC2ALUAngCfALcAngC3ALYAnwCgALgAnwC4ALcAoAChALkAoAC5ALgAoQCiALoAoQC6ALkAogCjALsAogC7ALoAowCkALwAowC8ALsApAClAL0ApAC9ALwApQCmAL4ApQC+AL0ApgCnAL8ApgC/AL4ApwCQAKgApwCoAL8AqACpAMEAqADBAMAAqQCqAMIAqQDCAMEAqgCrAMMAqgDDAMIAqwCsAMQAqwDEAMMArACtAMUArADFAMQArQCuAMYArQDGAMUArgCvAMcArgDHAMYArwCwAMgArwDIAMcAsACxAMkAsADJAMgAsQCyAMoAsQDKAMkAsgCzAMsAsgDLAMoAswC0AMwAswDMAMsAtAC1AM0AtADNAMwAtQC2AM4AtQDOAM0AtgC3AM8AtgDPAM4AtwC4ANAAtwDQAM8AuAC5ANEAuADRANAAuQC6ANIAuQDSANEAugC7ANMAugDTANIAuwC8ANQAuwDUANMAvAC9ANUAvADVANQAvQC+ANYAvQDWANUAvgC/ANcAvgDXANYAvwCoAMAAvwDAANcAwADBANkAwADZANgAwQDCANoAwQDaANkAwgDDANsAwgDbANoAwwDEANwAwwDcANsAxADFAN0AxADdANwAxQDGAN4AxQDeAN0AxgDHAN8AxgDfAN4AxwDIAOAAxwDgAN8AyADJAOEAyADhAOAAyQDKAOIAyQDiAOEAygDLAOMAygDjAOIAywDMAOQAywDkAOMAzADNAOUAzADlAOQAzQDOAOYAzQDmAOUAzgDPAOcAzgDnAOYAzwDQAOgAzwDoAOcA0ADRAOkA0ADpAOgA0QDSAOoA0QDqAOkA0gDTAOsA0gDrAOoA0wDUAOwA0wDsAOsA1ADVAO0A1ADtAOwA1QDWAO4A1QDuAO0A1gDXAO8A1gDvAO4A1wDAANgA1wDYAO8A2ADZAPEA2ADxAPAA2QDaAPIA2QDyAPEA2gDbAPMA2gDzAPIA2wDcAPQA2wD0APMA3ADdAPUA3AD1APQA3QDeAPYA3QD2APUA3gDfAPcA3gD3APYA3wDgAPgA3wD4APcA4ADhAPkA4AD5APgA4QDiAPoA4QD6APkA4gDjAPsA4gD7APoA4wDkAPwA4wD8APsA5ADlAP0A5AD9APwA5QDmAP4A5QD+AP0A5gDnAP8A5gD/AP4A5wDoAAAB5wAAAf8A6ADpAAEB6AABAQAB6QDqAAIB6QACAQEB6gDrAAMB6gADAQIB6wDsAAQB6wAEAQMB7ADtAAUB7AAFAQQB7QDuAAYB7QAGAQUB7gDvAAcB7gAHAQYB7wDYAPAA7wDwAAcB8ADxAAkB8AAJAQgB8QDyAAoB8QAKAQkB8gDzAAsB8gALAQoB8wD0AAwB8wAMAQsB9AD1AA0B9AANAQwB9QD2AA4B9QAOAQ0B9gD3AA8B9gAPAQ4B9wD4ABAB9wAQAQ8B+AD5ABEB+AARARAB+QD6ABIB+QASAREB+gD7ABMB+gATARIB+wD8ABQB+wAUARMB/AD9ABUB/AAVARQB/QD+ABYB/QAWARUB/gD/ABcB/gAXARYB/wAAARgB/wAYARcBAAEBARkBAAEZARgBAQECARoBAQEaARkBAgEDARsBAgEbARoBAwEEARwBAwEcARsBBAEFAR0BBAEdARwBBQEGAR4BBQEeAR0BBgEHAR8BBgEfAR4BBwHwAAgBBwEIAR8BCAEJASEBCAEhASABCQEKASIBCQEiASEBCgELASMBCgEjASIBCwEMASQBCwEkASMBDAENASUBDAElASQBDQEOASYBDQEmASUBDgEPAScBDgEnASYBDwEQASgBDwEoAScBEAERASkBEAEpASgBEQESASoBEQEqASkBEgETASsBEgErASoBEwEUASwBEwEsASsBFAEVAS0BFAEtASwBFQEWAS4BFQEuAS0BFgEXAS8BFgEvAS4BFwEYATABFwEwAS8BGAEZATEBGAExATABGQEaATIBGQEyATEBGgEbATMBGgEzATIBGwEcATQBGwE0ATMBHAEdATUBHAE1ATQBHQEeATYBHQE2ATUBHgEfATcBHgE3ATYBHwEIASABHwEgATcB
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.3, 0.55, 0.85, 1]
+              metallicFactor: 0
+              roughnessFactor: 0.7
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              name: ""
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 1728
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-0.35, -0.8, -0.35]
+          max: [0.35, 0.8, 0.35]
+        verticesAABB:
+          min: [-0.35, -0.8, -0.35]
+          max: [0.35, 0.8, 0.35]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "kinematic"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "capsule"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            radius: 0.3
+            halfHeight: 0.5
+            density: 1.0
+            source: "none"
+      script:
+        scripts:
+          - type: "lua"
+            path: "scripts/moba_player.lua"
+            enabled: true
+            properties:
+              - name: "moveSpeed"
+                displayName: "Move Speed"
+                type: "Float"
+                value: 4.0
+                defaultValue: 4.0
+              - name: "rotationSpeed"
+                displayName: "Rotation Speed"
+                type: "Float"
+                value: 12.0
+                defaultValue: 12.0
+  - type: "Entity"
+    entity: 4
+    name: "Ground"
+    components:
+      transform:
+        position: [0.0, -0.5, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [60.0, 1.0, 60.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAAL8AAAA/AAAAAAAA8EEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADwQQAA8EEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AADwQQAA8EEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAA8EEAAAAAAAAAPwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AADwQQAAAAAAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAA8EEAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADwQQAA8EEAAAAAAAAAvwAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AAAAAAAAAAAAAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AAAAAAAAAD8AAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AADwQQAAAD8AAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADwQQAAAAAAAAAAAAAAAAAAAD+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAA/AADwQQAAAAAAAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAA/AADwQQAAAD8AAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AAAAAAAAAD8AAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AAAAAAAAAAAAAAA/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAPwAAAL8AAAC/AADwQQAAAAAAAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAPwAAAD8AAAC/AADwQQAAAD8AAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAD8AAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAAAAAAAAAAAAL+F61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAC/AAAAAAAAAAAAAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAC/AAAAAAAAAD8AAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAD8AAAA/AADwQQAAAD8AAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/AAAAvwAAAL8AAAA/AADwQQAAAAAAAAC/AAAAAAAAAACF61E/PQpXP/YoXD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [1.0, 1.0, 1.0, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 1.0
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-grass-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-grass-roughness.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-grass-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/ground/ground-grass-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "ground-grass"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        verticesAABB:
+          min: [-0.5, -0.5, -0.5]
+          max: [0.5, 0.5, 0.5]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 1.0
+            height: 1.0
+            depth: 1.0
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 1001
+    name: "Sky"
+    components:
+      transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      sky:
+        useDefaultTexture: true
+        color: [1.0, 1.0, 1.0, 1.0]
+        rotation: 0.0
+        visible: true
+  - type: "Entity"
+    entity: 1002
+    name: "Atmosphere"
+    components:
+      transform:
+        position: [0.0, 0.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      fog:
+        type: "exponential"
+        color: [0.46, 0.6, 0.82]
+        density: 0.0026
+        linearStart: 20.0
+        linearEnd: 160.0
+        heightFog: true
+        fogHeightFalloff: 11.0
+        fogGroundHeight: 0.0
+        fogSunAmount: 0.7
+        fogFarRange: 500.0
+        fogScatteringG: 0.55
+        fogSunColor: [1.0, 0.75, 0.45]
+        godRays: true
+        rayIntensity: 0.6
+        rayThreshold: 1.0
+        raySoftness: 3.0
+        rayDecay: 0.955
+        rayDensity: 0.5
+  - type: "Entity"
+    entity: 2001
+    name: "Lane Wall East"
+    components:
+      transform:
+        position: [9.0, 1.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAgD8AAMDBAAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAAAAAAAAwEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAAAAPwAAwEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAPwAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAAAAAAAAwEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAPwAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAAAAPwAAwEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAADAQQAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAADAQQAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAADAQQAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAADAQQAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMDBAAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAAAAPwAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAAAAPwAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMDBAAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAPwAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAPwAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-0.5, -1.0, -24.0]
+          max: [0.5, 1.0, 24.0]
+        verticesAABB:
+          min: [-0.5, -1.0, -24.0]
+          max: [0.5, 1.0, 24.0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 1.0
+            height: 2.0
+            depth: 48.0
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 2002
+    name: "Lane Wall West"
+    components:
+      transform:
+        position: [-9.0, 1.0, 0.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: AAAAvwAAgD8AAMDBAAAAAAAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAAAAAAAAwEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAAAAPwAAwEEAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAPwAAAAAAAAAAAACAPwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAAAAAAAAwEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAPwAAAAAAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAAAAPwAAwEEAAAAAAACAvwAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAAAAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAAAAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAADAQQAAgD8AAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAADAQQAAAAAAAIA/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAADAQQAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAADAQQAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMDBAAAAAAAAgD8AAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAIC/AAAAAAAAAADsUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMBBAAAAPwAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMBBAAAAPwAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMBBAAAAAAAAgD8AAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMBBAAAAAAAAAAAAAAAAAAAAAAAAgD/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgL8AAMDBAAAAAAAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAvwAAgD8AAMDBAAAAAAAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgD8AAMDBAAAAPwAAgD8AAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/AAAAPwAAgL8AAMDBAAAAPwAAAAAAAAAAAAAAAAAAgL/sUTg/MzMzP8P1KD8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.72, 0.7, 0.66, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.8
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-0.5, -1.0, -24.0]
+          max: [0.5, 1.0, 24.0]
+        verticesAABB:
+          min: [-0.5, -1.0, -24.0]
+          max: [0.5, 1.0, 24.0]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 1.0
+            height: 2.0
+            depth: 48.0
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 2003
+    name: "Tower North"
+    components:
+      transform:
+        position: [0.0, 2.5, 14.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpmZvwAAIECamZm/AAAAAAAAAAAAAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/AAAAAJqZmT8AAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZP5qZmT8AAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/mpmZPwAAAAAAAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/AAAAAJqZmT8AAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/mpmZPwAAAAAAAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZP5qZmT8AAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/AAAAAAAAAAAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/AAAAAAAAIEAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZPwAAIEAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZPwAAAAAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/mpmZPwAAAAAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/mpmZPwAAIEAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZm/AAAAAAAAIEAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZPwAAAAAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZPwAAIEAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/AAAAAAAAIEAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/AAAAAAAAAAAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZm/AAAAAAAAIEAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/mpmZPwAAIEAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/mpmZPwAAAAAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.6, 0.6, 0.64, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.55
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-1.2, -2.5, -1.2]
+          max: [1.2, 2.5, 1.2]
+        verticesAABB:
+          min: [-1.2, -2.5, -1.2]
+          max: [1.2, 2.5, 1.2]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 2.4
+            height: 5.0
+            depth: 2.4
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 2004
+    name: "Tower South"
+    components:
+      transform:
+        position: [0.0, 2.5, -14.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: mpmZvwAAIECamZm/AAAAAAAAAAAAAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/AAAAAJqZmT8AAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZP5qZmT8AAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/mpmZPwAAAAAAAAAAAACAPwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/AAAAAJqZmT8AAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/mpmZPwAAAAAAAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZP5qZmT8AAAAAAACAvwAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/AAAAAAAAAAAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/AAAAAAAAIEAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZPwAAIEAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZPwAAAAAAAIA/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/mpmZPwAAAAAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/mpmZPwAAIEAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZm/AAAAAAAAIEAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAIC/AAAAAAAAAACamRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZk/mpmZPwAAAAAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZk/mpmZPwAAIEAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZk/AAAAAAAAIEAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZk/AAAAAAAAAAAAAAAAAAAAAAAAgD+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIMCamZm/AAAAAAAAAAAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZvwAAIECamZm/AAAAAAAAIEAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIECamZm/mpmZPwAAIEAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/mpmZPwAAIMCamZm/mpmZPwAAAAAAAAAAAAAAAAAAgL+amRk/mpkZPwrXIz8AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.6, 0.6, 0.64, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.55
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-1.2, -2.5, -1.2]
+          max: [1.2, 2.5, 1.2]
+        verticesAABB:
+          min: [-1.2, -2.5, -1.2]
+          max: [1.2, 2.5, 1.2]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 2.4
+            height: 5.0
+            depth: 2.4
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 2005
+    name: "Bush A"
+    components:
+      transform:
+        position: [-5.0, 0.5, 6.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: zcyMvwAAAD/NzIy/AAAAAAAAAAAAAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/AAAAAM3MjD8AAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMP83MjD8AAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/zcyMPwAAAAAAAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/AAAAAM3MjD8AAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/zcyMPwAAAAAAAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMP83MjD8AAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/AAAAAAAAAAAAAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/AAAAAAAAAD8AAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMPwAAAD8AAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMPwAAAAAAAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/zcyMPwAAAAAAAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/zcyMPwAAAD8AAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIy/AAAAAAAAAD8AAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMPwAAAAAAAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMPwAAAD8AAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/AAAAAAAAAD8AAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/AAAAAAAAAAAAAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIy/AAAAAAAAAD8AAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/zcyMPwAAAD8AAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/zcyMPwAAAAAAAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.3, 0.45, 0.25, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.9
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-1.1, -0.5, -1.1]
+          max: [1.1, 0.5, 1.1]
+        verticesAABB:
+          min: [-1.1, -0.5, -1.1]
+          max: [1.1, 0.5, 1.1]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 2.2
+            height: 1.0
+            depth: 2.2
+            density: 1.0
+            source: "none"
+  - type: "Entity"
+    entity: 2006
+    name: "Bush B"
+    components:
+      transform:
+        position: [5.0, 0.5, -6.0]
+        rotation: [1.0, 0.0, 0.0, 0.0]
+        scale: [1.0, 1.0, 1.0]
+        visible: true
+        billboard: false
+        fakeBillboard: false
+        cylindricalBillboard: false
+      mesh:
+        buffer:
+          type: vertex_buffer
+          usage: immutable
+          stride: 48
+          size: 1152
+          count: 24
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: position
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 0
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: texcoord1
+              dataType: float
+              bufferName: ""
+              elements: 2
+              offset: 12
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: normal
+              dataType: float
+              bufferName: ""
+              elements: 3
+              offset: 20
+              count: 24
+              normalized: true
+              perInstance: false
+            - type: color
+              dataType: float
+              bufferName: ""
+              elements: 4
+              offset: 32
+              count: 24
+              normalized: true
+              perInstance: false
+          data: zcyMvwAAAD/NzIy/AAAAAAAAAAAAAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/AAAAAM3MjD8AAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMP83MjD8AAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/zcyMPwAAAAAAAAAAAACAPwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/AAAAAM3MjD8AAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/zcyMPwAAAAAAAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMP83MjD8AAAAAAACAvwAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/AAAAAAAAAAAAAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/AAAAAAAAAD8AAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMPwAAAD8AAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMPwAAAAAAAIA/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/zcyMPwAAAAAAAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/zcyMPwAAAD8AAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIy/AAAAAAAAAD8AAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAIC/AAAAAAAAAACamZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIw/zcyMPwAAAAAAAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIw/zcyMPwAAAD8AAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIw/AAAAAAAAAD8AAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIw/AAAAAAAAAAAAAAAAAAAAAAAAgD+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAL/NzIy/AAAAAAAAAAAAAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMvwAAAD/NzIy/AAAAAAAAAD8AAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAD/NzIy/zcyMPwAAAD8AAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/zcyMPwAAAL/NzIy/zcyMPwAAAAAAAAAAAAAAAAAAgL+amZk+ZmbmPgAAgD4AAIA/
+          vertexSize: 48
+        indices:
+          type: index_buffer
+          usage: immutable
+          stride: 2
+          size: 72
+          count: 36
+          renderAttributes: true
+          instanceBuffer: false
+          attributes:
+            - type: index
+              dataType: unsigned_short
+              bufferName: ""
+              elements: 1
+              offset: 0
+              count: 36
+              normalized: true
+              perInstance: false
+          data: AAABAAIAAAACAAMABAAFAAYABAAGAAcACAAJAAoACAAKAAsADAANAA4ADAAOAA8AEAARABIAEAASABMAFAAVABYAFAAWABcA
+        eBuffers: ~
+        submeshes:
+          - material:
+              baseColorFactor: [0.3, 0.45, 0.25, 1.0]
+              metallicFactor: 0.0
+              roughnessFactor: 0.9
+              alphaCutoff: 0.5
+              alphaMode: ALPHA_OPAQUE
+              emissiveFactor: [0, 0, 0]
+              baseColorTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-color.jpg
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              metallicRoughnessTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-roughness.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              normalTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-normal-gl.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightTexture:
+                textureType: 2D
+                source: path
+                path: materials/default/floor-tile-white-ceramic-tiles-1024-height.png
+                minFilter: linear_mipmap_linear
+                magFilter: linear
+                wrapU: repeat
+                wrapV: repeat
+                releaseDataAfterLoad: true
+              heightScale: 0.02
+              heightMinLayers: 8.0
+              heightMaxLayers: 32.0
+              baseColorTexCoord: 0
+              metallicRoughnessTexCoord: 0
+              occlusionTexCoord: 0
+              emissiveTexCoord: 0
+              normalTexCoord: 0
+              heightTexCoord: 0
+              name: "default"
+            textureRect: [0, 0, 1, 1]
+            primitiveType: triangles
+            vertexCount: 36
+            faceCulling: true
+            textureShadow: false
+            hasTexCoord1: true
+            hasTexCoord2: false
+            hasNormalMap: true
+            hasTangent: false
+            hasVertexColor3: false
+            hasVertexColor4: true
+            hasTextureRect: false
+            hasSkinning: false
+            hasMorphTarget: false
+            hasMorphNormal: false
+            hasMorphTangent: false
+        aabb:
+          min: [-1.1, -0.5, -1.1]
+          max: [1.1, 0.5, 1.1]
+        verticesAABB:
+          min: [-1.1, -0.5, -1.1]
+          max: [1.1, 0.5, 1.1]
+        receiveLights: true
+        receiveIBL: true
+        castShadows: true
+        receiveShadows: true
+        renderInReflectionProbes: true
+        transparent: false
+        cullingMode: back
+        windingOrder: ccw
+      body3d:
+        type: "static"
+        motionQuality: "discrete"
+        sensor: false
+        numShapes: 1
+        shapes:
+          - type: "box"
+            position: [0.0, 0.0, 0.0]
+            rotation: [1.0, 0.0, 0.0, 0.0]
+            width: 2.2
+            height: 1.0
+            depth: 2.2
+            density: 1.0
+            source: "none"

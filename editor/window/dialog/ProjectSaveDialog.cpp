@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 // ProjectSaveDialog.cpp
@@ -11,7 +11,7 @@
 
 #include <utility>
 
-namespace doriax {
+namespace quantum {
 namespace editor {
 
 void ProjectSaveDialog::open(const std::string& defaultName,
@@ -147,4 +147,4 @@ void ProjectSaveDialog::cancel() {
 }
 
 } // namespace editor
-} // namespace doriax
+} // namespace quantum

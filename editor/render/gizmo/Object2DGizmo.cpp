@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Object2DGizmo.h"
 
-using namespace doriax;
+using namespace quantum;
 
 const float editor::Object2DGizmo::rectSize = 0.20;
 const float editor::Object2DGizmo::sizeOffset = 0.1;

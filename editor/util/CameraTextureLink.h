@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "Scene.h"
 #include "texture/Texture.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     // A texture can use a camera framebuffer as source (render to texture).
     // The link is kept in the texture id as "camera|<entity>" so it survives

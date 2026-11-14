@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SetChildSceneStartActiveCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::SetChildSceneStartActiveCmd::SetChildSceneStartActiveCmd(Project* project, uint32_t sceneId, uint32_t childSceneId, bool startActive) {
     this->project = project;

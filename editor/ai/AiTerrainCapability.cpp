@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AiTerrainCapability.h"
@@ -22,7 +22,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 namespace {
 
@@ -223,4 +223,4 @@ TerrainBlendmapResult AiTerrainCapability::createBlendmap(Project* project,
     return result;
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

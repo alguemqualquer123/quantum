@@ -1,5 +1,5 @@
 //
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // Guard execution of untrusted/user code to prevent process termination on crashes.
 // POSIX: catches SIGSEGV/SIGBUS/SIGFPE/SIGILL/SIGABRT via sigaction + sigsetjmp/siglongjmp
@@ -14,7 +14,7 @@
 #include <functional>
 
 // IMPORTANT: Include platform headers at global scope (not inside any namespace)
-// to avoid injecting standard names inside doriax::std, which breaks builds.
+// to avoid injecting standard names inside quantum::std, which breaks builds.
 #if defined(_WIN32) && defined(_MSC_VER)
     #ifndef NOMINMAX
     #define NOMINMAX
@@ -28,7 +28,7 @@
     #include <setjmp.h>
 #endif
 
-namespace doriax {
+namespace quantum {
 
     struct CrashInfo {
         int code;                // signal number or Windows exception code
@@ -221,4 +221,4 @@ namespace doriax {
     }
 #endif
 
-} // namespace doriax
+} // namespace quantum

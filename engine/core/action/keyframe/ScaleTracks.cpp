@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ScaleTracks.h"
@@ -6,7 +6,7 @@
 #include "component/KeyframeTracksComponent.h"
 #include "component/ScaleTracksComponent.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ScaleTracks::ScaleTracks(Scene* scene): KeyframeTracks(scene){
     addComponent<ScaleTracksComponent>();

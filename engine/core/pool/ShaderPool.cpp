@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderPool.h"
@@ -27,12 +27,12 @@
 #ifdef SOKOL_VULKAN
 #include "spirv10.h"
 #endif
-// Metal shader cache. SOKOL_METAL covers cmake Metal builds. DORIAX_APPLE is
+// Metal shader cache. SOKOL_METAL covers cmake Metal builds. QUANTUM_APPLE is
 // also needed: the Xcode engine targets define it without SOKOL_METAL (that
 // flag is only on the sokol gfx unit), and Engine::getGraphicBackend() treats
-// DORIAX_APPLE as Metal. Exclude SOKOL_GLCORE so an Apple+OpenGL build does
+// QUANTUM_APPLE as Metal. Exclude SOKOL_GLCORE so an Apple+OpenGL build does
 // not pull in both headers and redefine getBase64Shader.
-#if defined(SOKOL_METAL) || (defined(DORIAX_APPLE) && !defined(SOKOL_GLCORE))
+#if defined(SOKOL_METAL) || (defined(QUANTUM_APPLE) && !defined(SOKOL_GLCORE))
 #include <TargetConditionals.h>
 #if TARGET_OS_IPHONE
 #include "msl21ios.h"
@@ -41,7 +41,7 @@
 #endif
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 ShaderBuilderFn ShaderPool::shaderBuilderFn = nullptr;
 
@@ -112,6 +112,64 @@ bool ShaderPool::parseShaderTypeToken(const std::string& typeToken, ShaderType& 
     }
     if (typeToken == "underwater") {
         shaderType = ShaderType::UNDERWATER;
+        return true;
+    }
+    // The HDR chain passes; the tokens are the same strings getShaderTypeName emits, so
+    // a .sdat written by one build round-trips in the next.
+    if (typeToken == "bloomthreshold") {
+        shaderType = ShaderType::BLOOM_THRESHOLD;
+        return true;
+    }
+    if (typeToken == "bloomdownsample") {
+        shaderType = ShaderType::BLOOM_DOWNSAMPLE;
+        return true;
+    }
+    if (typeToken == "bloomupsample") {
+        shaderType = ShaderType::BLOOM_UPSAMPLE;
+        return true;
+    }
+    if (typeToken == "bloomcomposite") {
+        shaderType = ShaderType::BLOOM_COMPOSITE;
+        return true;
+    }
+    if (typeToken == "tonemap") {
+        shaderType = ShaderType::TONEMAP;
+        return true;
+    }
+    if (typeToken == "fxaa") {
+        shaderType = ShaderType::FXAA;
+        return true;
+    }
+    if (typeToken == "exposure") {
+        shaderType = ShaderType::EXPOSURE;
+        return true;
+    }
+    if (typeToken == "dofcoc") {
+        shaderType = ShaderType::DOF_COC;
+        return true;
+    }
+    if (typeToken == "dofblur") {
+        shaderType = ShaderType::DOF_BLUR;
+        return true;
+    }
+    if (typeToken == "dofcomposite") {
+        shaderType = ShaderType::DOF_COMPOSITE;
+        return true;
+    }
+    if (typeToken == "atmosphere") {
+        shaderType = ShaderType::ATMOSPHERE;
+        return true;
+    }
+    if (typeToken == "contactshadows" || typeToken == "contact_shadows") {
+        shaderType = ShaderType::CONTACT_SHADOWS;
+        return true;
+    }
+    if (typeToken == "ssgi") {
+        shaderType = ShaderType::SSGI;
+        return true;
+    }
+    if (typeToken == "decal") {
+        shaderType = ShaderType::DECAL;
         return true;
     }
 
@@ -411,10 +469,12 @@ std::string ShaderPool::getShaderTypeName(ShaderType shaderType, bool lowerCase)
         case ShaderType::SHADOW2D: return lowerCase ? "shadow2d" : "Shadow 2D";
         case ShaderType::BLIT:   return lowerCase ? "blit"   : "Blit";
         // --- HDR pipeline ---
-        case ShaderType::BLOOM_THRESHOLD: return lowerCase ? "bloom_threshold" : "Bloom Threshold";
-        case ShaderType::BLOOM_DOWNSAMPLE: return lowerCase ? "bloom_downsample" : "Bloom Downsample";
-        case ShaderType::BLOOM_UPSAMPLE: return lowerCase ? "bloom_upsample" : "Bloom Upsample";
-        case ShaderType::BLOOM_COMPOSITE: return lowerCase ? "bloom_composite" : "Bloom Composite";
+        // No underscore in a lowerCase name: it is also the .sdat file stem, and
+        // getShaderCliSpec splits "name_properties" on the first underscore.
+        case ShaderType::BLOOM_THRESHOLD: return lowerCase ? "bloomthreshold" : "Bloom Threshold";
+        case ShaderType::BLOOM_DOWNSAMPLE: return lowerCase ? "bloomdownsample" : "Bloom Downsample";
+        case ShaderType::BLOOM_UPSAMPLE: return lowerCase ? "bloomupsample" : "Bloom Upsample";
+        case ShaderType::BLOOM_COMPOSITE: return lowerCase ? "bloomcomposite" : "Bloom Composite";
         case ShaderType::TONEMAP: return lowerCase ? "tonemap" : "Tone Map";
         case ShaderType::EXPOSURE: return lowerCase ? "exposure" : "Exposure";
         case ShaderType::COLORGRADING: return lowerCase ? "colorgrading" : "Color Grading";
@@ -423,9 +483,9 @@ std::string ShaderPool::getShaderTypeName(ShaderType shaderType, bool lowerCase)
         case ShaderType::TAA: return lowerCase ? "taa" : "TAA";
         case ShaderType::FXAA: return lowerCase ? "fxaa" : "FXAA";
         // --- Post-process effects ---
-        case ShaderType::DOF_COC: return lowerCase ? "dof_coc" : "DOF CoC";
-        case ShaderType::DOF_BLUR: return lowerCase ? "dof_blur" : "DOF Blur";
-        case ShaderType::DOF_COMPOSITE: return lowerCase ? "dof_composite" : "DOF Composite";
+        case ShaderType::DOF_COC: return lowerCase ? "dofcoc" : "DOF CoC";
+        case ShaderType::DOF_BLUR: return lowerCase ? "dofblur" : "DOF Blur";
+        case ShaderType::DOF_COMPOSITE: return lowerCase ? "dofcomposite" : "DOF Composite";
         case ShaderType::MOTIONBLUR: return lowerCase ? "motionblur" : "Motion Blur";
         case ShaderType::CHROMATIC: return lowerCase ? "chromatic" : "Chromatic Aberration";
         case ShaderType::VIGNETTE: return lowerCase ? "vignette" : "Vignette";
@@ -436,17 +496,20 @@ std::string ShaderPool::getShaderTypeName(ShaderType shaderType, bool lowerCase)
         case ShaderType::POSTPROCESS: return lowerCase ? "postprocess" : "Post-process";
         case ShaderType::WATER:  return lowerCase ? "water"  : "Water";
         case ShaderType::UNDERWATER: return lowerCase ? "underwater" : "Underwater";
+        case ShaderType::ATMOSPHERE: return lowerCase ? "atmosphere" : "Atmosphere";
+        case ShaderType::SSGI: return lowerCase ? "ssgi" : "SSGI";
+        case ShaderType::DECAL: return lowerCase ? "decal" : "Decal";
         default:                 return lowerCase ? "unknown": "Unknown";
     }
 }
 
 int ShaderPool::getShaderPropertyCount(ShaderType shaderType){
     switch (shaderType) {
-        case ShaderType::MESH:   return 29;
+        case ShaderType::MESH:   return 31;
         case ShaderType::DEPTH:  return 9;
         case ShaderType::GBUFFER: return 10;
         case ShaderType::UI:     return 4;
-        case ShaderType::POINTS: return 4;
+        case ShaderType::POINTS: return 5;
         case ShaderType::LINES:  return 2;
         case ShaderType::SKYBOX: return 0;
         case ShaderType::SSAO:   return 0;
@@ -456,14 +519,14 @@ int ShaderPool::getShaderPropertyCount(ShaderType shaderType){
         case ShaderType::COMPOSITE: return 0;
         case ShaderType::SHADOW2D: return 0;
         case ShaderType::BLIT:   return 0;
-        case ShaderType::WATER:  return 5;
-        // --- HDR pipeline ---
-        case ShaderType::BLOOM_THRESHOLD: return 1;
-        case ShaderType::BLOOM_DOWNSAMPLE: return 1;
-        case ShaderType::BLOOM_UPSAMPLE: return 1;
-        case ShaderType::BLOOM_COMPOSITE: return 1;
-        case ShaderType::TONEMAP: return 3;
-        case ShaderType::EXPOSURE: return 1;
+        case ShaderType::WATER:  return 6;
+        // --- HDR pipeline: every parameter is a uniform, so none of these has a variant ---
+        case ShaderType::BLOOM_THRESHOLD: return 0;
+        case ShaderType::BLOOM_DOWNSAMPLE: return 0;
+        case ShaderType::BLOOM_UPSAMPLE: return 0;
+        case ShaderType::BLOOM_COMPOSITE: return 0;
+        case ShaderType::TONEMAP: return 0;
+        case ShaderType::EXPOSURE: return 0;
         case ShaderType::COLORGRADING: return 2;
         // --- Anti-aliasing ---
         case ShaderType::VELOCITY: return 2;
@@ -471,8 +534,9 @@ int ShaderPool::getShaderPropertyCount(ShaderType shaderType){
         case ShaderType::FXAA: return 0;
         // --- Post-process effects ---
         case ShaderType::DOF_COC: return 0;
-        case ShaderType::DOF_BLUR: return 1;
-        case ShaderType::DOF_COMPOSITE: return 1;
+        case ShaderType::DOF_BLUR: return 0;
+        case ShaderType::DOF_COMPOSITE: return 0;
+        case ShaderType::ATMOSPHERE: return 0;
         case ShaderType::MOTIONBLUR: return 0;
         case ShaderType::CHROMATIC: return 0;
         case ShaderType::VIGNETTE: return 0;
@@ -480,6 +544,8 @@ int ShaderPool::getShaderPropertyCount(ShaderType shaderType){
         case ShaderType::CONTACT_SHADOWS: return 0;
         case ShaderType::HIZ_GEN: return 0;
         case ShaderType::SSR_HIZ: return 1;
+        case ShaderType::SSGI: return 0;
+        case ShaderType::DECAL: return 0;
         default:                 return 0;
     }
 }
@@ -516,6 +582,8 @@ std::string ShaderPool::getShaderPropertyName(ShaderType shaderType, int bit, bo
             case 26: return shortName ? "Ifd" : "Instance Fade";
             case 27: return shortName ? "Tpb" : "Terrain PBR";
             case 28: return shortName ? "Dlo" : "Directional Lights Only";
+            case 29: return shortName ? "Hgt" : "Height Map";
+            case 30: return shortName ? "Mtx" : "Material Extensions";
         }
     } else if (shaderType == ShaderType::DEPTH) {
         switch (bit) {
@@ -555,6 +623,7 @@ std::string ShaderPool::getShaderPropertyName(ShaderType shaderType, int bit, bo
             case 1: return shortName ? "Vc3" : "Vertex Color 3";
             case 2: return shortName ? "Vc4" : "Vertex Color 4";
             case 3: return shortName ? "Txr" : "Texture Rect";
+            case 4: return shortName ? "Gpu" : "GPU Particles";
         }
     } else if (shaderType == ShaderType::LINES) {
         switch (bit) {
@@ -568,32 +637,7 @@ std::string ShaderPool::getShaderPropertyName(ShaderType shaderType, int bit, bo
             case 2: return shortName ? "Prf" : "Planar Reflection";
             case 3: return shortName ? "Shw" : "Shadows";
             case 4: return shortName ? "Rfr" : "Refraction";
-        }
-    } else if (shaderType == ShaderType::BLOOM_THRESHOLD) {
-        switch (bit) {
-            case 0: return shortName ? "Sft" : "Soft Knee";
-        }
-    } else if (shaderType == ShaderType::BLOOM_DOWNSAMPLE) {
-        switch (bit) {
-            case 0: return shortName ? "Hgh" : "High Quality";
-        }
-    } else if (shaderType == ShaderType::BLOOM_UPSAMPLE) {
-        switch (bit) {
-            case 0: return shortName ? "Hgh" : "High Quality";
-        }
-    } else if (shaderType == ShaderType::BLOOM_COMPOSITE) {
-        switch (bit) {
-            case 0: return shortName ? "Drt" : "Lens Dirt";
-        }
-    } else if (shaderType == ShaderType::TONEMAP) {
-        switch (bit) {
-            case 0: return shortName ? "Acs" : "ACES";
-            case 1: return shortName ? "AgX" : "AgX";
-            case 2: return shortName ? "PNt" : "PBR Neutral";
-        }
-    } else if (shaderType == ShaderType::EXPOSURE) {
-        switch (bit) {
-            case 0: return shortName ? "Hst" : "Histogram";
+            case 5: return shortName ? "Sim" : "Water Sim";
         }
     } else if (shaderType == ShaderType::COLORGRADING) {
         switch (bit) {
@@ -614,13 +658,9 @@ std::string ShaderPool::getShaderPropertyName(ShaderType shaderType, int bit, bo
     } else if (shaderType == ShaderType::DOF_COC) {
         return shortName ? "?" : "Unknown";
     } else if (shaderType == ShaderType::DOF_BLUR) {
-        switch (bit) {
-            case 0: return shortName ? "Bkh" : "Bokeh";
-        }
+        return shortName ? "?" : "Unknown";
     } else if (shaderType == ShaderType::DOF_COMPOSITE) {
-        switch (bit) {
-            case 0: return shortName ? "Vgn" : "Vignette";
-        }
+        return shortName ? "?" : "Unknown";
     } else if (shaderType == ShaderType::MOTIONBLUR) {
         return shortName ? "?" : "Unknown";
     } else if (shaderType == ShaderType::CHROMATIC) {
@@ -832,7 +872,8 @@ uint32_t ShaderPool::getMeshProperties(
     bool tangents, bool vertexColorVec3, bool vertexColorVec4, bool textureRect,
     bool fog, bool skinning, bool morphTarget, bool morphNormal, bool morphTangent,
     bool terrain, bool instanced, bool ibl, bool mirror, bool ssao, bool light2d, bool shadows2d,
-    bool alphaMask, bool alphaOpaque, bool instanceFade, bool terrainPBR){
+    bool alphaMask, bool alphaOpaque, bool instanceFade, bool terrainPBR, bool height,
+    bool materialExtensions){
     uint32_t prop = 0;
 
     prop |= unlit            ? (1 <<  0) : 0;
@@ -864,6 +905,10 @@ uint32_t ShaderPool::getMeshProperties(
     prop |= alphaOpaque      ? (1 << 25) : 0;
     prop |= instanceFade     ? (1 << 26) : 0;
     prop |= terrainPBR       ? (1 << 27) : 0;
+    // bit 28 is 'Dlo', set by RenderSystem after this call: only a built-in shader has
+    // the point/spot paths to strip.
+    prop |= height           ? (1 << 29) : 0;
+    prop |= materialExtensions ? (1 << 30) : 0;
 
     return prop;
 }
@@ -912,13 +957,14 @@ uint32_t ShaderPool::getUIProperties(bool texture, bool fontAtlasTexture, bool v
     return prop;
 }
 
-uint32_t ShaderPool::getPointsProperties(bool texture, bool vertexColorVec3, bool vertexColorVec4, bool textureRect){
+uint32_t ShaderPool::getPointsProperties(bool texture, bool vertexColorVec3, bool vertexColorVec4, bool textureRect, bool gpuParticles){
     uint32_t prop = 0;
 
     prop |= texture          ? (1 <<  0) : 0;
     prop |= vertexColorVec3	 ? (1 <<  1) : 0;
     prop |= vertexColorVec4  ? (1 <<  2) : 0;
     prop |= textureRect      ? (1 <<  3) : 0;
+    prop |= gpuParticles    ? (1 <<  4) : 0;
 
     return prop;
 }
@@ -932,7 +978,7 @@ uint32_t ShaderPool::getLinesProperties(bool vertexColorVec3, bool vertexColorVe
     return prop;
 }
 
-uint32_t ShaderPool::getWaterProperties(bool fog, bool sceneDepth, bool planarReflection, bool shadows, bool refraction){
+uint32_t ShaderPool::getWaterProperties(bool fog, bool sceneDepth, bool planarReflection, bool shadows, bool refraction, bool waterSim){
     uint32_t prop = 0;
 
     prop |= fog              ? (1 <<  0) : 0;
@@ -940,6 +986,7 @@ uint32_t ShaderPool::getWaterProperties(bool fog, bool sceneDepth, bool planarRe
     prop |= planarReflection ? (1 <<  2) : 0;
     prop |= shadows          ? (1 <<  3) : 0;
     prop |= refraction       ? (1 <<  4) : 0;
+    prop |= waterSim         ? (1 <<  5) : 0;
 
     return prop;
 }

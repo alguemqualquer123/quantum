@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AiChatWindow.h"
@@ -38,7 +38,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -1830,7 +1830,7 @@ void AiChatWindow::collectMentionCandidates(std::vector<MentionItem>& out) const
                 }
                 continue;
             }
-            if (path.filename() == ".doriax" || path.filename() == "build") {
+            if (path.filename() == ".quantum" || path.filename() == "build") {
                 if (it->is_directory(ec)) {
                     it.disable_recursion_pending();
                 }
@@ -2859,7 +2859,7 @@ void AiChatWindow::loadLatestConversationForCurrentProject() {
 
 void AiChatWindow::persistConversation() {
     // Without a project path the store would resolve to a CWD-relative
-    // ".doriax" folder; the auto-loader has the matching guard.
+    // ".quantum" folder; the auto-loader has the matching guard.
     if (!project || project->getProjectPath().empty()) {
         return;
     }
@@ -2898,4 +2898,4 @@ void AiChatWindow::loadConversation(const std::string& id) {
     scrollToBottom = true;
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

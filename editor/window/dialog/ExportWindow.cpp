@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ExportWindow.h"
@@ -12,7 +12,7 @@
 #include "Out.h"
 #include "Theme.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
     // Desktop exports build for the current host, so only expose backends
@@ -1043,7 +1043,15 @@ void ExportWindow::drawAddShaderDialog() {
             ShaderType::SSAO, ShaderType::SSAO_BLUR,
             ShaderType::SSR, ShaderType::SSR_BLUR, ShaderType::COMPOSITE,
             ShaderType::SHADOW2D, ShaderType::BLIT, ShaderType::POSTPROCESS,
-            ShaderType::WATER, ShaderType::UNDERWATER
+            ShaderType::WATER, ShaderType::UNDERWATER,
+            ShaderType::BLOOM_THRESHOLD, ShaderType::BLOOM_DOWNSAMPLE,
+            ShaderType::BLOOM_UPSAMPLE, ShaderType::BLOOM_COMPOSITE,
+            ShaderType::TONEMAP, ShaderType::EXPOSURE, ShaderType::FXAA,
+            ShaderType::VELOCITY, ShaderType::TAA, ShaderType::MOTIONBLUR,
+            ShaderType::CONTACT_SHADOWS,
+            ShaderType::SSGI,
+            ShaderType::ATMOSPHERE,
+            ShaderType::DECAL
         };
         constexpr int typeCount = (int)(sizeof(typeValues) / sizeof(typeValues[0]));
         std::vector<std::string> typeNameStrs;
@@ -1207,4 +1215,4 @@ void ExportWindow::drawProgress() {
     }
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

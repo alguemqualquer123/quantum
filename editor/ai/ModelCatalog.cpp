@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ModelCatalog.h"
@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <set>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 namespace {
 
@@ -410,4 +410,4 @@ std::string ModelCatalog::humanizeModelId(const std::string& id) {
     return out.empty() ? id : out;
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

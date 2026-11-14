@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Particles.h"
 
 #include "subsystem/ActionSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Particles::Particles(Scene* scene): Action(scene){
     addComponent<ParticlesComponent>();

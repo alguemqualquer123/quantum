@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -9,7 +9,7 @@
 #include "object/Shape.h"
 #include "math/Vector3.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     enum class ViewportGizmoAxis {
         NONE,

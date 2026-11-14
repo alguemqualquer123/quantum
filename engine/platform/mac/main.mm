@@ -1,8 +1,8 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-#include "DoriaxMac.h"
+#include "QuantumMac.h"
 
 int main(int argc, char* argv[]) {
-    return DoriaxMac::init(argc, argv);
+    return QuantumMac::init(argc, argv);
 }

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LuaBridgeAddon_h
@@ -10,10 +10,11 @@
 #include "service/InAppPurchase.h"
 #include "service/WebPortal.h"
 #include "FileData.h"
+#include "component/AnimatorControllerComponent.h"
 #include "thread/ResourceProgress.h"
 #include "texture/Material.h"
 
-using namespace doriax;
+using namespace quantum;
 
 namespace luabridge
 {
@@ -115,6 +116,10 @@ namespace luabridge
 
     template<> struct Stack<EaseType> : EnumWrapper<EaseType>{};
     template<> struct Stack<ActionState> : EnumWrapper<ActionState>{};
+
+    template<> struct Stack<AnimatorParameter::Type> : EnumWrapper<AnimatorParameter::Type>{};
+    template<> struct Stack<AnimatorTransition::InterruptionSource> : EnumWrapper<AnimatorTransition::InterruptionSource>{};
+    template<> struct Stack<AnimatorTransition::Condition::Mode> : EnumWrapper<AnimatorTransition::Condition::Mode>{};
 
     template<> struct Stack<FileErrors> : EnumWrapper<FileErrors>{};
 

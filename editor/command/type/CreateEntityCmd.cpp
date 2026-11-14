@@ -1,16 +1,48 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CreateEntityCmd.h"
 
 #include "editor/Out.h"
 #include "io/BuiltinModel.h"
+#include "util/DefaultMaterial.h"
 #include "util/ShapeParameters.h"
 #include "util/ProjectUtils.h"
 #include "Stream.h"
 #include "command/type/DeleteEntityCmd.h"
+#include "component/Body3DComponent.h"
 
-using namespace doriax;
+#include <filesystem>
+
+using namespace quantum;
+
+// A primitive arrives with the engine's material set instead of the engine's flat
+// vertex-coloured white, so the first box in a new scene reads as a lit surface.
+// The maps tile with the shape: one stretched 1024 image across a 10 m plane reads as
+// a blurry decal, and the tiles argument only scales the UVs, never adds geometry.
+static constexpr unsigned int kPrimitiveTiles = 4;
+
+static void applyDefaultMaterial(MeshComponent& mesh, editor::Project* project){
+    if (!project){
+        return;
+    }
+
+    const std::filesystem::path assetsRoot = project->getAssetsPath();
+
+    std::string error;
+    if (!editor::DefaultMaterial::ensureInstalled(assetsRoot, &error)){
+        editor::Out::warning("New primitives start untextured: %s", error.c_str());
+        return;
+    }
+
+    const Material material = editor::DefaultMaterial::build(assetsRoot);
+    if (material.baseColorTexture.empty()){
+        return;
+    }
+
+    mesh.submeshes[0].material = material;
+    mesh.submeshes[0].needUpdateTexture = true;
+}
 
 editor::CreateEntityCmd::CreateEntityCmd(Project* project, uint32_t sceneId, std::string entityName, bool addToBundle){
     this->project = project;
@@ -86,7 +118,8 @@ bool editor::CreateEntityCmd::execute(){
 
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
-        scene->getSystem<MeshSystem>()->createBox(mesh, shapeDefs.boxWidth, shapeDefs.boxHeight, shapeDefs.boxDepth);
+        scene->getSystem<MeshSystem>()->createBox(mesh, shapeDefs.boxWidth, shapeDefs.boxHeight, shapeDefs.boxDepth, kPrimitiveTiles);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::PLANE){
 
@@ -95,7 +128,8 @@ bool editor::CreateEntityCmd::execute(){
 
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
-        scene->getSystem<MeshSystem>()->createPlane(mesh, shapeDefs.planeWidth, shapeDefs.planeDepth);
+        scene->getSystem<MeshSystem>()->createPlane(mesh, shapeDefs.planeWidth, shapeDefs.planeDepth, kPrimitiveTiles);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::WALL){
 
@@ -104,7 +138,8 @@ bool editor::CreateEntityCmd::execute(){
 
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
-        scene->getSystem<MeshSystem>()->createWall(mesh, shapeDefs.wallWidth, shapeDefs.wallHeight);
+        scene->getSystem<MeshSystem>()->createWall(mesh, shapeDefs.wallWidth, shapeDefs.wallHeight, kPrimitiveTiles);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::MIRROR){
 
@@ -125,6 +160,7 @@ bool editor::CreateEntityCmd::execute(){
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
         scene->getSystem<MeshSystem>()->createSphere(mesh, shapeDefs.sphereRadius, shapeDefs.sphereSlices, shapeDefs.sphereStacks);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::CYLINDER){
 
@@ -134,6 +170,7 @@ bool editor::CreateEntityCmd::execute(){
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
         scene->getSystem<MeshSystem>()->createCylinder(mesh, shapeDefs.cylinderBaseRadius, shapeDefs.cylinderTopRadius, shapeDefs.cylinderHeight, shapeDefs.cylinderSlices, shapeDefs.cylinderStacks);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::CAPSULE){
 
@@ -143,6 +180,7 @@ bool editor::CreateEntityCmd::execute(){
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
         scene->getSystem<MeshSystem>()->createCapsule(mesh, shapeDefs.capsuleBaseRadius, shapeDefs.capsuleTopRadius, shapeDefs.capsuleHeight, shapeDefs.capsuleSlices, shapeDefs.capsuleStacks);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::TORUS){
 
@@ -152,6 +190,7 @@ bool editor::CreateEntityCmd::execute(){
         ShapeParameters shapeDefs;
         MeshComponent& mesh = scene->getComponent<MeshComponent>(entity);
         scene->getSystem<MeshSystem>()->createTorus(mesh, shapeDefs.torusRadius, shapeDefs.torusRingRadius, shapeDefs.torusSides, shapeDefs.torusRings);
+        applyDefaultMaterial(mesh, project);
 
     }else if (type == EntityCreationType::IMAGE){
 
@@ -613,6 +652,37 @@ bool editor::CreateEntityCmd::execute(){
         ModelComponent initialModel;
         initialModel.filename = BuiltinModels::defaultPath();
         scene->addComponent<ModelComponent>(entity, std::move(initialModel));
+
+    }else if (type == EntityCreationType::PLAYER){
+
+        // Keep the player as one authored entity. PlayerController creates its runtime camera
+        // and model child, while these components make the scene self-describing in the editor.
+        scene->addComponent<Transform>(entity, {});
+        Body3DComponent body;
+        body.type = BodyType::DYNAMIC;
+        body.allowedDOFs = Body3DAllowedDOF_TranslationX |
+                           Body3DAllowedDOF_TranslationY |
+                           Body3DAllowedDOF_TranslationZ |
+                           Body3DAllowedDOF_RotationY;
+        Shape3D capsule;
+        capsule.type = Shape3DType::CAPSULE;
+        capsule.position = Vector3(0.0f, 0.9f, 0.0f);
+        capsule.radius = 0.38f;
+        capsule.halfHeight = 0.52f;
+        capsule.density = 1000.0f;
+        body.shapes[0] = capsule;
+        body.numShapes = 1;
+        scene->addComponent<Body3DComponent>(entity, std::move(body));
+
+        Entity visual = scene->createUserEntity();
+        scene->addComponent<Transform>(visual, {});
+        scene->addComponent<MeshComponent>(visual, {});
+        ModelComponent playerModel;
+        playerModel.filename = BuiltinModels::defaultPath();
+        scene->addComponent<ModelComponent>(visual, std::move(playerModel));
+        scene->setEntityName(visual, "BananaMan");
+        scene->addEntityChild(entity, visual, false);
+        registerChildEntity(visual, entity);
 
     }else if (type == EntityCreationType::PARTICLES){
 

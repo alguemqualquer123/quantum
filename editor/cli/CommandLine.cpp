@@ -1,15 +1,17 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "CommandLine.h"
 
+#include "ScriptDebugCommands.h"
 #include "AppSettings.h"
-#include "Doriax.h"
+#include "Quantum.h"
 #include "EditorHost.h"
 #include "Exporter.h"
 #include "Out.h"
 #include "Platform.h"
 #include "Project.h"
+#include "cli/ProjectFileType.h"
 #include "pool/ShaderPool.h"
 #include "shader/ShaderBuilder.h"
 
@@ -31,14 +33,14 @@
     #include <cstdio>
 #endif
 
-namespace doriax::editor {
+namespace quantum::editor {
 
-using ::doriax::Engine;
-using ::doriax::ShaderBackend;
-using ::doriax::ShaderBuildResult;
-using ::doriax::ShaderKey;
-using ::doriax::ShaderPool;
-using ::doriax::ShaderType;
+using ::quantum::Engine;
+using ::quantum::ShaderBackend;
+using ::quantum::ShaderBuildResult;
+using ::quantum::ShaderKey;
+using ::quantum::ShaderPool;
+using ::quantum::ShaderType;
 
 namespace fs = std::filesystem;
 
@@ -174,6 +176,23 @@ static bool parseShaderTypeName(const std::string& value, ShaderType& out) {
     if (token == "postprocess" || token == "post") { out = ShaderType::POSTPROCESS; return true; }
     if (token == "water")                       { out = ShaderType::WATER;  return true; }
     if (token == "underwater")                  { out = ShaderType::UNDERWATER; return true; }
+    if (token == "bloomthreshold")              { out = ShaderType::BLOOM_THRESHOLD; return true; }
+    if (token == "bloomdownsample")             { out = ShaderType::BLOOM_DOWNSAMPLE; return true; }
+    if (token == "bloomupsample")               { out = ShaderType::BLOOM_UPSAMPLE; return true; }
+    if (token == "bloomcomposite")              { out = ShaderType::BLOOM_COMPOSITE; return true; }
+    if (token == "tonemap")                     { out = ShaderType::TONEMAP; return true; }
+    if (token == "exposure")                    { out = ShaderType::EXPOSURE; return true; }
+    if (token == "velocity")                    { out = ShaderType::VELOCITY; return true; }
+    if (token == "taa")                         { out = ShaderType::TAA; return true; }
+    if (token == "fxaa")                        { out = ShaderType::FXAA; return true; }
+    if (token == "dofcoc")                      { out = ShaderType::DOF_COC; return true; }
+    if (token == "dofblur")                     { out = ShaderType::DOF_BLUR; return true; }
+    if (token == "dofcomposite")                { out = ShaderType::DOF_COMPOSITE; return true; }
+    if (token == "motionblur")                  { out = ShaderType::MOTIONBLUR; return true; }
+    if (token == "contactshadows" || token == "contactshadow") { out = ShaderType::CONTACT_SHADOWS; return true; }
+    if (token == "ssgi")                         { out = ShaderType::SSGI; return true; }
+    if (token == "atmosphere")                  { out = ShaderType::ATMOSPHERE; return true; }
+    if (token == "decal")                       { out = ShaderType::DECAL; return true; }
     return false;
 }
 
@@ -250,12 +269,12 @@ static bool parseBackendList(const std::string& value, std::set<ShaderBackend>& 
 
 static std::string getCommandName(const char* executableName) {
     if (!executableName || !*executableName) {
-        return "doriax-editor";
+        return "quantum-editor";
     }
 
     const fs::path executablePath(executableName);
     const std::string filename = executablePath.filename().string();
-    return filename.empty() ? std::string("doriax-editor") : filename;
+    return filename.empty() ? std::string("quantum-editor") : filename;
 }
 
 static void printMainUsage(const std::string& commandName) {
@@ -264,8 +283,32 @@ static void printMainUsage(const std::string& commandName) {
         << "  " << commandName << "                          Open the editor.\n"
         << "  " << commandName << " export [options]         Export a project.\n"
         << "  " << commandName << " shaders [options]        Generate shaders.\n"
-        << "  " << commandName << " benchmark [options]      Measure scene FPS with vsync off.\n\n"
+        << "  " << commandName << " benchmark [options]      Measure scene FPS with vsync off.\n"
+        << "  " << commandName << " script <command>         Debug, lint or round-trip scripts and graphs.\n"
+        << "  " << commandName << " assets <command>         Index, inspect or verify project assets.\n"
+        << "  " << commandName << " doctor <project>         Diagnose a project without opening the editor.\n"
+        << "  " << commandName << " terrain <command>        Generate and inspect terrain heightmaps.\n"
+        << "  " << commandName << " graph <command>          Compile or inspect graph/catalog artifacts.\n"
+        << "  " << commandName << " api|scripts <command>   Browse engine APIs or script source.\n"
+        << "  " << commandName << " project-file <command>   Open projects by double-clicking them.\n"
+        << "  " << commandName << " components <command>     List or install the components the engine ships with.\n"
+        << "  " << commandName << " material <command>       Report or install the default primitive material.\n\n"
         << "Run a subcommand with --help for its options.\n";
+}
+
+static void printProjectFileUsage(const std::string& commandName) {
+    std::cout
+        << "Usage:\n"
+        << "  " << commandName << " project-file status                 Report what the project extension opens with\n"
+        << "  " << commandName << " project-file register [--extension <ext>]\n"
+        << "                          Bind the project marker files to this editor build\n"
+        << "  " << commandName << " project-file unregister [--extension <ext>]\n"
+        << "                          Remove that binding\n\n"
+        << "Options:\n"
+        << "  -e, --extension <ext>   Extension for this command only. Defaults to the Editor Settings value.\n"
+        << "  -h, --help              Show this help.\n\n"
+        << "Every project carries a marker file with that extension next to its project.yaml, so\n"
+        << "double-clicking it opens the project. Registration writes to HKCU\\Software\\Classes only.\n";
 }
 
 static void printUsage(const std::string& commandName) {
@@ -300,6 +343,11 @@ static void printBenchmarkUsage(const std::string& commandName) {
         << "      --depth-prepass <on|off> Override the scene's depth prepass setting.\n"
         << "      --name <label>     Label written into the JSON result.\n"
         << "      --out <path>       Write JSON to this file in addition to stdout.\n"
+        << "      --screenshot <path>\n"
+        << "                       Write a PNG of the scene as it renders after the warmup. On its\n"
+        << "                       own it also shortens the run to 2 measured frames over 30 warmup\n"
+        << "                       frames, so the process ends on the picture. The image is the\n"
+        << "                       window contents, so the editor chrome surrounds the viewport.\n"
         << "  -h, --help             Show this help.\n\n"
         << "Vsync is forced off. The scene camera is used for the capture.\n";
 }
@@ -616,12 +664,80 @@ int CommandLine::runShadersCommand(int argc, char** argv, const char* executable
     return 0;
 }
 
+int CommandLine::runScriptCommand(int argc, char** argv, const char* executableName) {
+    return cli::runScriptDebugCommand(argc, argv, executableName);
+}
+
 int CommandLine::runBenchmarkHelp(int argc, char** argv, const char* executableName) {
     attachHostConsoleIfNeeded();
     printBenchmarkUsage(getCommandName(executableName));
     (void)argc;
     (void)argv;
     return 0;
+}
+
+int CommandLine::runProjectFileCommand(int argc, char** argv, const char* executableName) {
+    attachHostConsoleIfNeeded();
+
+    const std::string commandName = getCommandName(executableName);
+    // argv[0] is the "project-file" token itself, exactly like the export
+    // subcommand, so the command name is the argument behind it.
+    const std::string sub = argc >= 2 && argv[1] ? argv[1] : "";
+
+    std::string extension;
+    for (int i = 2; i < argc; ++i) {
+        const std::string argument = argv[i] ? argv[i] : "";
+        if (argument == "-e" || argument == "--extension") {
+            if (i + 1 >= argc) {
+                std::cerr << commandName << " project-file: " << argument << " needs an extension\n\n";
+                printProjectFileUsage(commandName);
+                return 2;
+            }
+            extension = argv[++i];
+        } else if (argument == "-h" || argument == "--help") {
+            printProjectFileUsage(commandName);
+            return 0;
+        } else {
+            std::cerr << commandName << " project-file: unknown argument '" << argument << "'\n\n";
+            printProjectFileUsage(commandName);
+            return 2;
+        }
+    }
+
+    AppSettings::initialize();
+
+    // Resolved once here so the line printed and the key written agree, even when an
+    // --extension override came in.
+    const std::string wanted = cli::ProjectFileType::resolveExtension(extension);
+
+    if (sub == "status" || sub.empty()) {
+        std::cout << cli::ProjectFileType::describe(wanted) << "\n";
+        return 0;
+    }
+
+    std::string error;
+    if (sub == "register") {
+        if (!cli::ProjectFileType::registerFileType(wanted, error)) {
+            std::cerr << commandName << " project-file register: " << error << "\n";
+            return 1;
+        }
+        std::cout << "Registered " << wanted << ": " << cli::ProjectFileType::describe(wanted) << "\n"
+                  << "  opens with " << cli::ProjectFileType::editorExecutablePath().string() << "\n";
+        return 0;
+    }
+
+    if (sub == "unregister") {
+        if (!cli::ProjectFileType::unregisterFileType(wanted, error)) {
+            std::cerr << commandName << " project-file unregister: " << error << "\n";
+            return 1;
+        }
+        std::cout << "Unregistered " << wanted << ": " << cli::ProjectFileType::describe(wanted) << "\n";
+        return 0;
+    }
+
+    std::cerr << commandName << " project-file: unknown command '" << sub << "'\n\n";
+    printProjectFileUsage(commandName);
+    return 2;
 }
 
 int CommandLine::runHelpCommand(int argc, char** argv, const char* executableName) {

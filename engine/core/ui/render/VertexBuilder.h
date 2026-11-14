@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef VertexBuilder_h
@@ -15,7 +15,7 @@
 #include "texture/Texture.h"
 #include "ui/render/PaintList.h"
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     // Vertex layout consumed by the UI shader: POSITION(3) + TEXCOORD1(2) + COLOR(4).
     struct UIVertex {
@@ -46,7 +46,7 @@ namespace doriax::ui {
     };
 
     // Turns resolved paint commands into triangles; GPU-free, unit tested.
-    class DORIAX_API VertexBuilder {
+    class QUANTUM_API VertexBuilder {
     public:
         static void build(const PaintList& paintList, UIMesh& mesh);
     };

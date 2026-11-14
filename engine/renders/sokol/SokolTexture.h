@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SokolTexture_h
@@ -8,7 +8,7 @@
 #include "sokol_gfx.h"
 #include <string>
 
-namespace doriax{
+namespace quantum{
     class SokolTexture{
 
     private:
@@ -50,7 +50,8 @@ namespace doriax{
                     TextureFilter minFilter, TextureFilter magFilter, TextureWrap wrapU, TextureWrap wrapV,
                     ColorFormat colorFormat = ColorFormat::RGBA);
 
-        bool createDynamicTexture(const std::string& label, int width, int height);
+        bool createDynamicTexture(const std::string& label, int width, int height,
+                TextureFilter minFilter, TextureFilter magFilter);
         void updateTexture(const void* data, size_t size);
 
         void destroyTexture();

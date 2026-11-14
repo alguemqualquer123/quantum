@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ScriptBase.h"
 
-using namespace doriax;
+using namespace quantum;
 
 ScriptBase::ScriptBase(Scene* scene, Entity entity)
     : scene(scene), entity(entity) {

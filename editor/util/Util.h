@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -14,7 +14,7 @@
 #include "Backend.h"
 #include "imgui.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
     class Util{
 
     public:
@@ -283,6 +283,32 @@ namespace doriax::editor{
             }
             std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
             return scriptExtensions.find(ext) != scriptExtensions.end();
+        }
+
+        inline static bool isGraphFile(const std::string& path) {
+            static const std::unordered_set<std::string> graphExtensions = {
+                ".graph"
+            };
+
+            std::string ext = std::filesystem::path(path).extension().string();
+            if (ext.empty() && !path.empty() && path[0] == '.') {
+                ext = path;
+            }
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            return graphExtensions.find(ext) != graphExtensions.end();
+        }
+
+        inline static bool isGraphDataFile(const std::string& path) {
+            static const std::unordered_set<std::string> graphDataExtensions = {
+                ".gdat"
+            };
+
+            std::string ext = std::filesystem::path(path).extension().string();
+            if (ext.empty() && !path.empty() && path[0] == '.') {
+                ext = path;
+            }
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            return graphDataExtensions.find(ext) != graphDataExtensions.end();
         }
 
         inline static bool isLuaFile(const std::string& path) {

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ADMOB_H
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax {
+namespace quantum {
 
     // Sent to the platforms as integers, so keep the order
     enum class AdMobFormat{
@@ -86,7 +86,7 @@ namespace doriax {
 
     // What a platform with Google Mobile Ads implements, see System::getAdMobBackend.
     // Called from the engine thread, it answers through the AdMob::system* callbacks.
-    class DORIAX_API AdMobBackend {
+    class QUANTUM_API AdMobBackend {
     public:
         virtual ~AdMobBackend() = default;
 
@@ -113,7 +113,7 @@ namespace doriax {
 
     // Google Mobile Ads on Android and iOS. Results arrive as events at the start of a frame,
     // and loading a format again replaces its ad.
-    class DORIAX_API AdMob {
+    class QUANTUM_API AdMob {
 
         friend class Engine;
 

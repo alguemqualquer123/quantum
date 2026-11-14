@@ -1,8 +1,8 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
-#include "DoriaxWin.h"
+#include "QuantumWin.h"
 
 int main(int argc, char* argv[]) {
-    return DoriaxWin::init(argc, argv);
+    return QuantumWin::init(argc, argv);
 }

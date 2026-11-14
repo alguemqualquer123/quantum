@@ -1,15 +1,17 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
 
 #include "Project.h"
 #include "window/CodeEditor.h"
+#include "util/EngineAssets.h"
 #include "util/EntityPayload.h"
 #include "render/preview/ModelRender.h"
 
 #include <iostream>
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <vector>
 #include <thread>
@@ -24,7 +26,11 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace SoLoud {
+    class Wav;
+}
+
+namespace quantum::editor {
 
     class ImageViewerWindow;
 
@@ -38,6 +44,7 @@ namespace doriax::editor {
         SOURCE,
         HEADER,
         LUA,
+        GRAPH,
         AUDIO,
         FONT
     };
@@ -54,6 +61,9 @@ namespace doriax::editor {
         TextureRender* icon = nullptr;
         bool hasThumbnail;
         std::string thumbnailPath;
+        // Engine-shipped entries are drawn with an origin badge and are read-only:
+        // the engine folder is a shipped copy, not something a project may edit.
+        AssetOrigin origin = AssetOrigin::Project;
     };
 
     struct ThumbnailRequest {
@@ -66,6 +76,18 @@ namespace doriax::editor {
         Texture texture;
         int lastUsedFrame = 0;
         bool failed = false;
+        // A row can ask for its thumbnail before the worker has written the file. That is not a
+        // load failure - caching one would leave the row blank for the rest of the session - so
+        // the path is remembered as pending and tried again after THUMBNAIL_RETRY_FRAMES.
+        int retryFrame = 0;
+    };
+
+    // One directory child as the scanner thread sees it: names and flags only, so the
+    // listing itself (icons, bidi text, thumbnails) is still built on the main thread.
+    struct RawDirectoryEntry {
+        std::string name;
+        bool isDirectory = false;
+        std::string extension;
     };
 
     class ResourcesWindow {
@@ -96,6 +118,10 @@ namespace doriax::editor {
         fs::path currentPath;
         fs::path treeSelectedPath;
         std::vector<editor::FileEntry> files;
+        // Directory the rows in `files` belong to. A rescan of the folder the user is
+        // already standing in keeps them (no flicker on a create or a delete); moving
+        // somewhere else blanks them at once.
+        fs::path displayedPath;
 
         Texture folderIcon;
         Texture fileIcon;
@@ -109,6 +135,8 @@ namespace doriax::editor {
         // Bounded cache of GPU thumbnail textures; must stay well below the
         // sokol image/sampler pool sizes (2048), which are shared with scenes
         static constexpr size_t MAX_THUMBNAIL_TEXTURES = 512;
+        // How often a row whose thumbnail file has not been written yet re-checks the disk
+        static constexpr int THUMBNAIL_RETRY_FRAMES = 30;
         std::unordered_map<std::string, ThumbnailTexture> thumbnailTextures;
         std::unordered_set<std::string> pendingThumbnailRequests;
 
@@ -143,7 +171,8 @@ namespace doriax::editor {
             FOLDER,
             LUA_SCRIPT,
             CPP_SOURCE,
-            CPP_HEADER
+            CPP_HEADER,
+            GRAPH
         };
         bool isCreatingNewItem;
         NewItemType newItemType = NewItemType::FOLDER;
@@ -179,6 +208,15 @@ namespace doriax::editor {
         MaterialRender materialRender;
         ModelRender modelRender;
 
+        std::shared_ptr<SoLoud::Wav> audioPreviewSample;
+        fs::path audioPreviewPath;
+        std::vector<float> audioPreviewWaveform;
+        unsigned int audioPreviewHandle = 0;
+        double audioPreviewLength = 0.0;
+        double audioPreviewTime = 0.0;
+        bool audioPreviewPlaying = false;
+        std::string audioPreviewError;
+
         // Thumbnail generation
         std::thread thumbnailThread;
         std::mutex thumbnailMutex;
@@ -205,18 +243,61 @@ namespace doriax::editor {
         uint64_t pendingModelGeneration = 0; // guarded by thumbnailMutex
         std::mutex modelRenderMutex;
 
+        // Listing a directory is UI-thread work only for the draw: walking it is not.
+        // A project folder with thousands of files used to block the frame inside
+        // fs::directory_iterator, so a worker reads the names and hops back with
+        // EditorHost::enqueueMainThreadTask to build what renderFileListing() draws.
+        std::thread scanThread;
+        // mutable: isScanPending() is a const read of the UI state, and a mutex locked
+        // to read a guarded counter is not a logical change of the window.
+        mutable std::mutex scanMutex;
+        std::condition_variable scanCondition;
+        bool scanStopRequested = false;      // guarded by scanMutex
+        bool scanJobPending = false;         // guarded by scanMutex
+        bool scanWorkerBusy = false;         // guarded by scanMutex
+        fs::path scanJobPath;                // guarded by scanMutex
+        // One outstanding job: a request that lands while another is still queued
+        // simply replaces it, because only the newest directory is worth listing.
+        uint64_t scanGeneration = 0;
+        uint64_t scanAppliedGeneration = 0;
+        // Neither the worker nor the queued task can be joined from inside a frame, so
+        // both check this instead of touching a window that is already gone.
+        std::shared_ptr<std::atomic<bool>> scanAlive;
+
+        // Names the listing, so a folder with thousands of entries stays usable.
+        char filterBuffer[256];
+
         ImU32 fileSeparatorColor(const FileEntry& fe) const;
         void refreshProjectFiles();
         bool fileNotInProject(const FileEntry& fe) const;
 
+        // Engine content is browsable but never writable: the folder next to the
+        // executable is a shipped copy, and the AppImage one is temporary.
+        bool browsingEngine() const;
+        bool isEnginePath(const fs::path& path) const;
+        // The folder the breadcrumb and the back button stop at: the project root for
+        // project content, the engine root for engine content.
+        fs::path browseRoot() const;
+        bool isScanPending() const;
+        void drawOriginBadge(const FileEntry& file, const ImVec2& itemMin);
+        bool matchesFilter(const FileEntry& file) const;
+
         void renderHeader();
+        void renderSourceSelector();
+        void renderFilterRow();
         void renderPathBreadcrumb(const ImVec2& size);
         void renderFileListing(bool showDirectories);
         void renderNewItemMenu(const fs::path& directory);
-        void renderDirectoryTree(const fs::path& path);
+        void renderDirectoryTree(const fs::path& path, AssetOrigin origin = AssetOrigin::Project);
+        void renderEngineTree();
         const std::vector<fs::path>& treeSubdirectories(const fs::path& path);
 
         void scanDirectory(const fs::path& path);
+        void startDirectoryScan(const fs::path& path);
+        void scanWorker();
+        void applyScanResult(const fs::path& path, uint64_t generation, std::vector<RawDirectoryEntry> entries);
+        static std::vector<RawDirectoryEntry> readDirectory(const fs::path& path);
+        void stopScanWorker();
         void sortWithSortSpecs(ImGuiTableSortSpecs* sortSpecs, std::vector<FileEntry>& files);
         void highlightDragAndDrop();
         void handleInternalDragAndDrop(const fs::path& targetDirectory);
@@ -226,6 +307,9 @@ namespace doriax::editor {
         void handleRename();
         void copySelectedFiles(bool cut);
         void pasteFiles(const fs::path& targetDirectory);
+        // The engine folder is read-only, so taking one of its assets into the project
+        // is the action that makes it usable: a plain copy, undoable like an import.
+        void copyEngineSelectionIntoProject();
         void importExternalPaths(const std::vector<std::string>& sourcePaths);
         static FileType classifyThumbnailFileType(const fs::path& filePath);
         static std::string thumbnailRequestKey(const fs::path& filePath);
@@ -238,6 +322,11 @@ namespace doriax::editor {
         void evictThumbnailTexture(const std::string& thumbnailKey);
         void enforceThumbnailCacheLimit();
         void clearThumbnailTextures();
+
+        void openAudioPreview(const fs::path& filePath);
+        void stopAudioPreview(bool unload = true);
+        void drawAudioPreview();
+        static std::vector<float> loadWaveform(const fs::path& filePath, size_t sampleCount);
 
         void saveMaterialFile(const fs::path& directory, const char* materialContent, size_t contentLen, const MaterialPayload* sourceMaterial = nullptr);
 

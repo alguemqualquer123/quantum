@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -23,7 +23,7 @@ namespace shadercompiler {
     struct args_t;
 }
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     class ShaderBuilder {
     private:
@@ -83,6 +83,20 @@ namespace doriax::editor {
         // transitive include graph used by this fork. No directory walk is required.
         static bool isCustomCacheStale(ShaderKey shaderKey, Project* project, const std::filesystem::path& cachePath);
 
+        // The engine-owned text a built-in variant is compiled from: the two entry files of its
+        // type plus every include they reach inside the embedded shaderMap. Properties only add
+        // #defines and are already part of the cache file name, so one signature covers every
+        // variant of a type. Computed once per type and process.
+        static const std::string& builtinSourceSignature(ShaderType shaderType);
+
+        // Both disk-cache freshness rules behind one call: a forked variant signs its own resolved
+        // graph, an engine variant signs the shaderMap graph of its type. A cache entry with no
+        // signature next to it is stale, so the first read after this landed recompiles once.
+        static bool isCacheStale(ShaderKey shaderKey, Project* project, const std::filesystem::path& cachePath);
+
+        // The built-in half of that rule, kept separate so the sweep and the build path agree.
+        static bool isBuiltinCacheStale(ShaderType shaderType, const std::filesystem::path& cachePath);
+
     public:
         ShaderBuilder();
         virtual ~ShaderBuilder();
@@ -92,7 +106,9 @@ namespace doriax::editor {
 
         // Compiles the keys absent from the disk cache, synchronously (buildShader hands
         // async builds to the pool and returns before they land).
-        void buildMissingShaders(const std::set<ShaderKey>& shaderKeys, Project* project);
+        // Compiles every key that is not on disk yet. Returns how many of them ended up missing
+        // from the cache, so a caller can tell a completed sweep from one to retry.
+        int buildMissingShaders(const std::set<ShaderKey>& shaderKeys, Project* project);
 
         // Drops cached builds and dependency snapshots for all custom variants so the
         // next get() recompiles. Called after source mutations and project switches.

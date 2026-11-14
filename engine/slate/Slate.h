@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef Slate_h
@@ -12,13 +12,13 @@
 #include "slate/core/StyleSet.h"
 #include "slate/core/Widget.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     class ISlateRenderer;
 
     // Screen-space entry point of the Slate module: one widget tree ("canvas"),
     // styled, laid out and painted after the scenes each frame. It coexists with
-    // the legacy scene UI and with doriax::ui, and never touches Dear ImGui.
+    // the legacy scene UI and with quantum::ui, and never touches Dear ImGui.
     class Slate {
     public:
         struct Stats {

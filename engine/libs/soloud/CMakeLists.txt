@@ -34,6 +34,7 @@ add_library(
 
     src/audiosource/wav/dr_impl.cpp
     src/audiosource/wav/soloud_wav.cpp
+    src/audiosource/wav/soloud_wavstream.cpp
 
     #src/backend/opensles/soloud_opensles.cpp
     #src/backend/sdl_static/soloud_sdl_static.cpp

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Panel.h"
@@ -9,7 +9,7 @@
 #include "component/UIComponent.h"
 #include "subsystem/UISystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Panel::Panel(Scene* scene): Image(scene){
     addComponent<PanelComponent>();

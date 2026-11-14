@@ -100,16 +100,19 @@ uniform u_fs_pbrParams {
 
 #if defined(USE_PUNCTUAL) || defined(USE_IBL)
     uniform u_fs_lighting {
-        vec4 direction_range[MAX_LIGHTS]; //direction.xyz and range.w
-        vec4 color_intensity[MAX_LIGHTS]; //color.xyz and intensity.w
-        vec4 position_type[MAX_LIGHTS]; //position.xyz and type.w
-        vec4 inCone_ouCone_shadows_cascades[MAX_LIGHTS]; //innerConeCos.x, outerConeCos.y, shadowMapIndex.z (-1.0 if no shadow), numCascades.w
-        vec4 spotUp_maskAspect[MAX_LIGHTS]; //spot projection up.xyz; mask width/height in .w (0 = default circle)
+        vec4 direction_range[MAX_FORWARD_LIGHTS]; //direction.xyz and range.w
+        vec4 color_intensity[MAX_FORWARD_LIGHTS]; //color.xyz and intensity.w
+        vec4 position_type[MAX_FORWARD_LIGHTS]; //position.xyz and type.w
+        vec4 inCone_ouCone_shadows_cascades[MAX_FORWARD_LIGHTS]; //innerConeCos.x, outerConeCos.y, shadowMapIndex.z (-1.0 if no shadow), numCascades.w
+        vec4 spotUp_maskAspect[MAX_FORWARD_LIGHTS]; //spot projection up.xyz; mask width/height in .w (0 = default circle)
         vec4 eyePos; //eyePos.xyz
         vec4 cameraDir; //camera backward axis.xyz
         vec4 globalIllum; //globalColor.xyz and globalIntensity.w
         vec4 envColor; //environment color.rgb (linear) and environment rotation.w (radians)
         vec4 viewportInfo; //1.0/viewportSize.xy in .xy
+        vec4 clusterInfo; //tile size, grid width, grid height, depth slices
+        vec4 clusterDepth; //near, far, log2(far / near), enabled
+        vec4 clusterDebug; //x = editor overlay enabled
     } lighting;
 #endif
 
@@ -163,6 +166,7 @@ uniform u_fs_pbrParams {
     uniform u_fs_shadow_projection {
         mat4 lightVPMatrix[MAX_SHADOW_ATLAS_SLOTS];
         vec4 shadowParams[MAX_SHADOW_ATLAS_SLOTS]; // normalBias in .x
+        mat4 logicalLightVPMatrix[MAX_SHADOW_ATLAS_SLOTS];
     } uShadowProjection;
     #define SHADOW_FRAGMENT_PROJECTION
     #ifdef HAS_NORMALS
@@ -175,6 +179,8 @@ uniform u_fs_pbrParams {
 
     uniform texture2D u_shadowAtlas;
     uniform samplerShadow u_shadowAtlas_smp;
+    uniform texture2D u_shadowPageTable;
+    uniform sampler u_shadowPageTable_smp;
 
     #ifndef DIRECTIONAL_LIGHTS_ONLY
         uniform u_fs_point_shadows {
@@ -212,12 +218,41 @@ struct MaterialInfo{
     float transmissionFactor;
 };
 
+#ifdef HAS_MATERIAL_EXTENSIONS
+    uniform u_fs_materialExtensions {
+        vec4 clearcoat;    // factor, roughness, reserved, reserved
+        vec4 sheen;        // color.rgb, roughness
+        vec4 transmission; // factor, thickness, attenuation distance, IOR
+        vec4 attenuation;  // color.rgb, reserved
+        vec4 anisotropy;   // strength, rotation, reserved, reserved
+    } materialExtensions;
+#endif
+
 struct NormalInfo {
     vec3 ng;   // Geometric normal
     vec3 n;    // Pertubed normal
     vec3 t;    // Pertubed tangent
     vec3 b;    // Pertubed bitangent
 };
+
+struct TangentBasis {
+    vec3 ng;
+    vec3 t;
+    vec3 b;
+};
+
+#ifdef HAS_HEIGHT
+    uniform texture2D u_heightTexture;
+    uniform sampler u_height_smp;
+
+    uniform u_fs_heightParams {
+        vec4 heightParams; // heightScale.x, minLayers.y, maxLayers.z, w = padding (0)
+    } heightValues;
+
+    // Written once at the top of main() and read by every map UV getter in pbr.glsl, so
+    // all the maps of a parallaxed material slide together.
+    vec2 heightUVOffset = vec2(0.0);
+#endif
 
 const float normalScale = 1.0;
 const float occlusionStrength = 1.0;
@@ -233,6 +268,7 @@ const float M_PI = 3.141592653589793;
 #endif
 #ifdef USE_PUNCTUAL
     #include "includes/punctual.glsl"
+#include "includes/clustered_lighting.glsl"
 #endif
 #if defined(USE_SHADOWS) || defined(USE_SHADOWS_2D)
     #include "includes/depth_util.glsl"
@@ -251,8 +287,25 @@ const float M_PI = 3.141592653589793;
 #ifdef HAS_FOG
     #include "includes/fog.glsl"
 #endif
+#ifdef HAS_HEIGHT
+    // reaches u_heightTexture and heightUVOffset declared above
+    #include "includes/parallax.glsl"
+#endif
 
 void main() {
+    #ifdef HAS_HEIGHT
+        // Two steps by design: the relief position is marched with the frame taken at
+        // the un-offset UV, then every map is sampled at the UV that march produced.
+        TangentBasis basis = getTangentBasis();
+        vec3 towardEye = normalize(lighting.eyePos.xyz - v_position);
+        vec3 viewDirTangent = vec3(dot(towardEye, basis.t),
+                                   dot(towardEye, basis.b),
+                                   dot(towardEye, basis.ng));
+        vec2 heightUV = getHeightUV();
+        heightUVOffset = parallaxOcclusionMapping(heightUV, viewDirTangent,
+            heightValues.heightParams) - heightUV;
+    #endif
+
     vec4 baseColor = getBaseColor();
 
     #if defined(USE_MIRROR) && defined(HAS_UV_SET1)
@@ -310,6 +363,16 @@ void main() {
 
         materialInfo = getMetallicRoughnessInfo(materialInfo, f0_ior);
 
+        #ifdef HAS_MATERIAL_EXTENSIONS
+            materialInfo.clearcoatFactor = clamp(materialExtensions.clearcoat.x, 0.0, 1.0);
+            materialInfo.clearcoatRoughness = clamp(materialExtensions.clearcoat.y, 0.0, 1.0);
+            materialInfo.clearcoatF0 = vec3(0.04);
+            materialInfo.clearcoatF90 = vec3(1.0);
+            materialInfo.sheenColorFactor = max(materialExtensions.sheen.rgb, vec3(0.0));
+            materialInfo.sheenRoughnessFactor = clamp(materialExtensions.sheen.w, 0.03, 1.0);
+            materialInfo.transmissionFactor = clamp(materialExtensions.transmission.x, 0.0, 1.0);
+        #endif
+
         #ifdef HAS_TERRAIN_PBR
             // painted layers own the whole surface, so it is evaluated once and applied here
             TerrainSurface terrainSurface = getTerrainSurface(baseColor, n, materialInfo.perceptualRoughness, materialInfo.metallic);
@@ -325,6 +388,14 @@ void main() {
         // Roughness is authored as perceptual roughness; as is convention,
         // convert to material roughness by squaring the perceptual roughness.
         materialInfo.alphaRoughness = materialInfo.perceptualRoughness * materialInfo.perceptualRoughness;
+        // Normal maps can contain detail smaller than a pixel. Feeding their raw
+        // derivatives into GGX produces bright fireflies and crawling highlights;
+        // fold the geometric normal variance into the lobe instead, preserving
+        // energy while making glossy surfaces temporally stable.
+        vec3 normalDx = dFdx(n);
+        vec3 normalDy = dFdy(n);
+        float normalVariance = min(0.25, 0.5 * (dot(normalDx, normalDx) + dot(normalDy, normalDy)));
+        materialInfo.alphaRoughness = clamp(materialInfo.alphaRoughness + normalVariance, 0.0025, 1.0);
 
         // Compute reflectance.
         float reflectance = max(max(materialInfo.f0.r, materialInfo.f0.g), materialInfo.f0.b);
@@ -389,7 +460,10 @@ void main() {
 
         // Apply light sources
         #ifdef USE_PUNCTUAL
-            for (int i = 0; i < MAX_LIGHTS; ++i){
+            for (int i = 0; i < MAX_FORWARD_LIGHTS; ++i){
+
+                if (!clusteredLightEnabled(i))
+                    continue;
 
                 //Cannot be in function to avoid GLES2 index errors
                 //TODO: check this again, removed GLES2 support
@@ -461,7 +535,38 @@ void main() {
                         // https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#acknowledgments AppendixB
                         vec3 intensity = getLighIntensity(light, pointToLight, i);
                         f_diffuse += shadow * intensity * NdotL *  BRDF_lambertian(materialInfo.f0, materialInfo.f90, materialInfo.albedoColor, VdotH);
-                        f_specular += shadow * intensity * NdotL * BRDF_specularGGX(materialInfo.f0, materialInfo.f90, materialInfo.alphaRoughness, VdotH, NdotL, NdotV, NdotH);
+                        vec3 baseSpecular;
+                        #ifdef HAS_MATERIAL_EXTENSIONS
+                            if (abs(materialExtensions.anisotropy.x) > 0.001){
+                                baseSpecular = BRDF_specularGGXAnisotropic(
+                                    materialInfo.f0, materialInfo.f90, materialInfo.alphaRoughness,
+                                    materialExtensions.anisotropy.x, materialExtensions.anisotropy.y,
+                                    n, t, b, h, VdotH, NdotL, NdotV);
+                            }else{
+                                baseSpecular = BRDF_specularGGX(materialInfo.f0, materialInfo.f90, materialInfo.alphaRoughness, VdotH, NdotL, NdotV, NdotH);
+                            }
+                        #else
+                            baseSpecular = BRDF_specularGGX(materialInfo.f0, materialInfo.f90, materialInfo.alphaRoughness, VdotH, NdotL, NdotV, NdotH);
+                        #endif
+                        f_specular += shadow * intensity * NdotL * baseSpecular;
+                        #ifdef HAS_MATERIAL_EXTENSIONS
+                            float clearcoat = evaluateClearcoat(
+                                materialInfo.clearcoatFactor, materialInfo.clearcoatRoughness, 0.04,
+                                NdotH, NdotL, NdotV, VdotH).x;
+                            f_specular += shadow * intensity * NdotL * vec3(clearcoat);
+                            f_specular += shadow * intensity * NdotL * BRDF_specularSheen(
+                                materialInfo.sheenColorFactor, materialInfo.sheenRoughnessFactor,
+                                NdotL, NdotV, NdotH);
+                            if (materialInfo.transmissionFactor > 0.001){
+                                float backlight = max(dot(-n, l), 0.0);
+                                float scatter = 0.25 + 0.75 * pow(max(dot(-l, v), 0.0), 4.0);
+                                vec3 attenuation = exp(-max(materialExtensions.transmission.z, 0.0) *
+                                    max(materialExtensions.transmission.y, 0.01) *
+                                    max(vec3(0.0), -log(max(materialExtensions.attenuation.rgb, vec3(0.001)))));
+                                f_diffuse += shadow * intensity * materialInfo.albedoColor *
+                                    materialInfo.transmissionFactor * backlight * scatter * attenuation;
+                            }
+                        #endif
                     }
                 }
             }
@@ -482,6 +587,12 @@ void main() {
 
         #ifdef HAS_FOG
             color.rgb = getFogColor(color.rgb);
+        #endif
+
+        #ifdef USE_PUNCTUAL
+            vec4 clusterDebug = clusteredLightDebugColor();
+            if (clusterDebug.a > 0.0)
+                color.rgb = mix(color.rgb, clusterDebug.rgb, clusterDebug.a);
         #endif
 
         g_finalColor = vec4(linearTosRGB(color.rgb), baseColor.a);

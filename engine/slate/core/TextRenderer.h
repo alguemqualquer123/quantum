@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef SlateTextRenderer_h
@@ -15,15 +15,15 @@
 #include "texture/Texture.h"
 #include "slate/core/PaintList.h"
 
-namespace doriax {
+namespace quantum {
     class STBText;
 }
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     // One font at one pixel size. Wraps STBText - HarfBuzz shaping, kerning,
     // the built-in fallback face chain and SheenBidi bidi - and publishes its
-    // atlas as a doriax Texture, the same way the legacy scene UI does. No
+    // atlas as a quantum Texture, the same way the legacy scene UI does. No
     // FreeType and no SDF: reusing what the engine already ships.
     class TextRenderer {
     public:

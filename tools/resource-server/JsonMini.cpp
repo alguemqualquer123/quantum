@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "JsonMini.h"
@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace doriax::rs {
+namespace quantum::rs {
 
 uint64_t JsonField::asUInt() const {
     if (isNumber) return number >= 0.0 ? static_cast<uint64_t>(number) : 0;

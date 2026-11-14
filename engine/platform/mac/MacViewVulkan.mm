@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #import "MacViewVulkan.h"
@@ -40,7 +40,7 @@
     const NSSize backing = [self convertSizeToBacking:self.bounds.size];
     layer.drawableSize = CGSizeMake(std::max(backing.width, 1.0), std::max(backing.height, 1.0));
 
-    doriax::WindowMac::refreshDrawableSize();
+    quantum::WindowMac::refreshDrawableSize();
 }
 
 - (void)setFrameSize:(NSSize)size {

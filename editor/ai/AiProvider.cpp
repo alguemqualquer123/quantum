@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "AiProvider.h"
@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <limits>
 
-namespace doriax::editor::ai {
+namespace quantum::editor::ai {
 
 // Payload builders / response parsers, implemented at the bottom of this file.
 // OpenAI, DeepSeek and OpenAI-compatible share the Chat Completions wire format.
@@ -46,7 +46,7 @@ bool needsChatCompletionsToolReasoningWorkaround(const ProviderRequest& request)
     }
 
     // GPT-5.6 and newer models support function tools with reasoning through
-    // /v1/responses, but not through /v1/chat/completions. Doriax's OpenAI
+    // /v1/responses, but not through /v1/chat/completions. Quantum's OpenAI
     // adapters currently use Chat Completions, so explicitly select the
     // supported non-reasoning mode. Parse the numeric version so future
     // families such as 5.7, 5.10 and 6.x are covered without affecting older
@@ -389,8 +389,8 @@ public:
             http.headers.push_back("Authorization: Bearer " + request.apiKey);
         }
         if (http.url.find("openrouter.ai") != std::string::npos) {
-            http.headers.push_back("HTTP-Referer: https://doriaxengine.org");
-            http.headers.push_back("X-Title: Doriax Editor");
+            http.headers.push_back("HTTP-Referer: https://quantumengine.org");
+            http.headers.push_back("X-Title: Quantum Editor");
         }
         http.body = buildChatCompletionsPayload(request).dump();
         return http;
@@ -412,8 +412,8 @@ public:
             http.headers.push_back("Authorization: Bearer " + request.apiKey);
         }
         if (http.url.find("openrouter.ai") != std::string::npos) {
-            http.headers.push_back("HTTP-Referer: https://doriaxengine.org");
-            http.headers.push_back("X-Title: Doriax Editor");
+            http.headers.push_back("HTTP-Referer: https://quantumengine.org");
+            http.headers.push_back("X-Title: Quantum Editor");
         }
         http.body = payload.dump();
         http.stream = true;
@@ -1141,4 +1141,4 @@ ProviderResponse parseGeminiBody(const std::string& body) {
     return result;
 }
 
-} // namespace doriax::editor::ai
+} // namespace quantum::editor::ai

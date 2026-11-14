@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LUA_FUNCTIONBASE_H
@@ -9,7 +9,7 @@
 
 typedef struct lua_State lua_State;
 
-namespace doriax{
+namespace quantum{
 
     class Body2D;
     class Manifold2D;
@@ -37,6 +37,7 @@ namespace doriax{
         // the virtual machine and the registry reference to the function
         lua_State *m_vm;
         int m_func;
+        std::string m_profileName;
         // of the state holding the reference, it can be closed and created again
         unsigned int m_generation;
 

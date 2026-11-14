@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 def projectSourceRoot = "../../../project"
-def doriaxRoot = "../../.."
+def quantumRoot = "../../.."
 
 def projectSourceRootAbs = file(projectSourceRoot).toString()
-def doriaxRootAbs = file(doriaxRoot).toString()
+def quantumRootAbs = file(quantumRoot).toString()
 
 // def platformVersion = 24    //openGLES 3.2 min api level
 // def platformVersion = 18    //openGLES 3 min api level
@@ -16,8 +16,8 @@ android {
         applicationId "com.yourcompany.project"
         minSdkVersion 24
         targetSdkVersion 36
-        versionCode 1
-        versionName "1.0"
+        versionCode (project.findProperty("QUANTUM_VERSION_CODE") ?: "1") as int
+        versionName (project.findProperty("QUANTUM_VERSION") ?: "0.0.0")
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         multiDexEnabled = true // avoid error 'Cannot fit requested classes in a single dex file'
         externalNativeBuild {
@@ -45,7 +45,7 @@ android {
     externalNativeBuild {
         cmake {
             //version '3.18.1'
-            path doriaxRootAbs+"/CMakeLists.txt"
+            path quantumRootAbs+"/CMakeLists.txt"
         }
     }
 
@@ -56,14 +56,14 @@ android {
 
     sourceSets {
         main {
-            java.srcDirs = [doriaxRootAbs+'/platform/android/java']
-            java.srcDir doriaxRootAbs+'/platform/android/java-admob'
-            java.srcDir doriaxRootAbs+'/platform/android/java-billing'
+            java.srcDirs = [quantumRootAbs+'/platform/android/java']
+            java.srcDir quantumRootAbs+'/platform/android/java-admob'
+            java.srcDir quantumRootAbs+'/platform/android/java-billing'
             assets.srcDirs = [projectSourceRootAbs+'/assets',projectSourceRootAbs+'/lua']
         }
     }
 
-    namespace = 'org.doriaxengine.doriax'
+    namespace = 'org.srvinix.quantum'
 }
 
 dependencies {

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "EditorFrame.h"
@@ -6,6 +6,7 @@
 #include "AppSettings.h"
 #include "Backend.h"
 #include "Log.h"
+#include "util/FrameCapture.h"
 #include "util/GraphicUtils.h"
 
 #include "imgui.h"
@@ -28,8 +29,8 @@
 #endif
 #endif
 
-using namespace doriax;
-using namespace doriax::editor;
+using namespace quantum;
+using namespace quantum::editor;
 
 namespace {
 
@@ -56,11 +57,11 @@ void sleepSeconds(double seconds){
 }
 
 // Verification scaffolding for agents: the editor must not be launched to look at
-// it, and grabbing the desktop is banned, so DORIAX_EDITOR_CAPTURE=<path without
+// it, and grabbing the desktop is banned, so QUANTUM_EDITOR_CAPTURE=<path without
 // extension> writes two composed backbuffers (early, then after the panels have
 // settled) and the caller stops the process. Nothing happens without the variable.
 void captureRequestedFrames(const EditorFrameState& state, bool frameSubmitted){
-    static const char* basePath = std::getenv("DORIAX_EDITOR_CAPTURE");
+    static const char* basePath = std::getenv("QUANTUM_EDITOR_CAPTURE");
     if (basePath == nullptr || basePath[0] == '\0') {
         return;
     }
@@ -93,8 +94,8 @@ void EditorFrame::init(Renderer& renderer, App& app, void (*platformNewFrame)())
 
 std::string EditorFrame::formatWindowTitle(const std::string& projectName){
     return projectName.empty()
-        ? "Empty project - Doriax Engine"
-        : projectName + " - Doriax Engine";
+        ? "Empty project - Quantum Engine"
+        : projectName + " - Quantum Engine";
 }
 
 bool EditorFrame::isIdle() const{
@@ -207,6 +208,10 @@ bool EditorFrame::run(EditorFrameState& state){
     captureRequestedFrames(state, frameSubmitted);
 
     if (frameSubmitted){
+        // endFrame committed the scene and the chrome and the platform has not swapped yet, so this
+        // is the editor's equivalent of the point Engine::runFrame reads at. Without it a request
+        // made here stays pending for ever, because the editor never runs Engine::runFrame.
+        FrameCapture::runPending();
         renderer->present();
     }
     renderer->purgeTextures();

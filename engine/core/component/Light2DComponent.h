@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef LIGHT2D_COMPONENT_H
@@ -7,9 +7,9 @@
 #include "math/Vector3.h"
 #include "Engine.h"
 
-namespace doriax{
+namespace quantum{
 
-    struct DORIAX_API Light2DComponent{
+    struct QUANTUM_API Light2DComponent{
         Vector3 color = Vector3(1.0, 1.0, 1.0);
 
         float intensity = 1.0;

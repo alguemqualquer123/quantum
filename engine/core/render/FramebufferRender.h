@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef FramebufferRender_h
@@ -7,8 +7,8 @@
 #include "Render.h"
 #include "sokol/SokolFramebuffer.h"
 
-namespace doriax{
-    class DORIAX_API FramebufferRender{
+namespace quantum{
+    class QUANTUM_API FramebufferRender{
 
     public:
         //***Backend***

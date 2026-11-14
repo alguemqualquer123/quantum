@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef TERRAIN_COMPONENT_H
@@ -31,12 +31,13 @@
 #include "buffer/IndexBuffer.h"
 #include "texture/Material.h"
 #include "ecs/Entity.h"
+#include "util/TerrainMapRegion.h"
 #include "Engine.h"
 
 #include <string>
 #include <vector>
 
-namespace doriax{
+namespace quantum{
 
     struct TerrainNode{
         //-----u_vs_terrainNodeParams
@@ -135,7 +136,7 @@ namespace doriax{
         bool castShadows = true; // off spares grass-scale scatter the shadow cascades
     };
 
-    struct DORIAX_API TerrainComponent{
+    struct QUANTUM_API TerrainComponent{
         // per-view CDLOD node selection (see TerrainView). Extra RTT cameras beyond
         // MAX_TERRAIN_VIEWS fall back to the main camera's selection (view 0).
         TerrainView views[MAX_TERRAIN_VIEWS];
@@ -177,7 +178,62 @@ namespace doriax{
         bool needUpdateTerrain = true;
         bool needUpdateTexture = false;
         bool needUpdateFoliage = true;
+
+        // Density-map texels a foliage paint stroke changed since the last resolve, plus the
+        // layer they belong to (texel coordinates only mean something for that layer's map).
+        // needUpdateFoliage is the catch-all: when it is set this rect is ignored, and anything
+        // that can move instances anywhere (a layer add/remove, a mesh or map path swap, a
+        // draw-distance change, a sculpt, a scene load) keeps setting it. Narrow invalidation
+        // goes through markTerrainFoliageDensityDirty instead. Transient runtime state like the
+        // flags above: never serialized, never exposed to Lua, never a catalog property.
+        int foliageDirtyLayer = -1;
+        TerrainMapRegion dirtyFoliageDensity;
+
+        // Heightmap texels whose elevation changed since the last range walk. A sculpt brush
+        // touches a small disc of a map that can be 4096 wide, and only the leaves under that
+        // disc need new ranges, so the engine walks them alone (see updateTerrainNodeRanges).
+        // needUpdateTerrain stays the full rebuild: it is what a new map, a new size or a
+        // first load needs, and it clears this rect.
+        bool needUpdateRanges = false;
+        TerrainMapRegion dirtyHeightMap;
     };
+
+    // Marks the heightmap texels a brush touched, growing the rect the engine already holds.
+    inline void markTerrainHeightmapDirty(TerrainComponent& terrain, const TerrainMapRegion& region){
+        if (region.empty()){
+            return;
+        }
+        if (!terrain.needUpdateRanges){
+            terrain.dirtyHeightMap = region;
+            terrain.needUpdateRanges = true;
+            return;
+        }
+        terrain.dirtyHeightMap.merge(region.minX, region.minY, region.maxX, region.maxY);
+    }
+
+    // Marks the density-map texels one foliage stroke touched, growing the rect the engine
+    // already holds for that layer. An empty rect is not a stroke: whole-map changes (map
+    // created, replaced or restored from a snapshot) must keep setting needUpdateFoliage.
+    inline void markTerrainFoliageDensityDirty(TerrainComponent& terrain, int layer, const TerrainMapRegion& region){
+        if (region.empty() || layer < 0 || terrain.needUpdateFoliage){
+            return; // a whole-map refill is already scheduled and supersedes any rect
+        }
+        if (terrain.dirtyFoliageDensity.empty()){
+            terrain.dirtyFoliageDensity = region;
+            terrain.foliageDirtyLayer = layer;
+            return;
+        }
+        if (terrain.foliageDirtyLayer != layer){
+            // Two different layers painted before the resolve consumed the first rect: texel
+            // bounds of two maps are not one rect, so fall back to the whole-map invalidation
+            // this rect replaced.
+            terrain.foliageDirtyLayer = -1;
+            terrain.dirtyFoliageDensity = TerrainMapRegion();
+            terrain.needUpdateFoliage = true;
+            return;
+        }
+        terrain.dirtyFoliageDensity.merge(region.minX, region.minY, region.maxX, region.maxY);
+    }
 
     // The one place a material becomes a layer, shared by the engine setter and the editor
     inline TerrainSurfaceLayer terrainLayerFromMaterial(const Material& material, const TerrainSurfaceLayer& previous){
@@ -189,6 +245,10 @@ namespace doriax{
         layer.roughnessTexture = material.metallicRoughnessTexture;
         layer.metallicTexture = material.metallicRoughnessTexture;
         layer.occlusionTexture = material.occlusionTexture;
+        // The material's height map is parallax on a mesh and the blending height on a layer, but
+        // it is the same grayscale field either way. Dropping it here made a material picked for a
+        // terrain lose its relief from the blend.
+        layer.heightTexture = material.heightTexture;
         layer.roughnessFactor = material.roughnessFactor;
         layer.metallicFactor = material.metallicFactor;
         // Tiling is the layer's own, and no material carries it

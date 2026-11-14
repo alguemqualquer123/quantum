@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ResourceProgress.h"
@@ -6,7 +6,7 @@
 #include "Log.h"
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 std::mutex& ResourceProgress::getProgressMutex(){
     static std::mutex* mutex = new std::mutex();

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Container.h"
@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 Container::Container(Scene* scene): UILayout(scene){
     addComponent<UIContainerComponent>();

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/layout/Containers.h"
@@ -8,7 +8,7 @@
 #include <memory>
 #include <utility>
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
 
@@ -148,6 +148,8 @@ namespace doriax::slate {
 
     Box::Box() : Box(Orientation::Horizontal, std::string()) {
     }
+
+    const char* Box::getTypeName() const { return "Box"; }
 
     Box::Box(Orientation boxOrientation, std::string boxId) : Widget(std::move(boxId)),
         orientation(boxOrientation),

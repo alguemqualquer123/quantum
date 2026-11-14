@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ShaderBuilder.h"
@@ -29,7 +29,7 @@
 //#include <thread>
 //#include <chrono>
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
 
@@ -171,6 +171,12 @@ void clearCustomSourceCache() {
     std::lock_guard<std::mutex> lock(customSourceCacheMutex());
     customSourceCache.clear();
 }
+
+std::mutex& builtinSignatureMutex() {
+    static std::mutex m;
+    return m;
+}
+std::unordered_map<int, std::string> builtinSignatures;
 
 bool hasAnnotation(const shadercompiler::args_t& args, const char* tag,
                    const std::string& name, const char* value) {
@@ -474,6 +480,9 @@ void editor::ShaderBuilder::addMeshPropertyDefinitions(std::vector<shadercompile
     if (prop & (1 << 25)) defs.push_back({"ALPHA_OPAQUE", "1"});               // 'Aop'
     if (prop & (1 << 26)) defs.push_back({"USE_INSTANCE_FADE", "1"});          // 'Ifd'
     if (prop & (1 << 27)) defs.push_back({"HAS_TERRAIN_PBR", "1"});            // 'Tpb'
+    // bit 28 is DIRECTIONAL_LIGHTS_ONLY ('Dlo'), added outside this table by RenderSystem
+    if (prop & (1 << 29)) defs.push_back({"HAS_HEIGHT", "1"});                 // 'Hgt'
+    if (prop & (1 << 30)) defs.push_back({"HAS_MATERIAL_EXTENSIONS", "1"});   // 'Mtx'
 }
 
 void editor::ShaderBuilder::addDepthMeshPropertyDefinitions(std::vector<shadercompiler::define_t>& defs, const uint32_t prop) {
@@ -513,6 +522,7 @@ void editor::ShaderBuilder::addPointsPropertyDefinitions(std::vector<shadercompi
     if (prop & (1 << 1))  defs.push_back({"HAS_VERTEX_COLOR_VEC3", "1"});    // 'Vc3'
     if (prop & (1 << 2))  defs.push_back({"HAS_VERTEX_COLOR_VEC4", "1"});    // 'Vc4'
     if (prop & (1 << 3))  defs.push_back({"HAS_TEXTURERECT", "1"});          // 'Txr'
+    if (prop & (1 << 4))  defs.push_back({"HAS_GPU_PARTICLES", "1"});        // 'Gpu'
 }
 
 void editor::ShaderBuilder::addLinesPropertyDefinitions(std::vector<shadercompiler::define_t>& defs, const uint32_t prop) {
@@ -526,6 +536,16 @@ void editor::ShaderBuilder::addWaterPropertyDefinitions(std::vector<shadercompil
     if (prop & (1 << 2))  defs.push_back({"USE_PLANAR_REFLECTION", "1"});    // 'Prf'
     if (prop & (1 << 3))  defs.push_back({"USE_SHADOWS", "1"});              // 'Shw'
     if (prop & (1 << 4))  defs.push_back({"USE_REFRACTION", "1"});           // 'Rfr'
+    if (prop & (1 << 5))  defs.push_back({"USE_WATER_SIM", "1"});            // 'Sim'
+}
+
+// A cache write that keeps failing would otherwise print once per variant per frame, so each key
+// warns once. Reached only on a failure, which is why its lock costs nothing in the normal case.
+static bool firstCacheWriteWarning(ShaderKey key){
+    static std::mutex warnedMutex;
+    static std::unordered_set<ShaderKey> warned;
+    std::lock_guard<std::mutex> lock(warnedMutex);
+    return warned.insert(key).second;
 }
 
 ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Project* project) {
@@ -536,18 +556,17 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
         return ShaderBuildResult(shaderDataCache[shaderKey], ResourceLoadState::Finished);
     }
 
-    // Try disk cache (<cache>/doriax/shaders/<version>/<basename>.sdat). Forked shaders
+    // Try disk cache (<cache>/quantum/shaders/<version>/<basename>.sdat). Forked shaders
     // are cached too (the run-build / standalone runtime loads shaders from this same
-    // dir and cannot compile). A persisted source signature covers both entry points and
-    // their exact resolved include graph. The validation key is the storage key
-    // (customId stripped) because that id is session-local and would not match across
-    // the editor and a separate run process.
-    const bool isCustom = ShaderPool::getCustomIdFromKey(shaderKey) != 0;
+    // dir and cannot compile). Every variant carries the signature of the source graph it was
+    // compiled from, so an edit invalidates the variants built from that text and nothing else -
+    // the version dir stays the blunt tool for a change in the C++-side #defines. The validation
+    // key is the storage key (customId stripped) because that id is session-local and would not
+    // match across the editor and a separate run process.
     if (project) {
         lock.unlock();
         const std::filesystem::path cachePath = getShaderCachePath(shaderKey, project);
-        const bool fresh = !isCustom || !isCustomCacheStale(shaderKey, project, cachePath);
-        if (fresh) {
+        if (!isCacheStale(shaderKey, project, cachePath)) {
             ShaderData diskData;
             std::string err;
             if (ShaderDataSerializer::readFromFile(cachePath.string(), ShaderPool::getStorageKey(shaderKey), diskData, &err)) {
@@ -581,7 +600,11 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
 
                 lock.unlock();
                 // Persist cache after build finishes (outside lock).
-                (void)saveShaderDataCache(shaderKey, project, data);
+                std::string persistError;
+                if (!saveShaderDataCache(shaderKey, project, data, &persistError) && firstCacheWriteWarning(shaderKey)) {
+                    Out::warning("Shader %s is not cached on disk, so every run rebuilds it: %s",
+                                 getShaderDisplayName(shaderKey).c_str(), persistError.c_str());
+                }
 
                 return ShaderBuildResult(data, ResourceLoadState::Finished);
             } catch (const std::exception& e) {
@@ -602,7 +625,11 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
             shaderDataCache[shaderKey] = data;
             lock.unlock();
 
-            (void)saveShaderDataCache(shaderKey, project, data);
+            std::string persistError;
+            if (!saveShaderDataCache(shaderKey, project, data, &persistError) && firstCacheWriteWarning(shaderKey)) {
+                Out::warning("Shader %s is not cached on disk, so every run rebuilds it: %s",
+                             getShaderDisplayName(shaderKey).c_str(), persistError.c_str());
+            }
 
             return ShaderBuildResult(data, ResourceLoadState::Finished);
         } catch (const std::exception& e) {
@@ -635,28 +662,37 @@ ShaderBuildResult editor::ShaderBuilder::buildShader(ShaderKey shaderKey, Projec
     return ShaderBuildResult({}, ResourceLoadState::Loading);
 }
 
-void editor::ShaderBuilder::buildMissingShaders(const std::set<ShaderKey>& shaderKeys, Project* project) {
+int editor::ShaderBuilder::buildMissingShaders(const std::set<ShaderKey>& shaderKeys, Project* project) {
     if (!project) {
-        return;
+        return 0;
     }
 
+    int failed = 0;
     for (const ShaderKey& shaderKey : shaderKeys) {
         const std::filesystem::path cachePath = getShaderCachePath(shaderKey, project);
-        const bool isCustom = ShaderPool::getCustomIdFromKey(shaderKey) != 0;
-        const bool fresh = !isCustom || !isCustomCacheStale(shaderKey, project, cachePath);
 
         ShaderData diskData;
-        if (fresh && ShaderDataSerializer::readFromFile(cachePath.string(), ShaderPool::getStorageKey(shaderKey), diskData)) {
+        if (!isCacheStale(shaderKey, project, cachePath) &&
+            ShaderDataSerializer::readFromFile(cachePath.string(), ShaderPool::getStorageKey(shaderKey), diskData)) {
             continue;
         }
 
         try {
             const ShaderData data = buildShaderInternal(shaderKey, project, false);
-            (void)saveShaderDataCache(shaderKey, project, data);
+            // A variant that compiles but never lands on disk is invisible to the standalone
+            // runtime, which cannot compile: say so instead of letting the run come up black.
+            std::string error;
+            if (!saveShaderDataCache(shaderKey, project, data, &error)) {
+                Out::warning("Shader %s compiled but its cache was not written: %s",
+                             getShaderDisplayName(shaderKey).c_str(), error.c_str());
+                failed++;
+            }
         } catch (const std::exception&) {
-            // buildShaderInternal reports it; the remaining keys still build
+            // buildShaderInternal already reported it; the remaining keys still build
+            failed++;
         }
     }
+    return failed;
 }
 
 void editor::ShaderBuilder::requestShutdown() {
@@ -731,6 +767,57 @@ bool editor::ShaderBuilder::setupShaderArgs(shadercompiler::args_t& args, Shader
     }else if (shaderType == ShaderType::UNDERWATER){
         args.vert_file = "fullscreen.vert";
         args.frag_file = "underwater.frag";
+    }else if (shaderType == ShaderType::BLOOM_THRESHOLD){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "bloom_threshold.frag";
+    }else if (shaderType == ShaderType::BLOOM_DOWNSAMPLE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "bloom_downsample.frag";
+    }else if (shaderType == ShaderType::BLOOM_UPSAMPLE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "bloom_upsample.frag";
+    }else if (shaderType == ShaderType::BLOOM_COMPOSITE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "bloom_composite.frag";
+    }else if (shaderType == ShaderType::TONEMAP){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "tonemap.frag";
+    }else if (shaderType == ShaderType::VELOCITY){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "velocity.frag";
+    }else if (shaderType == ShaderType::TAA){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "taa.frag";
+    }else if (shaderType == ShaderType::EXPOSURE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "exposure.frag";
+    }else if (shaderType == ShaderType::FXAA){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "fxaa.frag";
+    }else if (shaderType == ShaderType::DOF_COC){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "dof_coc.frag";
+    }else if (shaderType == ShaderType::DOF_BLUR){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "dof_blur.frag";
+    }else if (shaderType == ShaderType::DOF_COMPOSITE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "dof_composite.frag";
+    }else if (shaderType == ShaderType::MOTIONBLUR){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "motionblur.frag";
+    }else if (shaderType == ShaderType::CONTACT_SHADOWS){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "contact_shadows.frag";
+    }else if (shaderType == ShaderType::SSGI){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "ssgi.frag";
+    }else if (shaderType == ShaderType::ATMOSPHERE){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "atmosphere.frag";
+    }else if (shaderType == ShaderType::DECAL){
+        args.vert_file = "fullscreen.vert";
+        args.frag_file = "decal.frag";
     }else{
         return false;
     }
@@ -740,7 +827,25 @@ bool editor::ShaderBuilder::setupShaderArgs(shadercompiler::args_t& args, Shader
     }
     if (shaderType == ShaderType::MESH || shaderType == ShaderType::WATER){
         args.defines.push_back({"MAX_LIGHTS", "6"});
+        args.defines.push_back({"MAX_FORWARD_LIGHTS", std::to_string(MAX_FORWARD_LIGHTS)});
+        args.defines.push_back({"MAX_CLUSTER_LIGHTS_PER_TILE", std::to_string(MAX_CLUSTER_LIGHTS_PER_TILE)});
+        args.defines.push_back({"CLUSTER_Z_SLICES", std::to_string(CLUSTER_Z_SLICES)});
+        // The Windows/macOS/Linux OpenGL drawable is fixed at OpenGL 4.1,
+        // which predates shader storage buffers. Keep the compatibility UBO
+        // lighting path on both OpenGL variants; only APIs with fragment-stage
+        // storage-buffer support may compile the clustered variant.
+        const GraphicBackend backend = Engine::getGraphicBackend();
+        const bool supportsFragmentStorageBuffers =
+            backend != GraphicBackend::GLCORE &&
+            backend != GraphicBackend::GLES3;
+        if (supportsFragmentStorageBuffers){
+            args.defines.push_back({"USE_CLUSTERED_LIGHTS", "1"});
+        }
+        args.defines.push_back({"CLUSTER_TILE_SIZE", std::to_string(CLUSTER_TILE_SIZE)});
         args.defines.push_back({"MAX_SHADOW_ATLAS_SLOTS", std::to_string(MAX_SHADOW_ATLAS_SLOTS)});
+        args.defines.push_back({"SHADOW_VIRTUAL_PAGE_GRID", std::to_string(SHADOW_VIRTUAL_PAGE_GRID)});
+        args.defines.push_back({"SHADOW_VIRTUAL_PAGES_PER_MAP", std::to_string(SHADOW_VIRTUAL_PAGES_PER_MAP)});
+        args.defines.push_back({"MAX_SHADOW_VIRTUAL_PAGES", std::to_string(MAX_SHADOW_VIRTUAL_PAGES)});
         args.defines.push_back({"MAX_POINT_SHADOW_ATLAS_SLOTS", std::to_string(MAX_POINT_SHADOW_ATLAS_SLOTS)});
         args.defines.push_back({"MAX_SHADOWCASCADES", std::to_string(MAX_SHADOWCASCADES)});
     }
@@ -766,6 +871,11 @@ bool editor::ShaderBuilder::setupShaderArgs(shadercompiler::args_t& args, Shader
     }
     if (shaderType == ShaderType::SSR_BLUR){
         args.defines.push_back({"SSR_BLUR_TAPS", "6"});
+    }
+    if (shaderType == ShaderType::DOF_BLUR){
+        // the separable blur's window: the radius travels in the tap spacing, so a
+        // wider blur costs no extra taps and this constant is the whole cost knob
+        args.defines.push_back({"DOF_BLUR_TAPS", "9"});
     }
 
     return true;
@@ -982,27 +1092,35 @@ bool editor::ShaderBuilder::saveShaderDataCache(ShaderKey shaderKey, Project* pr
         return false;
 
     const uint16_t customId = ShaderPool::getCustomIdFromKey(shaderKey);
-    if (customId == 0)
-        return true;
-
-    const std::string customShader = ShaderPool::getCustomShaderName(customId);
-    const std::shared_ptr<const CustomSourceSnapshot> sources = resolveCustomSources(project, customShader);
-    if (!sources->valid) {
-        if (err)
-            *err = sources->error;
-        return false;
+    std::string signature;
+    if (customId == 0) {
+        signature = builtinSourceSignature(ShaderPool::getShaderTypeFromKey(shaderKey));
+    } else {
+        const std::string customShader = ShaderPool::getCustomShaderName(customId);
+        const std::shared_ptr<const CustomSourceSnapshot> sources = resolveCustomSources(project, customShader);
+        if (!sources->valid) {
+            if (err)
+                *err = sources->error;
+            return false;
+        }
+        signature = sources->signature;
     }
+
+    // No graph to sign (an unknown type) still leaves a usable .sdat behind the version dir, so
+    // this is not a failure - only the freshness rule needs something to compare against.
+    if (signature.empty())
+        return true;
 
     std::ofstream signatureFile(sourceSignaturePath(cachePath), std::ios::binary | std::ios::trunc);
     if (!signatureFile) {
         if (err)
-            *err = "Failed to write custom shader source signature.";
+            *err = "Failed to write shader source signature.";
         return false;
     }
-    signatureFile << sources->signature << '\n';
+    signatureFile << signature << '\n';
     if (!signatureFile) {
         if (err)
-            *err = "Failed to write custom shader source signature.";
+            *err = "Failed to write shader source signature.";
         return false;
     }
     return true;
@@ -1024,6 +1142,79 @@ bool editor::ShaderBuilder::isCustomCacheStale(ShaderKey shaderKey, Project* pro
     std::string cachedSignature;
     return !readSourceSignature(sourceSignaturePath(cachePath), cachedSignature) ||
            cachedSignature != sources->signature;
+}
+
+const std::string& editor::ShaderBuilder::builtinSourceSignature(ShaderType shaderType) {
+    const int typeKey = static_cast<int>(shaderType);
+    {
+        std::lock_guard<std::mutex> lock(builtinSignatureMutex());
+        auto it = builtinSignatures.find(typeKey);
+        if (it != builtinSignatures.end())
+            return it->second;
+    }
+
+    // setupShaderArgs() has no state to observe: it only fills the entry-point names and the
+    // #defines, and the defines are what the properties select - which the cache file name already
+    // carries. So the graph below depends on the type alone and can be memoised per type.
+    std::string signature;
+    ShaderBuilder bookkeeping;
+    shadercompiler::args_t args;
+    if (bookkeeping.setupShaderArgs(args, shaderType, 0)) {
+        std::string input;
+        std::unordered_set<std::string> visited;
+
+        std::function<void(const std::string&)> visit = [&](const std::string& file) {
+            if (!visited.insert(file).second)
+                return;
+            const auto source = editor::shaderMap.find(file);
+            if (source == editor::shaderMap.end()) {
+                appendSignaturePart(input, "missing:" + file, "");
+                return;
+            }
+            appendSignaturePart(input, "engine:" + file, source->second);
+            for (const std::string& key : editor::Util::getShaderIncludeKeys(source->second))
+                visit(key);
+        };
+
+        visit(args.vert_file);
+        visit(args.frag_file);
+        signature = editor::SHA1::hash(input);
+    }
+
+    std::lock_guard<std::mutex> lock(builtinSignatureMutex());
+    auto inserted = builtinSignatures.emplace(typeKey, std::move(signature));
+    return inserted.first->second;
+}
+
+bool editor::ShaderBuilder::isCacheStale(ShaderKey shaderKey, Project* project, const std::filesystem::path& cachePath) {
+    if (ShaderPool::getCustomIdFromKey(shaderKey) != 0)
+        return isCustomCacheStale(shaderKey, project, cachePath);
+
+    return isBuiltinCacheStale(ShaderPool::getShaderTypeFromKey(shaderKey), cachePath);
+}
+
+bool editor::ShaderBuilder::isBuiltinCacheStale(ShaderType shaderType, const std::filesystem::path& cachePath) {
+    std::error_code ec;
+    if (!std::filesystem::exists(cachePath, ec))
+        return true;
+
+    // An unresolvable type has no graph to compare against; the build of that key fails anyway.
+    const std::string& signature = builtinSourceSignature(shaderType);
+    if (signature.empty())
+        return true;
+
+    std::string cachedSignature;
+    if (readSourceSignature(sourceSignaturePath(cachePath), cachedSignature))
+        return cachedSignature != signature;
+
+    // An entry written before variants carried a signature can prove nothing about its sources
+    // except the version directory it lives in, and throwing a warm cache away is exactly what
+    // makes every run recompile the world. Adopt it: stamp the graph it is read under, so from
+    // now on a source edit invalidates it for real.
+    std::ofstream stamp(sourceSignaturePath(cachePath), std::ios::binary | std::ios::trunc);
+    if (stamp)
+        stamp << signature << '\n';
+    return false;
 }
 
 std::string editor::ShaderBuilder::getShaderDisplayName(ShaderKey key) {

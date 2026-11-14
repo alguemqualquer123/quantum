@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef SPRITE_H
@@ -11,8 +11,8 @@
 #include "Mesh.h"
 #include "Occluder2D.h"
 
-namespace doriax{
-    class DORIAX_API Sprite: public Mesh{
+namespace quantum{
+    class QUANTUM_API Sprite: public Mesh{
 
     private:
         SpriteAnimation* animation;

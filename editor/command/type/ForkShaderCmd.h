@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 #include <memory>
 #include <string>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     // Forks a built-in shader and points a component's customShader (customDepthShader
     // for a DEPTH fork, customUnderwaterShader for an UNDERWATER fork, or a scene's default

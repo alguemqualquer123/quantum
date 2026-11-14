@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Workspace.h"
@@ -12,7 +12,7 @@
 
 namespace fs = std::filesystem;
 
-namespace doriax::editor {
+namespace quantum::editor {
 
 namespace {
 
@@ -20,15 +20,17 @@ const char* tabTypeToString(TabType type) {
     switch (type) {
         case TabType::CODE_EDITOR:  return "codeeditor";
         case TabType::IMAGE_VIEWER: return "imageviewer";
+        case TabType::MODEL_VIEWER: return "modelviewer";
         case TabType::SCENE:
         default:                    return "scene";
     }
 }
 
 bool stringToTabType(const std::string& str, TabType& out) {
-    if (str == "scene")       { out = TabType::SCENE;        return true; }
-    if (str == "codeeditor")  { out = TabType::CODE_EDITOR;  return true; }
-    if (str == "imageviewer") { out = TabType::IMAGE_VIEWER; return true; }
+    if (str == "scene")        { out = TabType::SCENE;         return true; }
+    if (str == "codeeditor")   { out = TabType::CODE_EDITOR;   return true; }
+    if (str == "imageviewer")  { out = TabType::IMAGE_VIEWER;  return true; }
+    if (str == "modelviewer")  { out = TabType::MODEL_VIEWER;  return true; }
     return false;
 }
 
@@ -67,7 +69,7 @@ void readSection(const char* what, const std::string& source, Fn&& read) {
 } // namespace
 
 fs::path Workspace::getUserDirectory(const fs::path& projectPath) {
-    return projectPath / ".doriax" / "user";
+    return projectPath / ".quantum" / "user";
 }
 
 fs::path Workspace::getWorkspaceFile(const fs::path& projectPath) {
@@ -322,4 +324,4 @@ bool Workspace::save(const Project* project) {
     return true;
 }
 
-} // namespace doriax::editor
+} // namespace quantum::editor

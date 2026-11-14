@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Fog.h"
 #include "util/Color.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Fog::Fog(Scene* scene): EntityHandle(scene){
     addComponent<FogComponent>();

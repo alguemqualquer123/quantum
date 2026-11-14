@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 // CommandRunner.cpp
@@ -24,7 +24,7 @@
     extern char **environ;
 #endif
 
-using namespace doriax;
+using namespace quantum;
 
 namespace {
     constexpr std::chrono::milliseconds kReadSleepMs{10};

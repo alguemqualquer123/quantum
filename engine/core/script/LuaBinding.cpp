@@ -1,7 +1,8 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
+#include "LuaDebugger.h"
 
 #include <set>
 #include <tuple>
@@ -13,6 +14,7 @@
 #include "SceneManager.h"
 #include "BundleManager.h"
 #include "component/ScriptComponent.h"
+#include "script/graph/GraphRuntime.h"
 #include "ScriptProperty.h"
 #include "object/EntityHandle.h"
 #include "object/Object.h"
@@ -47,11 +49,11 @@
 #include "object/ui/Scrollbar.h"
 #include "object/ui/Progressbar.h"
 #include "object/ui/TextEdit.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "object/physics/Body2D.h"
 #include "object/physics/Joint2D.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "object/physics/Body3D.h"
 #include "object/physics/Joint3D.h"
 #endif
@@ -79,12 +81,15 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <chrono>
+#include <filesystem>
 #include <locale>
+#include <map>
 #include <set>
 #include <vector>
 #include <memory>
 
-using namespace doriax;
+using namespace quantum;
 
 
 
@@ -93,6 +98,10 @@ unsigned int LuaBinding::luaStateGeneration = 0;
 
 // modules the engine itself loads, anything after this is project code
 static std::set<std::string> baselineLuaModules;
+static bool luaHotReloadEnabled = false;
+using LuaHotReloadKey = std::pair<Scene*, int>;
+static std::map<LuaHotReloadKey, std::filesystem::file_time_type> luaHotReloadTimes;
+static std::chrono::steady_clock::time_point lastLuaHotReloadPoll;
 
 // require() reads this registry table, package.loaded is only an alias to it
 static void collectLoadedModuleNames(lua_State* L, std::set<std::string>& out){
@@ -165,6 +174,7 @@ int LuaBinding::pcallWithTraceback(lua_State* L, int nargs, int nresults){
     lua_insert(L, base);
 
     int status = lua_pcall(L, nargs, nresults, base);
+    if (status != LUA_OK) LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Runtime);
     lua_remove(L, base);
 
     return status;
@@ -173,6 +183,7 @@ int LuaBinding::pcallWithTraceback(lua_State* L, int nargs, int nresults){
 void LuaBinding::luaCallback(int nargs, int nresults, int msgh){
     int status = lua_pcall(luastate, nargs, nresults, msgh);
     if (status != 0){
+        LuaDebugger::notifyRuntimeError(luastate, LuaDebugger::ErrorCategory::Callback);
         Log::error("Lua Error: %s", getLuaStackErrorString(luastate, -1).c_str());
         lua_pop(luastate, 1);
     }
@@ -272,7 +283,6 @@ int LuaBinding::luaRegisterEventImpl(lua_State* L, int eventIndex, int selfIndex
         lua_remove(L, -2); // pop typeName
     }
     int tagIndex = lua_gettop(L);
-
     // Build closure: function(...) return method(self, ...) end
     lua_pushvalue(L, methodFuncIndex); // method
     lua_pushvalue(L, selfIndex);       // self
@@ -283,9 +293,8 @@ int LuaBinding::luaRegisterEventImpl(lua_State* L, int eventIndex, int selfIndex
             lua_pushvalue(Linner, lua_upvalueindex(1)); // method
             lua_pushvalue(Linner, lua_upvalueindex(2)); // self
 
-            for (int i = 1; i <= nargs; ++i) {
+            for (int i = 1; i <= nargs; ++i)
                 lua_pushvalue(Linner, i);
-            }
 
             // lua_error below unwinds the script frames, get the traceback here
             if (pcallWithTraceback(Linner, 1 + nargs, LUA_MULTRET) != LUA_OK) {
@@ -400,8 +409,9 @@ int LuaBinding::moduleLoader(lua_State *L) {
     filedata.open(filepath.c_str());
     if (filedata.getMemPtr() != NULL) {
         
-        luaL_loadbuffer(L, (const char *) filedata.getMemPtr(), filedata.length(),
-                        filepath.c_str());
+        const int status = luaL_loadbuffer(L, (const char *) filedata.getMemPtr(), filedata.length(),
+                                           filepath.c_str());
+        if (status != LUA_OK) LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Syntax);
         
         return 1;
     }
@@ -410,8 +420,9 @@ int LuaBinding::moduleLoader(lua_State *L) {
     filedata.open(filepath.c_str());
     if (filedata.getMemPtr() != NULL) {
         
-        luaL_loadbuffer(L, (const char *) filedata.getMemPtr(), filedata.length(),
-                        filepath.c_str());
+        const int status = luaL_loadbuffer(L, (const char *) filedata.getMemPtr(), filedata.length(),
+                                           filepath.c_str());
+        if (status != LUA_OK) LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Syntax);
         
         return 1;
     }
@@ -462,13 +473,15 @@ void LuaBinding::init(){
     }
 
     //int luaL_dofile (lua_State *L, const char *filename);
-    if (luaL_loadbuffer(L,(const char*)filedata.getMemPtr(),filedata.length(), luafile.c_str()) == 0){
+    const int loadStatus = luaL_loadbuffer(L, (const char*)filedata.getMemPtr(), filedata.length(), luafile.c_str());
+    if (loadStatus == 0){
         if(pcallWithTraceback(L, 0, LUA_MULTRET) != 0){
             Log::error("Lua Error: %s", getLuaStackErrorString(L, -1).c_str());
             lua_pop(L, 1);
             lua_close(L);
         }
     }else{
+        LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Syntax);
         Log::error("Lua Error: %s", getLuaStackErrorString(L, -1).c_str());
         lua_pop(L, 1);
         lua_close(L);
@@ -489,6 +502,9 @@ void LuaBinding::registerClasses(lua_State *L){
     registerMathClasses(L); 
     registerUtilClasses(L);
     registerThreadClasses(L);
+    // The plugin commands a shipped game calls. After the others, because a plugin command may
+    // reach anything the other bindings expose.
+    registerPluginClasses(L);
 
 #endif //DISABLE_LUA_BINDINGS
 }
@@ -506,6 +522,8 @@ void LuaBinding::registerHelpersFunctions(lua_State *L){
 
 
 void LuaBinding::cleanup(){
+    graph::GraphBinding::cleanupAll();
+
     if (luastate) {
         lua_close(luastate);
         luastate = NULL;
@@ -553,7 +571,7 @@ std::string LuaBinding::normalizePtrTypeName(std::string value) {
 }
 
 template <typename T>
-bool LuaBinding::pushEntityHandleTyped(lua_State* L, doriax::Scene* scene, doriax::Entity entity) {
+bool LuaBinding::pushEntityHandleTyped(lua_State* L, quantum::Scene* scene, quantum::Entity entity) {
     T handle(scene, entity);
     if (!luabridge::push<T>(L, handle)) {
         lua_pushnil(L);
@@ -562,7 +580,7 @@ bool LuaBinding::pushEntityHandleTyped(lua_State* L, doriax::Scene* scene, doria
     return true;
 }
 
-bool LuaBinding::pushEntityHandleByType(lua_State* L, doriax::Scene* scene, doriax::Entity entity, const std::string& ptrTypeName) {
+bool LuaBinding::pushEntityHandleByType(lua_State* L, quantum::Scene* scene, quantum::Entity entity, const std::string& ptrTypeName) {
     const std::string key = normalizePtrTypeName(ptrTypeName);
 
     #define DISPATCH_TYPE(Type, KeyName) \
@@ -600,11 +618,11 @@ bool LuaBinding::pushEntityHandleByType(lua_State* L, doriax::Scene* scene, dori
     DISPATCH_TYPE(Progressbar, "progressbar");
     DISPATCH_TYPE(TextEdit, "textedit");
     DISPATCH_TYPE(Bone, "bone");
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     DISPATCH_TYPE(Body2D, "body2d");
     DISPATCH_TYPE(Joint2D, "joint2d");
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     DISPATCH_TYPE(Body3D, "body3d");
     DISPATCH_TYPE(Joint3D, "joint3d");
 #endif
@@ -630,6 +648,15 @@ bool LuaBinding::pushEntityHandleByType(lua_State* L, doriax::Scene* scene, dori
         Log::warn("pushEntityHandleByType: unknown type '%s', falling back to EntityHandle", ptrTypeName.c_str());
     }
     return pushEntityHandleTyped<EntityHandle>(L, scene, entity);
+}
+
+bool LuaBinding::pushEntityHandleForGraph(lua_State* L, Scene* scene, Entity entity,
+    const std::string& ptrTypeName) {
+    if (!L || !scene || entity == NULL_ENTITY) {
+        if (L) lua_pushnil(L);
+        return false;
+    }
+    return pushEntityHandleByType(L, scene, entity, ptrTypeName);
 }
 
 void LuaBinding::clearLoadedProjectModules() {
@@ -683,6 +710,8 @@ static ScriptEntry* findLuaScriptEntry(const StartedLuaScript& started) {
 void LuaBinding::initializeLuaScripts(Scene* scene) {
     if (!scene) return;
 
+    graph::GraphBinding::initializeGraphScripts(scene);
+
     lua_State* L = luastate;
     if (!L) {
         Log::error("Lua state not initialized");
@@ -723,6 +752,7 @@ void LuaBinding::initializeLuaScripts(Scene* scene) {
 
         int status = luaL_loadbuffer(L, (const char*)filedata.getMemPtr(), filedata.length(), path.c_str());
         if (status != LUA_OK) {
+            LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Syntax);
             Log::error("Failed to load Lua file '%s': %s", path.c_str(), getLuaStackErrorString(L, -1).c_str());
             lua_pop(L, 1);
             continue;
@@ -903,8 +933,146 @@ void LuaBinding::initializeLuaScripts(Scene* scene) {
     }
 }
 
+bool LuaBinding::reloadLuaScripts(Scene* scene) {
+    if (!scene || !luastate) return false;
+
+    lua_State* L = luastate;
+    bool allReloaded = true;
+    auto scriptsArray = scene->getComponentArray<ScriptComponent>();
+    for (size_t i = 0; i < scriptsArray->size(); i++) {
+        const Entity entity = scriptsArray->getEntity(i);
+        ScriptComponent* scriptComp = scene->findComponent<ScriptComponent>(entity);
+        if (!scriptComp) continue;
+
+        for (ScriptEntry& scriptEntry : scriptComp->scripts) {
+            if (scriptEntry.type != ScriptType::LUA || !scriptEntry.enabled || !scriptEntry.instance)
+                continue;
+
+            Data filedata;
+            const std::string luaFile = std::string("lua://") + scriptEntry.path;
+            if (filedata.open(luaFile.c_str()) != FileErrors::FILEDATA_OK) {
+                Log::error("Lua reload file not found: %s", scriptEntry.path.c_str());
+                allReloaded = false;
+                continue;
+            }
+
+            const int base = lua_gettop(L);
+            if (luaL_loadbuffer(L, (const char*)filedata.getMemPtr(), filedata.length(),
+                    scriptEntry.path.c_str()) != LUA_OK) {
+                LuaDebugger::notifyRuntimeError(L, LuaDebugger::ErrorCategory::Syntax);
+                Log::error("Failed to reload Lua file '%s': %s", scriptEntry.path.c_str(),
+                    getLuaStackErrorString(L, -1).c_str());
+                lua_settop(L, base);
+                allReloaded = false;
+                continue;
+            }
+            if (pcallWithTraceback(L, 0, 1) != LUA_OK || !lua_istable(L, -1)) {
+                Log::error("Lua reload module '%s' did not return a table: %s",
+                    scriptEntry.className.c_str(), getLuaStackErrorString(L, -1).c_str());
+                lua_settop(L, base);
+                allReloaded = false;
+                continue;
+            }
+
+            const int moduleIndex = lua_absindex(L, -1);
+            const int ref = static_cast<int>(reinterpret_cast<intptr_t>(scriptEntry.instance));
+            lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+            const int instanceIndex = lua_absindex(L, -1);
+            bool installed = false;
+            if (lua_istable(L, instanceIndex)) {
+                if (lua_getmetatable(L, instanceIndex)) {
+                    const int metatableIndex = lua_absindex(L, -1);
+                    lua_pushvalue(L, moduleIndex);
+                    lua_setfield(L, metatableIndex, "__index");
+                    lua_pop(L, 1);
+                    installed = true;
+                }
+            }
+
+            if (!installed) {
+                Log::error("Lua reload instance for '%s' is invalid", scriptEntry.className.c_str());
+                lua_settop(L, base);
+                allReloaded = false;
+                continue;
+            }
+
+            removeScriptSubscriptions(scene, ref);
+            lua_getfield(L, instanceIndex, "onReload");
+            if (lua_isfunction(L, -1)) {
+                lua_pushvalue(L, instanceIndex);
+                if (pcallWithTraceback(L, 1, 0) != LUA_OK) {
+                    Log::error("Lua onReload() failed for '%s': %s", scriptEntry.className.c_str(),
+                        getLuaStackErrorString(L, -1).c_str());
+                    lua_pop(L, 1);
+                    allReloaded = false;
+                }
+            } else {
+                lua_pop(L, 1);
+            }
+            lua_settop(L, base);
+        }
+    }
+    return allReloaded;
+}
+
+void LuaBinding::setLuaHotReloadEnabled(bool enabled) {
+    luaHotReloadEnabled = enabled;
+    if (!enabled) luaHotReloadTimes.clear();
+    lastLuaHotReloadPoll = std::chrono::steady_clock::time_point();
+}
+
+bool LuaBinding::isLuaHotReloadEnabled() {
+    return luaHotReloadEnabled;
+}
+
+void LuaBinding::pollLuaScriptHotReload(Scene* scene) {
+    if (!luaHotReloadEnabled || !scene || !luastate) return;
+
+    const auto now = std::chrono::steady_clock::now();
+    if (lastLuaHotReloadPoll.time_since_epoch().count() != 0 &&
+        now - lastLuaHotReloadPoll < std::chrono::milliseconds(250)) {
+        return;
+    }
+    lastLuaHotReloadPoll = now;
+
+    bool changed = false;
+    auto scriptsArray = scene->getComponentArray<ScriptComponent>();
+    for (size_t i = 0; i < scriptsArray->size(); i++) {
+        const Entity entity = scriptsArray->getEntity(i);
+        ScriptComponent* scriptComp = scene->findComponent<ScriptComponent>(entity);
+        if (!scriptComp) continue;
+
+        for (const ScriptEntry& scriptEntry : scriptComp->scripts) {
+            if (scriptEntry.type != ScriptType::LUA || !scriptEntry.enabled || !scriptEntry.instance)
+                continue;
+
+            const int ref = static_cast<int>(reinterpret_cast<intptr_t>(scriptEntry.instance));
+            const std::filesystem::path source =
+                std::filesystem::path(System::instance().getLuaPath()) / scriptEntry.path;
+            std::error_code error;
+            const auto writeTime = std::filesystem::last_write_time(source, error);
+            if (error) continue;
+
+            const LuaHotReloadKey key{scene, ref};
+            auto [it, inserted] = luaHotReloadTimes.emplace(key, writeTime);
+            if (!inserted && it->second != writeTime) {
+                it->second = writeTime;
+                changed = true;
+            }
+        }
+    }
+
+    if (changed && !reloadLuaScripts(scene)) {
+        Log::warn("Lua hot reload failed for one or more scripts in scene %p", (void*)scene);
+    }
+}
+
 void LuaBinding::cleanupLuaScripts(Scene* scene, Entity entity) {
-    if (!scene || !scene->isEntityCreated(entity)) return;
+    if (!scene) return;
+
+    graph::GraphBinding::cleanupGraphScripts(scene, entity);
+
+    if (!scene->isEntityCreated(entity)) return;
 
     ScriptComponent* scriptComp = scene->findComponent<ScriptComponent>(entity);
     if (!scriptComp) return;
@@ -914,6 +1082,7 @@ void LuaBinding::cleanupLuaScripts(Scene* scene, Entity entity) {
 
         int ref = static_cast<int>(reinterpret_cast<intptr_t>(scriptEntry.instance));
         removeScriptSubscriptions(scene, ref);
+        luaHotReloadTimes.erase({scene, ref});
         releaseLuaRef(ref);
         scriptEntry.instance = nullptr;
         for (auto& prop : scriptEntry.properties) {
@@ -924,6 +1093,13 @@ void LuaBinding::cleanupLuaScripts(Scene* scene, Entity entity) {
 
 void LuaBinding::cleanupLuaScripts(Scene* scene) {
     if (!scene) return;
+
+    for (auto it = luaHotReloadTimes.begin(); it != luaHotReloadTimes.end();) {
+        if (it->first.first == scene) it = luaHotReloadTimes.erase(it);
+        else ++it;
+    }
+
+    graph::GraphBinding::cleanupGraphScripts(scene);
 
     // a module still running can have the scene deleted
     deferredLuaScripts.erase(std::remove_if(deferredLuaScripts.begin(), deferredLuaScripts.end(),

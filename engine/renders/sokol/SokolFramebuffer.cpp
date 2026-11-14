@@ -1,12 +1,13 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolFramebuffer.h"
 #include "Log.h"
 #include "SokolCmdQueue.h"
+#include "SokolObject.h"
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 SokolFramebuffer::SokolFramebuffer(){
     for (int a = 0; a < MAX_COLOR_ATTACHMENTS; a++){
@@ -202,7 +203,7 @@ void SokolFramebuffer::initializeAttachments(size_t faces){
             SokolCmdQueue::add_command_begin_pass(pass);
             SokolCmdQueue::add_command_end_pass();
         }else{
-            sg_begin_pass(pass);
+            SokolObject::beginPass(pass);
             sg_end_pass();
         }
     }

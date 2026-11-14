@@ -1,7 +1,7 @@
 //
 // Inspired by work of Jari Komppa in SoLoud audio engine
 // https://sol.gfxile.net/soloud/file.html
-// Modified by (c) 2020 Eduardo Doria.
+// Modified by (c) 2020 SR VINIX.
 //
 
 #ifndef FILEDATA_H
@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
     enum FileErrors{
         FILEDATA_OK       = 0,
@@ -20,7 +20,7 @@ namespace doriax {
         OUT_OF_MEMORY    = 3
     };
 
-    class DORIAX_API FileData {
+    class QUANTUM_API FileData {
 
     protected:
         static bool beginWith(const std::string& path, const std::string& prefix);

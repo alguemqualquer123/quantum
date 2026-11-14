@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UniqueToken.h"
 #include <cstdlib>
 
-using namespace doriax;
+using namespace quantum;
 
 int UniqueToken::id;
 

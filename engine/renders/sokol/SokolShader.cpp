@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolShader.h"
@@ -11,7 +11,7 @@
 #include "render/ShaderRender.h"
 #include "Engine.h"
 
-using namespace doriax;
+using namespace quantum;
 
 SokolShader::SokolShader(){
     shader.id = SG_INVALID_ID;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "GitMonitor.h"
@@ -28,7 +28,7 @@
     extern char **environ;
 #endif
 
-using namespace doriax;
+using namespace quantum;
 namespace fs = std::filesystem;
 
 namespace {

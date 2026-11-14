@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef quaternion_h
@@ -7,10 +7,10 @@
 #include "Vector3.h"
 #include "Matrix4.h"
 
-namespace doriax { class Quaternion; }
-doriax::Quaternion operator * (float fScalar, const doriax::Quaternion& rkQ);
+namespace quantum { class Quaternion; }
+quantum::Quaternion operator * (float fScalar, const quantum::Quaternion& rkQ);
 
-namespace doriax {
+namespace quantum {
 
     enum class RotationOrder{
         XYZ,
@@ -21,7 +21,7 @@ namespace doriax {
         ZYX
     };
 
-    class DORIAX_API Quaternion {
+    class QUANTUM_API Quaternion {
     public:
 
         float w, x, y, z;

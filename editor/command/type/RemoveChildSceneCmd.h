@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include "command/Command.h"
 #include "Project.h"
 
-namespace doriax::editor {
+namespace quantum::editor {
     class RemoveChildSceneCmd : public Command {
     private:
         Project* project;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef OBB_h
@@ -9,13 +9,13 @@
 #include "AABB.h"
 #include "Quaternion.h"
 
-namespace doriax {
+namespace quantum {
 
     class Plane;
     class Sphere;
     class Ray;
 
-    class DORIAX_API OBB {
+    class QUANTUM_API OBB {
     public:
         enum BoxType {
             BOXTYPE_NULL,

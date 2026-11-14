@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -16,6 +16,7 @@
 #include "util/ScriptParser.h"
 #include "util/ScopedDefaultEntityPool.h"
 #include "util/CxxStandards.h"
+#include "LuaDebugger.h"
 
 #include "yaml-cpp/yaml.h"
 
@@ -30,7 +31,7 @@
 #include <future>
 #include <mutex>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     struct LocalBuildSettings;
 
@@ -58,7 +59,8 @@ namespace doriax::editor{
     enum class TabType{
         SCENE,
         CODE_EDITOR,
-        IMAGE_VIEWER
+        IMAGE_VIEWER,
+        MODEL_VIEWER
     };
 
     struct TabEntry{
@@ -390,10 +392,12 @@ namespace doriax::editor{
             std::atomic<bool> cancelled{false};
             std::atomic<bool> startupThreadDone{false};  // Set when connect thread exits
             std::atomic<bool> startupSucceeded{false};   // True only if finalizeStart was called
+            std::atomic<bool> reloadInProgress{false};   // C++ script DLL build/swap is active
         };
 
         mutable std::mutex playSessionMutex;
         std::shared_ptr<PlaySession> activePlaySession;
+        std::unique_ptr<quantum::LuaDebugger> playScriptDebugger;
 
         SceneProject* createRuntimeCloneFromSource(const SceneProject* source);
         void prepareRuntimeScene(PlayRuntimeScene& entry);
@@ -480,6 +484,11 @@ namespace doriax::editor{
         void pauseEngineScene(Scene* scene, bool pause) const;
 
         void copyEngineApiToProject();
+        void writeLuaTypesFileToProject();
+        std::filesystem::path engineApiTypesPath() const;
+        // Copies the components the engine ships under <engineDir>/components into the
+        // project's Lua folder; overwrite is off so a project's own edits survive.
+        void installReadyMadeComponents(bool overwrite);
 
         void registerSceneManager();
         SceneResources collectPlaySceneResources(uint32_t sceneId);
@@ -558,9 +567,12 @@ namespace doriax::editor{
         std::vector<std::filesystem::path> findProjectFiles(const std::function<bool(const std::string&)>& matches) const;
         void openSceneInternal(fs::path filepath, uint32_t sceneToClose);
 
-        // The standalone build reads shaders from the editor cache (DORIAX_SHADER_PATH)
+        // The standalone build reads shaders from the editor cache (QUANTUM_SHADER_PATH)
         // and cannot compile, so a variant the editor never draws with is missing there.
         void buildStandaloneShaderCache();
+        // The key set the last complete sweep put on disk; equal sets skip it. Cleared whenever
+        // a forked shader changes, because that invalidates the .sdat files behind it.
+        std::set<ShaderKey> standaloneShaderKeys;
 
     public:
         // Factory defaults, also used by the settings dialog to restore a value
@@ -738,7 +750,7 @@ namespace doriax::editor{
         void loadSceneProjectData(SceneProject* sceneProject, const YAML::Node& sceneNode);
         bool saveProject(bool userCalled = false, std::function<void()> callback = nullptr);
         bool saveProjectFile();
-        // Per-user editor state (.doriax/user/workspace.yaml), never project.yaml
+        // Per-user editor state (.quantum/user/workspace.yaml), never project.yaml
         bool saveWorkspaceFile();
 
         bool loadProject(const std::filesystem::path path, bool updateLastOpened = true);
@@ -864,6 +876,9 @@ namespace doriax::editor{
 
         bool isTempProject() const;
         bool isTempUnsavedProject() const;
+        // Drops the marker file Explorer opens this project with, when the folder does
+        // not have one yet. Never written for a throwaway temp project.
+        void ensureProjectMarker();
         std::filesystem::path getProjectPath() const;
         std::filesystem::path getProjectInternalPath() const;
         // Where imported models are kept, out of the assets and version control
@@ -989,6 +1004,11 @@ namespace doriax::editor{
         void resume(uint32_t sceneId);
         void stop(uint32_t sceneId);
         void stopActivePlay();
+        bool canReloadActiveCppScripts() const;
+        void reloadActiveCppScripts();
+        quantum::LuaDebugger* getPlayScriptDebugger();
+        bool attachPlayScriptDebugger();
+        void detachPlayScriptDebugger();
         void toggleCameraDetached(uint32_t sceneId);
         void waitForPlaySessionToFinish();
 

@@ -6,7 +6,7 @@
 #include "CameraRender.h"
 #include "../core/render/ShaderData.h"
 
-namespace doriax {
+namespace quantum {
 
 // Wrapper for the G‑Buffer pass. It creates the MRT framebuffer (depth+normal+albedo) and
 // provides a method to render the scene geometry into it.

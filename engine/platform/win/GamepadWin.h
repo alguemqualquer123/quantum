@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef GamepadWin_h
@@ -15,7 +15,7 @@
 
 #include <array>
 
-namespace doriax {
+namespace quantum {
 
     // XInput polling shared by the editor backend and the exported game, so a
     // controller behaves the same in Play mode and in the shipped build.

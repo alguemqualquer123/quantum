@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "LuaBinding.h"
@@ -14,16 +14,17 @@
 #include "SceneManager.h"
 #include "BundleManager.h"
 #include "Input.h"
+#include "InputActionMap.h"
 #include "System.h"
 #include "AdMob.h"
 #include "InAppPurchase.h"
 #include "WebPortal.h"
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
 #include "Body2D.h"
 #include "Contact2D.h"
 #include "Manifold2D.h"
 #endif
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
 #include "Body3D.h"
 #include "Contact3D.h"
 #include "CollideShapeResult3D.h"
@@ -32,11 +33,15 @@
 #include "subsystem/ActionSystem.h"
 #include "subsystem/AudioSystem.h"
 #include "subsystem/MeshSystem.h"
+#include "subsystem/NetworkSystem.h"
 #include "subsystem/PhysicsSystem.h"
 #include "subsystem/RenderSystem.h"
 #include "subsystem/UISystem.h"
+#include "io/SaveGame.h"
 
-using namespace doriax;
+#include "component/FogComponent.h"
+
+using namespace quantum;
 
 void LuaBinding::registerCoreClasses(lua_State *L){
 #ifndef DISABLE_LUA_BINDINGS
@@ -403,6 +408,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("mouseCursor", &Engine::getMouseCursor, &Engine::setMouseCursor)
         .addStaticProperty("mouseMode", &Engine::getMouseMode, &Engine::setMouseMode)
         .addStaticFunction("setMousePosition", &Engine::setMousePosition)
+        .addStaticFunction("hasFocus", &Engine::hasFocus)
         .addStaticProperty("platform", &Engine::getPlatform)
         .addStaticProperty("graphicBackend", &Engine::getGraphicBackend)
         .addStaticProperty("openGL", &Engine::isOpenGL)
@@ -410,6 +416,8 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("deltatime", &Engine::getDeltatime)
         .addStaticProperty("maxDeltatime", &Engine::getMaxDeltatime, &Engine::setMaxDeltatime)
         .addStaticProperty("systemTime", &Engine::getSystemTime)
+        .addStaticFunction("screenshot", &Engine::screenshot)
+        .addStaticFunction("screenshotAfter", &Engine::screenshotAfter)
         .addStaticProperty("asyncLoading", &Engine::isAsyncLoading, &Engine::setAsyncLoading)
         .addStaticFunction("startAsyncThread", &Engine::startAsyncThread)
         .addStaticFunction("commitThreadQueue", &Engine::commitThreadQueue)
@@ -447,6 +455,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("onKeyDown", [] () { return &Engine::onKeyDown; }, [] (lua_State* L) { Engine::onKeyDown = L; })
         .addStaticProperty("onKeyUp", [] () { return &Engine::onKeyUp; }, [] (lua_State* L) { Engine::onKeyUp = L; })
         .addStaticProperty("onCharInput", [] () { return &Engine::onCharInput; }, [] (lua_State* L) { Engine::onCharInput = L; })
+        .addStaticProperty("onTextComposition", [] () { return &Engine::onTextComposition; }, [] (lua_State* L) { Engine::onTextComposition = L; })
         .addStaticProperty("onGamepadConnect", [] () { return &Engine::onGamepadConnect; }, [] (lua_State* L) { Engine::onGamepadConnect = L; })
         .addStaticProperty("onGamepadDisconnect", [] () { return &Engine::onGamepadDisconnect; }, [] (lua_State* L) { Engine::onGamepadDisconnect = L; })
         .addStaticProperty("onGamepadButtonDown", [] () { return &Engine::onGamepadButtonDown; }, [] (lua_State* L) { Engine::onGamepadButtonDown = L; })
@@ -478,6 +487,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticFunction("loadScene", 
             luabridge::overload<uint32_t>(&SceneManager::loadScene),
             luabridge::overload<const std::string&>(&SceneManager::loadScene))
+        .addStaticFunction("reloadCurrentScene", &SceneManager::reloadCurrentScene)
         .addStaticFunction("addChildScene",
             luabridge::overload<uint32_t>(&SceneManager::addChildScene),
             luabridge::overload<const std::string&>(&SceneManager::addChildScene))
@@ -579,6 +589,13 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("__call", &FunctionSubscribe<void(int,int)>::call)
         .addFunction("call", &FunctionSubscribe<void(int,int)>::call)
         .addFunction("add", (bool (FunctionSubscribe<void(int,int)>::*)(const std::string&, lua_State*))&FunctionSubscribe<void(int,int)>::add)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<FunctionSubscribe<void(const std::string&, const std::string&)>>("FunctionSubscribe_V_SS")
+        .addFunction("__call", &FunctionSubscribe<void(const std::string&, const std::string&)>::call)
+        .addFunction("call", &FunctionSubscribe<void(const std::string&, const std::string&)>::call)
+        .addFunction("add", (bool (FunctionSubscribe<void(const std::string&, const std::string&)>::*)(const std::string&, lua_State*))&FunctionSubscribe<void(const std::string&, const std::string&)>::add)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -714,7 +731,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("add", (bool (FunctionSubscribe<void(std::string)>::*)(const std::string&, lua_State*))&FunctionSubscribe<void(std::string)>::add)
         .endClass();
 
-#ifdef DORIAX_PHYSICS_2D
+#ifdef QUANTUM_PHYSICS_2D
     luabridge::getGlobalNamespace(L)
         .beginClass<FunctionSubscribe<void(Body2D, unsigned long, Body2D, unsigned long)>>("FunctionSubscribe_V_B2ULB2UL")
         .addFunction("__call", &FunctionSubscribe<void(Body2D, unsigned long, Body2D, unsigned long)>::call)
@@ -744,7 +761,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .endClass();
 #endif
 
-#ifdef DORIAX_PHYSICS_3D
+#ifdef QUANTUM_PHYSICS_3D
     luabridge::getGlobalNamespace(L)
         .beginClass<FunctionSubscribe<void(Body3D)>>("FunctionSubscribe_V_B3")
         .addFunction("__call", &FunctionSubscribe<void(Body3D)>::call)
@@ -854,21 +871,27 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .endClass();
 
     luabridge::getGlobalNamespace(L)
-        // Mesh::getMaterial hands back a copy, so these stay read-only: a write would look
-        // like it worked and change nothing. Use Mesh::setMaterial.
+        // Mesh::getMaterial hands back a copy, so writing one of these only changes the copy:
+        // the scene sees it once it goes back through Mesh::setMaterial. Each member pointer is
+        // passed twice because LuaBridge's single-argument addProperty installs read_only_error
+        // even for a data member, which left every field here unwritable from Lua.
         .beginClass<Material>("Material")
-        .addProperty("baseColorFactor", &Material::baseColorFactor)
-        .addProperty("metallicFactor", &Material::metallicFactor)
-        .addProperty("roughnessFactor", &Material::roughnessFactor)
-        .addProperty("alphaMode", &Material::alphaMode)
-        .addProperty("alphaCutoff", &Material::alphaCutoff)
-        .addProperty("foliageTransmission", &Material::foliageTransmission)
-        .addProperty("emissiveFactor", &Material::emissiveFactor)
-        .addProperty("baseColorTexture", &Material::baseColorTexture)
-        .addProperty("emissiveTexture", &Material::emissiveTexture)
-        .addProperty("metallicRoughnessTexture", &Material::metallicRoughnessTexture)
-        .addProperty("occlusionTexture", &Material::occlusionTexture)
-        .addProperty("normalTexture", &Material::normalTexture)
+        .addProperty("baseColorFactor", &Material::baseColorFactor, &Material::baseColorFactor)
+        .addProperty("metallicFactor", &Material::metallicFactor, &Material::metallicFactor)
+        .addProperty("roughnessFactor", &Material::roughnessFactor, &Material::roughnessFactor)
+        .addProperty("alphaMode", &Material::alphaMode, &Material::alphaMode)
+        .addProperty("alphaCutoff", &Material::alphaCutoff, &Material::alphaCutoff)
+        .addProperty("foliageTransmission", &Material::foliageTransmission, &Material::foliageTransmission)
+        .addProperty("emissiveFactor", &Material::emissiveFactor, &Material::emissiveFactor)
+        .addProperty("baseColorTexture", &Material::baseColorTexture, &Material::baseColorTexture)
+        .addProperty("emissiveTexture", &Material::emissiveTexture, &Material::emissiveTexture)
+        .addProperty("metallicRoughnessTexture", &Material::metallicRoughnessTexture, &Material::metallicRoughnessTexture)
+        .addProperty("occlusionTexture", &Material::occlusionTexture, &Material::occlusionTexture)
+        .addProperty("normalTexture", &Material::normalTexture, &Material::normalTexture)
+        .addProperty("heightTexture", &Material::heightTexture, &Material::heightTexture)
+        .addProperty("heightScale", &Material::heightScale, &Material::heightScale)
+        .addProperty("heightMinLayers", &Material::heightMinLayers, &Material::heightMinLayers)
+        .addProperty("heightMaxLayers", &Material::heightMaxLayers, &Material::heightMaxLayers)
         .endClass();
 
     luabridge::getGlobalNamespace(L)
@@ -908,6 +931,7 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("createSystemEntity", &EntityRegistry::createSystemEntity)
         .addFunction("recreateEntity", &EntityRegistry::recreateEntity)
         .addFunction("isEntityCreated", &EntityRegistry::isEntityCreated)
+        .addFunction("getEntityGeneration", &EntityRegistry::getEntityGeneration)
         .addFunction("destroyEntity", &EntityRegistry::destroyEntity)
         .addFunction("setEntityName", &EntityRegistry::setEntityName)
         .addFunction("getEntityName", &EntityRegistry::getEntityName)
@@ -950,6 +974,11 @@ void LuaBinding::registerCoreClasses(lua_State *L){
             luabridge::overload<float, float, float>(&Scene::setBackgroundColor),
             luabridge::overload<float, float, float, float>(&Scene::setBackgroundColor))
         .addProperty("shadowQuality", &Scene::getShadowQuality, &Scene::setShadowQuality)
+        // the scene's own fog, live: writing a field here is what a day-night script needs,
+        // because the classic fog and the height fog / shafts read the same density
+        .addFunction("getFog", [] (Scene* self) -> FogComponent* {
+            return self->findComponentFromIndex<FogComponent>(0);
+        })
         .addProperty("lightState", &Scene::getLightState, &Scene::setLightState)
         .addProperty("globalIlluminationColor", &Scene::getGlobalIlluminationColor, (void (Scene::*)(Vector3))&Scene::setGlobalIllumination)
         .addProperty("globalIlluminationIntensity", &Scene::getGlobalIlluminationIntensity, (void (Scene::*)(float))&Scene::setGlobalIllumination)
@@ -976,10 +1005,33 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addProperty("ssaoRadius", &Scene::getSSAORadius, &Scene::setSSAORadius)
         .addProperty("ssaoIntensity", &Scene::getSSAOIntensity, &Scene::setSSAOIntensity)
         .addProperty("ssaoBias", &Scene::getSSAOBias, &Scene::setSSAOBias)
+        .addProperty("contactShadowsEnabled", &Scene::isContactShadowsEnabled, &Scene::setContactShadowsEnabled)
+        .addProperty("contactShadowLength", &Scene::getContactShadowLength, &Scene::setContactShadowLength)
+        .addProperty("contactShadowSteps", &Scene::getContactShadowSteps, &Scene::setContactShadowSteps)
+        .addProperty("contactShadowThickness", &Scene::getContactShadowThickness, &Scene::setContactShadowThickness)
+        .addProperty("contactShadowIntensity", &Scene::getContactShadowIntensity, &Scene::setContactShadowIntensity)
+        .addProperty("ssgiEnabled", &Scene::isSSGIEnabled, &Scene::setSSGIEnabled)
+        .addProperty("ssgiRadius", &Scene::getSSGIRadius, &Scene::setSSGIRadius)
+        .addProperty("ssgiIntensity", &Scene::getSSGIIntensity, &Scene::setSSGIIntensity)
+        .addProperty("ssgiSteps", &Scene::getSSGISteps, &Scene::setSSGISteps)
+        .addProperty("ssgiThickness", &Scene::getSSGIThickness, &Scene::setSSGIThickness)
         .addProperty("meshLodEnabled", &Scene::isMeshLodEnabled, &Scene::setMeshLodEnabled)
         .addProperty("meshLodThreshold", &Scene::getMeshLodThreshold, &Scene::setMeshLodThreshold)
         .addProperty("depthPrepassEnabled", &Scene::isDepthPrepassEnabled, &Scene::setDepthPrepassEnabled)
+        .addProperty("renderDistance", &Scene::getRenderDistance, &Scene::setRenderDistance)
+        .addProperty("renderDistanceOverride", &Scene::getRenderDistanceOverride, &Scene::setRenderDistanceOverride)
+        .addFunction("getEffectiveRenderDistance", &Scene::getEffectiveRenderDistance)
+        .addProperty("windEnabled", &Scene::isWindEnabled, &Scene::setWindEnabled)
+        .addProperty("windSpeed", &Scene::getWindSpeed, &Scene::setWindSpeed)
+        .addProperty("windDirection", &Scene::getWindDirection, &Scene::setWindDirection)
+        .addProperty("windGustiness", &Scene::getWindGustiness, &Scene::setWindGustiness)
+        .addProperty("windChange", &Scene::getWindChange, &Scene::setWindChange)
         .addProperty("ssaoDebug", &Scene::isSSAODebug, &Scene::setSSAODebug)
+        .addProperty("dofEnabled", &Scene::isDOFEnabled, &Scene::setDOFEnabled)
+        .addProperty("dofFocusDistance", &Scene::getDOFFocusDistance, &Scene::setDOFFocusDistance)
+        .addProperty("dofAperture", &Scene::getDOFAperture, &Scene::setDOFAperture)
+        .addProperty("dofFocusRange", &Scene::getDOFFocusRange, &Scene::setDOFFocusRange)
+        .addProperty("dofMaxBlur", &Scene::getDOFMaxBlur, &Scene::setDOFMaxBlur)
         .addProperty("ssrEnabled", &Scene::isSSREnabled, &Scene::setSSREnabled)
         .addProperty("ssrMaxDistance", &Scene::getSSRMaxDistance, &Scene::setSSRMaxDistance)
         .addProperty("ssrThickness", &Scene::getSSRThickness, &Scene::setSSRThickness)
@@ -992,6 +1044,30 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addProperty("fixedResolutionHeight", &Scene::getFixedResolutionHeight, &Scene::setFixedResolutionHeight)
         .addProperty("fixedResolutionFilter", &Scene::getFixedResolutionFilter, &Scene::setFixedResolutionFilter)
         .addFunction("setFixedResolutionSize", &Scene::setFixedResolutionSize)
+        .addProperty("bloomEnabled", &Scene::isBloomEnabled, &Scene::setBloomEnabled)
+        .addProperty("bloomThreshold", &Scene::getBloomThreshold, &Scene::setBloomThreshold)
+        .addProperty("bloomSoftKnee", &Scene::getBloomSoftKnee, &Scene::setBloomSoftKnee)
+        .addProperty("bloomIntensity", &Scene::getBloomIntensity, &Scene::setBloomIntensity)
+        .addProperty("bloomDirtIntensity", &Scene::getBloomDirtIntensity, &Scene::setBloomDirtIntensity)
+        .addProperty("bloomLevels", &Scene::getBloomLevels, &Scene::setBloomLevels)
+        .addProperty("tonemapEnabled", &Scene::isTonemapEnabled, &Scene::setTonemapEnabled)
+        .addProperty("tonemapMode", &Scene::getTonemapMode, &Scene::setTonemapMode)
+        .addProperty("exposure", &Scene::getExposure, &Scene::setExposure)
+        .addProperty("autoExposureEnabled", &Scene::isAutoExposureEnabled, &Scene::setAutoExposureEnabled)
+        .addProperty("autoExposureSpeed", &Scene::getAutoExposureSpeed, &Scene::setAutoExposureSpeed)
+        .addProperty("autoExposureMinEV", &Scene::getAutoExposureMinEV, &Scene::setAutoExposureMinEV)
+        .addProperty("autoExposureMaxEV", &Scene::getAutoExposureMaxEV, &Scene::setAutoExposureMaxEV)
+        .addProperty("exposureCompensation", &Scene::getExposureCompensation, &Scene::setExposureCompensation)
+        .addProperty("colorGradingEnabled", &Scene::isColorGradingEnabled, &Scene::setColorGradingEnabled)
+        .addProperty("colorGradingSaturation", &Scene::getColorGradingSaturation, &Scene::setColorGradingSaturation)
+        .addProperty("colorGradingContrast", &Scene::getColorGradingContrast, &Scene::setColorGradingContrast)
+        .addProperty("colorGradingBrightness", &Scene::getColorGradingBrightness, &Scene::setColorGradingBrightness)
+        .addProperty("colorGradingHueShift", &Scene::getColorGradingHueShift, &Scene::setColorGradingHueShift)
+        .addProperty("colorGradingTemperature", &Scene::getColorGradingTemperature, &Scene::setColorGradingTemperature)
+        .addProperty("colorGradingTint", &Scene::getColorGradingTint, &Scene::setColorGradingTint)
+        .addProperty("fxaaEnabled", &Scene::isFXAAEnabled, &Scene::setFXAAEnabled)
+        .addProperty("fxaaIntensity", &Scene::getFXAAIntensity, &Scene::setFXAAIntensity)
+        .addProperty("hdrEnabled", &Scene::isHdrEnabled)
         .addProperty("defaultMeshShader", &Scene::getDefaultMeshShader, &Scene::setDefaultMeshShader)
         .addProperty("defaultUIShader", &Scene::getDefaultUIShader, &Scene::setDefaultUIShader)
         .addProperty("defaultSkyShader", &Scene::getDefaultSkyShader, &Scene::setDefaultSkyShader)
@@ -1025,6 +1101,8 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addFunction("getActionSystem", [] (Scene* self, lua_State* L) { return self->getSystem<ActionSystem>().get(); })
         .addFunction("getAudioSystem", [] (Scene* self, lua_State* L) { return self->getSystem<AudioSystem>().get(); })
         .addFunction("getMeshSystem", [] (Scene* self, lua_State* L) { return self->getSystem<MeshSystem>().get(); })
+        .addFunction("getNetworkSystem", [] (Scene* self, lua_State* L) { return self->getSystem<NetworkSystem>().get(); })
+        .addFunction("getInputActionMap", [] (Scene* self, lua_State* L) { return &self->getInputActionMap(); })
         .addFunction("getPhysicsSystem", [] (Scene* self, lua_State* L) { return self->getSystem<PhysicsSystem>().get(); })
         .addFunction("getRenderSystem", [] (Scene* self, lua_State* L) { return self->getSystem<RenderSystem>().get(); })
         .addFunction("getUISystem", [] (Scene* self, lua_State* L) { return self->getSystem<UISystem>().get(); })
@@ -1211,6 +1289,9 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticProperty("GAMEPAD_AXIS_LEFT_TRIGGER", [] () -> int { return D_GAMEPAD_AXIS_LEFT_TRIGGER; })
         .addStaticProperty("GAMEPAD_AXIS_RIGHT_TRIGGER", [] () -> int { return D_GAMEPAD_AXIS_RIGHT_TRIGGER; })
         .addStaticProperty("GAMEPAD_AXIS_LAST", [] () -> int { return D_GAMEPAD_AXIS_LAST; })
+        .addStaticProperty("GESTURE_TAP", [] () -> int { return static_cast<int>(GestureType::Tap); })
+        .addStaticProperty("GESTURE_SWIPE", [] () -> int { return static_cast<int>(GestureType::Swipe); })
+        .addStaticProperty("GESTURE_LONG_PRESS", [] () -> int { return static_cast<int>(GestureType::LongPress); })
 
         .addStaticFunction("isKeyPressed", &Input::isKeyPressed)
         .addStaticFunction("isMousePressed", &Input::isMousePressed)
@@ -1225,11 +1306,42 @@ void LuaBinding::registerCoreClasses(lua_State *L){
         .addStaticFunction("getGamepadName", &Input::getGamepadName)
         .addStaticFunction("isGamepadButtonPressed", &Input::isGamepadButtonPressed)
         .addStaticFunction("getGamepadAxis", &Input::getGamepadAxis)
+        .addStaticFunction("setGamepadVibration", &Input::setGamepadVibration)
+        .addStaticFunction("stopGamepadVibration", &Input::stopGamepadVibration)
         .addStaticFunction("numGamepads", &Input::numGamepads)
         .addStaticFunction("getGamepadId", &Input::getGamepadId)
         .addStaticFunction("getModifiers", &Input::getModifiers)
         .addStaticFunction("findTouchIndex", &Input::findTouchIndex)
         .addStaticFunction("findGamepadIndex", &Input::findGamepadIndex)
+        .endClass();
+
+    luabridge::getGlobalNamespace(L)
+        .beginClass<InputActionMap>("InputActionMap")
+        .addConstructor<void()>()
+        .addFunction("addAction", &InputActionMap::addAction)
+        .addFunction("removeAction", &InputActionMap::removeAction)
+        .addFunction("hasAction", &InputActionMap::hasAction)
+        .addFunction("setContext", &InputActionMap::setContext)
+        .addFunction("isContextEnabled", &InputActionMap::isContextEnabled)
+        .addFunction("clearBindings", &InputActionMap::clearBindings)
+        .addFunction("bindKey", &InputActionMap::bindKey)
+        .addFunction("bindKeyChord", &InputActionMap::bindKeyChord)
+        .addFunction("bindMouseButton", &InputActionMap::bindMouseButton)
+        .addFunction("bindGamepadButton", &InputActionMap::bindGamepadButton)
+        .addFunction("bindGamepadAxis", &InputActionMap::bindGamepadAxis)
+        .addFunction("bindGesture", &InputActionMap::bindGesture)
+        .addFunction("update", &InputActionMap::update)
+        .addFunction("value", &InputActionMap::value)
+        .addFunction("pressed", &InputActionMap::pressed)
+        .addFunction("justPressed", &InputActionMap::justPressed)
+        .addFunction("justReleased", &InputActionMap::justReleased)
+        .addFunction("actionNames", &InputActionMap::actionNames)
+        .addProperty("onActionPressed", [] (InputActionMap* self, lua_State* L) { return &self->onActionPressed; },
+            [] (InputActionMap* self, lua_State* L) { self->onActionPressed = L; })
+        .addProperty("onActionReleased", [] (InputActionMap* self, lua_State* L) { return &self->onActionReleased; },
+            [] (InputActionMap* self, lua_State* L) { self->onActionReleased = L; })
+        .addFunction("saveBindings", &InputActionMap::saveBindings)
+        .addFunction("loadBindings", &InputActionMap::loadBindings)
         .endClass();
 
     luabridge::getGlobalNamespace(L)

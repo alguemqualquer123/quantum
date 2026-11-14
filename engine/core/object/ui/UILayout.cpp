@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "UILayout.h"
 
 #include "util/Color.h"
 
-using namespace doriax;
+using namespace quantum;
 
 UILayout::UILayout(Scene* scene): Object(scene){
     addComponent<UILayoutComponent>();

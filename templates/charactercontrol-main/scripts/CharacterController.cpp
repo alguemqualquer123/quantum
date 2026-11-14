@@ -9,7 +9,7 @@
 #include <cmath>
 #include <algorithm>
 
-using namespace doriax;
+using namespace quantum;
 
 CharacterController::CharacterController(Scene* scene, Entity entity): ScriptBase(scene, entity) {
     REGISTER_ENGINE_EVENT(onUpdate);

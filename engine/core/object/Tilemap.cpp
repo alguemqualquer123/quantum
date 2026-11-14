@@ -1,10 +1,10 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Tilemap.h"
 #include "subsystem/MeshSystem.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Tilemap::Tilemap(Scene* scene): Mesh(scene){
     addComponent<TilemapComponent>();

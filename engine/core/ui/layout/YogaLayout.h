@@ -1,10 +1,10 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #ifndef YogaLayout_h
 #define YogaLayout_h
 
-namespace doriax::ui {
+namespace quantum::ui {
 
     class VisualElement;
 

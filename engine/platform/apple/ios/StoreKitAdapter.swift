@@ -1,25 +1,25 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 import Foundation
 import StoreKit
 import UIKit
 
-// doriax::ProductType
+// quantum::ProductType
 private let typeInApp: Int32 = 0
 private let typeSubs: Int32 = 1
 
-// doriax::PurchaseState
+// quantum::PurchaseState
 private let stateUnspecified = 0
 private let statePurchased = 1
 private let statePending = 2
 
-// doriax::RecurrenceMode
+// quantum::RecurrenceMode
 private let recurrenceInfinite = 0
 private let recurrenceFinite = 1
 private let recurrenceNone = 2
 
-// doriax::BillingResponse
+// quantum::BillingResponse
 private enum Response: Int32 {
     case serviceDisconnected = -1
     case ok = 0
@@ -93,12 +93,12 @@ private final class Store {
                 }
             }
         }
-        DoriaxStoreKitInitialized(Response.ok.rawValue, "")
+        QuantumStoreKitInitialized(Response.ok.rawValue, "")
     }
 
     func queryProducts(_ productIds: [String], type: Int32) {
         guard initialized else {
-            DoriaxStoreKitProductsQueried(Response.serviceDisconnected.rawValue, notInitialized, "[]")
+            QuantumStoreKitProductsQueried(Response.serviceDisconnected.rawValue, notInitialized, "[]")
             return
         }
 
@@ -107,7 +107,7 @@ private final class Store {
             do {
                 found = try await Product.products(for: productIds)
             } catch {
-                DoriaxStoreKitProductsQueried(response(for: error).rawValue, error.localizedDescription, "[]")
+                QuantumStoreKitProductsQueried(response(for: error).rawValue, error.localizedDescription, "[]")
                 return
             }
 
@@ -131,21 +131,21 @@ private final class Store {
             if !otherType.isEmpty {
                 notes.append((type == typeSubs ? "Not subscriptions: " : "Subscriptions, query them as SUBS: ") + otherType.joined(separator: " "))
             }
-            DoriaxStoreKitProductsQueried(Response.ok.rawValue, notes.joined(separator: ". "), json(list))
+            QuantumStoreKitProductsQueried(Response.ok.rawValue, notes.joined(separator: ". "), json(list))
         }
     }
 
     func purchase(_ productId: String, accountToken: String) {
         guard initialized else {
-            DoriaxStoreKitPurchaseFailed(productId, Response.serviceDisconnected.rawValue, notInitialized)
+            QuantumStoreKitPurchaseFailed(productId, Response.serviceDisconnected.rawValue, notInitialized)
             return
         }
         guard let product = products[productId] else {
-            DoriaxStoreKitPurchaseFailed(productId, Response.itemUnavailable.rawValue, "Query the product with InAppPurchase.queryProducts first")
+            QuantumStoreKitPurchaseFailed(productId, Response.itemUnavailable.rawValue, "Query the product with InAppPurchase.queryProducts first")
             return
         }
         guard AppStore.canMakePayments else {
-            DoriaxStoreKitPurchaseFailed(productId, Response.billingUnavailable.rawValue, "This device is not allowed to make payments")
+            QuantumStoreKitPurchaseFailed(productId, Response.billingUnavailable.rawValue, "This device is not allowed to make payments")
             return
         }
 
@@ -162,18 +162,18 @@ private final class Store {
                     case .verified(let transaction):
                         await report(transaction, jws: result.jwsRepresentation)
                     case .unverified(_, let error):
-                        DoriaxStoreKitPurchaseFailed(productId, Response.fatalError.rawValue, "The App Store could not verify the purchase: " + error.localizedDescription)
+                        QuantumStoreKitPurchaseFailed(productId, Response.fatalError.rawValue, "The App Store could not verify the purchase: " + error.localizedDescription)
                     }
                 case .pending:
                     // Ask to Buy: the transaction comes as an update once approved
-                    DoriaxStoreKitPurchaseUpdated(json(pendingJson(product)))
+                    QuantumStoreKitPurchaseUpdated(json(pendingJson(product)))
                 case .userCancelled:
-                    DoriaxStoreKitPurchaseFailed(productId, Response.userCanceled.rawValue, "")
+                    QuantumStoreKitPurchaseFailed(productId, Response.userCanceled.rawValue, "")
                 @unknown default:
-                    DoriaxStoreKitPurchaseFailed(productId, Response.fatalError.rawValue, "Unknown purchase result")
+                    QuantumStoreKitPurchaseFailed(productId, Response.fatalError.rawValue, "Unknown purchase result")
                 }
             } catch {
-                DoriaxStoreKitPurchaseFailed(productId, response(for: error).rawValue, error.localizedDescription)
+                QuantumStoreKitPurchaseFailed(productId, response(for: error).rawValue, error.localizedDescription)
             }
         }
     }
@@ -232,20 +232,20 @@ private final class Store {
 
     func queryPurchases(_ type: Int32) {
         guard initialized else {
-            DoriaxStoreKitPurchasesQueried(type, Response.serviceDisconnected.rawValue, notInitialized, "[]")
+            QuantumStoreKitPurchasesQueried(type, Response.serviceDisconnected.rawValue, notInitialized, "[]")
             return
         }
 
         Task {
             let list = await ownedPurchases(type)
-            DoriaxStoreKitPurchasesQueried(type, Response.ok.rawValue, "", json(list))
+            QuantumStoreKitPurchasesQueried(type, Response.ok.rawValue, "", json(list))
         }
     }
 
     func restorePurchases() {
         guard initialized else {
             for type in [typeInApp, typeSubs] {
-                DoriaxStoreKitPurchasesQueried(type, Response.serviceDisconnected.rawValue, notInitialized, "[]")
+                QuantumStoreKitPurchasesQueried(type, Response.serviceDisconnected.rawValue, notInitialized, "[]")
             }
             return
         }
@@ -256,13 +256,13 @@ private final class Store {
                 try await AppStore.sync()
             } catch {
                 for type in [typeInApp, typeSubs] {
-                    DoriaxStoreKitPurchasesQueried(type, response(for: error).rawValue, error.localizedDescription, "[]")
+                    QuantumStoreKitPurchasesQueried(type, response(for: error).rawValue, error.localizedDescription, "[]")
                 }
                 return
             }
             for type in [typeInApp, typeSubs] {
                 let list = await ownedPurchases(type)
-                DoriaxStoreKitPurchasesQueried(type, Response.ok.rawValue, "", json(list))
+                QuantumStoreKitPurchasesQueried(type, Response.ok.rawValue, "", json(list))
             }
         }
     }
@@ -317,7 +317,7 @@ private final class Store {
         // refunded or no longer shared by the family
         if transaction.revocationDate != nil {
             await transaction.finish()
-            DoriaxStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: result.jwsRepresentation, state: stateUnspecified, acknowledged: true)))
+            QuantumStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: result.jwsRepresentation, state: stateUnspecified, acknowledged: true)))
             return
         }
         await report(transaction, jws: result.jwsRepresentation)
@@ -346,11 +346,11 @@ private final class Store {
             await report(entitled.transaction, jws: entitled.jws)
         } else if let onHold, case .verified(let latest) = onHold.transaction {
             // on hold for a payment problem
-            DoriaxStoreKitPurchaseUpdated(json(purchaseJson(latest, jws: onHold.transaction.jwsRepresentation, state: statePurchased,
+            QuantumStoreKitPurchaseUpdated(json(purchaseJson(latest, jws: onHold.transaction.jwsRepresentation, state: statePurchased,
                 acknowledged: false, autoRenewing: willAutoRenew(onHold), suspended: true)))
         } else {
             // expired or refunded
-            DoriaxStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: jws, state: stateUnspecified, acknowledged: true)))
+            QuantumStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: jws, state: stateUnspecified, acknowledged: true)))
         }
     }
 
@@ -363,7 +363,7 @@ private final class Store {
             autoRenewing = status.map(willAutoRenew) ?? true
             suspended = status?.state == .inBillingRetryPeriod
         }
-        DoriaxStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: jws, state: statePurchased, acknowledged: false,
+        QuantumStoreKitPurchaseUpdated(json(purchaseJson(transaction, jws: jws, state: statePurchased, acknowledged: false,
             autoRenewing: autoRenewing, suspended: suspended)))
     }
 
@@ -548,9 +548,9 @@ private func response(for error: Error) -> Response {
 
 private func answerFinish(_ purchaseToken: String, consume: Bool, _ response: Response, _ message: String) {
     if consume {
-        DoriaxStoreKitPurchaseConsumed(purchaseToken, response.rawValue, message)
+        QuantumStoreKitPurchaseConsumed(purchaseToken, response.rawValue, message)
     } else {
-        DoriaxStoreKitPurchaseAcknowledged(purchaseToken, response.rawValue, message)
+        QuantumStoreKitPurchaseAcknowledged(purchaseToken, response.rawValue, message)
     }
 }
 
@@ -574,5 +574,5 @@ private func json(_ value: Any) -> String {
 }
 
 private func warn(_ message: String) {
-    NSLog("Doriax: %@", message)
+    NSLog("Quantum: %@", message)
 }

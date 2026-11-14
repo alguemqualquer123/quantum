@@ -1,11 +1,11 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "MeshChangeCmd.h"
 
 #include "Stream.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::MeshChangeCmd::MeshChangeCmd(Project* project, uint32_t sceneId, Entity entity, MeshComponent mesh){
     this->project = project;

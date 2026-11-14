@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SokolSystem.h"
@@ -6,6 +6,8 @@
 #include "System.h"
 #include "sokol_gfx.h"
 #include "SokolCmdQueue.h"
+#include "SokolObject.h"
+#include "SokolBuffer.h"
 #include "Engine.h"
 #include "Log.h"
 
@@ -21,7 +23,7 @@
 // commit_commands() when you're done for the frame
 // flush_commands() on termination, before exiting the thread
 
-using namespace doriax;
+using namespace quantum;
 
 // release sokol passes no message, the item name still says what failed
 #define _SG_LOGITEM_XMACRO(item, msg) #item,
@@ -61,7 +63,10 @@ void sokol_log(const char* tag,                // e.g. 'sg'
 void SokolSystem::setup(){
     /* setup sokol_gfx */
     sg_desc desc = {0};
-    desc.buffer_pool_size = 8192; //default: 128
+    // A mesh keeps its own vertex and index buffer, so this pool - not memory - is what caps the
+    // mesh count of a scene (16384 slots is a little over 8000 meshes). The pipeline pool below is
+    // no longer the limit now that pipelines are shared by layout and state (SokolObject.cpp).
+    desc.buffer_pool_size = 16384; //default: 128
     desc.image_pool_size = 2048; //default: 128
     desc.sampler_pool_size = 2048; //default: 64
     desc.view_pool_size = 4096; //default: 256 (texture, storage-buffer and attachment views)
@@ -91,6 +96,9 @@ void SokolSystem::shutdown(){
     SokolCmdQueue::flush_commands();
     SokolCmdQueue::wait_for_flush();
     SokolCmdQueue::finish();
+    // the ids a new context hands out are the ones the cache already stored
+    SokolObject::clearPipelineCache();
+    SokolBuffer::clearSharedBuffers();
     sg_shutdown();
 }
 

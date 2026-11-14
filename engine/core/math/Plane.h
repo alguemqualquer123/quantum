@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef Plane_h
@@ -7,11 +7,11 @@
 #include "Vector3.h"
 #include "AABB.h"
 
-namespace doriax{
+namespace quantum{
 
     class OBB;
     
-    class DORIAX_API Plane{
+    class QUANTUM_API Plane{
 
     public:
 

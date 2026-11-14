@@ -1,4 +1,4 @@
-// (c) Eduardo Doria
+// (c) SR VINIX
 // SPDX-License-Identifier: MIT
 
 #include "slate/widgets/Label.h"
@@ -8,7 +8,7 @@
 
 #include "slate/core/TextRenderer.h"
 
-namespace doriax::slate {
+namespace quantum::slate {
 
     namespace {
         //The engine has no font file path to fall back on: the default face is the
@@ -33,6 +33,8 @@ namespace doriax::slate {
 
     Label::Label() : Label(std::string()) {
     }
+
+    const char* Label::getTypeName() const { return "Label"; }
 
     Label::Label(std::string labelId) : Widget(std::move(labelId)),
         hasWrapOverride(false),

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ImageViewerWindow.h"
@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <cmath>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ImageViewerWindow::ImageViewerWindow(Project* project) : project(project) {
 }

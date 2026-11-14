@@ -1,6 +1,6 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
-// doriax::System over WindowWin. It keeps no state of its own, so the editor
+// quantum::System over WindowWin. It keeps no state of its own, so the editor
 // driving WindowWin directly and a game going through here stay in agreement.
 
 #ifndef SystemWin_h
@@ -8,7 +8,7 @@
 
 #include "System.h"
 
-namespace doriax {
+namespace quantum {
 
     class WinInputRouter;
 
@@ -23,6 +23,8 @@ namespace doriax {
         int getScreenHeight() override;
 
         int getSampleCount() override;
+
+        bool readBackFramebuffer(unsigned char* out, int width, int height) override;
 
 #if defined(SOKOL_VULKAN) || defined(SOKOL_D3D11)
         // The GL backend renders into the default framebuffer, which the base
@@ -43,6 +45,7 @@ namespace doriax {
         bool isWindowResizable() override;
         void setWindowResizable(bool resizable) override;
         void setWindowTitle(const std::string& title) override;
+        bool hasFocus() override;
         void quit() override;
 
         void setMouseCursor(CursorType type) override;

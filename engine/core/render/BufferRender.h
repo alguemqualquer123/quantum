@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef BufferRender_h
@@ -7,8 +7,8 @@
 #include "Render.h"
 #include "sokol/SokolBuffer.h"
 
-namespace doriax{
-    class DORIAX_API BufferRender{
+namespace quantum{
+    class QUANTUM_API BufferRender{
 
     public:
         //***Backend***

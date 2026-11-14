@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ForkShaderCmd.h"
@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ForkShaderCmd::ForkShaderCmd(Project* project, uint32_t sceneId, Entity entity, ComponentType cpType,
                                      ShaderType shaderType, const std::filesystem::path& targetDirRel,

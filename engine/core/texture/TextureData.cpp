@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef RESIZE_WITH_STB
@@ -26,7 +26,7 @@
 #include "Log.h"
 #include "Texture.h"
 
-using namespace doriax;
+using namespace quantum;
 
 bool TextureData::hasSvgExtension(const char* filename) {
     if (!filename) {
@@ -451,7 +451,7 @@ bool TextureData::loadCubeMapFromSingleFile(const char* filename, std::array<Tex
         return true;
     };
 
-    // Using DORIAX convention:
+    // Using QUANTUM convention:
     // Right (+X)
     const bool facesOk = extractFace(0, right[0], right[1])
         // Left (-X)

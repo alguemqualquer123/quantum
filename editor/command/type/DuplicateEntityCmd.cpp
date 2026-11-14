@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "DuplicateEntityCmd.h"
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::DuplicateEntityCmd::DuplicateEntityCmd(Project* project, uint32_t sceneId, const std::vector<Entity>& entities){
     this->project = project;

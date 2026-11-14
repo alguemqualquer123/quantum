@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Sound.h"
@@ -7,10 +7,11 @@
 
 #include "Log.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 
-using namespace doriax;
+using namespace quantum;
 
 Sound::Sound(Scene* scene): EntityHandle(scene){
     addComponent<SoundComponent>();
@@ -337,4 +338,37 @@ float Sound::getDopplerFactor() const{
     SoundComponent& audio = getComponent<SoundComponent>();
 
     return audio.dopplerFactor;
+}
+
+void Sound::setOcclusionEnabled(bool enabled){
+    SoundComponent& audio = getComponent<SoundComponent>();
+    audio.occlusionEnabled = enabled;
+    audio.occlusionElapsed = 0.0f;
+    audio.needUpdate = true;
+}
+
+bool Sound::isOcclusionEnabled() const{
+    return getComponent<SoundComponent>().occlusionEnabled;
+}
+
+void Sound::setOcclusionVolume(float volume){
+    SoundComponent& audio = getComponent<SoundComponent>();
+    audio.occlusionVolume = std::clamp(volume, 0.0f, 1.0f);
+}
+
+float Sound::getOcclusionVolume() const{
+    return getComponent<SoundComponent>().occlusionVolume;
+}
+
+void Sound::setOcclusionUpdateInterval(float seconds){
+    SoundComponent& audio = getComponent<SoundComponent>();
+    audio.occlusionUpdateInterval = std::max(0.0f, seconds);
+}
+
+float Sound::getOcclusionUpdateInterval() const{
+    return getComponent<SoundComponent>().occlusionUpdateInterval;
+}
+
+float Sound::getOcclusionGain() const{
+    return getComponent<SoundComponent>().occlusionGain;
 }

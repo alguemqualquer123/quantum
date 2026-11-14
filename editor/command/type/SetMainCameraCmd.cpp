@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SetMainCameraCmd.h"
 
-using namespace doriax;
+using namespace quantum;
 
 editor::SetMainCameraCmd::SetMainCameraCmd(Project* project, uint32_t sceneId, Entity newMainCamera){
     this->project = project;

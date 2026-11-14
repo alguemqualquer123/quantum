@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef STBText_h
@@ -22,11 +22,11 @@ struct hb_blob_t;
 struct hb_face_t;
 struct hb_font_t;
 
-namespace doriax {
+namespace quantum {
 
     //glyph atlas of a font in a single size, plus the fonts it falls back to. The whole
     //chain shares one atlas, so mixed scripts stay a single texture
-    class DORIAX_API STBText {
+    class QUANTUM_API STBText {
 
     private:
 

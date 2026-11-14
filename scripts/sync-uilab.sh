@@ -2,21 +2,21 @@
 # UILab vendor sync (libs/uilab).
 #
 # The vendored copy is pristine upstream sources + the patch series under
-# libs/uilab/doriax-patches. Upstream is https://github.com/alguemqualquer123/
+# libs/uilab/quantum-patches. Upstream is https://github.com/alguemqualquer123/
 # UniversalUIComponentsLab and the scratch clone used as the diff base lives in
 # build/uilab-upstream (git-ignored, never committed).
 #
 #   scripts/sync-uilab.sh regen                 # after editing libs/uilab: rewrite the patches
 #   scripts/sync-uilab.sh sync <sha|branch>     # take a new upstream revision, re-apply the patches
 #
-# third_party/ (Dear ImGui + GLFW) is not vendored: doriax builds ImGui itself and
-# hands it to the library through the doriax_imgui target.
+# third_party/ (Dear ImGui + GLFW) is not vendored: quantum builds ImGui itself and
+# hands it to the library through the quantum_imgui target.
 set -e
 cd "$(dirname "$0")/.."
 
 VENDOR=libs/uilab
 UPSTREAM=build/uilab-upstream
-PATCH_DIR=$VENDOR/doriax-patches
+PATCH_DIR=$VENDOR/quantum-patches
 REPO=https://github.com/alguemqualquer123/UniversalUIComponentsLab
 
 if [ ! -d "$UPSTREAM/.git" ]; then
@@ -43,7 +43,7 @@ regen)
     done
     if [ "$i" = 0 ]; then echo "no differences against $UPSTREAM"; fi
 
-    # Files doriax added to the library (a new seam header, say). sync copies the
+    # Files quantum added to the library (a new seam header, say). sync copies the
     # pristine src/ tree over the vendored one, so these must come back as patches
     # that create the file.
     for f in $(cd "$VENDOR" && find src cmake -type f 2>/dev/null | sort); do

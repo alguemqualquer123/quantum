@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "product": "Quantum",
+  "version": "@QUANTUMEDITOR_VERSION@",
+  "packageVersion": "@QUANTUM_PACKAGE_VERSION@",
+  "channel": "@QUANTUM_RELEASE_CHANNEL@",
+  "platform": "@QUANTUM_PACKAGE_PLATFORM@",
+  "architecture": "@QUANTUM_PACKAGE_ARCH@",
+  "graphicBackend": "@GRAPHIC_BACKEND@",
+  "buildType": "@CMAKE_BUILD_TYPE@"
+}

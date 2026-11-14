@@ -1,7 +1,12 @@
 #version 450
 
-// DOF Composite: combines sharp and blurred layers based on CoC
-// Applies the depth of field effect to the scene
+// DOF composite: mixes the sharp scene color with the twice-blurred copy by the circle of
+// confusion, and is the stage that presents the frame when nothing runs after it. Like
+// fxaa.frag it only flips its lookups when it draws into the swapchain on GL - the three
+// inputs are all offscreen textures in scene-color space.
+//
+// The vignette that used to live here is not depth of field and has its own pass type
+// (ShaderType::VIGNETTE); it was dropped rather than smuggled in behind a DOF setting.
 
 in vec2 v_texcoord;
 out vec4 frag_color;
@@ -9,47 +14,30 @@ out vec4 frag_color;
 uniform texture2D u_sceneColorTexture;
 uniform sampler u_sceneColor_smp;
 
-uniform texture2D u_blurTexture;
-uniform sampler u_blur_smp;
+uniform texture2D u_dofTexture; // the vertically blurred image
+uniform sampler u_dof_smp;
 
-uniform texture2D u_depthTexture; // CoC texture
+uniform texture2D u_depthTexture; // the CoC texture
 uniform sampler u_depth_smp;
 
 uniform u_fs_dofCompositeParams {
-    vec4 params; // x = blendSharpness, y = vignetteIntensity, z = vignetteFalloff, w = unused
-} dofCompositeParams;
+    vec4 params; // x = flip for a swapchain draw, y = intensity, z = far-field bias, w = unused
+} dofComposite;
 
 void main(){
-    float sharpness = dofCompositeParams.params.x;
-
-    // Sample sharp scene
-    vec3 sharpColor = texture(sampler2D(u_sceneColorTexture, u_sceneColor_smp), v_texcoord).rgb;
-
-    // Sample blurred scene
-    vec3 blurColor = texture(sampler2D(u_blurTexture, u_blur_smp), v_texcoord).rgb;
-
-    // Sample CoC
-    float coc = texture(sampler2D(u_depthTexture, u_depth_smp), v_texcoord).r;
-
-    // Blend based on CoC with sharpness control
-    float blendFactor = smoothstep(0.0, 1.0, coc);
-
-    // Apply sharpness to near field
-    if (coc > 0.0){
-        blendFactor = max(blendFactor, sharpness * coc);
+    vec2 uv = v_texcoord;
+    if (dofComposite.params.x > 0.5) {
+        uv.y = 1.0 - uv.y;
     }
 
-    vec3 result = mix(sharpColor, blurColor, blendFactor);
+    vec3 sharpColor = textureLod(sampler2D(u_sceneColorTexture, u_sceneColor_smp), uv, 0.0).rgb;
+    vec3 blurColor = textureLod(sampler2D(u_dofTexture, u_dof_smp), uv, 0.0).rgb;
+    float coc = textureLod(sampler2D(u_depthTexture, u_depth_smp), uv, 0.0).r;
 
-    // Optional vignette for DOF
-    float vignetteIntensity = dofCompositeParams.params.y;
-    float vignetteFalloff = dofCompositeParams.params.z;
-    if (vignetteIntensity > 0.0){
-        vec2 uv = v_texcoord * 2.0 - 1.0;
-        float vignette = 1.0 - dot(uv, uv) * vignetteIntensity;
-        vignette = smoothstep(0.0, vignetteFalloff, vignette);
-        result *= vignette;
-    }
+    // The blur reaches full strength one max-CoC away from focus; the far-field bias lifts
+    // the near side of that curve so background blur shows up before the eye distance is
+    // at its cap (a flat mix makes distant backgrounds look untouched at small apertures).
+    float blend = clamp(coc + coc * coc * dofComposite.params.z, 0.0, 1.0) * dofComposite.params.y;
 
-    frag_color = vec4(result, 1.0);
+    frag_color = vec4(mix(sharpColor, blurColor, blend), 1.0);
 }

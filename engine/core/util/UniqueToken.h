@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef UNIQUETOKEN_H
@@ -7,9 +7,9 @@
 #include "Export.h"
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
-    class DORIAX_API UniqueToken {
+    class QUANTUM_API UniqueToken {
     private:
         static int id;
 

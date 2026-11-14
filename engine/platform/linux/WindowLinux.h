@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 // The X11 window, shared by the editor and by exported games: the display
 // connection, the window, the _NET_WM_STATE round trips behind fullscreen and
@@ -18,13 +18,13 @@
 #include <functional>
 #include <string>
 
-namespace doriax {
+namespace quantum {
 
     struct WindowLinuxConfig {
-        std::string title = "Doriax";
+        std::string title = "Quantum";
         // WM_CLASS. Desktop environments match it against an installed
         // <app_id>.desktop entry, which is where the window icon comes from.
-        std::string appId = "Doriax";
+        std::string appId = "Quantum";
         int width = 960;
         int height = 540;
         bool resizable = true;

@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace doriax::editor {
+namespace quantum::editor {
 
     enum class ScriptEventSource {
         Engine,
@@ -26,7 +26,7 @@ namespace doriax::editor {
     };
 
     struct ScriptEventParam {
-        const char* type; // engine types without the doriax namespace
+        const char* type; // engine types without the quantum namespace
         const char* name;
     };
 

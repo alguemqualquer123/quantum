@@ -1,12 +1,16 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ResourcesWindow.h"
 #include "util/BidiText.h"
 
 #include "ImageViewerWindow.h"
+#include "graph/GraphEditorWindow.h"
+#include "graph/GraphSerializerYaml.h"
 
 #include "AppSettings.h"
+#include "EditorHost.h"
+#include "Out.h"
 #include "external/IconsFontAwesome6.h"
 #include "resources/icons/folder-icon_png.h"
 #include "resources/icons/file-icon_png.h"
@@ -34,6 +38,7 @@
 #include "Stream.h"
 #include "Log.h"
 #include "subsystem/MeshSystem.h"
+#include "subsystem/AudioSystem.h"
 #include "util/FileDialogs.h"
 #include "util/FileUtils.h"
 #include "util/SHA1.h"
@@ -42,6 +47,8 @@
 #include "util/EntityPayload.h"
 
 #include "imgui_internal.h"
+#include "soloud.h"
+#include "soloud_wav.h"
 
 #include <fstream>
 #include <sstream>
@@ -50,10 +57,109 @@
 #include <mutex>
 #include <atomic>
 #include <algorithm>
+#include <cstring>
 #include "stb_image_write.h"
 #include "stb_image_resize2.h"
 
-using namespace doriax;
+using namespace quantum;
+
+namespace {
+    uint32_t readWaveformUInt32(const unsigned char* data) {
+        return static_cast<uint32_t>(data[0]) |
+               (static_cast<uint32_t>(data[1]) << 8) |
+               (static_cast<uint32_t>(data[2]) << 16) |
+               (static_cast<uint32_t>(data[3]) << 24);
+    }
+
+    uint16_t readWaveformUInt16(const unsigned char* data) {
+        return static_cast<uint16_t>(data[0]) |
+               (static_cast<uint16_t>(data[1]) << 8);
+    }
+
+    std::string formatAudioTime(double seconds) {
+        const int totalSeconds = std::max(0, static_cast<int>(seconds));
+        return std::to_string(totalSeconds / 60) + ":" +
+               (totalSeconds % 60 < 10 ? "0" : "") + std::to_string(totalSeconds % 60);
+    }
+}
+
+std::vector<float> editor::ResourcesWindow::loadWaveform(const fs::path& filePath, size_t sampleCount) {
+    std::ifstream stream(filePath, std::ios::binary);
+    if (!stream) {
+        return {};
+    }
+
+    std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+    if (bytes.size() < 44 || std::memcmp(bytes.data(), "RIFF", 4) != 0 ||
+        std::memcmp(bytes.data() + 8, "WAVE", 4) != 0) {
+        return {};
+    }
+
+    uint16_t channels = 0;
+    uint16_t bitsPerSample = 0;
+    size_t dataOffset = 0;
+    size_t dataSize = 0;
+    size_t offset = 12;
+    while (offset + 8 <= bytes.size()) {
+        const unsigned char* chunk = bytes.data() + offset;
+        const uint32_t chunkSize = readWaveformUInt32(chunk + 4);
+        const size_t chunkData = offset + 8;
+        if (chunkData > bytes.size() || chunkSize > bytes.size() - chunkData) {
+            break;
+        }
+        if (std::memcmp(chunk, "fmt ", 4) == 0 && chunkSize >= 16) {
+            channels = readWaveformUInt16(bytes.data() + chunkData + 2);
+            bitsPerSample = readWaveformUInt16(bytes.data() + chunkData + 14);
+        } else if (std::memcmp(chunk, "data", 4) == 0) {
+            dataOffset = chunkData;
+            dataSize = chunkSize;
+            break;
+        }
+        offset = chunkData + chunkSize + (chunkSize & 1u);
+    }
+
+    if (channels == 0 || dataOffset == 0 || dataSize == 0 ||
+        (bitsPerSample != 8 && bitsPerSample != 16 && bitsPerSample != 24 && bitsPerSample != 32)) {
+        return {};
+    }
+
+    const size_t bytesPerSample = static_cast<size_t>(bitsPerSample / 8) * channels;
+    const size_t frameCount = dataSize / bytesPerSample;
+    if (frameCount == 0) {
+        return {};
+    }
+
+    const size_t bucketCount = std::max<size_t>(1, std::min(sampleCount, frameCount));
+    std::vector<float> waveform(bucketCount, 0.0f);
+    for (size_t bucket = 0; bucket < bucketCount; bucket++) {
+        const size_t firstFrame = bucket * frameCount / bucketCount;
+        const size_t lastFrame = std::max(firstFrame + 1, (bucket + 1) * frameCount / bucketCount);
+        float peak = 0.0f;
+        for (size_t frame = firstFrame; frame < std::min(lastFrame, frameCount); frame++) {
+            const unsigned char* sample = bytes.data() + dataOffset + frame * bytesPerSample;
+            for (uint16_t channel = 0; channel < channels; channel++) {
+                const unsigned char* value = sample + channel * (bitsPerSample / 8);
+                float amplitude = 0.0f;
+                if (bitsPerSample == 8) {
+                    amplitude = (static_cast<float>(*value) - 128.0f) / 128.0f;
+                } else if (bitsPerSample == 16) {
+                    amplitude = static_cast<float>(static_cast<int16_t>(readWaveformUInt16(value))) / 32768.0f;
+                } else if (bitsPerSample == 24) {
+                    int32_t signedValue = static_cast<int32_t>(value[0]) |
+                                          (static_cast<int32_t>(value[1]) << 8) |
+                                          (static_cast<int32_t>(value[2]) << 16);
+                    if (signedValue & 0x00800000) signedValue |= ~0x00FFFFFF;
+                    amplitude = static_cast<float>(signedValue) / 8388608.0f;
+                } else {
+                    amplitude = static_cast<float>(static_cast<int32_t>(readWaveformUInt32(value))) / 2147483648.0f;
+                }
+                peak = std::max(peak, std::abs(amplitude));
+            }
+        }
+        waveform[bucket] = ImClamp(peak, 0.02f, 1.0f);
+    }
+    return waveform;
+}
 
 unsigned char editor::ResourcesWindow::textureByteAt(TextureData& data, size_t pixel, int channel, int bytesPerChannel) {
     if (bytesPerChannel == 2) {
@@ -174,17 +280,211 @@ editor::ResourcesWindow::ResourcesWindow(Project* project, CodeEditor* codeEdito
     this->showDeleteConfirmation = false;
     this->stopThumbnailThread = false;
     memset(this->nameBuffer, 0, sizeof(this->nameBuffer));
+    memset(this->filterBuffer, 0, sizeof(this->filterBuffer));
 
+    scanAlive = std::make_shared<std::atomic<bool>>(true);
+    scanThread = std::thread(&ResourcesWindow::scanWorker, this);
     thumbnailThread = std::thread(&ResourcesWindow::thumbnailWorker, this);
 }
 
+void editor::ResourcesWindow::stopAudioPreview(bool unload) {
+    if (audioPreviewHandle != 0) {
+        AudioSystem::getSoloud().stop(audioPreviewHandle);
+    }
+    audioPreviewHandle = 0;
+    audioPreviewPlaying = false;
+    audioPreviewTime = 0.0;
+    if (unload) {
+        audioPreviewSample.reset();
+        audioPreviewPath.clear();
+        audioPreviewWaveform.clear();
+        audioPreviewLength = 0.0;
+        audioPreviewError.clear();
+    }
+}
+
+void editor::ResourcesWindow::openAudioPreview(const fs::path& filePath) {
+    stopAudioPreview();
+    audioPreviewPath = filePath;
+    audioPreviewSample = std::make_shared<SoLoud::Wav>();
+    if (!AudioSystem::init() || audioPreviewSample->load(filePath.string().c_str()) != SoLoud::SOLOUD_ERRORS::SO_NO_ERROR) {
+        audioPreviewError = "Não foi possível carregar este áudio.";
+        audioPreviewSample.reset();
+    } else {
+        audioPreviewSample->setSingleInstance(true);
+        audioPreviewLength = audioPreviewSample->getLength();
+        audioPreviewWaveform = loadWaveform(filePath, 160);
+    }
+    ImGui::OpenPopup("Audio Preview");
+}
+
+void editor::ResourcesWindow::drawAudioPreview() {
+    if (!ImGui::BeginPopupModal("Audio Preview", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        return;
+    }
+
+    ImGui::TextUnformatted(audioPreviewPath.filename().string().c_str());
+    if (!audioPreviewError.empty()) {
+        ImGui::TextColored(Theme::Colors::DangerText, "%s", audioPreviewError.c_str());
+    } else if (audioPreviewSample) {
+        ImGui::Text("Duração: %s   Formato: %s", formatAudioTime(audioPreviewLength).c_str(),
+                    audioPreviewWaveform.empty() ? "áudio comprimido" : "WAV PCM");
+
+        const ImVec2 waveformSize(520.0f, 110.0f);
+        const ImVec2 min = ImGui::GetCursorScreenPos();
+        ImGui::InvisibleButton("audio_waveform", waveformSize);
+        const ImVec2 max = ImGui::GetItemRectMax();
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        drawList->AddRectFilled(min, max, ImGui::GetColorU32(ImGuiCol_FrameBg));
+        const float center = (min.y + max.y) * 0.5f;
+        drawList->AddLine(ImVec2(min.x, center), ImVec2(max.x, center), ImGui::GetColorU32(ImGuiCol_Border));
+        if (!audioPreviewWaveform.empty()) {
+            for (size_t index = 0; index < audioPreviewWaveform.size(); index++) {
+                const float x = min.x + (static_cast<float>(index) + 0.5f) * waveformSize.x / audioPreviewWaveform.size();
+                const float height = audioPreviewWaveform[index] * waveformSize.y * 0.45f;
+                drawList->AddLine(ImVec2(x, center - height), ImVec2(x, center + height),
+                                  ImGui::GetColorU32(Theme::Colors::SuccessText));
+            }
+        } else {
+            drawList->AddText(ImVec2(min.x + 12.0f, center - ImGui::GetTextLineHeight() * 0.5f),
+                              ImGui::GetColorU32(ImGuiCol_TextDisabled), "Forma de onda indisponível para este codec");
+        }
+
+        float position = audioPreviewLength > 0.0 ? static_cast<float>(audioPreviewTime / audioPreviewLength) : 0.0f;
+        if (ImGui::SliderFloat("##audio_position", &position, 0.0f, 1.0f, "%s")) {
+            audioPreviewTime = position * audioPreviewLength;
+            if (audioPreviewHandle != 0) AudioSystem::getSoloud().seek(audioPreviewHandle, audioPreviewTime);
+        }
+        if (ImGui::Button(audioPreviewPlaying ? "Pausar" : "Reproduzir")) {
+            if (audioPreviewHandle == 0) {
+                audioPreviewHandle = AudioSystem::getSoloud().play(*audioPreviewSample);
+            }
+            if (audioPreviewHandle != 0) {
+                audioPreviewPlaying = !audioPreviewPlaying;
+                AudioSystem::getSoloud().setPause(audioPreviewHandle, !audioPreviewPlaying);
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Parar")) stopAudioPreview(false);
+        if (audioPreviewHandle != 0 && audioPreviewPlaying) {
+            if (AudioSystem::getSoloud().isValidVoiceHandle(audioPreviewHandle)) {
+                audioPreviewTime = AudioSystem::getSoloud().getStreamTime(audioPreviewHandle);
+            } else {
+                stopAudioPreview(false);
+            }
+        }
+    }
+
+    ImGui::Separator();
+    if (ImGui::Button("Fechar")) {
+        stopAudioPreview();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
 editor::ResourcesWindow::~ResourcesWindow() {
+    stopAudioPreview();
+    // Nothing may reach the window after this point: the worker is stopped and joined,
+    // and the main-thread task it queued checks the same flag instead of running.
+    scanAlive->store(false);
+    stopScanWorker();
+
     cancelThumbnailWork();
     stopThumbnailThread = true;
     thumbnailCondition.notify_one(); // Wake the worker thread to check stop condition
     if (thumbnailThread.joinable()) {
         thumbnailThread.join();
     }
+}
+
+void editor::ResourcesWindow::stopScanWorker() {
+    {
+        std::lock_guard<std::mutex> lock(scanMutex);
+        scanStopRequested = true;
+    }
+    scanCondition.notify_all();
+    if (scanThread.joinable()) {
+        scanThread.join();
+    }
+}
+
+void editor::ResourcesWindow::scanWorker() {
+    for (;;) {
+        fs::path path;
+        uint64_t generation;
+        {
+            std::unique_lock<std::mutex> lock(scanMutex);
+            scanCondition.wait(lock, [this]() {
+                return scanStopRequested || scanJobPending;
+            });
+            if (scanStopRequested) {
+                return;
+            }
+            scanJobPending = false;
+            scanWorkerBusy = true;
+            path = scanJobPath;
+            generation = scanGeneration;
+        }
+
+        std::vector<RawDirectoryEntry> entries = readDirectory(path);
+
+        bool discard = false;
+        {
+            std::lock_guard<std::mutex> lock(scanMutex);
+            discard = scanStopRequested;
+        }
+        if (discard) {
+            return;
+        }
+
+        std::shared_ptr<std::atomic<bool>> alive = scanAlive;
+        getEditorHost().enqueueMainThreadTask([this, alive, path, generation, entries]() {
+            if (!alive->load()) {
+                return;
+            }
+            applyScanResult(path, generation, entries);
+        });
+
+        {
+            std::lock_guard<std::mutex> lock(scanMutex);
+            scanWorkerBusy = false;
+        }
+    }
+}
+
+// One level of a directory, off the UI thread: names, the directory flag and the
+// extension. Hidden entries, project.yaml and the internal folder are dropped here so
+// the main thread never sees them, exactly like the listing always did.
+std::vector<editor::RawDirectoryEntry> editor::ResourcesWindow::readDirectory(const fs::path& path) {
+    std::vector<RawDirectoryEntry> entries;
+
+    std::error_code ec;
+    fs::directory_iterator it(path, fs::directory_options::skip_permission_denied, ec);
+    fs::directory_iterator end;
+    while (!ec && it != end) {
+        const auto entry = *it;
+        it.increment(ec);
+
+        const std::string name = entry.path().filename().string();
+        if (name.empty() || name[0] == '.') {
+            continue;
+        }
+        if (name == "project.yaml") {
+            continue;
+        }
+
+        RawDirectoryEntry raw;
+        raw.name = name;
+        std::error_code entryEc;
+        raw.isDirectory = entry.is_directory(entryEc) && !entryEc;
+        if (!raw.isDirectory) {
+            raw.extension = entry.path().extension().string();
+        }
+        entries.push_back(std::move(raw));
+    }
+
+    return entries;
 }
 
 bool editor::ResourcesWindow::isFocused() const{
@@ -201,6 +501,7 @@ void editor::ResourcesWindow::setOpen(bool open){
     }
 
     windowOpen = false;
+    stopAudioPreview();
     focusRequested = false;
     windowFocused = false;
 }
@@ -210,6 +511,7 @@ bool editor::ResourcesWindow::isOpen() const{
 }
 
 void editor::ResourcesWindow::notifyProjectPathChange(){
+    stopAudioPreview();
     // This is also used by project moves, which may not go through the normal
     // project-open path. Quiesce the old path before scanning the new one.
     cancelThumbnailWork();
@@ -290,6 +592,11 @@ void editor::ResourcesWindow::notifyResourceFileChanged(const fs::path& filePath
     }
 
     FileType type = classifyThumbnailFileType(filePath);
+
+    // A viewer the user left open shows the file as it is now, not as it was when opened
+    if (type == FileType::MODEL) {
+        Backend::getApp().getModelViewerWindow()->reloadFile(filePath);
+    }
 
     if (type == FileType::NONE) {
         return;
@@ -521,12 +828,78 @@ void editor::ResourcesWindow::refreshProjectFiles(){
 }
 
 bool editor::ResourcesWindow::fileNotInProject(const FileEntry& fe) const{
+    if (fe.origin == AssetOrigin::Engine)
+        return false;
+
     if (fe.type != FileType::SCENE && fe.type != FileType::BUNDLE)
         return false;
 
     const std::string relativePath = (currentPath / fe.name).lexically_relative(project->getProjectPath()).generic_string();
 
     return !projectFiles.count(relativePath);
+}
+
+bool editor::ResourcesWindow::browsingEngine() const {
+    return EngineAssets::isEnginePath(currentPath);
+}
+
+bool editor::ResourcesWindow::isEnginePath(const fs::path& path) const {
+    return EngineAssets::isEnginePath(path);
+}
+
+fs::path editor::ResourcesWindow::browseRoot() const {
+    // Engine content keeps one root, the engine folder itself: its subfolders are the
+    // library, and stepping out of one lands on the list of libraries, not on engine/.
+    if (EngineAssets::isEnginePath(currentPath)) {
+        return EngineAssets::engineDir();
+    }
+
+    return project->getProjectPath();
+}
+
+bool editor::ResourcesWindow::isScanPending() const {
+    std::lock_guard<std::mutex> lock(scanMutex);
+    return scanAppliedGeneration != scanGeneration;
+}
+
+bool editor::ResourcesWindow::matchesFilter(const FileEntry& file) const {
+    if (filterBuffer[0] == '\0') {
+        return true;
+    }
+
+    std::string needle = filterBuffer;
+    std::transform(needle.begin(), needle.end(), needle.begin(), ::tolower);
+
+    std::string name = file.name;
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+    return name.find(needle) != std::string::npos;
+}
+
+// Engine rows carry a corner tag: they look like the project's own files, and the one
+// thing a user must not do is edit something that is overwritten by the next build.
+void editor::ResourcesWindow::drawOriginBadge(const FileEntry& file, const ImVec2& itemMin) {
+    if (file.origin != AssetOrigin::Engine) {
+        return;
+    }
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImFont* font = ImGui::GetFont();
+    const float scale = 0.62f;
+    const float badgeSize = ImGui::GetFontSize() * scale;
+
+    ImVec2 textSize = ImGui::CalcTextSize("ENGINE");
+    textSize.x *= scale;
+    textSize.y *= scale;
+
+    const ImVec2 pad = Theme::dpi(ImVec2(3.0f, 1.0f));
+    const ImVec2 min(itemMin.x + pad.x, itemMin.y + pad.y);
+    const ImVec2 max(min.x + textSize.x + pad.x * 2.0f, min.y + textSize.y + pad.y * 2.0f);
+
+    drawList->AddRectFilled(min, max, ImGui::GetColorU32(Theme::Colors::ButtonActivated),
+                            ImGui::GetStyle().FrameRounding * 0.5f);
+    drawList->AddText(font, badgeSize, ImVec2(min.x + pad.x, min.y + pad.y),
+                      ImGui::GetColorU32(ImGuiCol_Text), "ENGINE");
 }
 
 ImU32 editor::ResourcesWindow::fileSeparatorColor(const FileEntry& fe) const{
@@ -550,6 +923,8 @@ ImU32 editor::ResourcesWindow::fileSeparatorColor(const FileEntry& fe) const{
             return ImGui::GetColorU32(ImVec4(0.49f, 0.25f, 0.75f, 1.0f));
         case FileType::LUA:
             return ImGui::GetColorU32(ImVec4(0.17f, 0.18f, 0.45f, 1.0f));
+        case FileType::GRAPH:
+            return ImGui::GetColorU32(ImVec4(0.78f, 0.52f, 0.18f, 1.0f));
         case FileType::AUDIO:
             return ImGui::GetColorU32(ImVec4(0.12f, 0.62f, 0.39f, 1.0f));
         case FileType::FONT:
@@ -560,7 +935,91 @@ ImU32 editor::ResourcesWindow::fileSeparatorColor(const FileEntry& fe) const{
     }
 }
 
+// Two buttons, one per source. The engine library is not a folder the user owns, so it
+// gets its own entry point instead of being hidden in the project tree.
+void editor::ResourcesWindow::renderSourceSelector() {
+    const bool engineScope = browsingEngine();
+    const bool engineAvailable = EngineAssets::hasContent();
+
+    auto scopeButton = [](const char* label, const char* tooltip, bool active, bool enabled) {
+        if (active) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetColorU32(Theme::Colors::ButtonActivated));
+        }
+        if (!enabled) {
+            ImGui::BeginDisabled();
+        }
+        const bool clicked = ImGui::Button(label);
+        if (!enabled) {
+            ImGui::EndDisabled();
+        }
+        if (active) {
+            ImGui::PopStyleColor();
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::SetTooltip("%s", tooltip);
+        }
+        return clicked;
+    };
+
+    if (scopeButton(ICON_FA_FOLDER_OPEN " Project", "The files of this project", !engineScope, true)) {
+        scanDirectory(project->getProjectPath());
+        selectedFiles.clear();
+    }
+
+    ImGui::SameLine();
+
+    const char* engineTooltip = engineAvailable
+        ? "Assets shipped with the engine: read-only, copy them into the project to use them"
+        : "No engine folder next to the editor: build the copy_quantum_editor_engine target";
+    if (scopeButton(ICON_FA_CUBE " Engine", engineTooltip, engineScope, engineAvailable)) {
+        scanDirectory(EngineAssets::engineDir());
+        selectedFiles.clear();
+    }
+}
+
+// One box per listing: a folder of two thousand names is only usable with something to
+// narrow them. Filtering hides rows of what was already scanned, so it never rescans and
+// clearing the box restores the whole folder at once.
+void editor::ResourcesWindow::renderFilterRow() {
+    const bool wasFiltered = filterBuffer[0] != '\0';
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextDisabled("%s", ICON_FA_MAGNIFYING_GLASS);
+    ImGui::SameLine();
+
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - (wasFiltered ? Theme::dpi(52.0f) : 0.0f));
+    ImGui::PushID("assets_filter");
+    ImGui::InputText("##assets_filter", filterBuffer, IM_ARRAYSIZE(filterBuffer));
+    if (ImGui::IsItemHovered()) {
+        ImGui::SetTooltip("Filter this folder by name");
+    }
+    ImGui::PopID();
+
+    if (wasFiltered) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Clear")) {
+            memset(filterBuffer, 0, sizeof(filterBuffer));
+        }
+    }
+
+    // The scan is off the UI thread, so a big folder is briefly half-listed: say so
+    // instead of showing a stale count that looks like the whole content.
+    if (isScanPending()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s Scanning...", ICON_FA_HOURGLASS_HALF);
+    } else if (wasFiltered) {
+        size_t visible = 0;
+        for (const FileEntry& file : files) {
+            if (matchesFilter(file)) visible++;
+        }
+        ImGui::SameLine();
+        ImGui::TextDisabled("%zu of %zu", visible, files.size());
+    }
+}
+
 void editor::ResourcesWindow::renderHeader() {
+    const fs::path backStop = browseRoot();
+
     ImGui::BeginDisabled(currentPath == project->getProjectPath());
     if (ImGui::Button(ICON_FA_HOUSE)) {
         scanDirectory(project->getProjectPath().string());
@@ -574,20 +1033,24 @@ void editor::ResourcesWindow::renderHeader() {
     }
     ImGui::SameLine();
     if (ImGui::Button(ICON_FA_ANGLE_LEFT)) {
-        if (!currentPath.empty() && currentPath != project->getProjectPath()) {
+        if (!currentPath.empty() && currentPath != backStop) {
             fs::path parentPath = currentPath.parent_path();
             currentPath = parentPath;
             scanDirectory(currentPath);
             selectedFiles.clear();
         }
     }
-    if (currentPath != project->getProjectPath() && ImGui::BeginDragDropTarget()) {
+    // Up one level of the engine tree is still inside the shipped copy, so it stays
+    // out of the drop targets: only the project side may receive a move.
+    if (currentPath != backStop && !browsingEngine() && ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("resource_files")) {
             handleInternalDragAndDrop(currentPath.parent_path());
         }
         ImGui::EndDragDropTarget();
     }
     ImGui::EndDisabled();
+    ImGui::SameLine();
+    renderSourceSelector();
     ImGui::SameLine();
     ImVec2 pathDisplaySize = ImVec2(-ImGui::CalcTextSize(ICON_FA_GEAR).x - ImGui::GetStyle().ItemSpacing.x - ImGui::GetStyle().FramePadding.x * 2, ImGui::GetFontSize() + ImGui::GetStyle().FramePadding.y * 2);
     renderPathBreadcrumb(pathDisplaySize);
@@ -706,7 +1169,8 @@ static void openInFileManager(const fs::path& dir) {
 }
 
 void editor::ResourcesWindow::renderPathBreadcrumb(const ImVec2& size) {
-    fs::path rootPath = project->getProjectPath();
+    fs::path rootPath = browseRoot();
+    const bool engineScope = EngineAssets::isEnginePath(rootPath);
 
     // Segments between the project root and the current directory, each paired
     // with its absolute path so it can be clicked and used as a drop target
@@ -754,7 +1218,13 @@ void editor::ResourcesWindow::renderPathBreadcrumb(const ImVec2& size) {
     ImGui::SetCursorPosY(framePaddingY);
 
     if (segments.empty()) {
-        ImGui::TextUnformatted("/");
+        // The project folder reads as "/"; the engine one has to say what it is,
+        // because the user never typed that path and did not create it.
+        if (engineScope) {
+            ImGui::TextDisabled("Engine");
+        } else {
+            ImGui::TextUnformatted("/");
+        }
     }
 
     if (firstVisible > 0) {
@@ -899,6 +1369,9 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
     if (ImGui::BeginTable("FileTable", columns, ImGuiTableFlags_SizingStretchSame, ImVec2(totalTableWidth, 0))){
         for (auto& file : files){
             if (!showDirectories && file.isDirectory) continue;
+            // The filter only hides rows: the listing itself stays as scanned, so
+            // clearing the box never needs a second walk of the folder.
+            if (!matchesFilter(file)) continue;
 
             bool deferredDirectoryChange = false;
             fs::path dropTarget;
@@ -990,10 +1463,22 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
                     deferredDirectoryChange = true;
                 }else{
                     const fs::path filePath = currentPath / file.name;
+                    std::string extension = filePath.extension().string();
+                    std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
                     if (file.type == FileType::IMAGE)
                         imageViewerWindow->openFile(filePath);
+                    else if (file.type == FileType::AUDIO)
+                        openAudioPreview(filePath);
                     else if (file.type == FileType::SCENE)
                         project->openScene(filePath);
+                    else if (Util::isModelFile(extension) && (FbxImporter::isFbxFile(filePath) || extension == ".glb"))
+                        // The binary ones have nothing to read as text; .gltf and .obj keep the
+                        // editor, and every model format still opens through "Open Model"
+                        Backend::getApp().getModelViewerWindow()->openFile(filePath);
+                    else if (Util::isGraphFile(filePath.string()) || Util::isGraphDataFile(filePath.string())) {
+                        if (GraphEditorWindow* graphEditor = getGraphEditorWindow())
+                            graphEditor->openFile(filePath);
+                    }
                     else
                         codeEditor->openFile(filePath.string(), true);
                 }
@@ -1065,7 +1550,9 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
             }
 
             // --- Directory as drop target ----------------------------------
-            if (file.isDirectory){
+            // An engine folder is a shipped copy: dropping a project file into it would
+            // vanish on the next build, so it is not a target at all.
+            if (file.isDirectory && file.origin != AssetOrigin::Engine){
                 if (ImGui::BeginDragDropTarget()){
                     if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("resource_files")){
                         dropTarget = currentPath / file.name;
@@ -1207,7 +1694,11 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
                 if (notInProject) ImGui::PopStyleVar();
 
                 if (hovered){
-                    ImGui::SetTooltip("%s", file.displayName.c_str());
+                    if (file.origin == AssetOrigin::Engine)
+                        ImGui::SetTooltip("%s\nEngine asset: read-only. Use \"Copy into Project\" to take it.",
+                                          file.displayName.c_str());
+                    else
+                        ImGui::SetTooltip("%s", file.displayName.c_str());
                 }
 
             }else{
@@ -1235,8 +1726,17 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
                 ImGui::TextWrapped("%s", file.displayName.c_str());
                 if (notInProject) ImGui::PopStyleVar();
 
+                if (hovered && file.origin == AssetOrigin::Engine){
+                    ImGui::SetTooltip("%s\nEngine asset: read-only. Use \"Copy into Project\" to take it.",
+                                      file.displayName.c_str());
+                }
+
                 ImGui::EndGroup(); // classic group
             }
+
+            // Engine rows wear the tag the listing cannot say with an icon alone:
+            // the row is a copy shipped with the editor, and the next build overwrites it.
+            drawOriginBadge(file, itemMin);
 
             // --- Selection behavior (unified) ------------------------------
             if (itemPressed && !doubleClickedItem){
@@ -1284,37 +1784,75 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
             }
 
             if (ImGui::BeginPopup("FileContextMenu")){
+                // Everything that writes is hidden on engine rows: the folder is a copy
+                // the next build replaces, so an edit there is a change nobody keeps.
+                const bool engineItem = file.origin == AssetOrigin::Engine;
+
                 if (file.type == FileType::SCENE){
                     if (ImGui::MenuItem(ICON_FA_FOLDER_PLUS " Open (Add)")) {
                         project->openScene(currentPath / file.name, false);
                     }
                     ImGui::Separator();
                 }
-                if (FbxImporter::isFbxFile(file.name)){
+                if (!engineItem && FbxImporter::isFbxFile(file.name)){
                     if (ImGui::MenuItem(ICON_FA_ROTATE " Reimport")) {
                         project->importFbxModel(currentPath / file.name, true);
                     }
                     ImGui::Separator();
                 }
 
-                if (file.isDirectory){
+                if (!file.isDirectory && Util::isModelFile(file.name)) {
+                    if (ImGui::MenuItem(ICON_FA_CUBE " Open Model")) {
+                        Backend::getApp().getModelViewerWindow()->openFile(currentPath / file.name);
+                    }
+                    if (ImGui::MenuItem(ICON_FA_FILE_EXPORT " Export Model")) {
+                        // The same file, answered with the numbers the kernel got from it:
+                        // this writes a .glb/.obj rebuilt by the modelling code, not a copy.
+                        Backend::getApp().getModelExportWindow()->openFile(currentPath / file.name);
+                    }
+                    ImGui::Separator();
+                }
+
+                if (!file.isDirectory && (Util::isGraphFile(file.name) || Util::isGraphDataFile(file.name))) {
+                    if (ImGui::MenuItem(ICON_FA_DIAGRAM_PROJECT " Open Graph")) {
+                        if (GraphEditorWindow* graphEditor = getGraphEditorWindow())
+                            graphEditor->openFile(currentPath / file.name);
+                    }
+                    ImGui::Separator();
+                }
+
+                if (file.isDirectory && !engineItem){
                     renderNewItemMenu(currentPath / file.name);
                     ImGui::Separator();
                 }
 
+                if (engineItem){
+                    if (ImGui::MenuItem(ICON_FA_DOWNLOAD " Copy into Project")){
+                        copyEngineSelectionIntoProject();
+                        ImGui::CloseCurrentPopup();
+                    }
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Copies the selected engine assets into this project:\n"
+                                          "Lua scripts land in the Lua folder, everything else in the assets folder.");
+                    ImGui::Separator();
+                }
+
                 if (ImGui::MenuItem(ICON_FA_COPY " Copy")) copySelectedFiles(false);
-                if (ImGui::MenuItem(ICON_FA_SCISSORS " Cut")) copySelectedFiles(true);
-                if (ImGui::MenuItem(ICON_FA_PASTE " Paste", nullptr, false, !clipboardFiles.empty())){
+                if (ImGui::MenuItem(ICON_FA_SCISSORS " Cut", nullptr, false, !engineItem)) copySelectedFiles(true);
+                if (ImGui::MenuItem(ICON_FA_PASTE " Paste", nullptr, false, !clipboardFiles.empty() && !engineItem)){
                     pasteFiles(currentPath / lastSelectedFile);
                 }
 
                 ImGui::Separator();
 
-                if (ImGui::MenuItem(ICON_FA_TRASH " Delete")) showDeleteConfirmation = true;
-                if (ImGui::MenuItem(ICON_FA_I_CURSOR " Rename", "F2")){
+                if (ImGui::MenuItem(ICON_FA_TRASH " Delete", nullptr, false, !engineItem)) showDeleteConfirmation = true;
+                if (ImGui::MenuItem(ICON_FA_I_CURSOR " Rename", "F2", false, !engineItem)){
                     startRename(file.name);
                     ImGui::CloseCurrentPopup();
                 }
+                if (engineItem && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Engine assets are read-only: cutting would take them out of the\n"
+                                      "engine folder, and the next build replaces what is left there");
 
                 ImGui::Separator();
 
@@ -1351,20 +1889,34 @@ void editor::ResourcesWindow::renderFileListing(bool showDirectories){
     }
 
     if (ImGui::BeginPopup("ResourcesContextMenu")){
-        if (ImGui::MenuItem(ICON_FA_FILE_IMPORT " Import Files")){
-            importExternalPaths(editor::FileDialogs::openFileDialogMultiple());
-        }
+        const bool engineScope = browsingEngine();
 
-        if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Import Folders")){
-            importExternalPaths(editor::FileDialogs::pickFolderDialogMultiple());
-        }
+        if (engineScope){
+            if (!selectedFiles.empty()){
+                if (ImGui::MenuItem(ICON_FA_DOWNLOAD " Copy into Project")){
+                    copyEngineSelectionIntoProject();
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Copies the selected engine assets into this project:\n"
+                                      "Lua scripts land in the Lua folder, everything else in the assets folder.");
+            }
+        } else {
+            if (ImGui::MenuItem(ICON_FA_FILE_IMPORT " Import Files")){
+                importExternalPaths(editor::FileDialogs::openFileDialogMultiple());
+            }
 
-        ImGui::Separator();
+            if (ImGui::MenuItem(ICON_FA_FOLDER_OPEN " Import Folders")){
+                importExternalPaths(editor::FileDialogs::pickFolderDialogMultiple());
+            }
 
-        renderNewItemMenu(currentPath);
+            ImGui::Separator();
 
-        if (ImGui::MenuItem(ICON_FA_PASTE " Paste", nullptr, false, !clipboardFiles.empty())){
-            pasteFiles(currentPath);
+            renderNewItemMenu(currentPath);
+
+            if (ImGui::MenuItem(ICON_FA_PASTE " Paste", nullptr, false, !clipboardFiles.empty())){
+                pasteFiles(currentPath);
+            }
         }
 
         ImGui::Separator();
@@ -1507,10 +2059,12 @@ const std::vector<fs::path>& editor::ResourcesWindow::treeSubdirectories(const f
     return cached.subDirs;
 }
 
-void editor::ResourcesWindow::renderDirectoryTree(const fs::path& rootPath) {
+void editor::ResourcesWindow::renderDirectoryTree(const fs::path& rootPath, AssetOrigin origin) {
     std::string rootFullPath = rootPath.string();
     std::string rootDisplayName = rootPath.filename().string();
     if (rootDisplayName.empty()) rootDisplayName = rootPath.string(); // Handle root paths like C:/ or /
+
+    const bool readOnly = origin == AssetOrigin::Engine;
 
     bool isRootSelected = (treeSelectedPath == rootPath);
     ImGuiTreeNodeFlags rootFlags = ImGuiTreeNodeFlags_OpenOnArrow;
@@ -1524,7 +2078,7 @@ void editor::ResourcesWindow::renderDirectoryTree(const fs::path& rootPath) {
     }
 
     // For root directory of the project or directories in path to current directory, expand initially
-    if (rootPath == project->getProjectPath() || isInCurrentPath) {
+    if (rootPath == project->getProjectPath() || readOnly || isInCurrentPath) {
         ImGui::SetNextItemOpen(true, ImGuiCond_Once);
     }
 
@@ -1564,9 +2118,15 @@ void editor::ResourcesWindow::renderDirectoryTree(const fs::path& rootPath) {
     if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
         scanDirectory(rootPath);
     }
+    if (readOnly && ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal)) {
+        ImGui::SetTooltip("%s\nEngine folder: read-only. Drag a file onto a project folder, "
+                          "or use \"Copy into Project\", to take it.",
+                          rootPath.string().c_str());
+    }
 
-    // Handle drag and drop target
-    if (ImGui::BeginDragDropTarget()) {
+    // Handle drag and drop target: an engine folder is never a destination, the shipped
+    // copy is replaced by the next build and may not even be writable.
+    if (!readOnly && ImGui::BeginDragDropTarget()) {
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("resource_files")) {
             handleInternalDragAndDrop(rootPath);
         }
@@ -1577,12 +2137,37 @@ void editor::ResourcesWindow::renderDirectoryTree(const fs::path& rootPath) {
         // Recursing inserts into dirTreeCache, which leaves subDirs valid: rehashing
         // an unordered_map does not invalidate references to elements already in it
         for (const fs::path& subDir : subDirs) {
-            renderDirectoryTree(subDir);
+            renderDirectoryTree(subDir, origin);
         }
         ImGui::TreePop();
     }
 
     ImGui::PopID();
+}
+
+// The library the engine ships, as a second tree under its own heading. Its folders are
+// real directories, so the same node renderer walks them; only the "Engine" row itself
+// is virtual.
+void editor::ResourcesWindow::renderEngineTree() {
+    if (!EngineAssets::hasContent()) {
+        // Nothing to browse: say where the engine was expected instead of hiding a root
+        // the user cannot tell apart from a collapsed folder.
+        ImGui::TreeNodeEx("engine_missing", ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen |
+                         ImGuiTreeNodeFlags_Bullet, "%s Engine (not found)", ICON_FA_CUBE);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("No engine folder at %s", EngineAssets::engineDir().string().c_str());
+        }
+        return;
+    }
+
+    ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNodeEx("engine_root", ImGuiTreeNodeFlags_OpenOnArrow,
+                          "%s Engine (shipped with the editor)", ICON_FA_CUBE)) {
+        for (const EngineAssetRoot& root : EngineAssets::roots()) {
+            renderDirectoryTree(root.path, AssetOrigin::Engine);
+        }
+        ImGui::TreePop();
+    }
 }
 
 void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
@@ -1611,6 +2196,34 @@ void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
         lastWriteTime = {};
     }
 
+    // Leaving the previous folder blanks the listing right away; re-listing the folder
+    // the user is already standing in keeps it, so a create or a delete never flickers.
+    if (displayedPath != currentPath) {
+        files.clear();
+    }
+
+    startDirectoryScan(currentPath);
+}
+
+void editor::ResourcesWindow::startDirectoryScan(const fs::path& path) {
+    std::lock_guard<std::mutex> lock(scanMutex);
+    // Newest request wins the single slot: a folder watched at 1 Hz does not need the
+    // intermediate states, and the results of the dropped ones are discarded anyway.
+    scanGeneration++;
+    scanJobPath = path;
+    scanJobPending = true;
+    scanCondition.notify_one();
+}
+
+void editor::ResourcesWindow::applyScanResult(const fs::path& path, uint64_t generation,
+                                              std::vector<RawDirectoryEntry> entries) {
+    if (generation != scanGeneration || path != currentPath) {
+        return;
+    }
+
+    const bool engineHome = !EngineAssets::engineDir().empty() && path == EngineAssets::engineDir();
+    const AssetOrigin origin = EngineAssets::originOf(path);
+
     TextureRender* folderIconH = folderIcon.getRender();
     TextureRender* fileIconH = fileIcon.getRender();
     TextureRender* sceneIconH = sceneIcon.getRender();
@@ -1622,32 +2235,23 @@ void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
     TextureRender* fontIconH = fontIcon.getRender();
 
     files.clear();
+    files.reserve(entries.size());
 
-    ec.clear();
-    fs::directory_iterator it(currentPath, fs::directory_options::skip_permission_denied, ec);
-    fs::directory_iterator end;
-    while (!ec && it != end) {
-        const auto entry = *it;
-        it.increment(ec);
-
-        // Skip hidden files and directories (starting with '.')
-        if (entry.path().filename().string()[0] == '.') {
-            continue;
-        }
-
-        // Skip project.yaml file
-        if (entry.path().filename() == "project.yaml") {
+    for (const RawDirectoryEntry& raw : entries) {
+        // The engine folder holds its source too; at its root only the folders a
+        // project can actually consume are worth a row.
+        if (engineHome && !EngineAssets::rootContaining(path / raw.name)) {
             continue;
         }
 
         FileEntry fileEntry;
-        fileEntry.name = entry.path().filename().string();
-        std::error_code entryEc;
-        fileEntry.isDirectory = entry.is_directory(entryEc) && !entryEc;
+        fileEntry.name = raw.name;
+        fileEntry.isDirectory = raw.isDirectory;
+        fileEntry.origin = origin;
 
         fileEntry.displayName = BidiText::toVisual(fileEntry.name);
         std::string baseName = fileEntry.name;
-        if (!fileEntry.isDirectory){
+        if (!fileEntry.isDirectory) {
             size_t dotPos = baseName.rfind('.');
             if (dotPos != std::string::npos)
                 baseName = baseName.substr(0, dotPos);
@@ -1657,7 +2261,7 @@ void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
         fileEntry.hasThumbnail = false;
 
         if (!fileEntry.isDirectory) {
-            fileEntry.extension = entry.path().extension().string();
+            fileEntry.extension = raw.extension;
             if (Util::isImageFile(fileEntry.extension)){
                 fileEntry.type = FileType::IMAGE;
             }else if (Util::isSceneFile(fileEntry.extension)){
@@ -1673,6 +2277,9 @@ void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
             }else if (Util::isLuaFile(fileEntry.extension)){
                 fileEntry.type = FileType::LUA;
                 fileEntry.icon = luaIconH;
+            }else if (Util::isGraphFile(fileEntry.extension) || Util::isGraphDataFile(fileEntry.extension)){
+                fileEntry.type = FileType::GRAPH;
+                fileEntry.icon = sourceIconH;
             }else if (Util::isHeaderFile(fileEntry.extension)){
                 fileEntry.type = FileType::HEADER;
                 fileEntry.icon = headerIconH;
@@ -1688,14 +2295,22 @@ void editor::ResourcesWindow::scanDirectory(const fs::path& path) {
             }
 
             if (fileEntry.type == FileType::IMAGE || fileEntry.type == FileType::MATERIAL || fileEntry.type == FileType::MODEL) {
-                queueThumbnailGeneration(entry.path(), fileEntry.type);
+                queueThumbnailGeneration(path / fileEntry.name, fileEntry.type);
             }
         } else {
             fileEntry.extension = "";
         }
 
-        files.push_back(fileEntry);
+        files.push_back(std::move(fileEntry));
     }
+
+    displayedPath = path;
+    scanAppliedGeneration = generation;
+    requestSort = true;
+
+    // The editor idles between frames, so the result of a scan nobody asked for while
+    // the pointer was moving would otherwise never be drawn.
+    Backend::getApp().requestRedraw();
 }
 
 void editor::ResourcesWindow::sortWithSortSpecs(ImGuiTableSortSpecs* sortSpecs, std::vector<FileEntry>& files) {
@@ -1757,11 +2372,33 @@ void editor::ResourcesWindow::highlightDragAndDrop(){
 }
 
 void editor::ResourcesWindow::handleInternalDragAndDrop(const fs::path& targetDirectory) {
+    if (isEnginePath(targetDirectory)) {
+        // Belt and braces: the engine nodes refuse to be targets, but a drop that
+        // arrives here anyway must not write into the shipped copy.
+        Out::warning("Cannot drop into '%s': the engine folder is read-only", targetDirectory.string().c_str());
+        selectedFiles.clear();
+        return;
+    }
+
     std::vector<std::string> filesVector(selectedFiles.begin(), selectedFiles.end());
-    project->getProjectCommandHistory()->addCommand(new CopyFileCmd(project, filesVector, currentPath.string(), targetDirectory.string(), false));
+
+    // Inside the project a drop renames, which is what moving a file means here. Engine
+    // sources are the exception: renaming one would take it out of the shipped copy, so
+    // dragging one into the project is a plain copy that undo removes again.
+    bool copy = false;
+    for (const std::string& fileName : filesVector) {
+        if (isEnginePath(currentPath / fs::path(fileName))) {
+            copy = true;
+            break;
+        }
+    }
+
+    project->getProjectCommandHistory()->addCommand(new CopyFileCmd(project, filesVector, currentPath.string(), targetDirectory.string(), copy));
 
     selectedFiles.clear();
-    scanDirectory(currentPath);
+    // A copied engine file is meant to be seen where it landed, not in the folder it
+    // came from, which never changed.
+    scanDirectory(copy ? targetDirectory : currentPath);
 }
 
 void editor::ResourcesWindow::startNewItem(NewItemType type, const fs::path& directory){
@@ -1785,6 +2422,10 @@ void editor::ResourcesWindow::renderNewItemMenu(const fs::path& directory){
     if (ImGui::MenuItem(ICON_FA_FILE_CODE " C++ Source")) startNewItem(NewItemType::CPP_SOURCE, directory);
     if (ImGui::MenuItem(ICON_FA_FILE_CODE " C++ Header")) startNewItem(NewItemType::CPP_HEADER, directory);
 
+    ImGui::Separator();
+
+    if (ImGui::MenuItem(ICON_FA_DIAGRAM_PROJECT " Graph")) startNewItem(NewItemType::GRAPH, directory);
+
     ImGui::EndMenu();
 }
 
@@ -1794,6 +2435,7 @@ void editor::ResourcesWindow::handleNewItem(){
     if (newItemType == NewItemType::LUA_SCRIPT) popupName = "Create New Lua Script";
     else if (newItemType == NewItemType::CPP_SOURCE) popupName = "Create New C++ Source";
     else if (newItemType == NewItemType::CPP_HEADER) popupName = "Create New C++ Header";
+    else if (newItemType == NewItemType::GRAPH) popupName = "Create New Graph";
 
     // Handle new item creation popup
     if (isCreatingNewItem) {
@@ -1846,6 +2488,11 @@ void editor::ResourcesWindow::handleNewItem(){
                 } else if (newItemType == NewItemType::CPP_HEADER) {
                     if (!Util::isHeaderFile(itemName)) itemName += ".h";
                     content = "#pragma once\n";
+                } else if (newItemType == NewItemType::GRAPH) {
+                    if (!Util::isGraphFile(itemName)) itemName += ".graph";
+                    graph::GraphAsset graphAsset;
+                    graphAsset.name = fs::path(itemName).stem().string();
+                    content = GraphSerializerYaml::saveString(graphAsset);
                 }
 
                 try {
@@ -1865,6 +2512,10 @@ void editor::ResourcesWindow::handleNewItem(){
                             scanDirectory(currentPath);
                             isCreatingNewItem = false;
                             ImGui::CloseCurrentPopup();
+                            if (newItemType == NewItemType::GRAPH) {
+                                if (GraphEditorWindow* graphEditor = getGraphEditorWindow())
+                                    graphEditor->openFile(newItemPath);
+                            }
                         } else {
                             ImGui::OpenPopup("Creation Error");
                         }
@@ -1996,6 +2647,7 @@ void editor::ResourcesWindow::handleRename(){
                         project->getProjectCommandHistory()->addCommand(new RenameFileCmd(project, fileBeingRenamed, newName, currentPath.string()));
                         codeEditor->handleFileRename(oldPath, newPath);
                         imageViewerWindow->handleFileRename(oldPath, newPath);
+                        Backend::getApp().getModelViewerWindow()->handleFileRename(oldPath, newPath);
                         scanDirectory(currentPath);
                         isRenaming = false;
                         ImGui::CloseCurrentPopup();
@@ -2072,6 +2724,13 @@ void editor::ResourcesWindow::handleRename(){
 }
 
 void editor::ResourcesWindow::copySelectedFiles(bool cut) {
+    // Cutting engine content would move it out of the shipped copy, so the clipboard
+    // degrades to a copy: pasting it into the project is the point of selecting it.
+    if (cut && browsingEngine()) {
+        cut = false;
+        Out::info("Engine assets are read-only: copied instead of cut");
+    }
+
     clipboardFiles.clear();
     clipboardCut = cut;
 
@@ -2089,6 +2748,69 @@ void editor::ResourcesWindow::pasteFiles(const fs::path& targetDirectory) {
     }
 
     scanDirectory(currentPath);
+}
+
+// The engine folder is read-only, so this is the action that makes its content usable:
+// one undoable copy per destination folder, exactly what an import runs. Scripts go
+// where the component dialog looks for them, media under the assets root.
+void editor::ResourcesWindow::copyEngineSelectionIntoProject() {
+    std::vector<std::string> enginePaths;
+    enginePaths.reserve(selectedFiles.size());
+
+    for (const std::string& fileName : selectedFiles) {
+        const fs::path source = currentPath / fileName;
+        std::error_code ec;
+        if (!isEnginePath(source) || !fs::exists(source, ec) || ec) {
+            continue;
+        }
+        enginePaths.push_back(source.string());
+    }
+
+    if (enginePaths.empty()) {
+        Out::warning("Nothing selected to copy into the project");
+        return;
+    }
+
+    std::vector<std::string> group;
+    fs::path groupDestination;
+    fs::path firstDestination;
+    size_t copied = 0;
+
+    auto flushGroup = [&group, &groupDestination, &copied, this]() {
+        if (group.empty()) {
+            return;
+        }
+        project->getProjectCommandHistory()->addCommand(
+            new CopyFileCmd(project, group, groupDestination.string(), true));
+        copied += group.size();
+        group.clear();
+    };
+
+    for (const std::string& source : enginePaths) {
+        const fs::path destination = EngineAssets::projectCopyDestination(
+            fs::path(source), project->getAssetsPath(), project->getLuaPath());
+        if (destination != groupDestination) {
+            flushGroup();
+            groupDestination = destination;
+            if (firstDestination.empty()) {
+                firstDestination = destination;
+            }
+        }
+        group.push_back(source);
+    }
+    flushGroup();
+
+    if (copied == 0) {
+        Out::warning("The selected engine assets could not be queued for copy");
+        return;
+    }
+
+    Out::success("%d engine asset(s) copied into the project at %s",
+                 static_cast<int>(copied), firstDestination.string().c_str());
+
+    // A copy the user cannot see looks like a no-op: land the listing where it landed.
+    selectedFiles.clear();
+    scanDirectory(firstDestination);
 }
 
 void editor::ResourcesWindow::importExternalPaths(const std::vector<std::string>& sourcePaths) {
@@ -2365,16 +3087,44 @@ void editor::ResourcesWindow::thumbnailWorker() {
 }
 
 ImTextureID editor::ResourcesWindow::getThumbnailTexture(const std::string& thumbnailPath, int& outWidth, int& outHeight) {
+    const int frame = ImGui::GetFrameCount();
+
     auto it = thumbnailTextures.find(thumbnailPath);
     if (it == thumbnailTextures.end()) {
         ThumbnailTexture cached;
-        cached.texture = Texture(thumbnailPath, TextureData(thumbnailPath.c_str()));
-        cached.failed = !cached.texture.load();
+        cached.lastUsedFrame = frame;
+        std::error_code ec;
+        if (!fs::is_regular_file(thumbnailPath, ec)) {
+            // Decoding a path that is not on disk prints an engine error, and a row usually asks
+            // for its thumbnail a frame or two before the worker has written it. Register it as
+            // pending instead of failed: blanking it now would last the whole session.
+            cached.retryFrame = frame + THUMBNAIL_RETRY_FRAMES;
+        } else {
+            cached.texture = Texture(thumbnailPath, TextureData(thumbnailPath.c_str()));
+            cached.failed = !cached.texture.load();
+        }
         it = thumbnailTextures.emplace(thumbnailPath, std::move(cached)).first;
     }
 
     ThumbnailTexture& cached = it->second;
-    cached.lastUsedFrame = ImGui::GetFrameCount();
+    cached.lastUsedFrame = frame;
+
+    if (cached.retryFrame > 0) {
+        if (frame < cached.retryFrame) {
+            return ImTextureID{};
+        }
+        std::error_code ec;
+        if (!fs::is_regular_file(thumbnailPath, ec)) {
+            // Still missing - re-arm rather than give up, so the row fills in the moment the
+            // worker catches up. Only a visible row gets here and an entry stops being touched
+            // as soon as the row scrolls out, so the LRU sweep collects it either way.
+            cached.retryFrame = frame + THUMBNAIL_RETRY_FRAMES;
+            return ImTextureID{};
+        }
+        cached.retryFrame = 0;
+        cached.texture = Texture(thumbnailPath, TextureData(thumbnailPath.c_str()));
+        cached.failed = !cached.texture.load();
+    }
 
     if (cached.failed) {
         return ImTextureID{};
@@ -2522,7 +3272,29 @@ void editor::ResourcesWindow::cleanupThumbnails() {
         }
     }
 
-    // 2. Walk .doriax/thumbs/ and remove any orphaned thumbnails
+    // Engine thumbnails belong to no project source: the shipped copy is the same for
+    // every project, so its generated thumbs are not orphans and must survive here.
+    for (const EngineAssetRoot& root : EngineAssets::roots()) {
+        std::error_code ec;
+        fs::recursive_directory_iterator it(root.path, fs::directory_options::skip_permission_denied, ec);
+        fs::recursive_directory_iterator end;
+        while (!ec && it != end) {
+            const fs::path path = it->path();
+            it.increment(ec);
+
+            std::error_code fileEc;
+            if (!fs::is_regular_file(path, fileEc) || fileEc) {
+                continue;
+            }
+
+            const std::string ext = path.extension().string();
+            if (Util::isImageFile(ext) || Util::isMaterialFile(ext) || Util::isModelFile(ext)) {
+                validThumbPaths.insert(project->getThumbnailPath(path).string());
+            }
+        }
+    }
+
+    // 2. Walk .quantum/thumbs/ and remove any orphaned thumbnails
     fs::path thumbsDir = project->getThumbsDir();
     if (!fs::exists(thumbsDir)) return;
 
@@ -2728,7 +3500,10 @@ void editor::ResourcesWindow::drawContent() {
     LayoutType effectiveLayout = currentLayout;
     if (currentLayout == LayoutType::AUTO) {
         float windowWidth = ImGui::GetWindowWidth();
-        effectiveLayout = (windowWidth < Theme::dpi(layoutAutoThreshold)) ? LayoutType::GRID : LayoutType::SPLIT_FILES_ONLY;
+        // A folder is an entry of the listing, not only a tree row: hiding the subfolders of the
+        // directory you are standing in is the one thing a content browser must not do, and
+        // "Split (files only)" stays available for whoever really wants the narrower view.
+        effectiveLayout = (windowWidth < Theme::dpi(layoutAutoThreshold)) ? LayoutType::GRID : LayoutType::SPLIT;
     }
 
     ImGuiTableFlags table_flags_for_sort_specs = ImGuiTableFlags_Sortable | ImGuiTableFlags_SortMulti | ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders;
@@ -2756,6 +3531,7 @@ void editor::ResourcesWindow::drawContent() {
             ImGui::EndTable();
         }
         ImGui::PopStyleVar();
+        renderFilterRow();
         ImGui::BeginChild("FileTableScrollRegion", ImVec2(0, 0), true);
         renderFileListing(true);
         ImGui::EndChild();
@@ -2763,6 +3539,10 @@ void editor::ResourcesWindow::drawContent() {
         float splitterWidth = Theme::dpi(4.0f);
         ImGui::BeginChild("LeftPanel", ImVec2(Theme::dpi(leftPanelWidth), 0), true);
         renderDirectoryTree(project->getProjectPath());
+        // The engine's own library, as a second tree under its own heading: the same
+        // panel, the same nodes, and rows tagged read-only by their origin.
+        ImGui::Separator();
+        renderEngineTree();
         ImGui::EndChild();
         ImGui::SameLine();
         float splitterX = ImGui::GetCursorPosX();
@@ -2809,6 +3589,7 @@ void editor::ResourcesWindow::drawContent() {
             ImGui::EndTable();
         }
         ImGui::PopStyleVar();
+        renderFilterRow();
         ImGui::BeginChild("FileTableScrollRegion", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
         renderFileListing(effectiveLayout == LayoutType::SPLIT);
         ImGui::EndChild();
@@ -2816,7 +3597,9 @@ void editor::ResourcesWindow::drawContent() {
     }
 
     // Remaining code (drag and drop, context menus, keyboard shortcuts, etc.) remains unchanged
-    if (ImGui::BeginDragDropTarget()) {
+    // Engine scope is read-only all the way through: an import, a dropped material or a
+    // dropped entity there would land in a folder the next build replaces.
+    if (!browsingEngine() && ImGui::BeginDragDropTarget()) {
         isDragDropTarget = true;
         if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("external_files")) {
             importExternalPaths(Util::getStringsFromPayload(payload));
@@ -2865,16 +3648,20 @@ void editor::ResourcesWindow::drawContent() {
 
     if (isExternalDragHovering) highlightDragAndDrop();
 
+    drawAudioPreview();
+
     windowFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
 
     if (windowFocused) {
-        if (!selectedFiles.empty() && !ImGui::GetIO().WantTextInput &&
+        const bool engineScope = browsingEngine();
+
+        if (!selectedFiles.empty() && !ImGui::GetIO().WantTextInput && !engineScope &&
             (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))) {
             // Trigger delete confirmation (handled in renderFileListing)
             showDeleteConfirmation = true;
         }
         // F2 renames the single selected file, or the hovered one when nothing is selected
-        if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && !ImGui::GetIO().WantTextInput) {
+        if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && !ImGui::GetIO().WantTextInput && !engineScope) {
             std::string target = hoveredFile;
             if (selectedFiles.size() == 1) {
                 const std::string& selected = *selectedFiles.begin();
@@ -2885,12 +3672,14 @@ void editor::ResourcesWindow::drawContent() {
         if (ctrlPressed) {
             if (ImGui::IsKeyPressed(ImGuiKey_C)) copySelectedFiles(false);
             else if (ImGui::IsKeyPressed(ImGuiKey_X)) copySelectedFiles(true);
-            else if (ImGui::IsKeyPressed(ImGuiKey_V) && !clipboardFiles.empty()) pasteFiles(currentPath);
-            else if (ImGui::IsKeyPressed(ImGuiKey_A)) {
+            else if (ImGui::IsKeyPressed(ImGuiKey_V) && !clipboardFiles.empty() && !engineScope) pasteFiles(currentPath);
+            else if (ImGui::IsKeyPressed(ImGuiKey_A) && !ImGui::GetIO().WantTextInput) {
                 // Directories are only selectable when the listing shows them
                 bool listingShowsDirectories = (effectiveLayout != LayoutType::SPLIT_FILES_ONLY);
                 selectedFiles.clear();
                 for (const auto& file : files) {
+                    // Select-all means all of what the user can see, not of the folder
+                    if (!matchesFilter(file)) continue;
                     if (listingShowsDirectories || !file.isDirectory) selectedFiles.insert(file.name);
                 }
                 if (!files.empty()) lastSelectedFile = files.back().name;

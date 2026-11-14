@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -12,7 +12,7 @@
 #include "SceneSettings.h"
 #include "util/Color.h"
 
-namespace doriax::editor{
+namespace quantum::editor{
     enum UpdateFlags : uint64_t {
         UpdateFlags_None                = 0,
         UpdateFlags_Transform           = 1 << 0,
@@ -120,7 +120,11 @@ namespace doriax::editor{
         // position in EntityBundle's in-memory component override mask.
         ReflectionProbeComponent,
         WaterComponent,
-        WaterExclusionComponent
+        WaterExclusionComponent,
+        AutoColliderComponent,
+        AnimatorControllerComponent,
+        NetworkComponent,
+        DecalComponent
     };
 
     enum class PropertyType{
@@ -300,6 +304,36 @@ namespace doriax::editor{
                     return scene->isDepthPrepassEnabled();
                 }
             }
+            else if (propertyName == "render_distance") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getRenderDistance();
+                }
+            }
+            else if (propertyName == "wind_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isWindEnabled();
+                }
+            }
+            else if (propertyName == "wind_speed") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getWindSpeed();
+                }
+            }
+            else if (propertyName == "wind_direction") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getWindDirection();
+                }
+            }
+            else if (propertyName == "wind_gustiness") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getWindGustiness();
+                }
+            }
+            else if (propertyName == "wind_change") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getWindChange();
+                }
+            }
             else if (propertyName == "ssao_enabled") {
                 if constexpr (std::is_same_v<T, bool>) {
                     return scene->isSSAOEnabled();
@@ -323,6 +357,61 @@ namespace doriax::editor{
             else if (propertyName == "ssao_debug") {
                 if constexpr (std::is_same_v<T, bool>) {
                     return scene->isSSAODebug();
+                }
+            }
+            else if (propertyName == "contact_shadows_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return scene->isContactShadowsEnabled();
+            }
+            else if (propertyName == "contact_shadow_length") {
+                if constexpr (std::is_same_v<T, float>) return scene->getContactShadowLength();
+            }
+            else if (propertyName == "contact_shadow_steps") {
+                if constexpr (std::is_same_v<T, int>) return scene->getContactShadowSteps();
+            }
+            else if (propertyName == "contact_shadow_thickness") {
+                if constexpr (std::is_same_v<T, float>) return scene->getContactShadowThickness();
+            }
+            else if (propertyName == "contact_shadow_intensity") {
+                if constexpr (std::is_same_v<T, float>) return scene->getContactShadowIntensity();
+            }
+            else if (propertyName == "ssgi_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return scene->isSSGIEnabled();
+            }
+            else if (propertyName == "ssgi_radius") {
+                if constexpr (std::is_same_v<T, float>) return scene->getSSGIRadius();
+            }
+            else if (propertyName == "ssgi_intensity") {
+                if constexpr (std::is_same_v<T, float>) return scene->getSSGIIntensity();
+            }
+            else if (propertyName == "ssgi_steps") {
+                if constexpr (std::is_same_v<T, int>) return scene->getSSGISteps();
+            }
+            else if (propertyName == "ssgi_thickness") {
+                if constexpr (std::is_same_v<T, float>) return scene->getSSGIThickness();
+            }
+            else if (propertyName == "dof_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isDOFEnabled();
+                }
+            }
+            else if (propertyName == "dof_focus_distance") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getDOFFocusDistance();
+                }
+            }
+            else if (propertyName == "dof_aperture") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getDOFAperture();
+                }
+            }
+            else if (propertyName == "dof_focus_range") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getDOFFocusRange();
+                }
+            }
+            else if (propertyName == "dof_max_blur") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getDOFMaxBlur();
                 }
             }
             else if (propertyName == "ssr_enabled") {
@@ -360,6 +449,33 @@ namespace doriax::editor{
                     return scene->getSSRDebugMode();
                 }
             }
+            else if (propertyName == "taa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return scene->isTAAEnabled();
+            }
+            else if (propertyName == "taa_blend") {
+                if constexpr (std::is_same_v<T, float>) return scene->getTAABlend();
+            }
+            else if (propertyName == "taa_velocity_scale") {
+                if constexpr (std::is_same_v<T, float>) return scene->getTAAVelocityScale();
+            }
+            else if (propertyName == "taa_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) return scene->getTAAVelocityClamp();
+            }
+            else if (propertyName == "motion_blur_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return scene->isMotionBlurEnabled();
+            }
+            else if (propertyName == "motion_blur_intensity") {
+                if constexpr (std::is_same_v<T, float>) return scene->getMotionBlurIntensity();
+            }
+            else if (propertyName == "motion_blur_samples") {
+                if constexpr (std::is_same_v<T, int>) return scene->getMotionBlurSamples();
+            }
+            else if (propertyName == "motion_blur_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) return scene->getMotionBlurVelocityClamp();
+            }
+            else if (propertyName == "motion_blur_depth_threshold") {
+                if constexpr (std::is_same_v<T, float>) return scene->getMotionBlurDepthThreshold();
+            }
             else if (propertyName == "fixed_resolution_enabled") {
                 if constexpr (std::is_same_v<T, bool>) {
                     return scene->isFixedResolutionEnabled();
@@ -378,6 +494,124 @@ namespace doriax::editor{
             else if (propertyName == "fixed_resolution_filter") {
                 if constexpr (std::is_same_v<T, TextureFilter>) {
                     return scene->getFixedResolutionFilter();
+                }
+            }
+            else if (propertyName == "bloom_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isBloomEnabled();
+                }
+            }
+            else if (propertyName == "bloom_threshold") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getBloomThreshold();
+                }
+            }
+            else if (propertyName == "bloom_soft_knee") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getBloomSoftKnee();
+                }
+            }
+            else if (propertyName == "bloom_intensity") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getBloomIntensity();
+                }
+            }
+            else if (propertyName == "bloom_dirt") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getBloomDirtIntensity();
+                }
+            }
+            else if (propertyName == "bloom_mip_levels") {
+                if constexpr (std::is_same_v<T, int>) {
+                    return scene->getBloomLevels();
+                }
+            }
+            else if (propertyName == "tonemap_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isTonemapEnabled();
+                }
+            }
+            else if (propertyName == "tonemap_mode") {
+                if constexpr (std::is_same_v<T, int>) {
+                    return scene->getTonemapMode();
+                }
+            }
+            else if (propertyName == "exposure") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getExposure();
+                }
+            }
+            else if (propertyName == "auto_exposure") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isAutoExposureEnabled();
+                }
+            }
+            else if (propertyName == "auto_exposure_speed") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getAutoExposureSpeed();
+                }
+            }
+            else if (propertyName == "auto_exposure_min_ev") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getAutoExposureMinEV();
+                }
+            }
+            else if (propertyName == "auto_exposure_max_ev") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getAutoExposureMaxEV();
+                }
+            }
+            else if (propertyName == "exposure_compensation") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getExposureCompensation();
+                }
+            }
+            else if (propertyName == "color_grading_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isColorGradingEnabled();
+                }
+            }
+            else if (propertyName == "color_grading_saturation") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingSaturation();
+                }
+            }
+            else if (propertyName == "color_grading_contrast") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingContrast();
+                }
+            }
+            else if (propertyName == "color_grading_brightness") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingBrightness();
+                }
+            }
+            else if (propertyName == "color_grading_hue_shift") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingHueShift();
+                }
+            }
+            else if (propertyName == "color_grading_temperature") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingTemperature();
+                }
+            }
+            else if (propertyName == "color_grading_tint") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getColorGradingTint();
+                }
+            }
+            else if (propertyName == "color_grading_lut") {
+                if constexpr (std::is_same_v<T, std::string>) return scene->getColorGradingLUTPath();
+            }
+            else if (propertyName == "fxaa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    return scene->isFXAAEnabled();
+                }
+            }
+            else if (propertyName == "fxaa_intensity") {
+                if constexpr (std::is_same_v<T, float>) {
+                    return scene->getFXAAIntensity();
                 }
             }
             else if (propertyName == "default_mesh_shader") {
@@ -487,6 +721,24 @@ namespace doriax::editor{
             else if (propertyName == "depth_prepass_enabled") {
                 if constexpr (std::is_same_v<T, bool>) return d.depthPrepassEnabled;
             }
+            else if (propertyName == "render_distance") {
+                if constexpr (std::is_same_v<T, float>) return d.renderDistance;
+            }
+            else if (propertyName == "wind_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.windEnabled;
+            }
+            else if (propertyName == "wind_speed") {
+                if constexpr (std::is_same_v<T, float>) return d.windSpeed;
+            }
+            else if (propertyName == "wind_direction") {
+                if constexpr (std::is_same_v<T, float>) return d.windDirection;
+            }
+            else if (propertyName == "wind_gustiness") {
+                if constexpr (std::is_same_v<T, float>) return d.windGustiness;
+            }
+            else if (propertyName == "wind_change") {
+                if constexpr (std::is_same_v<T, float>) return d.windChange;
+            }
             else if (propertyName == "ssao_enabled") {
                 if constexpr (std::is_same_v<T, bool>) return d.ssaoEnabled;
             }
@@ -501,6 +753,51 @@ namespace doriax::editor{
             }
             else if (propertyName == "ssao_debug") {
                 if constexpr (std::is_same_v<T, bool>) return d.ssaoDebug;
+            }
+            else if (propertyName == "contact_shadows_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.contactShadowsEnabled;
+            }
+            else if (propertyName == "contact_shadow_length") {
+                if constexpr (std::is_same_v<T, float>) return d.contactShadowLength;
+            }
+            else if (propertyName == "contact_shadow_steps") {
+                if constexpr (std::is_same_v<T, int>) return d.contactShadowSteps;
+            }
+            else if (propertyName == "contact_shadow_thickness") {
+                if constexpr (std::is_same_v<T, float>) return d.contactShadowThickness;
+            }
+            else if (propertyName == "contact_shadow_intensity") {
+                if constexpr (std::is_same_v<T, float>) return d.contactShadowIntensity;
+            }
+            else if (propertyName == "ssgi_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.ssgiEnabled;
+            }
+            else if (propertyName == "ssgi_radius") {
+                if constexpr (std::is_same_v<T, float>) return d.ssgiRadius;
+            }
+            else if (propertyName == "ssgi_intensity") {
+                if constexpr (std::is_same_v<T, float>) return d.ssgiIntensity;
+            }
+            else if (propertyName == "ssgi_steps") {
+                if constexpr (std::is_same_v<T, int>) return d.ssgiSteps;
+            }
+            else if (propertyName == "ssgi_thickness") {
+                if constexpr (std::is_same_v<T, float>) return d.ssgiThickness;
+            }
+            else if (propertyName == "dof_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.dofEnabled;
+            }
+            else if (propertyName == "dof_focus_distance") {
+                if constexpr (std::is_same_v<T, float>) return d.dofFocusDistance;
+            }
+            else if (propertyName == "dof_aperture") {
+                if constexpr (std::is_same_v<T, float>) return d.dofAperture;
+            }
+            else if (propertyName == "dof_focus_range") {
+                if constexpr (std::is_same_v<T, float>) return d.dofFocusRange;
+            }
+            else if (propertyName == "dof_max_blur") {
+                if constexpr (std::is_same_v<T, float>) return d.dofMaxBlur;
             }
             else if (propertyName == "ssr_enabled") {
                 if constexpr (std::is_same_v<T, bool>) return d.ssrEnabled;
@@ -523,6 +820,33 @@ namespace doriax::editor{
             else if (propertyName == "ssr_debug_mode") {
                 if constexpr (std::is_same_v<T, int>) return d.ssrDebugMode;
             }
+            else if (propertyName == "taa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.taaEnabled;
+            }
+            else if (propertyName == "taa_blend") {
+                if constexpr (std::is_same_v<T, float>) return d.taaBlend;
+            }
+            else if (propertyName == "taa_velocity_scale") {
+                if constexpr (std::is_same_v<T, float>) return d.taaVelocityScale;
+            }
+            else if (propertyName == "taa_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) return d.taaVelocityClamp;
+            }
+            else if (propertyName == "motion_blur_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.motionBlurEnabled;
+            }
+            else if (propertyName == "motion_blur_intensity") {
+                if constexpr (std::is_same_v<T, float>) return d.motionBlurIntensity;
+            }
+            else if (propertyName == "motion_blur_samples") {
+                if constexpr (std::is_same_v<T, int>) return d.motionBlurSamples;
+            }
+            else if (propertyName == "motion_blur_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) return d.motionBlurVelocityClamp;
+            }
+            else if (propertyName == "motion_blur_depth_threshold") {
+                if constexpr (std::is_same_v<T, float>) return d.motionBlurDepthThreshold;
+            }
             else if (propertyName == "fixed_resolution_enabled") {
                 if constexpr (std::is_same_v<T, bool>) return d.fixedResolutionEnabled;
             }
@@ -534,6 +858,78 @@ namespace doriax::editor{
             }
             else if (propertyName == "fixed_resolution_filter") {
                 if constexpr (std::is_same_v<T, TextureFilter>) return d.fixedResolutionFilter;
+            }
+            else if (propertyName == "bloom_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.bloomEnabled;
+            }
+            else if (propertyName == "bloom_threshold") {
+                if constexpr (std::is_same_v<T, float>) return d.bloomThreshold;
+            }
+            else if (propertyName == "bloom_soft_knee") {
+                if constexpr (std::is_same_v<T, float>) return d.bloomSoftKnee;
+            }
+            else if (propertyName == "bloom_intensity") {
+                if constexpr (std::is_same_v<T, float>) return d.bloomIntensity;
+            }
+            else if (propertyName == "bloom_dirt") {
+                if constexpr (std::is_same_v<T, float>) return d.bloomDirtIntensity;
+            }
+            else if (propertyName == "bloom_mip_levels") {
+                if constexpr (std::is_same_v<T, int>) return d.bloomMipLevels;
+            }
+            else if (propertyName == "tonemap_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.tonemapEnabled;
+            }
+            else if (propertyName == "tonemap_mode") {
+                if constexpr (std::is_same_v<T, int>) return d.tonemapMode;
+            }
+            else if (propertyName == "exposure") {
+                if constexpr (std::is_same_v<T, float>) return d.exposure;
+            }
+            else if (propertyName == "auto_exposure") {
+                if constexpr (std::is_same_v<T, bool>) return d.autoExposure;
+            }
+            else if (propertyName == "auto_exposure_speed") {
+                if constexpr (std::is_same_v<T, float>) return d.autoExposureSpeed;
+            }
+            else if (propertyName == "auto_exposure_min_ev") {
+                if constexpr (std::is_same_v<T, float>) return d.autoExposureMinEV;
+            }
+            else if (propertyName == "auto_exposure_max_ev") {
+                if constexpr (std::is_same_v<T, float>) return d.autoExposureMaxEV;
+            }
+            else if (propertyName == "exposure_compensation") {
+                if constexpr (std::is_same_v<T, float>) return d.exposureCompensation;
+            }
+            else if (propertyName == "color_grading_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.colorGradingEnabled;
+            }
+            else if (propertyName == "color_grading_saturation") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingSaturation;
+            }
+            else if (propertyName == "color_grading_contrast") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingContrast;
+            }
+            else if (propertyName == "color_grading_brightness") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingBrightness;
+            }
+            else if (propertyName == "color_grading_hue_shift") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingHueShift;
+            }
+            else if (propertyName == "color_grading_temperature") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingTemperature;
+            }
+            else if (propertyName == "color_grading_tint") {
+                if constexpr (std::is_same_v<T, float>) return d.colorGradingTint;
+            }
+            else if (propertyName == "color_grading_lut") {
+                if constexpr (std::is_same_v<T, std::string>) return d.colorGradingLUTPath;
+            }
+            else if (propertyName == "fxaa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) return d.fxaaEnabled;
+            }
+            else if (propertyName == "fxaa_intensity") {
+                if constexpr (std::is_same_v<T, float>) return d.fxaaIntensity;
             }
             else if (propertyName == "default_mesh_shader") {
                 if constexpr (std::is_same_v<T, std::string>) return d.defaultMeshShader;
@@ -630,6 +1026,36 @@ namespace doriax::editor{
                     scene->setDepthPrepassEnabled(value);
                 }
             }
+            else if (propertyName == "render_distance") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setRenderDistance(value);
+                }
+            }
+            else if (propertyName == "wind_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setWindEnabled(value);
+                }
+            }
+            else if (propertyName == "wind_speed") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setWindSpeed(value);
+                }
+            }
+            else if (propertyName == "wind_direction") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setWindDirection(value);
+                }
+            }
+            else if (propertyName == "wind_gustiness") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setWindGustiness(value);
+                }
+            }
+            else if (propertyName == "wind_change") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setWindChange(value);
+                }
+            }
             else if (propertyName == "ssao_enabled") {
                 if constexpr (std::is_same_v<T, bool>) {
                     scene->setSSAOEnabled(value);
@@ -653,6 +1079,61 @@ namespace doriax::editor{
             else if (propertyName == "ssao_debug") {
                 if constexpr (std::is_same_v<T, bool>) {
                     scene->setSSAODebug(value);
+                }
+            }
+            else if (propertyName == "contact_shadows_enabled") {
+                if constexpr (std::is_same_v<T, bool>) scene->setContactShadowsEnabled(value);
+            }
+            else if (propertyName == "contact_shadow_length") {
+                if constexpr (std::is_same_v<T, float>) scene->setContactShadowLength(value);
+            }
+            else if (propertyName == "contact_shadow_steps") {
+                if constexpr (std::is_same_v<T, int>) scene->setContactShadowSteps(value);
+            }
+            else if (propertyName == "contact_shadow_thickness") {
+                if constexpr (std::is_same_v<T, float>) scene->setContactShadowThickness(value);
+            }
+            else if (propertyName == "contact_shadow_intensity") {
+                if constexpr (std::is_same_v<T, float>) scene->setContactShadowIntensity(value);
+            }
+            else if (propertyName == "ssgi_enabled") {
+                if constexpr (std::is_same_v<T, bool>) scene->setSSGIEnabled(value);
+            }
+            else if (propertyName == "ssgi_radius") {
+                if constexpr (std::is_same_v<T, float>) scene->setSSGIRadius(value);
+            }
+            else if (propertyName == "ssgi_intensity") {
+                if constexpr (std::is_same_v<T, float>) scene->setSSGIIntensity(value);
+            }
+            else if (propertyName == "ssgi_steps") {
+                if constexpr (std::is_same_v<T, int>) scene->setSSGISteps(value);
+            }
+            else if (propertyName == "ssgi_thickness") {
+                if constexpr (std::is_same_v<T, float>) scene->setSSGIThickness(value);
+            }
+            else if (propertyName == "dof_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setDOFEnabled(value);
+                }
+            }
+            else if (propertyName == "dof_focus_distance") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setDOFFocusDistance(value);
+                }
+            }
+            else if (propertyName == "dof_aperture") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setDOFAperture(value);
+                }
+            }
+            else if (propertyName == "dof_focus_range") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setDOFFocusRange(value);
+                }
+            }
+            else if (propertyName == "dof_max_blur") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setDOFMaxBlur(value);
                 }
             }
             else if (propertyName == "ssr_enabled") {
@@ -690,6 +1171,33 @@ namespace doriax::editor{
                     scene->setSSRDebugMode(value);
                 }
             }
+            else if (propertyName == "taa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) scene->setTAAEnabled(value);
+            }
+            else if (propertyName == "taa_blend") {
+                if constexpr (std::is_same_v<T, float>) scene->setTAABlend(value);
+            }
+            else if (propertyName == "taa_velocity_scale") {
+                if constexpr (std::is_same_v<T, float>) scene->setTAAVelocityScale(value);
+            }
+            else if (propertyName == "taa_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) scene->setTAAVelocityClamp(value);
+            }
+            else if (propertyName == "motion_blur_enabled") {
+                if constexpr (std::is_same_v<T, bool>) scene->setMotionBlurEnabled(value);
+            }
+            else if (propertyName == "motion_blur_intensity") {
+                if constexpr (std::is_same_v<T, float>) scene->setMotionBlurIntensity(value);
+            }
+            else if (propertyName == "motion_blur_samples") {
+                if constexpr (std::is_same_v<T, int>) scene->setMotionBlurSamples(value);
+            }
+            else if (propertyName == "motion_blur_velocity_clamp") {
+                if constexpr (std::is_same_v<T, float>) scene->setMotionBlurVelocityClamp(value);
+            }
+            else if (propertyName == "motion_blur_depth_threshold") {
+                if constexpr (std::is_same_v<T, float>) scene->setMotionBlurDepthThreshold(value);
+            }
             else if (propertyName == "fixed_resolution_enabled") {
                 if constexpr (std::is_same_v<T, bool>) {
                     scene->setFixedResolutionEnabled(value);
@@ -708,6 +1216,124 @@ namespace doriax::editor{
             else if (propertyName == "fixed_resolution_filter") {
                 if constexpr (std::is_same_v<T, TextureFilter>) {
                     scene->setFixedResolutionFilter(value);
+                }
+            }
+            else if (propertyName == "bloom_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setBloomEnabled(value);
+                }
+            }
+            else if (propertyName == "bloom_threshold") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setBloomThreshold(value);
+                }
+            }
+            else if (propertyName == "bloom_soft_knee") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setBloomSoftKnee(value);
+                }
+            }
+            else if (propertyName == "bloom_intensity") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setBloomIntensity(value);
+                }
+            }
+            else if (propertyName == "bloom_dirt") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setBloomDirtIntensity(value);
+                }
+            }
+            else if (propertyName == "bloom_mip_levels") {
+                if constexpr (std::is_same_v<T, int>) {
+                    scene->setBloomLevels(value);
+                }
+            }
+            else if (propertyName == "tonemap_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setTonemapEnabled(value);
+                }
+            }
+            else if (propertyName == "tonemap_mode") {
+                if constexpr (std::is_same_v<T, int>) {
+                    scene->setTonemapMode(value);
+                }
+            }
+            else if (propertyName == "exposure") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setExposure(value);
+                }
+            }
+            else if (propertyName == "auto_exposure") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setAutoExposureEnabled(value);
+                }
+            }
+            else if (propertyName == "auto_exposure_speed") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setAutoExposureSpeed(value);
+                }
+            }
+            else if (propertyName == "auto_exposure_min_ev") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setAutoExposureMinEV(value);
+                }
+            }
+            else if (propertyName == "auto_exposure_max_ev") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setAutoExposureMaxEV(value);
+                }
+            }
+            else if (propertyName == "exposure_compensation") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setExposureCompensation(value);
+                }
+            }
+            else if (propertyName == "color_grading_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setColorGradingEnabled(value);
+                }
+            }
+            else if (propertyName == "color_grading_saturation") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingSaturation(value);
+                }
+            }
+            else if (propertyName == "color_grading_contrast") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingContrast(value);
+                }
+            }
+            else if (propertyName == "color_grading_brightness") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingBrightness(value);
+                }
+            }
+            else if (propertyName == "color_grading_hue_shift") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingHueShift(value);
+                }
+            }
+            else if (propertyName == "color_grading_temperature") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingTemperature(value);
+                }
+            }
+            else if (propertyName == "color_grading_tint") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setColorGradingTint(value);
+                }
+            }
+            else if (propertyName == "color_grading_lut") {
+                if constexpr (std::is_same_v<T, std::string>) scene->setColorGradingLUTPath(value);
+            }
+            else if (propertyName == "fxaa_enabled") {
+                if constexpr (std::is_same_v<T, bool>) {
+                    scene->setFXAAEnabled(value);
+                }
+            }
+            else if (propertyName == "fxaa_intensity") {
+                if constexpr (std::is_same_v<T, float>) {
+                    scene->setFXAAIntensity(value);
                 }
             }
             else if (propertyName == "default_mesh_shader") {

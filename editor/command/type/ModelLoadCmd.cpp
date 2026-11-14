@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "ModelLoadCmd.h"
@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::ModelLoadCmd::ModelLoadCmd(Project* project, uint32_t sceneId, Entity entity, const std::string& modelPath){
     this->project = project;
@@ -372,12 +372,19 @@ void editor::ModelLoadCmd::schedulePoll(){
             return;
         }
         Scene* scene = project->getScene(sceneId)->scene;
-        if (scene->getSystem<MeshSystem>()->isAsyncModelLoadPending(entity, modelPath)){
+        std::shared_ptr<MeshSystem> meshSys = scene->getSystem<MeshSystem>();
+        // The scene-prefixed key alone misses a preload of the same file, which is exactly the
+        // case where loadGLTF returns false without starting a load of its own.
+        if (meshSys->isAsyncModelLoadPending(modelPath)) {
             schedulePoll();
-        } else {
-            // Terminal worker failure — drop pending state; rollback happens via the next undo
-            asyncPending = false;
+            return;
         }
+        // Terminal worker failure. Hand the file to the update loop: it reports the failure in
+        // the output log and loads the model when the file becomes readable.
+        asyncPending = false;
+        ModelComponent& model = scene->getComponent<ModelComponent>(entity);
+        model.filename = modelPath;
+        model.needUpdateModel = true;
     });
 }
 
@@ -410,6 +417,14 @@ bool editor::ModelLoadCmd::execute(){
     Transform& transform = scene->getComponent<Transform>(entity);
     MeshComponent* mesh = scene->findComponent<MeshComponent>(entity);
     ModelComponent& model = scene->getComponent<ModelComponent>(entity);
+
+    // An entity this command just made is born on the engine's builtin placeholder. It has to
+    // go before the load starts: while the dropped file is still parsing, the update loop sees
+    // the pending placeholder and draws BananaMan in place of the model the user dragged in.
+    if (createEntityCmd && !model.filename.empty()) {
+        model.filename.clear();
+        model.needUpdateModel = false;
+    }
 
     if (hasMergeStaticMeshesOverride && mergeStaticMeshesOverride) {
         std::string reason;
@@ -495,6 +510,11 @@ bool editor::ModelLoadCmd::execute(){
     oldRuntimeNodesDestroyed = false;
     if (!reuseHierarchy) {
         oldRuntimeNodesDestroyed = ProjectUtils::destroyModelNodes(scene, model);
+        if (oldRuntimeNodesDestroyed) {
+            // Nodes made in the editor are tracked, and a destroyed one left in the list is
+            // drawn as a blank row and saved as a nameless entity
+            ProjectUtils::reconcileTrackedEntities(scene, sceneProject->entities, project, sceneId);
+        }
     }
     model.mergeStaticMeshes = requestedMergeStaticMeshes;
 

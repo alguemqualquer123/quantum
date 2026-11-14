@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef ENTITYREGISTRY_H
@@ -19,6 +19,7 @@
 #include "component/FogComponent.h"
 #include "component/MirrorComponent.h"
 #include "component/ReflectionProbeComponent.h"
+#include "component/DecalComponent.h"
 #include "component/WaterComponent.h"
 #include "component/WaterExclusionComponent.h"
 #include "component/ImageComponent.h"
@@ -50,6 +51,8 @@
 #include "component/MeshPolygonComponent.h"
 #include "component/PolygonComponent.h"
 #include "component/AnimationComponent.h"
+#include "component/AnimatorControllerComponent.h"
+#include "component/AutoColliderComponent.h"
 #include "component/KeyframeTracksComponent.h"
 #include "component/MorphTracksComponent.h"
 #include "component/RotateTracksComponent.h"
@@ -66,12 +69,13 @@
 #include "component/InstancedMeshComponent.h"
 #include "component/BundleComponent.h"
 #include "ecs/components/TagComponent.h"
+#include "ecs/components/NetworkComponent.h"
 
-namespace doriax {
+namespace quantum {
 
     enum class EntityPool { User, System };
 
-    class DORIAX_API EntityRegistry {
+    class QUANTUM_API EntityRegistry {
     private:
         EntityManager entityManager;
         ComponentManager componentManager;
@@ -99,6 +103,10 @@ namespace doriax {
         bool recreateEntity(Entity entity); // for internal editor use only
 
         bool isEntityCreated(Entity entity) const;
+
+        // Generation remains observable after destruction so external handles can distinguish
+        // a recycled slot from the entity instance they originally referenced.
+        uint32_t getEntityGeneration(Entity entity) const { return entityManager.getGeneration(entity); }
 
         void destroyEntity(Entity entity);
 
@@ -132,6 +140,22 @@ namespace doriax {
         // A scene sets it past the ids it recreates, so what it creates next stays clear of them.
         void setLastEntity(Entity entity); // for internal editor use only
         std::vector<Entity> getEntityList() const;
+
+        // Live entity ids, without the id-list copy. Called from scripts and graph nodes
+        // every frame, where getEntityList() would allocate per call.
+        size_t getEntityCount() const { return entityManager.getLivingEntityCount(); }
+        size_t getEntityStorageSlotCount() const { return entityManager.getStorageSlotCount(); }
+        size_t getEntityStorageCapacity() const { return entityManager.getStorageCapacity(); }
+        size_t getEntityFreeListSize() const { return entityManager.getFreeListSize(); }
+        static constexpr Entity getMaxStoredEntity() { return EntityManager::maxStoredEntity(); }
+
+        size_t getComponentInstanceCount() const { return componentManager.getComponentInstanceCount(); }
+        size_t getRegisteredComponentCount() const { return componentManager.getRegisteredComponentCount(); }
+        size_t getComponentRegistrySlotCount() const { return componentManager.getRegistrySlotCount(); }
+        size_t getComponentRegistryCapacity() const { return componentManager.getRegistryCapacity(); }
+        std::vector<ComponentDescriptor> getRegisteredComponentCatalog() const {
+            return componentManager.getRegisteredComponentCatalog();
+        }
 
         void setDefaultEntityPool(EntityPool pool);
         EntityPool getDefaultEntityPool() const;
@@ -221,6 +245,6 @@ namespace doriax {
         }
     };
 
-} // namespace doriax
+} // namespace quantum
 
 #endif // ENTITYREGISTRY_H

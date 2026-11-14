@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "SceneRender.h"
@@ -23,7 +23,7 @@ extern unsigned int bulb_icon_png_len;
 #include <cmath>
 #include <cfloat>
 
-using namespace doriax;
+using namespace quantum;
 
 editor::SceneRender::SceneRender(Scene* scene, bool use2DGizmos, bool enable3DOverlays, float gizmoScale, float selectionOffset): toolslayer(use2DGizmos), uilayer(enable3DOverlays){
     ScopedDefaultEntityPool sys(*scene, EntityPool::System);
@@ -705,6 +705,7 @@ void editor::SceneRender::update(std::vector<Entity> selEntities, std::vector<En
     scene->getSystem<RenderSystem>()->setDisableFaceCulling(displaySettings.disableFaceCulling && !isPlaying);
     scene->getSystem<RenderSystem>()->setDisableFog(displaySettings.disableFog && !isPlaying);
     scene->getSystem<RenderSystem>()->setDisableUnderwater(displaySettings.disableUnderwater && !isPlaying);
+    scene->getSystem<RenderSystem>()->setShowClusteredLightGrid(displaySettings.showClusteredLightGrid && !isPlaying);
 
     // Fixed game resolution only applies to the game view: editor camera viewports
     // stay at native resolution (gizmos and overlays would otherwise mismatch).
@@ -2519,6 +2520,13 @@ void editor::SceneRender::updateCameraFrustum(CameraObjects& co, const CameraCom
         }
     }
 
+    // The scene render distance moves the far plane the viewport draws to, and it is not a
+    // field of the camera: without this check the gizmo would keep showing the uncapped
+    // frustum after the cap changes.
+    float cullFarClip = RenderSystem::getRenderedNearFar(
+        cameraComponent, scene ? scene->getEffectiveRenderDistance() : 0.0f).y;
+    if (co.cullFarClip != cullFarClip) changed = true;
+
     if (!changed) return;
 
     co.type = cameraComponent.type;
@@ -2528,6 +2536,7 @@ void editor::SceneRender::updateCameraFrustum(CameraObjects& co, const CameraCom
     co.aspect = cameraComponent.aspect;
     co.nearClip = cameraComponent.nearClip;
     co.farClip = cameraComponent.farClip;
+    co.cullFarClip = cullFarClip;
     co.leftClip = cameraComponent.leftClip;
     co.rightClip = cameraComponent.rightClip;
     co.bottomClip = cameraComponent.bottomClip;
@@ -2548,7 +2557,10 @@ void editor::SceneRender::drawCameraFrustumLines(Lines* lines, const CameraCompo
         color = Vector4(0.5f, 1.0f, 0.5f, 1.0f);
     }
 
-    Vector2 nearFar = RenderSystem::getCameraNearFar(cameraComponent);
+    // Draw the box at the distance the projection was really built from, so a render
+    // distance set on the scene or on the editor's viewport shows as a shorter frustum.
+    Vector2 nearFar = RenderSystem::getRenderedNearFar(
+        cameraComponent, scene ? scene->getEffectiveRenderDistance() : 0.0f);
     float nearClip = nearFar.x;
     float farClip = nearFar.y;
 

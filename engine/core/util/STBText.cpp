@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "STBText.h"
@@ -14,7 +14,7 @@
 #include "hb.h"
 #include "SheenBidi/SheenBidi.h"
 
-using namespace doriax;
+using namespace quantum;
 
 STBText::STBText() {
     fontLoaded = false;

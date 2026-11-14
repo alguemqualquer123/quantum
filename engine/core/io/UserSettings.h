@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #ifndef USERSETTINGS_H
@@ -8,8 +8,8 @@
 #include <string>
 #include "io/Data.h"
 
-namespace doriax {
-    class DORIAX_API UserSettings {
+namespace quantum {
+    class QUANTUM_API UserSettings {
     public:
 
         static bool getBoolForKey(const char *key);

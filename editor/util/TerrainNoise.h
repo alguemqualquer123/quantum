@@ -1,4 +1,4 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #pragma once
@@ -6,7 +6,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace doriax::editor{
+namespace quantum::editor{
 
     // Value noise on an integer lattice, shared by the noise brush and the AI generators.
     class TerrainNoise{

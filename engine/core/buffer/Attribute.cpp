@@ -1,9 +1,9 @@
-// (c) Eduardo Doria and contributors
+// (c) SR VINIX and contributors
 // SPDX-License-Identifier: MIT
 
 #include "Attribute.h"
 
-using namespace doriax;
+using namespace quantum;
 
 Attribute::Attribute(){
     setDataType(AttributeDataType::FLOAT);
